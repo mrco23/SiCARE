@@ -1,18 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap");
 @import "tailwindcss";
 
 /* ===== DESIGN TOKENS ===== */
 @theme {
-  --color-primary: #064E3B;
-  --color-primary-dark: #043D2E;
-  --color-primary-light: #0A7A5C;
-  --color-secondary: #DFF5E8;
-  --color-secondary-dark: #B8E8CA;
-  --color-bg: #FAFAF5;
+  --color-primary: #064e3b;
+  --color-primary-dark: #043d2e;
+  --color-primary-light: #0a7a5c;
+  --color-secondary: #dff5e8;
+  --color-secondary-dark: #b8e8ca;
+  --color-bg: #fafaf5;
   --color-text-base: #1a1a1a;
-  --color-text-muted: #6B7280;
+  --color-text-muted: #6b7280;
 
-  --font-sans: 'Montserrat', system-ui, sans-serif;
+  --font-sans: "Montserrat", system-ui, sans-serif;
 
   --radius-card: 1.25rem;
   --radius-button: 9999px;
@@ -30,8 +30,8 @@ html {
 }
 
 body {
-  font-family: 'Montserrat', system-ui, sans-serif;
-  background-color: #FAFAF5;
+  font-family: "Montserrat", system-ui, sans-serif;
+  background-color: #fafaf5;
   color: #1a1a1a;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -45,7 +45,7 @@ body {
   background: #f1f1f1;
 }
 ::-webkit-scrollbar-thumb {
-  background: #064E3B;
+  background: #064e3b;
   border-radius: 9999px;
 }
 
@@ -59,5 +59,25 @@ body {
   .section-padding {
     padding-top: 3rem;
     padding-bottom: 3rem;
+  }
+}
+
+@keyframes testimonial-scroll-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.testimonial-track {
+  animation: testimonial-scroll-right 60s linear infinite;
+}
+.testimonial-marquee:hover .testimonial-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .testimonial-track {
+    animation: none;
   }
 }
