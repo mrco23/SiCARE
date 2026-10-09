@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
+@import "tailwindcss";
+
+/* ===== DESIGN TOKENS ===== */
+@theme {
+  --color-primary: #064E3B;
+  --color-primary-dark: #043D2E;
+  --color-primary-light: #0A7A5C;
+  --color-secondary: #DFF5E8;
+  --color-secondary-dark: #B8E8CA;
+  --color-bg: #FAFAF5;
+  --color-text-base: #1a1a1a;
+  --color-text-muted: #6B7280;
+
+  --font-sans: 'Montserrat', system-ui, sans-serif;
+
+  --radius-card: 1.25rem;
+  --radius-button: 9999px;
+}
+
+/* ===== GLOBAL RESET ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  background-color: #FAFAF5;
+  color: #1a1a1a;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #064E3B;
+  border-radius: 9999px;
+}
+
+/* ===== UTILITIES ===== */
+.section-padding {
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+}
+
+@media (max-width: 768px) {
+  .section-padding {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+}
