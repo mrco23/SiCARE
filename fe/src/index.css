@@ -61,23 +61,3 @@ body {
     padding-bottom: 3rem;
   }
 }
-
-@keyframes testimonial-scroll-right {
-  from {
-    transform: translateX(-50%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-.testimonial-track {
-  animation: testimonial-scroll-right 60s linear infinite;
-}
-.testimonial-marquee:hover .testimonial-track {
-  animation-play-state: paused;
-}
-@media (prefers-reduced-motion: reduce) {
-  .testimonial-track {
-    animation: none;
-  }
-}

@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 import type { ElementType } from "react";
 import Navbar from "../../components/home/Navbar";
 import Footer from "../../components/home/Footer";
-
+import { useEffect, useRef } from "react";
 // Lebar konten: sama persis dengan lebar Navbar di setiap breakpoint
 const container = "mx-auto w-[92%] sm:w-[88%] lg:w-[86%]";
 
@@ -78,7 +78,6 @@ function Polaroid({ src, className }: { src: string; className: string }) {
     </div>
   );
 }
-
 
 function ReasonCard({
   icon: Icon,
@@ -164,8 +163,76 @@ function TestimonialCard({ name, text }: { name: string; text: string }) {
     </div>
   );
 }
-
 function Testimonials() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const hoverRef = useRef(false);
+  const touchRef = useRef(false);
+  const resumeTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    if (reduceMotion) return;
+
+    const speed = 0.3; // px per frame, arah ke kanan
+    let pos = el.scrollLeft;
+    let frame = 0;
+
+    const tick = () => {
+      const half = el.scrollWidth / 2; // satu set kartu
+      const paused = hoverRef.current || touchRef.current;
+
+      if (paused) {
+        // Ikuti posisi scroll dari user (swipe / momentum)
+        pos = el.scrollLeft;
+        if (pos >= half) {
+          pos -= half;
+          el.scrollLeft = pos;
+        }
+      } else {
+        // Auto-scroll ke kanan (scrollLeft berkurang)
+        pos -= speed;
+        if (pos < 0) pos += half;
+        el.scrollLeft = pos;
+      }
+
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(resumeTimer.current);
+    };
+  }, []);
+
+  // Sentuhan: jeda saat jari menyentuh, lanjut 1.5 detik setelah dilepas
+  const handleTouchStart = () => {
+    touchRef.current = true;
+    window.clearTimeout(resumeTimer.current);
+  };
+
+  const handleTouchEnd = () => {
+    window.clearTimeout(resumeTimer.current);
+    resumeTimer.current = window.setTimeout(() => {
+      touchRef.current = false;
+    }, 1500);
+  };
+
+  // Mouse: jeda saat kursor di atas marquee
+  const handlePointerEnter = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse") hoverRef.current = true;
+  };
+
+  const handlePointerLeave = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse") hoverRef.current = false;
+  };
+
   return (
     <section className="overflow-hidden bg-white py-16 md:py-24">
       {/* Judul */}
@@ -179,9 +246,17 @@ function Testimonials() {
         </p>
       </div>
 
-      {/* Marquee: lebar penuh layar, bergerak ke kanan */}
-      <div className="testimonial-marquee mt-10 md:mt-16">
-        <div className="testimonial-track flex w-max">
+      {/* Marquee: bisa di-swipe di mobile, auto-scroll ke kanan */}
+      <div
+        ref={scrollRef}
+        className="mt-10 touch-pan-x overflow-x-auto overscroll-x-contain md:mt-16 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+      >
+        <div className="flex w-max">
           {/* Dua set identik agar loop mulus */}
           {[0, 1].map((setIndex) => (
             <div
@@ -203,7 +278,6 @@ function Testimonials() {
     </section>
   );
 }
-
 export default function HomePage() {
   return (
     <>

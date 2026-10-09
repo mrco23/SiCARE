@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { CircleUserRound, MessageSquareText } from "lucide-react";
+import { CircleUserRound, Menu, MessageSquareText, X } from "lucide-react";
 
 const navLinks = [
   { label: "Tentang kami", to: "/tentang-kami" },
@@ -100,26 +100,41 @@ export default function Navbar() {
         </nav>
 
         {/* Akun: hanya tampil di desktop. Pill melebar sebagai overlay (absolute) agar menu tidak bergeser */}
-        <div className="group relative z-20 hidden h-9 w-9 lg:block">
-          <div className="absolute right-0 top-0 flex h-9 max-w-9 flex-row-reverse items-center overflow-hidden rounded-full bg-transparent transition-all duration-300 ease-out group-hover:max-w-28 group-hover:bg-[#185032] group-focus-within:max-w-28 group-focus-within:bg-[#185032]">
-            <Link
-              to="/profile"
-              aria-label="Profil"
-              className="flex h-9 w-9 shrink-0 items-center justify-center text-white"
-            >
-              <CircleUserRound
-                className="h-9 w-9 text-white"
-                strokeWidth={1.6}
-              />
-            </Link>
+        {/* Kanan: akun (desktop) + hamburger (tablet & mobile) */}
+        <div className="relative z-20 flex items-center gap-2">
+          {/* Akun: hanya tampil di desktop */}
+          <div className="group relative hidden h-9 w-9 lg:block">
+            <div className="absolute right-0 top-0 flex h-9 max-w-9 flex-row-reverse items-center overflow-hidden rounded-full bg-transparent transition-all duration-300 ease-out group-hover:max-w-28 group-hover:bg-[#185032] group-focus-within:max-w-28 group-focus-within:bg-[#185032]">
+              <Link
+                to="/profile"
+                aria-label="Profil"
+                className="flex h-9 w-9 shrink-0 items-center justify-center text-white"
+              >
+                <CircleUserRound
+                  className="h-9 w-9 text-white"
+                  strokeWidth={1.6}
+                />
+              </Link>
 
-            <Link
-              to="/login"
-              className="whitespace-nowrap py-1 pl-4 pr-1 text-sm font-semibold text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
-            >
-              Masuk
-            </Link>
+              <Link
+                to="/login"
+                className="whitespace-nowrap py-1 pl-4 pr-1 text-sm font-semibold text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
+              >
+                Masuk
+              </Link>
+            </div>
           </div>
+
+          {/* Hamburger: hanya tampil di tablet & mobile */}
+          <button
+            type="button"
+            onClick={() => setOpen((prev) => !prev)}
+            aria-label={open ? "Tutup menu" : "Buka menu"}
+            aria-expanded={open}
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#185032] text-white lg:hidden"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
 
