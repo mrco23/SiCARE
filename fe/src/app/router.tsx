@@ -14,13 +14,14 @@ import ClientDashboard from "../pages/client/Dashboard";
 import CounselorDashboard from "../pages/counselor/Dashboard";
 import AdminDashboard from "../pages/admin/Dashboard";
 import PublicLayout from "../layouts/PublicLayout";
+import AboutPage from "../pages/public/AboutPage";
 
 export default function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/" element={<PublicLayout />}>
-        <Route path="tentang-kami" element={<></>} />
+        <Route path="tentang-kami" element={<AboutPage />} />
         <Route path="panduan" element={<></>} />
         <Route path="konselor" element={<></>} />
         <Route path="mood-tracker" element={<></>} />

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { CircleUserRound, Menu, MessageSquareText, X } from "lucide-react";
+import { Link, NavLink } from "react-router-dom";
+import { CircleUserRound, MessageSquareText } from "lucide-react";
 
 const navLinks = [
   { label: "Tentang kami", to: "/tentang-kami" },
@@ -25,8 +25,8 @@ export default function Navbar() {
         {/* Latar: blur blobs & gunung (dipotong sesuai sudut bar) */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-[22px]">
           <div className="absolute -left-10 -top-10 h-24 w-40 rounded-full bg-white/60 blur-2xl" />
-          <div className="absolute left-1/3 top-0 h-16 w-40 rounded-full bg-rose-200/40 blur-2xl" />
-          <div className="absolute right-1/3 top-0 h-16 w-48 rounded-full bg-amber-100/50 blur-2xl" />
+          <div className="absolute left-1/3 top-0 h-16 w-40 rounded-full bg-white/60 blur-2xl" />
+          <div className="absolute right-1/3 top-0 h-16 w-48 rounded-full bg-white/60 blur-2xl" />
 
           {/* Gunung: hanya tampil di desktop */}
           <svg
@@ -35,7 +35,7 @@ export default function Navbar() {
             viewBox="0 0 170 76"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="absolute -top-1 right-0 hidden h-auto w-[170px] lg:block"
+            className="absolute -top-1 right-0 hidden h-auto w-42.5 lg:block"
           >
             <path
               d="M59.5569 18.6848C62.4072 16.5369 66.3356 16.5369 69.186 18.6848L125.542 61.1524C131.674 65.7737 128.406 75.5415 120.727 75.5415H8.01556C0.336674 75.5415 -2.93159 65.7737 3.20101 61.1524L59.5569 18.6848Z"
@@ -59,7 +59,7 @@ export default function Navbar() {
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white sm:h-13 sm:w-13">
             <img
-              src="/SiCARE.png"
+              src="/icon-192x192.png"
               alt="Logo Universitas Katolik De La Salle Manado"
               className="h-8 w-8 rounded-full object-contain sm:h-10.5 sm:w-10.5"
             />
@@ -83,49 +83,43 @@ export default function Navbar() {
         {/* Menu desktop */}
         <nav className="relative z-10 hidden items-center gap-8 pr-36 lg:flex xl:gap-17 xl:pr-17">
           {navLinks.map((item) => (
-            <Link
+            <NavLink
               key={item.to}
               to={item.to}
-              className="text-xs font-medium text-black transition-colors hover:text-[#1f5f3a]"
+              className={({ isActive }) =>
+                `text-xs text-black transition-colors hover:text-[#1f5f3a] ${
+                  isActive
+                    ? "font-bold underline underline-offset-4"
+                    : "font-medium"
+                }`
+              }
             >
               {item.label}
-            </Link>
+            </NavLink>
           ))}
         </nav>
 
-        {/* Ikon akun (hover: muncul tombol Masuk) + hamburger */}
-        <div className="relative z-10 mr-1 flex items-center gap-2 sm:mr-4 lg:mr-6">
-          <div className="group relative">
+        {/* Akun: hanya tampil di desktop. Pill melebar sebagai overlay (absolute) agar menu tidak bergeser */}
+        <div className="group relative z-20 hidden h-9 w-9 lg:block">
+          <div className="absolute right-0 top-0 flex h-9 max-w-9 flex-row-reverse items-center overflow-hidden rounded-full bg-transparent transition-all duration-300 ease-out group-hover:max-w-28 group-hover:bg-[#185032] group-focus-within:max-w-28 group-focus-within:bg-[#185032]">
             <Link
               to="/profile"
               aria-label="Profil"
-              className="flex items-center text-white"
+              className="flex h-9 w-9 shrink-0 items-center justify-center text-white"
             >
               <CircleUserRound
-                className="h-7 w-7 text-white sm:h-9 sm:w-9"
+                className="h-9 w-9 text-white"
                 strokeWidth={1.6}
               />
             </Link>
 
-            <div className="invisible absolute right-0 top-full pt-3 opacity-0 transition duration-200 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-              <Link
-                to="/login"
-                className="block whitespace-nowrap rounded-lg bg-[#185032] px-5 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-[#1f6442]"
-              >
-                Masuk
-              </Link>
-            </div>
+            <Link
+              to="/login"
+              className="whitespace-nowrap py-1 pl-4 pr-1 text-sm font-semibold text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
+            >
+              Masuk
+            </Link>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setOpen((prev) => !prev)}
-            aria-label={open ? "Tutup menu" : "Buka menu"}
-            aria-expanded={open}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#185032] text-white lg:hidden"
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
         </div>
       </div>
 
@@ -133,14 +127,20 @@ export default function Navbar() {
       {open && (
         <nav className="absolute inset-x-0 top-full z-50 mx-auto mt-2 flex w-[92%] flex-col gap-1 rounded-2xl bg-[#f6f1ec]/95 p-3 shadow-[0_18px_40px_rgba(0,0,0,0.15)] backdrop-blur sm:w-[88%] lg:hidden">
           {navLinks.map((item) => (
-            <Link
+            <NavLink
               key={item.to}
               to={item.to}
               onClick={() => setOpen(false)}
-              className="rounded-lg px-4 py-3 text-sm font-medium text-black transition-colors hover:bg-white hover:text-[#1f5f3a]"
+              className={({ isActive }) =>
+                `rounded-lg px-4 py-3 text-sm text-black transition-colors hover:bg-white hover:text-[#1f5f3a] ${
+                  isActive
+                    ? "font-bold underline underline-offset-4"
+                    : "font-medium"
+                }`
+              }
             >
               {item.label}
-            </Link>
+            </NavLink>
           ))}
           <Link
             to="/login"
