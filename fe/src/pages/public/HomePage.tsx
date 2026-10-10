@@ -62,15 +62,24 @@ const steps = [
   },
 ];
 
-function Polaroid({ src, className }: { src: string; className: string }) {
+function Polaroid({
+  src,
+  className,
+  rotate,
+}: {
+  src: string;
+  className: string;
+  rotate: number;
+}) {
   return (
     <div
       className={`absolute bg-white p-2 pb-8 shadow-[0_12px_30px_rgba(0,0,0,0.18)] ${className}`}
+      style={{ transform: `rotate(${rotate}deg)` }}
     >
       <img
         src={src}
         alt=""
-        className="h-full w-full object-cover"
+        className="h-full w-full object-contain"
         onError={(e) => {
           e.currentTarget.style.display = "none";
         }}
@@ -249,7 +258,7 @@ function Testimonials() {
       {/* Marquee: bisa di-swipe di mobile, auto-scroll ke kanan */}
       <div
         ref={scrollRef}
-        className="mt-10 touch-pan-x overflow-x-auto overscroll-x-contain md:mt-16 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="mt-10 touch-pan-x overflow-x-auto overscroll-x-contain md:mt-16 scrollbar- [&::-webkit-scrollbar]:hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
@@ -281,76 +290,111 @@ function Testimonials() {
 export default function HomePage() {
   return (
     <>
-      <div className="overflow-x-hidden bg-white">
+      <div className="overflow-x-clip bg-white">
         {/* ================= HERO ================= */}
-        <section className="relative min-h-150 overflow-hidden md:min-h-175">
+        <section className="relative isolate min-h-150 overflow-hidden md:min-h-150 lg:min-h-175">
+          {/* Foto latar */}
           <img
             src="/hero.png"
             alt=""
-            className="absolute inset-0 h-full w-full object-cover object-[65%_center] md:object-center"
+            className="absolute inset-0 -z-10 h-full w-full object-cover object-[70%_30%] md:object-center"
           />
-          <div className="absolute inset-0 bg-linear-to-r from-white/50 via-white/15 to-transparent" />
 
+          {/* Overlay: bawah gelap di mobile, kiri di desktop */}
+          <div className="absolute inset-0 -z-10 bg-gradient-to from-white via-white/70 to-transparent md:bg-gradient-to-b md:from-white/40 md:via-white/60 md:to-white/80 lg:bg-gradient-to-r lg:from-white/60 lg:via-white/20 lg:to-transparent" />
+
+          {/* Navbar: satu-satunya navbar, menempel di atas hero */}
           <div className="absolute inset-x-0 top-0 z-50">
             <Navbar />
           </div>
 
+          {/* Konten */}
           <div
-            className={`relative z-10 flex flex-col justify-center pb-24 pt-24 md:pb-40 md:pt-44 ${container}`}
+            className={`relative z-10 flex min-h-[inherit] flex-col justify-end pb-16 pt-28 text-center md:justify-center md:pb-24 md:pt-44 lg:items-start lg:pb-40 lg:text-left ${container}`}
           >
-            <h1 className="max-w-140 text-3xl font-bold leading-[1.15] text-[#1b1b1b] sm:text-5xl">
-              Lorem ipsum dolor <span className="text-[#2e9a5f]">sit</span>{" "}
-              amet, <span className="text-[#2e9a5f]">consectetur</span>{" "}
-              <span className="text-[#2e9a5f]">adipiscing elit.</span>
-            </h1>
+            <div className="mx-auto flex max-w-2xl flex-col items-center lg:mx-0 lg:items-start">
+              <h1 className="text-[32px] font-bold leading-[1.15] text-[#1b1b1b] sm:text-5xl lg:max-w-[18ch]">
+                Lorem ipsum dolor <span className="text-[#2e9a5f]">sit</span>{" "}
+                amet, <span className="text-[#2e9a5f]">consectetur</span>{" "}
+                <span className="text-[#2e9a5f]">adipiscing elit.</span>
+              </h1>
 
-            <p className="mt-5 max-w-118 text-sm leading-relaxed text-[#1b1b1b] sm:text-base">
-              Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse
-              temporibus id sit non possimus facilis aliquip libero officia
-              occaecat et qui non atque adipiscing excepturi deserunt ipsum qui.
-            </p>
+              <p className="mt-4 max-w-md text-justify text-sm leading-relaxed text-[#1b1b1b] text-balance md:mt-5 md:max-w-xl md:text-base lg:max-w-lg lg:text-left">
+                Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse
+                temporibus id sit non possimus facilis aliquip libero officia
+                occaecat et qui.
+              </p>
 
-            <button className="mt-8 flex w-fit items-center gap-2 rounded-lg bg-[#1e5b3a] px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#174a2f] sm:px-6 sm:text-[15px]">
-              <CalendarDays className="h-4 w-4" />
-              Mulai Konseling
-            </button>
-          </div>
+              <button className="mt-6 flex w-fit items-center gap-2 rounded-lg bg-[#1e5b3a] px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#174a2f] md:mt-8 sm:px-6 sm:text-[15px]">
+                <CalendarDays className="h-4 w-4" />
+                Mulai Konseling
+              </button>
+            </div>
 
-          {/* Kartu melayang & polaroid (tablet ke atas), sejajar tepi kanan navbar */}
-          <div className="absolute right-4 top-37.5 z-10 hidden origin-top-right scale-[0.7] md:right-[6%] md:block md:scale-[0.8] lg:right-[7%] lg:top-47.5 lg:scale-100">
-            <div className="absolute -top-16 right-10 flex items-center gap-3 rounded-xl bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
-              <HeartHandshake className="h-6 w-6 text-primary" />
-              <div>
-                <p className="text-[14px] font-semibold text-[#1b1b1b]">
+            {/* Badge: mobile saja */}
+            <div className="mx-auto mt-6 inline-flex w-fit items-center gap-2 rounded-xl bg-white/95 px-3 py-2 shadow md:hidden">
+              <HeartHandshake className="h-5 w-5 text-primary" />
+              <div className="text-left">
+                <p className="text-xs font-semibold text-[#1b1b1b]">
                   Dampingan Humanis
                 </p>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-[10px] text-gray-500">
                   Dukungan akademik & personal
                 </p>
               </div>
             </div>
+          </div>
 
-            <div className="relative h-60 w-93">
-              <Polaroid
-                src="/maskot.png"
-                className="right-0 top-0 h-48 w-60 rotate-6"
-              />
-              <Polaroid
-                src="/maskot.png"
-                className="bottom-0 left-0 h-36 w-36 -rotate-8"
-              />
+          {/* Polaroid mobile: kecil di kanan atas */}
+          <div className="pointer-events-none absolute right-4 top-40 z-0 h-28 w-32 md:hidden">
+            <Polaroid
+              src="/maskot.png"
+              className="right-0 top-0 h-24 w-20"
+              rotate={6}
+            />
+            <Polaroid
+              src="/maskot.png"
+              className="bottom-0 left-0 h-16 w-16"
+              rotate={-6}
+            />
+          </div>
+
+          {/* Polaroid desktop: tablet disembunyikan */}
+          <div className="pointer-events-none absolute right-[7%] top-1/2 z-0 hidden h-65 w-95 -translate-y-1/2 lg:block">
+            <Polaroid
+              src="/maskot.png"
+              className="right-0 top-0 h-47.5 w-60"
+              rotate={6}
+            />
+            <Polaroid
+              src="/maskot.png"
+              className="bottom-0 left-0 h-35 w-35"
+              rotate={-8}
+            />
+            {/* Kartu Dampingan Humanis: desktop */}
+            <div className="pointer-events-none absolute right-[20%] top-[-23%] z-20 hidden lg:block">
+              <div className="flex items-center gap-3 rounded-xl bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
+                <HeartHandshake className="h-6 w-6 text-primary" />
+                <div>
+                  <p className="text-[14px] font-semibold text-[#1b1b1b]">
+                    Dampingan Humanis
+                  </p>
+                  <p className="text-[11px] text-gray-500">
+                    Dukungan akademik & personal
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
+          {/* Wave bawah */}
           <svg
-            className="absolute -bottom-px left-0 z-10 block h-14 w-full md:h-20"
+            className="absolute -bottom-px left-0 z-10 block h-8 w-full md:h-14 lg:h-20"
             viewBox="0 0 1440 320"
             preserveAspectRatio="none"
-            xmlns="http://www.w3.org/2000/svg"
           >
             <path
               fill="#f5fdf9"
-              fillOpacity="1"
               d="M0,128L120,154.7C240,181,480,235,720,234.7C960,235,1200,181,1320,154.7L1440,128L1440,320L1320,320C1200,320,960,320,720,320C480,320,240,320,120,320L0,320Z"
             />
           </svg>
@@ -375,7 +419,7 @@ export default function HomePage() {
                   />
                 </div>
 
-                <h2 className="mt-8 font-[Montserrat] text-3xl font-bold leading-[1.2] text-[#1b1b1b] sm:text-4xl lg:text-[44px]">
+                <h2 className="mt-8 text-3xl font-bold leading-[1.2] text-[#1b1b1b] sm:text-4xl lg:text-5xl">
                   Kenapa Layanan
                   <br />
                   Konseling <span className="text-[#2e9a5f]">Hadir</span>
@@ -383,7 +427,7 @@ export default function HomePage() {
                   <span className="text-[#2e9a5f]">Untuk Anda?</span>
                 </h2>
 
-                <p className="mt-3 max-w-xl font-[Montserrat] text-sm leading-relaxed text-gray-600 sm:text-[15px]">
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-600 sm:text-[15px]">
                   Lorem ipsum dolor sit amet consectetur adipiscing elit odio
                   esse temporibus id sit non possimus facilis aliquip libero
                   officia occaecat et qui
@@ -427,7 +471,7 @@ function Panduan() {
       {/* ================= SEMUA DIMULAI DARI SINI ================= */}
       <section className="bg-white py-16 md:py-24">
         <div className={`${container} text-center`}>
-          <h2 className="font-[Montserrat] text-3xl font-bold text-[#1b1b1b] sm:text-4xl md:text-[40px]">
+          <h2 className="text-3xl font-bold text-[#1b1b1b] sm:text-4xl md:text-5xl">
             Semua Dimulai dari Sini
           </h2>
           <p className="mx-auto mt-2 max-w-2xl text-sm text-[#1b1b1b] sm:text-base md:text-[17px]">
@@ -441,13 +485,13 @@ function Panduan() {
               return (
                 <div key={step.no} className="group relative pt-16 md:pt-20">
                   {/* Angka besar di belakang: naik & lebih terlihat saat card di-hover */}
-                  <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 font-[Montserrat] text-[96px] font-black leading-none text-[#b9e4cc]/50 transition-all duration-500 ease-out group-hover:-translate-y-3 group-hover:text-[#b9e4cc]/90 sm:text-[120px] xl:text-[150px]">
+                  <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 text-[96px] font-black leading-none text-[#b9e4cc]/50 transition-all duration-500 ease-out group-hover:-translate-y-3 group-hover:text-[#b9e4cc]/90 sm:text-[120px] xl:text-[150px]">
                     {step.no}
                   </span>
 
                   {/* Card: membesar sedikit saat di-hover */}
                   <div className="relative flex h-full origin-center flex-col items-center rounded-xl bg-white px-6 pb-8 pt-7 shadow-[0_10px_30px_rgba(0,0,0,0.08)] transition-all duration-500 ease-out group-hover:scale-105 group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.14)]">
-                    <h3 className="font-[Montserrat] text-sm font-bold uppercase leading-snug tracking-wide text-[#2b2b2b] md:text-[15px]">
+                    <h3 className=" text-sm font-bold uppercase leading-snug tracking-wide text-[#2b2b2b] md:text-[15px]">
                       {step.title}
                     </h3>
                     <p className="mt-4 text-sm leading-relaxed text-gray-600 md:text-[14px]">
