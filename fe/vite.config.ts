@@ -21,14 +21,20 @@ export default defineConfig({
         display: "standalone", // Ini yang membuat app berjalan tanpa UI browser (seperti native)
         icons: [
           {
-            src: "/icon-192x192.png",
+            src: "/android-192x192.png",
             sizes: "192x192",
             type: "image/png",
           },
           {
-            src: "/icon-512x512.png",
+            src: "/android-512x512.png",
             sizes: "512x512",
             type: "image/png",
+          },
+          {
+            src: "/ios-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
           },
         ],
       },
