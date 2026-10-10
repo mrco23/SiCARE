@@ -59,7 +59,7 @@ export default function Navbar() {
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white sm:h-13 sm:w-13">
             <img
-              src="/icon-192x192.png"
+              src="/android-192x192.png"
               alt="Logo Universitas Katolik De La Salle Manado"
               className="h-8 w-8 rounded-full object-contain sm:h-10.5 sm:w-10.5"
             />

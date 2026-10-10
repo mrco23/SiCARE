@@ -15,6 +15,9 @@ import CounselorDashboard from "../pages/counselor/Dashboard";
 import AdminDashboard from "../pages/admin/Dashboard";
 import PublicLayout from "../layouts/PublicLayout";
 import AboutPage from "../pages/public/AboutPage";
+import MoodTrackerPage from "../pages/public/MoodTrackerPage";
+import FeedbackPage from "../pages/public/FeedbackPage";
+import CounselorPage from "../pages/public/CounselorPage";
 
 export default function AppRouter() {
   return (
@@ -23,9 +26,9 @@ export default function AppRouter() {
       <Route path="/" element={<PublicLayout />}>
         <Route path="tentang-kami" element={<AboutPage />} />
         <Route path="panduan" element={<></>} />
-        <Route path="konselor" element={<></>} />
-        <Route path="mood-tracker" element={<></>} />
-        <Route path="feedback" element={<></>} />
+        <Route path="konselor" element={<CounselorPage />} />
+        <Route path="mood-tracker" element={<MoodTrackerPage />} />
+        <Route path="feedback" element={<FeedbackPage />} />
       </Route>
 
       <Route path="/login" element={<Login />} />

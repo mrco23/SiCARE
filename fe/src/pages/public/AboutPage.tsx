@@ -28,11 +28,7 @@ function AboutHero() {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-[#f3fdf7] pb-40 pt-32 md:pb-44 md:pt-44">
-      {/* Navbar */}
-      <div className="absolute inset-x-0 top-0 z-50">
-        <Navbar />
-      </div>
+    <section className="-mt-16 md:-mt-20 relative overflow-hidden bg-[#f3fdf7] pb-40 pt-32 md:pb-44 md:pt-44">
 
       {/* Logo besar di latar kanan atas */}
       <img
@@ -477,7 +473,11 @@ function CtaSection() {
 /* ========================= PAGE ========================= */
 export default function AboutPage() {
   return (
-    <div className="overflow-x-hidden bg-white">
+    <div className="overflow-x-clip bg-white">
+      {/* Navbar sticky di paling atas halaman */}
+      <div className="sticky top-0 z-50">
+        <Navbar />
+      </div>
       <AboutHero />
       <VisiMisi />
       <FokusLayanan />
