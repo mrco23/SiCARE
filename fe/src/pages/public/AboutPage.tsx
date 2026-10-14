@@ -1,5 +1,6 @@
+"use client";
+
 import {
-  ArrowUpRight,
   CalendarDays,
   CircleCheck,
   Briefcase,
@@ -13,7 +14,7 @@ import {
   Eye,
   Users,
 } from "lucide-react";
-import type { ElementType } from "react";
+import { useState, type CSSProperties, type ElementType } from "react";
 import Navbar from "../../components/home/Navbar";
 
 // Lebar konten: sama dengan navbar dan homepage
@@ -29,7 +30,6 @@ function AboutHero() {
 
   return (
     <section className="-mt-16 md:-mt-20 relative overflow-hidden bg-[#f3fdf7] pb-40 pt-32 md:pb-44 md:pt-44">
-
       {/* Logo besar di latar kanan atas */}
       <img
         src="/logo.png"
@@ -250,54 +250,76 @@ function FokusLayanan() {
     },
   ];
 
-  // Posisi tumpukan di desktop: kiri & kanan mundur, tengah di depan
-  const stackPos = [
-    "md:-mr-16 md:translate-y-10 md:z-10",
-    "md:z-20 md:-translate-y-4",
-    "md:-ml-16 md:translate-y-10 md:z-10",
-  ];
+  // Index kartu yang sedang di-hover (null = posisi awal)
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  // Slot posisi (0 = kiri, 1 = tengah, 2 = kanan).
+  // Kartu yang di-hover pindah ke tengah, kartu tengah gantian pindah ke slot kartu tsb.
+  const slotOf = (i: number) => {
+    if (hovered === null || hovered === 1) return i;
+    if (i === hovered) return 1;
+    if (i === 1) return hovered;
+    return i;
+  };
 
   return (
     <section className="relative overflow-hidden bg-linear-to-b from-[#effcf5] to-[#f5fdf9] py-20 md:py-28">
       <div className={`relative z-10 ${container}`}>
-        <h2 className="font-[Montserrat] text-3xl font-bold text-[#1e5b3a] sm:text-4xl">
+        <h2 className="font-[Montserrat] text-3xl font-bold text-[#064e3b] sm:text-4xl">
           Fokus Layanan Utama
         </h2>
 
-        <div className="mt-14 flex flex-col items-center gap-8 md:flex-row md:items-center md:justify-center md:gap-0">
+        {/* --step = jarak antar slot (lebar kartu - tumpang tindih 4rem) */}
+        <div
+          className="mt-14 flex flex-col items-center gap-8 md:flex-row md:items-start md:justify-center md:gap-0 md:[--step:16rem] lg:[--step:18rem]"
+          onMouseLeave={() => setHovered(null)}
+        >
           {cards.map((card, i) => {
             const Icon = card.icon;
+            const slot = slotOf(i);
+            const isCenter = slot === 1;
+            const isHovered = hovered === i;
+
             return (
+              // Wrapper statis = area hover (tidak ikut bergeser, supaya tidak berkedip)
               <div
                 key={card.title}
-                className={`group relative flex w-full max-w-sm flex-col rounded-[28px] border border-[#36c08f] bg-white p-7 shadow-[0_20px_50px_rgba(0,0,0,0.12)] transition-all duration-500 ease-out hover:z-30! hover:-translate-y-3 hover:scale-[1.03] hover:shadow-[0_30px_60px_rgba(0,0,0,0.2)] sm:p-8 md:w-80 md:max-w-none lg:w-88 ${
-                  card.highlight ? "md:h-[480px] md:py-10" : "md:h-[420px]"
-                } ${stackPos[i]}`}
+                onMouseEnter={() => setHovered(i)}
+                className={`relative w-full max-w-sm md:h-[510px] md:w-80 md:max-w-none lg:w-88 ${
+                  i === 0 ? "md:-mr-16" : i === 2 ? "md:-ml-16" : ""
+                }`}
               >
-                {/* Ikon tergambar di sudut kanan bawah untuk kartu tengah */}
-                {card.highlight && (
-                  <Icon className="pointer-events-none absolute -bottom-6 -right-6 h-40 w-40 text-[#c8eee0]" />
-                )}
-
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#36c08f]">
-                  <Icon className="h-8 w-8 text-white" />
-                </div>
-
-                <h3 className="mt-6 font-[Montserrat] text-2xl font-bold text-black">
-                  {card.title}
-                </h3>
-
-                <p className="mt-8 font-[Poppins] text-sm leading-relaxed text-[#1b1b1b] sm:text-[15px] md:mt-10">
-                  {card.text}
-                </p>
-
-                <a
-                  href="#"
-                  className="relative mt-auto pt-8 inline-flex items-center gap-1 text-sm font-medium text-[#36c08f] transition-all duration-300 group-hover:gap-2"
+                <div
+                  style={
+                    {
+                      "--tx": `calc(var(--step) * ${slot - i})`,
+                    } as CSSProperties
+                  }
+                  className={`group relative flex flex-col overflow-hidden rounded-[28px] border border-[#064e3b] bg-white p-7 shadow-[0_20px_50px_rgba(0,0,0,0.12)] sm:p-8 md:pointer-events-none md:absolute md:inset-x-0 md:top-0 md:translate-x-[var(--tx)] md:transition-[translate,scale,transform,height,box-shadow,padding] md:duration-700 md:ease-[cubic-bezier(0.22,1,0.36,1)] md:will-change-transform ${
+                    isCenter
+                      ? "md:z-30 md:h-[480px] md:translate-y-0 md:py-10 md:shadow-[0_30px_60px_rgba(0,0,0,0.22)]"
+                      : "md:z-10 md:h-[420px] md:translate-y-[72px]"
+                  } ${isHovered ? "md:scale-[1.03]" : ""}`}
                 >
-                  Pelajari Selengkapnya{" "}
-                  <ArrowUpRight className="h-4 w-4 rotate-45" />
-                </a>
+                  {/* Ikon besar transparan di sudut kanan bawah */}
+                  <Icon
+                    fill="currentColor"
+                    strokeWidth={1}
+                    className="pointer-events-none absolute -bottom-6 -right-6 h-40 w-40 -rotate-12 text-[#064e3b]/10"
+                  />
+
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#064e3b]">
+                    <Icon className="h-8 w-8 text-white" />
+                  </div>
+
+                  <h3 className="relative mt-6 font-[Montserrat] text-2xl font-bold text-black">
+                    {card.title}
+                  </h3>
+
+                  <p className="relative mt-8 font-[Poppins] text-sm leading-relaxed text-[#1b1b1b] sm:text-[15px] md:mt-10">
+                    {card.text}
+                  </p>
+                </div>
               </div>
             );
           })}

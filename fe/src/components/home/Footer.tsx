@@ -36,7 +36,7 @@ export default function Footer() {
               to="/"
               className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5"
             >
-              <span className="text-2xl font-medium tracking-tight">
+              <span className="text-xl font-medium tracking-tight">
                 <span className="font-semibold text-[#2d6a1f]">Si</span>
                 <span className="text-[#1d3a86]">CARE</span>
               </span>
@@ -55,13 +55,13 @@ export default function Footer() {
               </svg>
             </Link>
 
-            <p className="mt-6 text-base font-semibold text-[#d4a84b] sm:text-[17px]">
+            <p className="mt-6 text-sm font-semibold text-[#d4a84b] sm:text-[17px]">
               Digital Counseling Information System
             </p>
-            <p className="mt-2 text-[15px] text-white/85">
+            <p className="mt-2 text-[13px] text-white/85">
               Universitas Katolik De La Salle Manado
             </p>
-            <p className="mt-6 max-w-[360px] text-[15px] leading-relaxed text-white/85">
+            <p className="mt-6 max-w-[360px] text-[13px] leading-relaxed text-white/85">
               Layanan konseling psikologis berbasis nilai Lasallian yang
               mengutamakan rasa aman, kerahasiaan, empati, serta pertumbuhan
               pribadi bagi sivitas akademika.
@@ -70,7 +70,7 @@ export default function Footer() {
 
           {/* Navigasi halaman */}
           <div>
-            <h3 className="text-base font-bold uppercase tracking-wide text-[#d4a84b] sm:text-[17px]">
+            <h3 className="text-base font-bold uppercase tracking-wide text-[#d4a84b] ">
               Navigasi Halaman
             </h3>
             <ul className="mt-7 flex flex-col gap-5">
