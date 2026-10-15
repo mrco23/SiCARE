@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   Ban,
   CalendarDays,
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleCheck,
@@ -336,6 +339,95 @@ function StatTile({
 }
 
 /* ========================= PANEL DETAIL KONSELOR ========================= */
+/* ========================= POPUP PILIH KONSELOR ========================= */
+function CounselorPicker({
+  open,
+  kon,
+  sessions,
+  onClose,
+  onSelect,
+}: {
+  open: boolean;
+  kon: number;
+  sessions: Session[];
+  onClose: () => void;
+  onSelect: (i: number) => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl"
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p className="text-sm font-bold text-slate-800">Pilih konselor</p>
+            <p className="text-xs text-slate-400">
+              Detail akan menampilkan konselor yang dipilih
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <ul className="divide-y divide-slate-100">
+          {COUNSELORS.map((c, i) => {
+            const active = i === kon;
+            const done = sessions.filter(
+              (s) => s.konselor === i && s.status === "selesai",
+            ).length;
+            return (
+              <li key={c}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(i)}
+                  className={`flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors ${
+                    active ? "bg-[#f6fcf8]" : "hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
+                    {initials(c)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">
+                      {c}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {done} sesi selesai · rating {RATING[i].toFixed(1)}
+                    </p>
+                  </div>
+                  {active && <Check className="h-4 w-4 text-[#15803d]" />}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ========================= PANEL DETAIL KONSELOR ========================= */
 function CounselorPanel({
   sessions,
   kon,
@@ -351,6 +443,8 @@ function CounselorPanel({
   range: Range;
   onOpen: (id: number) => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   const KP = sessions.filter((s) => s.konselor === kon);
   const KSelesai = KP.filter((s) => s.status === "selesai");
   const KInd = KSelesai.filter((s) => s.type === "individu").length;
@@ -365,69 +459,49 @@ function CounselorPanel({
   const unit =
     period === "hari" ? "jam" : period === "semester" ? "bulan" : "hari";
 
-  const countOf = (i: number) =>
-    sessions.filter((s) => s.konselor === i && s.status === "selesai").length;
-
   return (
-    <div className="space-y-6 p-6">
-      {/* Pemilih konselor */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        {COUNSELORS.map((c, i) => {
-          const active = kon === i;
-          return (
-            <button
-              key={c}
-              type="button"
-              onClick={() => onKonChange(i)}
-              className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${
-                active
-                  ? "border-[#14553a] bg-[#14553a] text-white shadow-md"
-                  : "border-slate-200 bg-white hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
-              }`}
-            >
-              <div
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
-                  active
-                    ? "bg-white/15 text-white"
-                    : "bg-emerald-50 text-[#15803d]"
-                }`}
-              >
-                {initials(c)}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold">{c}</p>
-                <p
-                  className={`text-[11px] ${active ? "text-emerald-100" : "text-slate-400"}`}
-                >
-                  {countOf(i)} sesi selesai
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Kartu profil */}
-      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-[#14553a] to-[#2a8f5a] p-5 text-white sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-5 p-6">
+      {/* Konselor terpilih + tombol ganti */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-lg font-bold">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600">
             {initials(COUNSELORS[kon])}
           </div>
-          <div>
-            <p className="font-bold">{COUNSELORS[kon]}</p>
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-emerald-100">
-              <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
-              {RATING[kon].toFixed(1)} rating rata-rata dari klien
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-slate-800">
+              {COUNSELORS[kon]}
+            </p>
+            <p className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
+              <span className="flex items-center gap-1">
+                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                {RATING[kon].toFixed(1)} rating
+              </span>
+              <span className="text-slate-300">|</span>
+              <span>{KP.length} jadwal periode ini</span>
             </p>
           </div>
         </div>
-        <div className="rounded-xl bg-white/10 px-4 py-2.5 sm:text-right">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100">
-            Total jadwal periode ini
-          </p>
-          <p className="text-xl font-bold">{KP.length}</p>
-        </div>
+
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+        >
+          Ganti konselor
+          <ChevronDown className="h-4 w-4 text-slate-400" />
+        </button>
       </div>
+
+      <CounselorPicker
+        open={pickerOpen}
+        kon={kon}
+        sessions={sessions}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(i) => {
+          onKonChange(i);
+          setPickerOpen(false);
+        }}
+      />
 
       {/* Statistik */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -448,11 +522,13 @@ function CounselorPanel({
       </div>
 
       {/* Grafik & daftar sesi */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
         <div className="rounded-2xl border border-slate-200 p-5 xl:col-span-3">
           <div className="mb-5 flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold">Layanan per {unit}</p>
+              <p className="text-sm font-bold text-slate-800">
+                Layanan per {unit}
+              </p>
               <p className="text-xs text-slate-400">
                 Sesi selesai pada periode yang dipilih
               </p>
@@ -467,15 +543,11 @@ function CounselorPanel({
                 key={i}
                 className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
               >
-                <span className="mb-1 text-[10px] font-bold text-slate-500">
+                <span className="mb-1 text-[10px] font-semibold text-slate-500">
                   {c || ""}
                 </span>
                 <div
-                  className={`w-full rounded-t-lg transition-all ${
-                    c
-                      ? "bg-gradient-to-t from-[#14553a] to-[#2a8f5a]"
-                      : "bg-slate-100"
-                  }`}
+                  className={`w-full rounded-t-md ${c ? "bg-[#14553a]" : "bg-slate-100"}`}
                   style={{
                     height: `${Math.max(c ? 8 : 4, Math.round((c / maxCount) * 100))}%`,
                   }}
@@ -497,7 +569,9 @@ function CounselorPanel({
 
         <div className="rounded-2xl border border-slate-200 xl:col-span-2">
           <div className="border-b border-slate-100 px-5 py-4">
-            <p className="text-sm font-bold">Sesi konselor ini</p>
+            <p className="text-sm font-bold text-slate-800">
+              Sesi konselor ini
+            </p>
             <p className="text-xs text-slate-400">
               {KP.length} jadwal pada periode ini
             </p>
@@ -523,17 +597,12 @@ function CounselorPanel({
                     </p>
                   </div>
                   <span
-                    className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
                       s.status === "selesai"
                         ? "bg-emerald-50 text-[#15803d]"
                         : "bg-rose-50 text-rose-600"
                     }`}
                   >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        s.status === "selesai" ? "bg-[#15803d]" : "bg-rose-500"
-                      }`}
-                    />
                     {s.status === "selesai" ? "Selesai" : "Dibatalkan"}
                   </span>
                 </button>
@@ -564,12 +633,34 @@ export default function AdminKonselingPage() {
     () => new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate(), 12),
   );
   const [semId, setSemId] = useState<string | null>(defaultSem?.id ?? null);
-  const [view, setView] = useState<ViewKey>("daftar");
   const [tbl, setTbl] = useState<TblKey>("semua");
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const [kon, setKon] = useState(0);
   const [openId, setOpenId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Terima state dari halaman lain (mis. Beranda) saat halaman dibuka
+  const location = useLocation();
+  const navState = location.state as {
+    view?: ViewKey;
+    konselor?: string;
+  } | null;
+
+  const [view, setView] = useState<ViewKey>(navState?.view ?? "daftar");
+  const [kon, setKon] = useState(() => {
+    const i = COUNSELORS.indexOf(navState?.konselor ?? "");
+    return i >= 0 ? i : 0;
+  });
+
+  // Jika halaman sudah terbuka dan menerima navigasi baru, terapkan juga
+  useEffect(() => {
+    if (!navState) return;
+    if (navState.view) setView(navState.view);
+    if (navState.konselor) {
+      const i = COUNSELORS.indexOf(navState.konselor);
+      if (i >= 0) setKon(i);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   // Tutup drawer dengan Escape
   useEffect(() => {

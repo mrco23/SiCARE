@@ -1,5 +1,7 @@
 import { useState, type ElementType } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  ArrowRight,
   ArrowUp,
   Ban,
   CircleCheck,
@@ -245,6 +247,14 @@ function ServiceDistribution() {
 
 /* ========================= BEBAN KERJA KONSELOR ========================= */
 function CounselorWorkload() {
+  const navigate = useNavigate();
+
+  // Buka halaman konseling langsung di tampilan Detail Konselor untuk konselor ini
+  const openDetail = (konselor: string) =>
+    navigate("/admin/konseling", {
+      state: { view: "detail", konselor },
+    });
+
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col items-start justify-between gap-4 border-b border-slate-100 p-6 sm:flex-row sm:items-center">
@@ -306,9 +316,11 @@ function CounselorWorkload() {
                 <td className="px-6 py-4 text-right">
                   <button
                     type="button"
-                    className="text-xs font-semibold text-slate-500 hover:text-[#15803d]"
+                    onClick={() => openDetail(c.name)}
+                    className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#15803d] transition-colors hover:bg-[#f0fdf4]"
                   >
-                    Detail Jadwal
+                    Lihat detail
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </td>
               </tr>
