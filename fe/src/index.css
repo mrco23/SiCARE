@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
 @import "tailwindcss";
 
 /* ===== DESIGN TOKENS ===== */
@@ -12,7 +12,7 @@
   --color-text-base: #1a1a1a;
   --color-text-muted: #6b7280;
 
-  --font-sans: "Montserrat", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
 
   --radius-card: 1.25rem;
   --radius-button: 9999px;
@@ -30,7 +30,7 @@ html {
 }
 
 body {
-  font-family: "Montserrat", system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
   background-color: #fafaf5;
   color: #1a1a1a;
   line-height: 1.6;

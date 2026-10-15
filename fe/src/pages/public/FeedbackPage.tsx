@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, Star, Users, User } from "lucide-react";
-import Navbar from "../../components/home/Navbar";
-import Footer from "../../components/home/Footer";
 
 type Role = "Mahasiswa" | "Dosen atau Staf";
 type Format = "Individu" | "Kelompok";
@@ -228,13 +226,8 @@ export default function FeedbackPage() {
 
   return (
     <div className="overflow-x-hidden bg-white">
-      {/* Navbar */}
-      <div className="absolute inset-x-0 top-0 z-50">
-        <Navbar />
-      </div>
-
       {/* Hero */}
-      <section className="mx-auto w-[92%] pb-12 pt-40 sm:w-[88%] md:pt-44 lg:w-[86%]">
+      <section className="mx-auto w-[92%] pb-12 pt-24 sm:w-[88%] md:pt-32 lg:w-[86%]">
         <h1 className="font-[Montserrat] text-3xl font-extrabold leading-tight text-[#14553a] sm:text-4xl lg:text-5xl">
           Feedback &amp; Ulasan Publik
         </h1>
@@ -346,8 +339,6 @@ export default function FeedbackPage() {
           </p>
         </div>
       </section>
-
-      <Footer />
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }

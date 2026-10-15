@@ -12,10 +12,14 @@ import AdminLayout from "../layouts/AdminLayout";
 /* Pages */
 
 /* Client */
-import ClientDashboard from "../pages/client/Dashboard";
+import ClientDashboard from "../pages/client/ClientBerandaPage";
 
 /* Admin */
-import AdminDashboard from "../pages/admin/Dashboard";
+import AdminBerandaPage from "../pages/admin/AdminBerandaPage";
+import AdminActivityPage from "../pages/admin/AdminAktivitasPage";
+import AdminFeedbackPage from "../pages/admin/AdminFeedbackPage";
+import AdminLaporanPage from "../pages/admin/AdminLaporanPage";
+import AdminKonselingPage from "../pages/admin/AdminKonselingPage";
 
 /* Public */
 import PublicLayout from "../layouts/PublicLayout";
@@ -28,15 +32,18 @@ import CounselorPage from "../pages/public/CounselorPage";
 import CounselorDashboardPage from "../pages/counselor/CounselorDashboardPage";
 import JadwalPage from "../pages/counselor/JadwalPage";
 import RiwayatPage from "../pages/counselor/RiwayatPage";
+import AdminAkunPage from "../pages/admin/AdminAkunPage";
+import AdminPengaturanPage from "../pages/admin/AdminPengaturanPage";
+import PanduanPage from "../pages/public/PanduanPage";
 
 export default function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
       <Route path="/" element={<PublicLayout />}>
+        <Route index element={<HomePage />} />
         <Route path="tentang-kami" element={<AboutPage />} />
-        <Route path="panduan" element={<></>} />
-        <Route path="konselor" element={<CounselorPage />} />
+        <Route path="panduan" element={<PanduanPage />} />
+        <Route path="profil-konselor" element={<CounselorPage />} />
         <Route path="mood-tracker" element={<MoodTrackerPage />} />
         <Route path="feedback" element={<FeedbackPage />} />
       </Route>
@@ -51,7 +58,7 @@ export default function AppRouter() {
         <Route path="pengaturan" element={<></>} />
       </Route>
 
-      <Route path="/counselor" element={<CounselorLayout />}>
+      <Route path="/konselor" element={<CounselorLayout />}>
         <Route index element={<CounselorDashboardPage />} />
         <Route path="aktivitas" element={<></>} />
         <Route path="permintaan" element={<></>} />
@@ -62,7 +69,13 @@ export default function AppRouter() {
       </Route>
 
       <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminDashboard />} />
+        <Route index element={<AdminBerandaPage />} />
+        <Route path="aktivitas" element={<AdminActivityPage />} />
+        <Route path="akun" element={<AdminAkunPage />} />
+        <Route path="konseling" element={<AdminKonselingPage />} />
+        <Route path="pengaturan" element={<AdminPengaturanPage />} />
+        <Route path="feedback" element={<AdminFeedbackPage />} />
+        <Route path="laporan" element={<AdminLaporanPage />} />
       </Route>
 
       {/*       <Route path="*" element={<Navigate to="/" replace />} /> */}

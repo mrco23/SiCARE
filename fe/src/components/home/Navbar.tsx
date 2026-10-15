@@ -5,7 +5,7 @@ import { CircleUserRound, Menu, MessageSquareText, X } from "lucide-react";
 const navLinks = [
   { label: "Tentang kami", to: "/tentang-kami" },
   { label: "Panduan", to: "/panduan" },
-  { label: "Konselor", to: "/konselor" },
+  { label: "Konselor", to: "/profil-konselor" },
   { label: "Mood Tracker", to: "/mood-tracker" },
   { label: "Feedback", to: "/feedback" },
 ];
@@ -14,12 +14,11 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="relative z-50 w-full">
+    <header className="fixed inset-x-0 top-0 z-50 pointer-events-none">
       <div
-        className="relative mx-auto flex h-16 w-[92%] items-center justify-between rounded-b-[22px] px-4 shadow-[0_18px_40px_rgba(0,0,0,0.12)] sm:w-[88%] sm:px-6 md:h-20 lg:w-[86%] lg:px-8"
+        className="pointer-events-auto relative mx-auto flex h-14 w-[92%] items-center justify-between rounded-b-[22px] px-4 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-md sm:w-[88%] sm:px-6 md:h-16 lg:w-[86%] lg:px-8"
         style={{
-          background:
-            "linear-gradient(90deg, #f6f1ec 0%, #f3e9e2 50%, #efe4dd 100%)",
+          backgroundColor: "rgba(255, 255, 255, 0.7)",
         }}
       >
         {/* Latar: blur blobs & gunung (dipotong sesuai sudut bar) */}
@@ -66,7 +65,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex min-w-0 flex-col">
-            <div className="flex items-start text-lg font-semibold leading-none tracking-tight sm:text-2xl">
+            <div className="flex items-start text-lg font-semibold leading-none tracking-tight">
               <span className="text-primary">Si</span>
               <span className="text-blue-900">CARE</span>
               <MessageSquareText
@@ -74,7 +73,7 @@ export default function Navbar() {
                 strokeWidth={2.5}
               />
             </div>
-            <span className="mt-1 truncate text-[10px] font-semibold text-[#2b2b2b] sm:text-[11px] md:text-[13px]">
+            <span className="mt-1 truncate text-[10px] font-semibold text-[#2b2b2b] sm:text-[11px] md:text-[10px]">
               Universitas Katolik De La Salle Manado
             </span>
           </div>
@@ -140,7 +139,7 @@ export default function Navbar() {
 
       {/* Menu mobile & tablet */}
       {open && (
-        <nav className="absolute inset-x-0 top-full z-50 mx-auto mt-2 flex w-[92%] flex-col gap-1 rounded-2xl bg-[#f6f1ec]/95 p-3 shadow-[0_18px_40px_rgba(0,0,0,0.15)] backdrop-blur sm:w-[88%] lg:hidden">
+        <nav className="pointer-events-auto absolute inset-x-0 top-full z-50 mx-auto mt-2 flex w-[92%] flex-col gap-1 rounded-2xl bg-white/80 p-3 shadow-[0_18px_40px_rgba(0,0,0,0.15)] backdrop-blur-md sm:w-[88%] lg:hidden">
           {navLinks.map((item) => (
             <NavLink
               key={item.to}
