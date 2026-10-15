@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   Ban,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   CircleCheck,
   FolderOpen,
+  List,
   Lock,
-  Stethoscope,
+  Star,
   User,
   UserRound,
   Users,
   X,
 } from "lucide-react";
 import {
-  fmtDate,
   isInPeriod,
   loadPeriods,
   sortPeriods,
@@ -89,6 +91,10 @@ const SESI: Session[] = Array.from({ length: 60 }, (_, i) => {
 /* ========================= UTIL ========================= */
 type PeriodKey = "hari" | "minggu" | "bulan" | "semester";
 type TblKey = "semua" | "individu" | "kelompok" | "dibatalkan";
+type ViewKey = "daftar" | "detail";
+
+const PAGE_SIZE = 20;
+const DAY = 864e5;
 
 const PERIOD_OPTS: [PeriodKey, string][] = [
   ["hari", "Hari"],
@@ -129,14 +135,15 @@ const parseISO = (iso: string) => {
   return new Date(y, m - 1, d);
 };
 
-const DAY = 864e5;
+type Range = { s: Date; e: Date };
+const inR = (t: number, r: Range) => t >= r.s.getTime() && t < r.e.getTime();
 
 /* Rentang waktu sesuai mode tampilan */
 function getRange(
   period: PeriodKey,
   anchor: Date,
   sem: AcademicPeriod | null,
-): { s: Date; e: Date } {
+): Range {
   const y = anchor.getFullYear();
   const m = anchor.getMonth();
   const d = anchor.getDate();
@@ -155,7 +162,7 @@ function getRange(
 
 function rangeLabel(
   period: PeriodKey,
-  range: { s: Date; e: Date },
+  range: Range,
   sem: AcademicPeriod | null,
 ) {
   if (period === "hari")
@@ -176,7 +183,7 @@ function rangeLabel(
 }
 
 /* Bucket untuk grafik batang per konselor */
-function buckets(period: PeriodKey, range: { s: Date; e: Date }) {
+function buckets(period: PeriodKey, range: Range) {
   const y = range.s.getFullYear();
   const m = range.s.getMonth();
   const d = range.s.getDate();
@@ -203,9 +210,6 @@ function buckets(period: PeriodKey, range: { s: Date; e: Date }) {
   });
 }
 
-const inR = (t: number, r: { s: Date; e: Date }) =>
-  t >= r.s.getTime() && t < r.e.getTime();
-
 /* ========================= KOMPONEN KECIL ========================= */
 function KpiCard({
   icon: Icon,
@@ -213,7 +217,7 @@ function KpiCard({
   value,
   sub,
 }: {
-  icon: typeof Ban;
+  icon: LucideIcon;
   title: string;
   value: string | number;
   sub: string;
@@ -265,21 +269,283 @@ function SegmentTabs<T extends string>({
   );
 }
 
-function StatBox({
+/* Pindah tampilan: Daftar Konseling / Detail per Konselor */
+function ViewSwitch({
+  value,
+  onChange,
+}: {
+  value: ViewKey;
+  onChange: (v: ViewKey) => void;
+}) {
+  const items: { key: ViewKey; label: string; icon: LucideIcon }[] = [
+    { key: "daftar", label: "Daftar Konseling", icon: List },
+    { key: "detail", label: "Detail Konselor", icon: UserRound },
+  ];
+  return (
+    <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold text-slate-500">
+      {items.map(({ key, label, icon: Icon }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onChange(key)}
+          className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 transition-all ${
+            value === key
+              ? "bg-[#14553a] text-white shadow-sm"
+              : "hover:text-slate-800"
+          }`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const TILE_TONE = {
+  emerald: "bg-emerald-50 text-[#15803d] border-emerald-100",
+  sky: "bg-sky-50 text-sky-700 border-sky-100",
+  violet: "bg-violet-50 text-violet-700 border-violet-100",
+  rose: "bg-rose-50 text-rose-600 border-rose-100",
+} as const;
+
+function StatTile({
+  icon: Icon,
   label,
   value,
-  className = "",
+  tone,
 }: {
+  icon: LucideIcon;
   label: string;
   value: number;
-  className?: string;
+  tone: keyof typeof TILE_TONE;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-        {label}
-      </p>
-      <p className={`text-xl font-bold ${className}`}>{value}</p>
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <div
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${TILE_TONE[tone]}`}
+      >
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+      <div>
+        <p className="text-[11px] font-semibold text-slate-400">{label}</p>
+        <p className="text-2xl font-bold leading-tight">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================= PANEL DETAIL KONSELOR ========================= */
+function CounselorPanel({
+  sessions,
+  kon,
+  onKonChange,
+  period,
+  range,
+  onOpen,
+}: {
+  sessions: Session[];
+  kon: number;
+  onKonChange: (i: number) => void;
+  period: PeriodKey;
+  range: Range;
+  onOpen: (id: number) => void;
+}) {
+  const KP = sessions.filter((s) => s.konselor === kon);
+  const KSelesai = KP.filter((s) => s.status === "selesai");
+  const KInd = KSelesai.filter((s) => s.type === "individu").length;
+  const KBatal = KP.filter((s) => s.status === "dibatalkan").length;
+
+  const bk = buckets(period, range);
+  const counts = bk.map(
+    (b) =>
+      KSelesai.filter((s) => inR(s.start.getTime(), { s: b.s, e: b.e })).length,
+  );
+  const maxCount = Math.max(1, ...counts);
+  const unit =
+    period === "hari" ? "jam" : period === "semester" ? "bulan" : "hari";
+
+  const countOf = (i: number) =>
+    sessions.filter((s) => s.konselor === i && s.status === "selesai").length;
+
+  return (
+    <div className="space-y-6 p-6">
+      {/* Pemilih konselor */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        {COUNSELORS.map((c, i) => {
+          const active = kon === i;
+          return (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onKonChange(i)}
+              className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${
+                active
+                  ? "border-[#14553a] bg-[#14553a] text-white shadow-md"
+                  : "border-slate-200 bg-white hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+              }`}
+            >
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
+                  active
+                    ? "bg-white/15 text-white"
+                    : "bg-emerald-50 text-[#15803d]"
+                }`}
+              >
+                {initials(c)}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold">{c}</p>
+                <p
+                  className={`text-[11px] ${active ? "text-emerald-100" : "text-slate-400"}`}
+                >
+                  {countOf(i)} sesi selesai
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Kartu profil */}
+      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-[#14553a] to-[#2a8f5a] p-5 text-white sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-lg font-bold">
+            {initials(COUNSELORS[kon])}
+          </div>
+          <div>
+            <p className="font-bold">{COUNSELORS[kon]}</p>
+            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-emerald-100">
+              <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
+              {RATING[kon].toFixed(1)} rating rata-rata dari klien
+            </p>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white/10 px-4 py-2.5 sm:text-right">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100">
+            Total jadwal periode ini
+          </p>
+          <p className="text-xl font-bold">{KP.length}</p>
+        </div>
+      </div>
+
+      {/* Statistik */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          icon={CircleCheck}
+          label="Sesi selesai"
+          value={KSelesai.length}
+          tone="emerald"
+        />
+        <StatTile icon={User} label="Individu" value={KInd} tone="sky" />
+        <StatTile
+          icon={Users}
+          label="Kelompok"
+          value={KSelesai.length - KInd}
+          tone="violet"
+        />
+        <StatTile icon={Ban} label="Dibatalkan" value={KBatal} tone="rose" />
+      </div>
+
+      {/* Grafik & daftar sesi */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+        <div className="rounded-2xl border border-slate-200 p-5 xl:col-span-3">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold">Layanan per {unit}</p>
+              <p className="text-xs text-slate-400">
+                Sesi selesai pada periode yang dipilih
+              </p>
+            </div>
+            <p className="text-xs font-semibold text-slate-500">
+              Total: <span className="text-slate-800">{KSelesai.length}</span>
+            </p>
+          </div>
+          <div className="flex h-40 items-end gap-1.5">
+            {counts.map((c, i) => (
+              <div
+                key={i}
+                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+              >
+                <span className="mb-1 text-[10px] font-bold text-slate-500">
+                  {c || ""}
+                </span>
+                <div
+                  className={`w-full rounded-t-lg transition-all ${
+                    c
+                      ? "bg-gradient-to-t from-[#14553a] to-[#2a8f5a]"
+                      : "bg-slate-100"
+                  }`}
+                  style={{
+                    height: `${Math.max(c ? 8 : 4, Math.round((c / maxCount) * 100))}%`,
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-1.5 border-t border-slate-100 pt-2">
+            {bk.map((b, i) => (
+              <span
+                key={i}
+                className="flex-1 truncate text-center text-[10px] text-slate-400"
+              >
+                {b.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 xl:col-span-2">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <p className="text-sm font-bold">Sesi konselor ini</p>
+            <p className="text-xs text-slate-400">
+              {KP.length} jadwal pada periode ini
+            </p>
+          </div>
+          <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
+            {KP.length > 0 ? (
+              KP.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onOpen(s.id)}
+                  className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition-colors hover:bg-slate-50"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-slate-700">
+                      {fmtDT(s.start)}
+                    </p>
+                    <p className="truncate text-[11px] text-slate-400">
+                      {s.type === "individu"
+                        ? anonOf(s.participants[0])
+                        : `${s.participants.length} peserta`}{" "}
+                      · {s.durasi} menit
+                    </p>
+                  </div>
+                  <span
+                    className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                      s.status === "selesai"
+                        ? "bg-emerald-50 text-[#15803d]"
+                        : "bg-rose-50 text-rose-600"
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        s.status === "selesai" ? "bg-[#15803d]" : "bg-rose-500"
+                      }`}
+                    />
+                    {s.status === "selesai" ? "Selesai" : "Dibatalkan"}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <p className="p-8 text-center text-xs text-slate-400">
+                Tidak ada sesi pada periode ini.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -298,7 +564,9 @@ export default function AdminKonselingPage() {
     () => new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate(), 12),
   );
   const [semId, setSemId] = useState<string | null>(defaultSem?.id ?? null);
+  const [view, setView] = useState<ViewKey>("daftar");
   const [tbl, setTbl] = useState<TblKey>("semua");
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [kon, setKon] = useState(0);
   const [openId, setOpenId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -312,6 +580,11 @@ export default function AdminKonselingPage() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // Kembali ke 20 data setiap filter atau periode berubah
+  useEffect(() => {
+    setLimit(PAGE_SIZE);
+  }, [period, anchor, semId, tbl]);
+
   const semester = periods.find((p) => p.id === semId) ?? null;
   const range = useMemo(
     () => getRange(period, anchor, semester),
@@ -324,7 +597,7 @@ export default function AdminKonselingPage() {
     [range],
   );
 
-  /* ----- navigasi ----- */
+  /* ----- navigasi periode ----- */
   const semIdx = periods.findIndex((p) => p.id === semId);
   const canPrev = period === "semester" ? semIdx > 0 : true;
   const canNext = period === "semester" ? semIdx < periods.length - 1 : true;
@@ -360,24 +633,11 @@ export default function AdminKonselingPage() {
       (tbl === "kelompok" && s.type === "kelompok") ||
       (tbl === "dibatalkan" && s.status === "dibatalkan"),
   );
-
-  /* ----- panel konselor ----- */
-  const KP = P.filter((s) => s.konselor === kon);
-  const KSelesai = KP.filter((s) => s.status === "selesai");
-  const KInd = KSelesai.filter((s) => s.type === "individu").length;
-  const KBatal = KP.filter((s) => s.status === "dibatalkan").length;
-  const bk = buckets(period, range);
-  const counts = bk.map(
-    (b) =>
-      KSelesai.filter((s) => inR(s.start.getTime(), { s: b.s, e: b.e })).length,
-  );
-  const maxCount = Math.max(1, ...counts);
-  const unit =
-    period === "hari" ? "jam" : period === "semester" ? "bulan" : "hari";
+  const shown = rows.slice(0, limit);
+  const remaining = rows.length - shown.length;
 
   /* ----- drawer ----- */
   const sesi = SESI.find((s) => s.id === openId) ?? null;
-
   const openDrawer = (id: number) => {
     setOpenId(id);
     setDrawerOpen(true);
@@ -423,7 +683,6 @@ export default function AdminKonselingPage() {
             </button>
           </div>
 
-          {/* Pilih periode akademik (mode Semester) */}
           {period === "semester" && (
             <select
               value={semId ?? ""}
@@ -462,242 +721,148 @@ export default function AdminKonselingPage() {
         />
       </div>
 
-      {/* ================= DAFTAR KONSELING ================= */}
+      {/* ================= SECTION UTAMA (SATU TAMPILAN SEKALIGUS) ================= */}
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-6 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-base font-bold">Daftar Konseling</h3>
+            <h3 className="text-base font-bold">
+              {view === "daftar" ? "Daftar Konseling" : "Detail per Konselor"}
+            </h3>
             <p className="text-xs text-slate-400">
-              Menampilkan {rows.length} dari {P.length} sesi pada periode ini
+              {view === "daftar"
+                ? `Menampilkan ${shown.length} dari ${rows.length} sesi pada periode ini`
+                : "Layanan konselor pada periode yang dipilih"}
             </p>
           </div>
-          <SegmentTabs options={TBL_OPTS} value={tbl} onChange={setTbl} />
+          <div className="flex flex-wrap items-center gap-3">
+            {view === "daftar" && (
+              <SegmentTabs options={TBL_OPTS} value={tbl} onChange={setTbl} />
+            )}
+            <ViewSwitch value={view} onChange={setView} />
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50/70 text-[11px] uppercase tracking-wider text-slate-400">
-              <tr>
-                <th className="px-6 py-3 text-left font-bold">Waktu</th>
-                <th className="px-4 py-3 text-left font-bold">Klien</th>
-                <th className="px-4 py-3 text-left font-bold">Konselor</th>
-                <th className="px-4 py-3 text-left font-bold">Jenis</th>
-                <th className="px-4 py-3 text-left font-bold">Durasi</th>
-                <th className="px-6 py-3 text-left font-bold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.map((s) => (
-                <tr
-                  key={s.id}
-                  onClick={() => openDrawer(s.id)}
-                  className="cursor-pointer transition-colors hover:bg-slate-50"
-                >
-                  <td className="whitespace-nowrap px-6 py-3.5 text-xs font-medium text-slate-600">
-                    {fmtDT(s.start)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3.5 text-xs">
-                    {s.type === "individu" ? (
-                      <span className="font-semibold">
-                        {anonOf(s.participants[0])}
-                      </span>
-                    ) : (
-                      <>
-                        <span className="font-semibold">
-                          {s.participants.length} peserta
-                        </span>{" "}
-                        <span className="text-slate-400">
-                          · {anonOf(s.participants[0])} dst.
-                        </span>
-                      </>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-600">
-                    {COUNSELORS[s.konselor]}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3.5">
-                    {s.type === "individu" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-sky-100 bg-sky-50 px-2 py-1 text-[10px] font-bold text-sky-700">
-                        <User className="h-3 w-3" /> Individu
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
-                        <Users className="h-3 w-3" /> Kelompok
-                      </span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-500">
-                    {s.durasi} menit
-                  </td>
-                  <td className="px-6 py-3.5">
-                    {s.status === "selesai" ? (
-                      <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-[#15803d]">
-                        Selesai
-                      </span>
-                    ) : (
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-1">
-                          <span className="rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700">
-                            Dibatalkan {s.cancelledBy}
+        {view === "daftar" ? (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50/70 text-[11px] uppercase tracking-wider text-slate-400">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-bold">Waktu</th>
+                    <th className="px-4 py-3 text-left font-bold">Klien</th>
+                    <th className="px-4 py-3 text-left font-bold">Konselor</th>
+                    <th className="px-4 py-3 text-left font-bold">Jenis</th>
+                    <th className="px-4 py-3 text-left font-bold">Durasi</th>
+                    <th className="px-6 py-3 text-left font-bold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {shown.map((s) => (
+                    <tr
+                      key={s.id}
+                      onClick={() => openDrawer(s.id)}
+                      className="cursor-pointer transition-colors hover:bg-slate-50"
+                    >
+                      <td className="whitespace-nowrap px-6 py-3.5 text-xs font-medium text-slate-600">
+                        {fmtDT(s.start)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs">
+                        {s.type === "individu" ? (
+                          <span className="font-semibold">
+                            {anonOf(s.participants[0])}
                           </span>
-                          {(s.cancelLead ?? 99) < 24 && (
-                            <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700">
-                              Mendadak H-{s.cancelLead}j
+                        ) : (
+                          <>
+                            <span className="font-semibold">
+                              {s.participants.length} peserta
+                            </span>{" "}
+                            <span className="text-slate-400">
+                              · {anonOf(s.participants[0])} dst.
                             </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400">
-                          {s.cancelReason}
-                        </p>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                          </>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-600">
+                        {COUNSELORS[s.konselor]}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5">
+                        {s.type === "individu" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-sky-100 bg-sky-50 px-2 py-1 text-[10px] font-bold text-sky-700">
+                            <User className="h-3 w-3" /> Individu
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
+                            <Users className="h-3 w-3" /> Kelompok
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-500">
+                        {s.durasi} menit
+                      </td>
+                      <td className="px-6 py-3.5">
+                        {s.status === "selesai" ? (
+                          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-[#15803d]">
+                            Selesai
+                          </span>
+                        ) : (
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700">
+                                Dibatalkan {s.cancelledBy}
+                              </span>
+                              {(s.cancelLead ?? 99) < 24 && (
+                                <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700">
+                                  Mendadak H-{s.cancelLead}j
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-400">
+                              {s.cancelReason}
+                            </p>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-        {rows.length === 0 && (
-          <div className="flex flex-col items-center py-14 text-center text-slate-400">
-            <FolderOpen className="mb-2 h-8 w-8" />
-            <p className="text-sm font-medium">
-              Tidak ada data konseling pada periode ini.
-            </p>
-          </div>
-        )}
-      </section>
-
-      {/* ================= DETAIL PER KONSELOR ================= */}
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-6 sm:flex-row sm:items-center">
-          <div>
-            <h3 className="text-base font-bold">Detail per Konselor</h3>
-            <p className="text-xs text-slate-400">
-              Pilih konselor untuk melihat layanan yang dilakukan pada periode
-              ini.
-            </p>
-          </div>
-          <select
-            value={kon}
-            onChange={(e) => setKon(Number(e.target.value))}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#22c55e]/30 sm:w-72"
-          >
-            {COUNSELORS.map((c, i) => (
-              <option key={c} value={i}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 p-6 xl:grid-cols-5">
-          {/* Profil & statistik */}
-          <div className="space-y-4 xl:col-span-2">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#15803d] text-lg font-bold text-white shadow-sm">
-                {initials(COUNSELORS[kon])}
-              </div>
-              <div>
-                <p className="font-bold">{COUNSELORS[kon]}</p>
-                <p className="flex items-center gap-1 text-xs text-slate-500">
-                  <Stethoscope className="h-3.5 w-3.5 text-amber-400" />
-                  {RATING[kon].toFixed(1)} rata-rata rating klien
+            {rows.length === 0 && (
+              <div className="flex flex-col items-center py-14 text-center text-slate-400">
+                <FolderOpen className="mb-2 h-8 w-8" />
+                <p className="text-sm font-medium">
+                  Tidak ada data konseling pada periode ini.
                 </p>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <StatBox label="Sesi selesai" value={KSelesai.length} />
-              <StatBox label="Individu" value={KInd} />
-              <StatBox label="Kelompok" value={KSelesai.length - KInd} />
-              <StatBox
-                label="Dibatalkan"
-                value={KBatal}
-                className={KBatal ? "text-rose-600" : ""}
-              />
-              <StatBox label="Total jadwal" value={KP.length} />
-            </div>
-          </div>
+            )}
 
-          {/* Grafik & daftar sesi */}
-          <div className="space-y-6 xl:col-span-3">
-            <div>
-              <p className="mb-1 text-sm font-bold">Layanan per {unit}</p>
-              <p className="mb-4 text-xs text-slate-400">
-                Jumlah sesi selesai pada periode yang dipilih.
-              </p>
-              <div className="flex h-36 items-end gap-1.5 border-b border-slate-200 pb-1">
-                {counts.map((c, i) => (
-                  <div
-                    key={i}
-                    className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
-                  >
-                    <span className="mb-1 text-[10px] font-bold text-slate-500">
-                      {c || ""}
-                    </span>
-                    <div
-                      className={`w-full rounded-t-md ${c ? "bg-[#16a34a]" : "bg-slate-100"}`}
-                      style={{
-                        height: `${Math.max(c ? 8 : 3, Math.round((c / maxCount) * 100))}%`,
-                      }}
-                    />
-                  </div>
-                ))}
+            {remaining > 0 && (
+              <div className="flex flex-col items-center gap-2 border-t border-slate-100 p-4">
+                <button
+                  type="button"
+                  onClick={() => setLimit((l) => l + PAGE_SIZE)}
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+                >
+                  Muat lebih banyak
+                </button>
+                <p className="text-[11px] text-slate-400">
+                  {remaining} sesi lagi · {Math.min(PAGE_SIZE, remaining)} akan
+                  ditambahkan
+                </p>
               </div>
-              <div className="mt-1.5 flex gap-1.5">
-                {bk.map((b, i) => (
-                  <span
-                    key={i}
-                    className="flex-1 truncate text-center text-[10px] text-slate-400"
-                  >
-                    {b.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-3 text-sm font-bold">Sesi konselor ini</p>
-              <div className="max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-2xl border border-slate-100">
-                {KP.length > 0 ? (
-                  KP.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => openDrawer(s.id)}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-700">
-                          {fmtDT(s.start)} ·{" "}
-                          {s.type === "individu"
-                            ? anonOf(s.participants[0])
-                            : `${s.participants.length} peserta`}
-                        </p>
-                        <p className="text-[11px] text-slate-400">
-                          {s.durasi} menit
-                        </p>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${
-                          s.status === "selesai"
-                            ? "bg-emerald-50 text-[#15803d]"
-                            : "bg-rose-50 text-rose-700"
-                        }`}
-                      >
-                        {s.status === "selesai" ? "Selesai" : "Dibatalkan"}
-                      </span>
-                    </button>
-                  ))
-                ) : (
-                  <p className="p-6 text-center text-xs text-slate-400">
-                    Tidak ada sesi pada periode ini.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+            )}
+          </>
+        ) : (
+          <CounselorPanel
+            sessions={P}
+            kon={kon}
+            onKonChange={setKon}
+            period={period}
+            range={range}
+            onOpen={openDrawer}
+          />
+        )}
       </section>
 
       {/* ================= DRAWER DETAIL SESI ================= */}
@@ -708,7 +873,7 @@ export default function AdminKonselingPage() {
         }`}
       />
       <aside
-        className={`fixed right-0 top-0 z-40 flex h-full w-full flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-250 sm:w-[440px] ${
+        className={`fixed right-0 top-0 z-40 flex h-full w-full flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 sm:w-[440px] ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
