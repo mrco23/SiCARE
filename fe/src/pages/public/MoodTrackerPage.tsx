@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import Navbar from "../../components/home/Navbar";
 
 type Option = { emoji: string; label: string; score: -2 | -1 | 1 | 2 };
 type Question = { axis: "energy" | "valence"; text: string; options: Option[] };
@@ -222,12 +221,8 @@ export default function MoodTrackerPage() {
 
   return (
     <div className="overflow-x-clip bg-white">
-      {/* Navbar */}
-      <div className="sticky top-0 z-50">
-        <Navbar />
-      </div>
 
-      <main className="mx-auto w-[92%] pb-20 pt-8 sm:w-[88%] lg:w-[86%]">
+      <div className="mx-auto w-[92%] pb-20 pt-24 sm:w-[88%] md:pt-32 lg:w-[86%]">
         <h1 className="font-[Montserrat] text-4xl font-extrabold leading-tight text-[#111] md:text-[44px]">
           Refleksi Mood & <span className="text-[#1e5b3a]">Kepribadian</span>
         </h1>
@@ -331,7 +326,7 @@ export default function MoodTrackerPage() {
             </div>
           </>
         )}
-      </main>
+      </div>
 
       {/* Animasi maskot: bergerak sendiri, tanpa transition */}
       <style>{`

@@ -11,11 +11,10 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { ElementType } from "react";
-import Navbar from "../../components/home/Navbar";
-import Footer from "../../components/home/Footer";
 import { useEffect, useRef } from "react";
-// Lebar konten: sama persis dengan lebar Navbar di setiap breakpoint
-const container = "mx-auto w-[92%] sm:w-[88%] lg:w-[86%]";
+
+// Lebar konten: lebih sempit dari sebelumnya agar lebih terpusat
+const container = "mx-auto w-[84%] sm:w-[76%] md:w-[72%] lg:w-[66%] xl:w-[80%]";
 
 const reasons = [
   {
@@ -73,7 +72,7 @@ function Polaroid({
 }) {
   return (
     <div
-      className={`absolute bg-white p-2 pb-8 shadow-[0_12px_30px_rgba(0,0,0,0.18)] ${className}`}
+      className={`absolute bg-white p-1.5 pb-6 shadow-[0_10px_24px_rgba(0,0,0,0.18)] ${className}`}
       style={{ transform: `rotate(${rotate}deg)` }}
     >
       <img
@@ -98,15 +97,15 @@ function ReasonCard({
   text: string;
 }) {
   return (
-    <div className="relative rounded-2xl border border-gray-300 bg-white p-6 sm:p-7">
+    <div className="relative rounded-xl border border-gray-300 bg-white p-5 sm:p-6">
       {/* Garis aksen hijau di sisi kiri */}
-      <div className="absolute bottom-6 left-0 top-6 w-1 rounded-r-full bg-[#1e5b3a]" />
+      <div className="absolute bottom-5 left-0 top-5 w-1 rounded-r-full bg-[#1e5b3a]" />
 
-      <div className="flex items-center gap-5">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#eef8f3]">
-          <Icon className="h-6 w-6 text-[#1e5b3a]" strokeWidth={1.8} />
+      <div className="flex items-center gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#eef8f3]">
+          <Icon className="h-5 w-5 text-[#1e5b3a]" strokeWidth={1.8} />
         </div>
-        <h3 className="font-[Montserrat] text-lg font-semibold leading-snug text-[#1b1b1b] sm:text-xl">
+        <h3 className="font-[Montserrat] text-base font-semibold leading-snug text-[#1b1b1b] sm:text-lg">
           {title}
         </h3>
       </div>
@@ -118,7 +117,7 @@ function ReasonCard({
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="overflow-hidden"
       >
-        <p className="mt-4 pl-[68px] font-[Montserrat] text-sm leading-relaxed text-gray-500 sm:text-[15px]">
+        <p className="mt-3 pl-14 font-[Montserrat] text-xs leading-relaxed text-gray-500 sm:text-sm">
           {text}
         </p>
       </motion.div>
@@ -151,8 +150,8 @@ const testimonials = [
 
 function TestimonialCard({ name, text }: { name: string; text: string }) {
   return (
-    <div className="flex w-65 shrink-0 flex-col rounded-card border border-[#d3e0dc] bg-white px-5 py-5 sm:w-75 sm:px-6 sm:py-6 md:w-85 lg:w-100 lg:px-7">
-      <p className="font-[Inter] text-base font-semibold leading-none text-black sm:text-lg">
+    <div className="flex w-56 shrink-0 flex-col rounded-xl border border-[#d3e0dc] bg-white px-4 py-4 sm:w-64 sm:px-5 sm:py-5 md:w-72 lg:w-80">
+      <p className="font-[Inter] text-sm font-semibold leading-none text-black sm:text-base">
         {name}
       </p>
 
@@ -160,18 +159,19 @@ function TestimonialCard({ name, text }: { name: string; text: string }) {
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}
-            className="h-3 w-3 fill-[#f3c95a] text-[#f3c95a] sm:h-3.5 sm:w-3.5"
+            className="h-2.5 w-2.5 fill-[#f3c95a] text-[#f3c95a] sm:h-3 sm:w-3"
             strokeWidth={0}
           />
         ))}
       </div>
 
-      <p className="mt-4 font-[Inter] text-sm leading-relaxed text-[#333] sm:mt-5 sm:text-[15px]">
+      <p className="mt-3 font-[Inter] text-xs leading-relaxed text-[#333] sm:mt-4 sm:text-sm">
         {text}
       </p>
     </div>
   );
 }
+
 function Testimonials() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const hoverRef = useRef(false);
@@ -243,13 +243,13 @@ function Testimonials() {
   };
 
   return (
-    <section className="overflow-hidden bg-white py-16 md:py-24">
+    <section className="overflow-hidden bg-white py-12 md:py-16">
       {/* Judul */}
-      <div className="mx-auto w-[92%] text-center sm:w-[88%] lg:w-[86%]">
-        <h2 className="text-3xl font-bold leading-tight text-black sm:text-4xl md:text-[44px]">
+      <div className={`${container} text-center`}>
+        <h2 className="text-2xl font-bold leading-tight text-black sm:text-3xl md:text-4xl">
           Suara dari Mereka yang Telah Melangkah
         </h2>
-        <p className="mt-4 text-sm text-[#1b1b1b] sm:text-base md:text-[18px]">
+        <p className="mt-3 text-xs text-[#1b1b1b] sm:text-sm md:text-base">
           Identitas klien selalu dianonimkan demi menjaga privasi dan rasa aman
           100%.
         </p>
@@ -258,7 +258,7 @@ function Testimonials() {
       {/* Marquee: bisa di-swipe di mobile, auto-scroll ke kanan */}
       <div
         ref={scrollRef}
-        className="mt-10 touch-pan-x overflow-x-auto overscroll-x-contain md:mt-16 scrollbar- [&::-webkit-scrollbar]:hidden"
+        className="mt-8 touch-pan-x overflow-x-auto overscroll-x-contain md:mt-12 [&::-webkit-scrollbar]:hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
@@ -270,7 +270,7 @@ function Testimonials() {
           {[0, 1].map((setIndex) => (
             <div
               key={setIndex}
-              className="flex shrink-0 gap-4 pr-4 sm:gap-6 sm:pr-6 md:gap-8 md:pr-8 lg:gap-14 lg:pr-14"
+              className="flex shrink-0 gap-3 pr-3 sm:gap-4 sm:pr-4 md:gap-5 md:pr-5 lg:gap-8 lg:pr-8"
               aria-hidden={setIndex === 1}
             >
               {testimonials.map((item, i) => (
@@ -287,12 +287,13 @@ function Testimonials() {
     </section>
   );
 }
+
 export default function HomePage() {
   return (
     <>
       <div className="overflow-x-clip bg-white">
         {/* ================= HERO ================= */}
-        <section className="relative isolate min-h-150 overflow-hidden md:min-h-150 lg:min-h-175">
+        <section className="relative isolate min-h-[420px] overflow-hidden md:min-h-[460px] lg:min-h-[520px]">
           {/* Foto latar */}
           <img
             src="/hero.png"
@@ -303,42 +304,37 @@ export default function HomePage() {
           {/* Overlay: bawah gelap di mobile, kiri di desktop */}
           <div className="absolute inset-0 -z-10 bg-gradient-to from-white via-white/70 to-transparent md:bg-gradient-to-b md:from-white/40 md:via-white/60 md:to-white/80 lg:bg-gradient-to-r lg:from-white/60 lg:via-white/20 lg:to-transparent" />
 
-          {/* Navbar: satu-satunya navbar, menempel di atas hero */}
-          <div className="absolute inset-x-0 top-0 z-50">
-            <Navbar />
-          </div>
-
           {/* Konten */}
           <div
-            className={`relative z-10 flex min-h-[inherit] flex-col justify-end pb-16 pt-28 text-center md:justify-center md:pb-24 md:pt-44 lg:items-start lg:pb-40 lg:text-left ${container}`}
+            className={`relative z-10 flex min-h-[inherit] flex-col justify-end pb-12 pt-24 text-center md:justify-center md:pb-20 md:pt-36 lg:items-start lg:pb-28 lg:text-left ${container}`}
           >
-            <div className="mx-auto flex max-w-2xl flex-col items-center lg:mx-0 lg:items-start">
-              <h1 className="text-[32px] font-bold leading-[1.15] text-[#1b1b1b] sm:text-5xl lg:max-w-[18ch]">
+            <div className="mx-auto flex max-w-xl flex-col items-center lg:mx-0 lg:items-start">
+              <h1 className="text-2xl font-bold leading-[1.2] text-[#1b1b1b] sm:text-3xl lg:max-w-[18ch] lg:text-[38px]">
                 Lorem ipsum dolor <span className="text-[#2e9a5f]">sit</span>{" "}
                 amet, <span className="text-[#2e9a5f]">consectetur</span>{" "}
                 <span className="text-[#2e9a5f]">adipiscing elit.</span>
               </h1>
 
-              <p className="mt-4 max-w-md text-justify text-sm leading-relaxed text-[#1b1b1b] text-balance md:mt-5 md:max-w-xl md:text-base lg:max-w-lg lg:text-left">
+              <p className="mt-3 max-w-sm text-justify text-xs leading-relaxed text-[#1b1b1b] text-balance sm:text-sm md:mt-4 md:max-w-md lg:max-w-md lg:text-left">
                 Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse
                 temporibus id sit non possimus facilis aliquip libero officia
                 occaecat et qui.
               </p>
 
-              <button className="mt-6 flex w-fit items-center gap-2 rounded-lg bg-[#1e5b3a] px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#174a2f] md:mt-8 sm:px-6 sm:text-[15px]">
-                <CalendarDays className="h-4 w-4" />
+              <button className="mt-5 flex w-fit items-center gap-2 rounded-md bg-[#1e5b3a] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-[#174a2f] md:mt-6 sm:px-5 sm:text-sm">
+                <CalendarDays className="h-3.5 w-3.5" />
                 Mulai Konseling
               </button>
             </div>
 
             {/* Badge: mobile saja */}
-            <div className="mx-auto mt-6 inline-flex w-fit items-center gap-2 rounded-xl bg-white/95 px-3 py-2 shadow md:hidden">
-              <HeartHandshake className="h-5 w-5 text-primary" />
+            <div className="mx-auto mt-5 inline-flex w-fit items-center gap-2 rounded-lg bg-white/95 px-2.5 py-1.5 shadow md:hidden">
+              <HeartHandshake className="h-4 w-4 text-primary" />
               <div className="text-left">
-                <p className="text-xs font-semibold text-[#1b1b1b]">
+                <p className="text-[11px] font-semibold text-[#1b1b1b]">
                   Dampingan Humanis
                 </p>
-                <p className="text-[10px] text-gray-500">
+                <p className="text-[9px] text-gray-500">
                   Dukungan akademik & personal
                 </p>
               </div>
@@ -346,40 +342,40 @@ export default function HomePage() {
           </div>
 
           {/* Polaroid mobile: kecil di kanan atas */}
-          <div className="pointer-events-none absolute right-4 top-40 z-0 h-28 w-32 md:hidden">
+          <div className="pointer-events-none absolute right-6 top-32 z-0 h-20 w-24 md:hidden">
             <Polaroid
               src="/maskot.png"
-              className="right-0 top-0 h-24 w-20"
+              className="right-0 top-0 h-16 w-14"
               rotate={6}
             />
             <Polaroid
               src="/maskot.png"
-              className="bottom-0 left-0 h-16 w-16"
+              className="bottom-0 left-0 h-12 w-12"
               rotate={-6}
             />
           </div>
 
-          {/* Polaroid desktop: tablet disembunyikan */}
-          <div className="pointer-events-none absolute right-[7%] top-1/2 z-0 hidden h-65 w-95 -translate-y-1/2 lg:block">
+          {/* Polaroid desktop */}
+          <div className="pointer-events-none absolute right-[10%] top-1/2 z-0 hidden h-52 w-72 -translate-y-1/2 lg:block">
             <Polaroid
               src="/maskot.png"
-              className="right-0 top-0 h-47.5 w-60"
+              className="right-0 top-0 h-36 w-44"
               rotate={6}
             />
             <Polaroid
               src="/maskot.png"
-              className="bottom-0 left-0 h-35 w-35"
+              className="bottom-0 left-0 h-24 w-24"
               rotate={-8}
             />
             {/* Kartu Dampingan Humanis: desktop */}
-            <div className="pointer-events-none absolute right-[20%] top-[-23%] z-20 hidden lg:block">
-              <div className="flex items-center gap-3 rounded-xl bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
-                <HeartHandshake className="h-6 w-6 text-primary" />
+            <div className="pointer-events-none absolute right-[18%] top-[-20%] z-20 hidden lg:block">
+              <div className="flex items-center gap-2.5 rounded-lg bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
+                <HeartHandshake className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-[14px] font-semibold text-[#1b1b1b]">
+                  <p className="text-[12px] font-semibold text-[#1b1b1b]">
                     Dampingan Humanis
                   </p>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-[10px] text-gray-500">
                     Dukungan akademik & personal
                   </p>
                 </div>
@@ -389,7 +385,7 @@ export default function HomePage() {
 
           {/* Wave bawah */}
           <svg
-            className="absolute -bottom-px left-0 z-10 block h-8 w-full md:h-14 lg:h-20"
+            className="absolute -bottom-px left-0 z-10 block h-6 w-full md:h-10 lg:h-14"
             viewBox="0 0 1440 320"
             preserveAspectRatio="none"
           >
@@ -401,25 +397,25 @@ export default function HomePage() {
         </section>
 
         {/* ================= KENAPA LAYANAN KONSELING HADIR ================= */}
-        <section className="bg-linear-to-b from-[#f5fdf9] to-white py-16 md:py-24">
+        <section className="bg-linear-to-b from-[#f5fdf9] to-white py-12 md:py-16">
           <div className={container}>
-            <div className="grid items-center gap-10 md:grid-cols-2">
+            <div className="grid items-center gap-8 md:grid-cols-2">
               {/* Kiri: logo, judul, deskripsi */}
               <div>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
                   <img
                     src="/kampus.png"
                     alt="Logo Universitas Katolik De La Salle Manado"
-                    className="h-20 w-auto object-contain md:h-24"
+                    className="h-14 w-auto object-contain md:h-16"
                   />
                   <img
                     src="/himsi.png"
                     alt="Logo HIMPSI"
-                    className="h-20 w-auto object-contain md:h-24"
+                    className="h-14 w-auto object-contain md:h-16"
                   />
                 </div>
 
-                <h2 className="mt-8 text-3xl font-bold leading-[1.2] text-[#1b1b1b] sm:text-4xl lg:text-5xl">
+                <h2 className="mt-6 text-2xl font-bold leading-[1.25] text-[#1b1b1b] sm:text-3xl lg:text-4xl">
                   Kenapa Layanan
                   <br />
                   Konseling <span className="text-[#2e9a5f]">Hadir</span>
@@ -427,7 +423,7 @@ export default function HomePage() {
                   <span className="text-[#2e9a5f]">Untuk Anda?</span>
                 </h2>
 
-                <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-600 sm:text-[15px]">
+                <p className="mt-3 max-w-md text-xs leading-relaxed text-gray-600 sm:text-sm">
                   Lorem ipsum dolor sit amet consectetur adipiscing elit odio
                   esse temporibus id sit non possimus facilis aliquip libero
                   officia occaecat et qui
@@ -439,13 +435,13 @@ export default function HomePage() {
                 <img
                   src="/thinking.png"
                   alt="Maskot SiCARE"
-                  className="w-full max-w-65 object-contain sm:max-w-80 lg:max-w-90"
+                  className="w-full max-w-48 object-contain sm:max-w-56 lg:max-w-64"
                 />
               </div>
             </div>
 
             {/* Kartu keunggulan */}
-            <div className="mt-16 grid gap-6 md:mt-20 md:grid-cols-3">
+            <div className="mt-12 grid gap-4 md:mt-14 md:grid-cols-3">
               {reasons.map((item, i) => (
                 <ReasonCard
                   key={i}
@@ -460,58 +456,55 @@ export default function HomePage() {
         <Panduan />
       </div>
       <Testimonials />
-      <Footer />
     </>
   );
 }
 
 function Panduan() {
   return (
-    <>
+    <section className="bg-white py-12 md:py-16">
       {/* ================= SEMUA DIMULAI DARI SINI ================= */}
-      <section className="bg-white py-16 md:py-24">
-        <div className={`${container} text-center`}>
-          <h2 className="text-3xl font-bold text-[#1b1b1b] sm:text-4xl md:text-5xl">
-            Semua Dimulai dari Sini
-          </h2>
-          <p className="mx-auto mt-2 max-w-2xl text-sm text-[#1b1b1b] sm:text-base md:text-[17px]">
-            Lihat bagaimana proses booking konseling di SiCARE dan temukan
-            langkah yang sesuai untukmu.
-          </p>
+      <div className={`${container} text-center`}>
+        <h2 className="text-2xl font-bold text-[#1b1b1b] sm:text-3xl md:text-4xl">
+          Semua Dimulai dari Sini
+        </h2>
+        <p className="mx-auto mt-2 max-w-xl text-xs text-[#1b1b1b] sm:text-sm md:text-base">
+          Lihat bagaimana proses booking konseling di SiCARE dan temukan langkah
+          yang sesuai untukmu.
+        </p>
 
-          <div className="mt-12 grid gap-10 sm:grid-cols-2 md:mt-16 md:gap-8 lg:grid-cols-4">
-            {steps.map((step) => {
-              const Icon = step.icon;
-              return (
-                <div key={step.no} className="group relative pt-16 md:pt-20">
-                  {/* Angka besar di belakang: naik & lebih terlihat saat card di-hover */}
-                  <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 text-[96px] font-black leading-none text-[#b9e4cc]/50 transition-all duration-500 ease-out group-hover:-translate-y-3 group-hover:text-[#b9e4cc]/90 sm:text-[120px] xl:text-[150px]">
-                    {step.no}
-                  </span>
+        <div className="mt-10 grid gap-8 sm:grid-cols-2 md:mt-12 md:gap-6 lg:grid-cols-4">
+          {steps.map((step) => {
+            const Icon = step.icon;
+            return (
+              <div key={step.no} className="group relative pt-12 md:pt-14">
+                {/* Angka besar di belakang: naik & lebih terlihat saat card di-hover */}
+                <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 text-[72px] font-black leading-none text-[#b9e4cc]/50 transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:text-[#b9e4cc]/90 sm:text-[88px] xl:text-[100px]">
+                  {step.no}
+                </span>
 
-                  {/* Card: membesar sedikit saat di-hover */}
-                  <div className="relative flex h-full origin-center flex-col items-center rounded-xl bg-white px-6 pb-8 pt-7 shadow-[0_10px_30px_rgba(0,0,0,0.08)] transition-all duration-500 ease-out group-hover:scale-105 group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.14)]">
-                    <h3 className=" text-sm font-bold uppercase leading-snug tracking-wide text-[#2b2b2b] md:text-[15px]">
-                      {step.title}
-                    </h3>
-                    <p className="mt-4 text-sm leading-relaxed text-gray-600 md:text-[14px]">
-                      {step.text}
-                    </p>
-                    <Icon className="mt-6 h-6 w-6 text-gray-500" />
-                  </div>
+                {/* Card: membesar sedikit saat di-hover */}
+                <div className="relative flex h-full origin-center flex-col items-center rounded-lg bg-white px-5 pb-6 pt-5 shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all duration-500 ease-out group-hover:scale-105 group-hover:shadow-[0_16px_32px_rgba(0,0,0,0.14)]">
+                  <h3 className="text-xs font-bold uppercase leading-snug tracking-wide text-[#2b2b2b] md:text-sm">
+                    {step.title}
+                  </h3>
+                  <p className="mt-3 text-xs leading-relaxed text-gray-600 md:text-[13px]">
+                    {step.text}
+                  </p>
+                  <Icon className="mt-4 h-5 w-5 text-gray-500" />
                 </div>
-              );
-            })}
-          </div>
-
-          <button className="mx-auto mt-14 flex items-center gap-3 rounded-full bg-white py-2.5 pl-6 pr-2 text-sm font-medium text-[#1b1b1b] shadow-[0_10px_25px_rgba(0,0,0,0.12)] transition hover:shadow-lg sm:text-[15px]">
-            Lihat Selengkapnya
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1d3a86] text-white">
-              <ArrowUpRight className="h-4 w-4" />
-            </span>
-          </button>
+              </div>
+            );
+          })}
         </div>
-      </section>
-    </>
+
+        <button className="mx-auto mt-10 flex items-center gap-2 rounded-full bg-white py-2 pl-5 pr-1.5 text-xs font-medium text-[#1b1b1b] shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition hover:shadow-lg sm:text-sm">
+          Lihat Selengkapnya
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1d3a86] text-white">
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </span>
+        </button>
+      </div>
+    </section>
   );
 }

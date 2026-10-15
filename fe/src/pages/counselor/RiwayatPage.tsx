@@ -1,11 +1,22 @@
-import { useMemo, useState } from "react";
-import { ChevronDown, CircleUserRound, Lock, Search, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  Eye,
+  EyeOff,
+  Lock,
+  Search,
+  X,
+} from "lucide-react";
+
+type Format = "Individu" | "Kelompok";
 
 type Session = {
   id: number;
   topic: string;
-  format: "Individu" | "Kelompok";
-  date: string; // "YYYY-MM-DD"
+  format: Format;
+  date: string; // YYYY-MM-DD
   time: string; // "HH.MM"
   summary: string;
   note: string;
@@ -20,8 +31,11 @@ type Client = {
   sessions: Session[];
 };
 
-// Data contoh. Ganti dengan hasil fetch dari API.
-const CLIENTS: Client[] = [
+const MAX_ATTEMPTS = 3;
+const ACCESS_DURATION_MS = 10 * 60 * 1000;
+
+// Data contoh. Semua sesi sudah memiliki catatan.
+const clients: Client[] = [
   {
     id: "c1",
     name: "Yusli Ngongano",
@@ -96,184 +110,205 @@ const CLIENTS: Client[] = [
   },
 ];
 
-const MAX_ATTEMPTS = 3;
-const ACCESS_MS = 10 * 60 * 1000; // akses klien 10 menit
+const allSessions = clients.flatMap((c) => c.sessions);
 
-const initials = (n: string) =>
-  n
+const initials = (name: string) =>
+  name
     .split(" ")
     .map((w) => w[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
 const fmtDate = (iso: string) =>
-  new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
+  new Date(`${iso}T00:00:00`).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+
 const monthLabel = (ym: string) =>
-  new Date(ym + "-01T00:00:00").toLocaleDateString("id-ID", {
+  new Date(`${ym}-01T00:00:00`).toLocaleDateString("id-ID", {
     month: "long",
     year: "numeric",
   });
+
 const sessionKey = (s: Session) => `${s.date} ${s.time}`;
 
+const matches = (s: Session, format: Format, month: string) =>
+  s.format === format && (month === "all" || s.date.startsWith(month));
+
+const monthOptions = [...new Set(allSessions.map((s) => s.date.slice(0, 7)))]
+  .sort()
+  .reverse();
+
 export default function RiwayatPage() {
-  const [format, setFormat] = useState<"Individu" | "Kelompok">("Individu");
+  const [format, setFormat] = useState<Format>("Individu");
   const [month, setMonth] = useState("all");
   const [query, setQuery] = useState("");
   const [timeSort, setTimeSort] = useState<"terbaru" | "terlama">("terbaru");
 
-  const [clientId, setClientId] = useState<string | null>(null);
-  const [pendingClientId, setPendingClientId] = useState<string | null>(null);
-  const [attempts, setAttempts] = useState<Record<string, number>>({});
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [noteId, setNoteId] = useState<number | null>(null);
+
   const [accessUntil, setAccessUntil] = useState<Record<string, number>>({});
+  const [attempts, setAttempts] = useState<Record<string, number>>({});
   const [now, setNow] = useState(() => Date.now());
 
+  const [pwClientId, setPwClientId] = useState<string | null>(null);
   const [pwInput, setPwInput] = useState("");
-  const [pwShow, setPwShow] = useState(false);
+  const [pwVisible, setPwVisible] = useState(false);
   const [pwError, setPwError] = useState("");
-  const [noteSession, setNoteSession] = useState<Session | null>(null);
+
   const [toastMsg, setToastMsg] = useState("");
 
-  // Perbarui timer akses setiap detik saat ada akses terbuka
-  useMemo(() => {
-    if (!clientId) return;
+  // Perbarui waktu setiap detik untuk timer akses
+  useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [clientId]);
+  }, []);
 
-  const allSessions = useMemo(() => CLIENTS.flatMap((c) => c.sessions), []);
-  const months = useMemo(
-    () =>
-      [...new Set(allSessions.map((s) => s.date.slice(0, 7)))].sort().reverse(),
-    [allSessions],
-  );
+  // Sembunyikan toast otomatis
+  useEffect(() => {
+    if (!toastMsg) return;
+    const t = setTimeout(() => setToastMsg(""), 2800);
+    return () => clearTimeout(t);
+  }, [toastMsg]);
 
-  const matchSession = (s: Session) =>
-    s.format === format && (month === "all" || s.date.startsWith(month));
+  // Kunci otomatis saat akses habis
+  useEffect(() => {
+    if (!selectedId) return;
+    if ((accessUntil[selectedId] ?? 0) > now) return;
+    setSelectedId(null);
+    setNoteId(null);
+    setToastMsg("Akses riwayat terkunci kembali.");
+  }, [now, selectedId, accessUntil]);
 
-  const hasAccess = (cid: string) => (accessUntil[cid] || 0) > now;
+  const hasAccess = (cid: string) => (accessUntil[cid] ?? 0) > now;
 
-  const toast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(""), 2800);
-  };
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return clients
+      .filter((c) => !q || c.name.toLowerCase().includes(q))
+      .map((c) => {
+        const sessions = c.sessions.filter((s) => matches(s, format, month));
+        const latest =
+          sessions
+            .map((s) => s.date)
+            .sort()
+            .at(-1) ?? "";
+        return { client: c, count: sessions.length, latest };
+      })
+      .filter((r) => r.count > 0)
+      .sort((a, b) => b.latest.localeCompare(a.latest));
+  }, [query, format, month]);
 
-  // Daftar klien
-  const clientRows = CLIENTS.filter(
-    (c) =>
-      !query.trim() ||
-      c.name.toLowerCase().includes(query.trim().toLowerCase()),
-  )
-    .map((c) => {
-      const sessions = c.sessions.filter(matchSession);
-      const latest =
-        sessions
-          .map((s) => s.date)
-          .sort()
-          .at(-1) || "";
-      return { c, sessions, latest };
-    })
-    .filter((r) => r.sessions.length > 0)
-    .sort((a, b) => b.latest.localeCompare(a.latest));
-
-  const activeClient = CLIENTS.find((c) => c.id === clientId) || null;
+  const selected = clients.find((c) => c.id === selectedId) ?? null;
 
   const detailSessions = useMemo(() => {
-    if (!activeClient) return [];
-    return activeClient.sessions
-      .filter(matchSession)
+    if (!selected) return [];
+    return selected.sessions
+      .filter((s) => matches(s, format, month))
       .sort((a, b) =>
         timeSort === "terlama"
           ? sessionKey(a).localeCompare(sessionKey(b))
           : sessionKey(b).localeCompare(sessionKey(a)),
       );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeClient, format, month, timeSort]);
+  }, [selected, format, month, timeSort]);
 
-  const openClient = (cid: string) => {
-    setClientId(cid);
-  };
+  const lastDate =
+    detailSessions
+      .map((s) => s.date)
+      .sort()
+      .at(-1) ?? "";
 
-  const onClientClick = (cid: string) => {
-    if (hasAccess(cid)) openClient(cid);
-    else {
-      setPendingClientId(cid);
-      setPwInput("");
-      setPwShow(false);
-      setPwError("");
+  const noteSession =
+    noteId !== null ? (allSessions.find((s) => s.id === noteId) ?? null) : null;
+
+  const timeLeft = selectedId
+    ? Math.max(0, (accessUntil[selectedId] ?? 0) - now)
+    : 0;
+  const timerText = `${Math.floor(timeLeft / 60000)}:${String(
+    Math.floor((timeLeft % 60000) / 1000),
+  ).padStart(2, "0")}`;
+
+  const pwClient = clients.find((c) => c.id === pwClientId) ?? null;
+  const pwUsed = pwClientId ? (attempts[pwClientId] ?? 0) : 0;
+  const pwLocked = pwUsed >= MAX_ATTEMPTS;
+
+  function openClient(cid: string) {
+    if (hasAccess(cid)) {
+      setSelectedId(cid);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
     }
-  };
+    setPwClientId(cid);
+    setPwInput("");
+    setPwVisible(false);
+    setPwError("");
+  }
 
-  const submitPw = () => {
-    if (!pendingClientId) return;
-    const c = CLIENTS.find((x) => x.id === pendingClientId);
-    if (!c) return;
-    const used = attempts[pendingClientId] || 0;
-    if (used >= MAX_ATTEMPTS) return;
+  function closePw() {
+    setPwClientId(null);
+  }
 
-    if (pwInput === c.password) {
-      setAttempts((a) => ({ ...a, [c.id]: 0 }));
-      setAccessUntil((a) => ({ ...a, [c.id]: Date.now() + ACCESS_MS }));
-      setPendingClientId(null);
-      openClient(c.id);
-      toast(`Riwayat ${c.name} dibuka. Terkunci otomatis dalam 10 menit.`);
-    } else {
-      const next = used + 1;
-      setAttempts((a) => ({ ...a, [c.id]: next }));
-      const left = MAX_ATTEMPTS - next;
-      setPwError(
-        left > 0
-          ? `Kata sandi salah. Sisa percobaan: ${left}`
-          : "Terlalu banyak percobaan. Coba lagi nanti.",
+  function handleUnlock(e: FormEvent) {
+    e.preventDefault();
+    if (!pwClient || pwLocked) return;
+
+    if (pwInput === pwClient.password) {
+      const cid = pwClient.id;
+      setAttempts((p) => ({ ...p, [cid]: 0 }));
+      setAccessUntil((p) => ({ ...p, [cid]: Date.now() + ACCESS_DURATION_MS }));
+      setPwClientId(null);
+      setSelectedId(cid);
+      setToastMsg(
+        `Riwayat ${pwClient.name} dibuka. Terkunci otomatis dalam 10 menit.`,
       );
+      return;
     }
-  };
 
-  const backToClients = () => {
-    setClientId(null);
-    setNoteSession(null);
-  };
+    const used = pwUsed + 1;
+    setAttempts((p) => ({ ...p, [pwClient.id]: used }));
+    const left = MAX_ATTEMPTS - used;
+    setPwError(
+      left > 0
+        ? `Kata sandi salah. Sisa percobaan: ${left}`
+        : "Terlalu banyak percobaan. Coba lagi nanti.",
+    );
+    setPwInput("");
+  }
 
-  const viewNote = (s: Session) => {
-    if (!activeClient || !hasAccess(activeClient.id)) {
-      toast("Akses habis. Masukkan kata sandi kembali.");
+  function backToClients() {
+    setSelectedId(null);
+    setNoteId(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openNote(id: number) {
+    if (!selectedId || !hasAccess(selectedId)) {
+      setToastMsg("Akses habis. Masukkan kata sandi kembali.");
       backToClients();
       return;
     }
-    setNoteSession(s);
-  };
-
-  const remaining = activeClient
-    ? Math.max(0, (accessUntil[activeClient.id] || 0) - now)
-    : 0;
-  const mm = Math.floor(remaining / 60000);
-  const ss = String(Math.floor((remaining % 60000) / 1000)).padStart(2, "0");
-
-  // Akses habis: kembali ke daftar
-  if (activeClient && !hasAccess(activeClient.id)) {
-    queueMicrotask(backToClients);
+    setNoteId(id);
   }
-
-  const filterInfo = `${format}${month !== "all" ? " · " + monthLabel(month) : ""}`;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      {!activeClient ? (
+      {!selected ? (
         <>
-          {/* ============ DAFTAR KLIEN ============ */}
-          <div>
+          {/* ================= DAFTAR KLIEN ================= */}
+          <section>
             <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
               Riwayat Konseling
             </h1>
             <p className="mt-1 text-sm text-gray-500 sm:text-base">
               Pilih klien untuk membuka riwayat dan catatan konseling.
             </p>
-          </div>
+          </section>
 
-          {/* Toolbar */}
+          {/* Filter */}
           <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:p-4">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -291,22 +326,25 @@ export default function RiwayatPage() {
                 role="tablist"
                 className="flex flex-1 rounded-xl border border-gray-200 bg-gray-100/70 p-1 sm:flex-none"
               >
-                {(["Individu", "Kelompok"] as const).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    role="tab"
-                    aria-selected={format === f}
-                    onClick={() => setFormat(f)}
-                    className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition sm:flex-none ${
-                      format === f
-                        ? "bg-white font-semibold text-gray-900 shadow-sm"
-                        : "font-medium text-gray-500"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
+                {(["Individu", "Kelompok"] as Format[]).map((f) => {
+                  const active = format === f;
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setFormat(f)}
+                      className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition sm:flex-none ${
+                        active
+                          ? "bg-white font-semibold text-gray-900 shadow-sm"
+                          : "font-medium text-gray-500"
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="relative">
@@ -316,7 +354,7 @@ export default function RiwayatPage() {
                   className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-4 pr-10 text-sm text-gray-600 outline-none focus:border-[#1e5b3a] focus:bg-white sm:w-auto"
                 >
                   <option value="all">Semua Bulan</option>
-                  {months.map((m) => (
+                  {monthOptions.map((m) => (
                     <option key={m} value={m}>
                       {monthLabel(m)}
                     </option>
@@ -328,33 +366,35 @@ export default function RiwayatPage() {
           </div>
 
           <p className="mt-4 text-xs text-gray-500">
-            Menampilkan {clientRows.length} klien · {filterInfo}
+            Menampilkan {rows.length} klien · {format}
+            {month !== "all" && ` · ${monthLabel(month)}`}
           </p>
 
-          {/* Grid klien */}
           <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {clientRows.map(({ c, sessions, latest }) => (
-              <li key={c.id}>
+            {rows.map(({ client, count, latest }) => (
+              <li key={client.id}>
                 <button
                   type="button"
-                  onClick={() => onClientClick(c.id)}
+                  onClick={() => openClient(client.id)}
                   className="flex w-full flex-col rounded-2xl border border-gray-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-[#36c08f]/60 hover:shadow-md"
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] font-bold text-[#1e5b3a]">
-                      {initials(c.name)}
+                      {initials(client.name)}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-gray-900">
-                        {c.name}
+                        {client.name}
                       </p>
-                      <p className="truncate text-xs text-gray-500">{c.role}</p>
+                      <p className="truncate text-xs text-gray-500">
+                        {client.role}
+                      </p>
                     </div>
                     <Lock className="h-4 w-4 shrink-0 text-gray-400" />
                   </div>
                   <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 text-sm">
                     <span className="text-gray-600">
-                      {sessions.length} sesi {format.toLowerCase()}
+                      {count} sesi {format.toLowerCase()}
                     </span>
                     <span className="rounded-full bg-[#e8f9f0] px-2.5 py-1 text-xs font-semibold text-[#1e5b3a]">
                       Selesai
@@ -368,7 +408,7 @@ export default function RiwayatPage() {
             ))}
           </ul>
 
-          {clientRows.length === 0 && (
+          {rows.length === 0 && (
             <div className="mt-5 rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
               Tidak ada klien yang cocok dengan filter ini.
             </div>
@@ -376,29 +416,28 @@ export default function RiwayatPage() {
         </>
       ) : (
         <>
-          {/* ============ DETAIL KLIEN ============ */}
+          {/* ================= DETAIL KLIEN ================= */}
           <nav className="flex items-center gap-2 text-sm text-gray-500">
             <button
               type="button"
               onClick={backToClients}
               className="inline-flex items-center gap-1.5 font-semibold text-[#1e5b3a] hover:underline"
             >
-              ‹ Riwayat Konseling
+              <ChevronLeft className="h-4 w-4" />
+              Riwayat Konseling
             </button>
             <span>/</span>
-            <span className="truncate text-gray-700">{activeClient.name}</span>
+            <span className="truncate text-gray-700">{selected.name}</span>
           </nav>
 
           <div className="mt-5 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#1e5b3a] to-[#36c08f] text-xl font-bold text-white">
-              {initials(activeClient.name)}
+              {initials(selected.name)}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-bold sm:text-2xl">
-                {activeClient.name}
-              </h2>
+              <h2 className="text-xl font-bold sm:text-2xl">{selected.name}</h2>
               <p className="mt-1 text-sm text-gray-500">
-                {activeClient.role} · {activeClient.email}
+                {selected.role} · {selected.email}
               </p>
             </div>
             <dl className="grid grid-cols-2 gap-3 sm:gap-6">
@@ -409,9 +448,9 @@ export default function RiwayatPage() {
                 </dd>
               </div>
               <div className="rounded-xl bg-gray-50 px-3 py-2.5 text-center sm:px-4">
-                <dt className="text-xs text-gray-500">Akses berakhir</dt>
+                <dt className="text-xs text-gray-500">Terakhir</dt>
                 <dd className="mt-0.5 text-sm font-semibold">
-                  {mm}:{ss}
+                  {lastDate ? fmtDate(lastDate) : "-"}
                 </dd>
               </div>
             </dl>
@@ -422,7 +461,10 @@ export default function RiwayatPage() {
               <h3 className="text-base font-bold text-gray-900">
                 Riwayat sesi
               </h3>
-              <p className="text-xs text-gray-500">{filterInfo}</p>
+              <p className="text-xs text-gray-500">
+                {format}
+                {month !== "all" && ` · ${monthLabel(month)}`}
+              </p>
             </div>
             <div className="relative">
               <select
@@ -472,7 +514,7 @@ export default function RiwayatPage() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => viewNote(s)}
+                        onClick={() => openNote(s.id)}
                         className="rounded-lg bg-[#1e5b3a] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#174a2f]"
                       >
                         Lihat catatan
@@ -486,10 +528,13 @@ export default function RiwayatPage() {
         </>
       )}
 
-      {/* ============ MODAL PASSWORD KLIEN ============ */}
-      {pendingClientId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      {/* ================= MODAL PASSWORD ================= */}
+      {pwClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/45 p-4">
+          <form
+            onSubmit={handleUnlock}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
               <Lock className="h-6 w-6" />
             </div>
@@ -497,59 +542,73 @@ export default function RiwayatPage() {
             <p className="mt-1 text-sm text-gray-500">
               Masukkan kata sandi untuk membuka riwayat dan catatan{" "}
               <span className="font-semibold text-gray-700">
-                {CLIENTS.find((c) => c.id === pendingClientId)?.name}
+                {pwClient.name}
               </span>
               . Ini berbeda dari kata sandi login Anda.
             </p>
 
-            <label className="mt-5 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="pwInput"
+              className="mt-5 block text-sm font-medium text-gray-700"
+            >
               Kata sandi
             </label>
             <div className="relative mt-1.5">
               <input
-                type={pwShow ? "text" : "password"}
-                value={pwInput}
-                onChange={(e) => setPwInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submitPw()}
+                id="pwInput"
+                type={pwVisible ? "text" : "password"}
                 autoComplete="off"
                 autoFocus
-                className="w-full rounded-xl border border-gray-300 py-2.5 pl-4 pr-20 text-sm outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+                value={pwInput}
+                onChange={(e) => setPwInput(e.target.value)}
+                disabled={pwLocked}
+                className="w-full rounded-xl border border-gray-300 py-2.5 pl-4 pr-20 text-sm outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:bg-gray-100"
               />
               <button
                 type="button"
-                onClick={() => setPwShow((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                onClick={() => setPwVisible((v) => !v)}
+                className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
               >
-                {pwShow ? "Sembunyikan" : "Lihat"}
+                {pwVisible ? (
+                  <EyeOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" />
+                )}
+                {pwVisible ? "Sembunyikan" : "Lihat"}
               </button>
             </div>
+
             {pwError && <p className="mt-2 text-sm text-red-600">{pwError}</p>}
+            {!pwError && pwUsed > 0 && !pwLocked && (
+              <p className="mt-1 text-xs text-gray-500">
+                Sisa percobaan: {MAX_ATTEMPTS - pwUsed}
+              </p>
+            )}
 
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setPendingClientId(null)}
+                onClick={closePw}
                 className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Batal
               </button>
               <button
-                type="button"
-                onClick={submitPw}
-                disabled={(attempts[pendingClientId] || 0) >= MAX_ATTEMPTS}
+                type="submit"
+                disabled={pwLocked || pwInput.length === 0}
                 className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f] disabled:opacity-50"
               >
                 Buka
               </button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
-      {/* ============ MODAL BACA CATATAN ============ */}
-      {noteSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/40 p-4">
-          <div className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+      {/* ================= MODAL BACA CATATAN ================= */}
+      {noteSession && selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/45 p-4">
+          <div className="flex max-h-[88vh] w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-gray-200 p-5 sm:p-6">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#1e5b3a]">
@@ -563,7 +622,7 @@ export default function RiwayatPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setNoteSession(null)}
+                onClick={() => setNoteId(null)}
                 aria-label="Tutup"
                 className="rounded-lg p-2 hover:bg-gray-100"
               >
@@ -584,14 +643,14 @@ export default function RiwayatPage() {
                 {noteSession.note}
               </p>
               <p className="mt-5 text-xs text-gray-400">
-                Akses terkunci otomatis dalam {mm}:{ss}
+                Akses terkunci otomatis dalam {timerText}
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* ============ TOAST ============ */}
+      {/* ================= TOAST ================= */}
       <div
         className={`pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-lg transition duration-300 ${
           toastMsg ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"

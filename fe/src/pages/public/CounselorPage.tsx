@@ -1,6 +1,4 @@
 import { GraduationCap, Briefcase } from "lucide-react";
-import Navbar from "../../components/home/Navbar";
-import Footer from "../../components/home/Footer";
 
 type Schedule = { day: string; slots: string[] };
 type Education = { school: string; year: string; major: string };
@@ -19,7 +17,7 @@ const counselors: Counselor[] = [
   {
     id: 1,
     name: "Giovanna Yudi, S.Psi., M.Psi., Psikolog",
-    photo: "/maskot.png",
+    photo: "/gio.jpeg",
     description:
       "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
     experience: "5 Tahun",
@@ -56,7 +54,7 @@ const counselors: Counselor[] = [
   {
     id: 2,
     name: "Rico Kornelius Wahani, S.Psi., M.Psi., Psikolog",
-    photo: "/maskot.png",
+    photo: "/rico.png",
     description:
       "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
     experience: "5 Tahun",
@@ -351,13 +349,8 @@ function CounselorCard({ c, reverse }: { c: Counselor; reverse: boolean }) {
 export default function CounselorPage() {
   return (
     <div className="overflow-x-hidden bg-white">
-      {/* Navbar */}
-      <div className="absolute inset-x-0 top-0 z-50">
-        <Navbar />
-      </div>
-
       {/* Header halaman */}
-      <section className="mx-auto w-[92%] pb-10 pt-40 sm:w-[88%] md:pt-44 lg:w-[86%]">
+      <section className="mx-auto w-[92%] pb-10 pt-24 sm:w-[88%] md:pt-32 lg:w-[86%]">
         <h1 className="font-[Montserrat] text-3xl font-extrabold text-[#14553a] sm:text-4xl">
           Profil Konselor
         </h1>
@@ -373,8 +366,6 @@ export default function CounselorPage() {
           <CounselorCard key={c.id} c={c} reverse={i % 2 === 1} />
         ))}
       </main>
-
-      <Footer />
     </div>
   );
 }

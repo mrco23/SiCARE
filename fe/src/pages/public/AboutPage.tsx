@@ -15,10 +15,9 @@ import {
   Users,
 } from "lucide-react";
 import { useState, type CSSProperties, type ElementType } from "react";
-import Navbar from "../../components/home/Navbar";
 
-// Lebar konten: sama dengan navbar dan homepage
-const container = "mx-auto w-[92%] sm:w-[88%] lg:w-[86%]";
+// Lebar konten: sama dengan homepage
+const container = "mx-auto w-[88%] sm:w-[82%] md:w-[78%] lg:w-[72%] xl:w-[78%]";
 
 /* ============================ HERO ============================ */
 function AboutHero() {
@@ -29,29 +28,29 @@ function AboutHero() {
   ];
 
   return (
-    <section className="-mt-16 md:-mt-20 relative overflow-hidden bg-[#f3fdf7] pb-40 pt-32 md:pb-44 md:pt-44">
+    <section className="relative overflow-hidden bg-[#f3fdf7] pb-20 pt-20 md:pb-24 md:pt-24">
       {/* Logo besar di latar kanan atas */}
       <img
         src="/logo.png"
         alt=""
         aria-hidden="true"
-        className="pointer-events-none absolute -right-40 -top-0 w-130 max-w-none select-none opacity-15 md:w-160 lg:w-190"
+        className="pointer-events-none absolute -right-[100px] top-16 w-[320px] max-w-none select-none opacity-15 md:w-[400px] lg:w-[460px]"
       />
 
       {/* Dekorasi lingkaran biru di kiri */}
-      <div className="pointer-events-none absolute -left-24 top-[62%] h-72 w-72 rounded-full bg-[#cde2fb]" />
-      <div className="pointer-events-none absolute left-10 top-[52%] h-4 w-4 rounded-full bg-[#cde2fb]" />
+      <div className="pointer-events-none absolute -left-[60px] top-[62%] h-[180px] w-[180px] rounded-full bg-[#cde2fb]" />
+      <div className="pointer-events-none absolute left-[24px] top-[52%] h-[10px] w-[10px] rounded-full bg-[#cde2fb]" />
 
       <div className={`relative z-10 ${container}`}>
-        <h1 className="text-center font-[Montserrat] text-3xl font-bold leading-tight text-[#14553a] sm:text-4xl md:text-5xl">
+        <h1 className="text-center text-[20px] font-bold leading-tight text-[#14553a] sm:text-[26px] md:text-[30px]">
           Mendampingi Langka,
           <br />
           Membantu <span className="text-[#d4b82a]">Tumbuh Bersama</span>
         </h1>
 
-        <div className="mt-20 grid items-center gap-12 md:grid-cols-2">
+        <div className="mt-10 grid gap-8 md:grid-cols-2">
           {/* Kiri: deskripsi */}
-          <div className="space-y-8 font-[Poppins] text-base leading-relaxed text-[#14553a] sm:text-lg md:text-[19px]">
+          <div className="flex flex-col justify-center space-y-4 text-[13px] leading-relaxed text-[#14553a] sm:text-[14px] md:text-[17px]">
             <p>
               <span className="font-semibold">
                 Divisi Bimbingan dan Konseling (BK)
@@ -67,35 +66,35 @@ function AboutHero() {
           </div>
 
           {/* Kanan: kartu */}
-          <div className="relative mx-auto w-full max-w-md rounded-3xl bg-white p-7 shadow-[0_20px_50px_rgba(46,154,95,0.22)] sm:p-8">
+          <div className="relative mx-auto flex h-full w-full max-w-[320px] flex-col rounded-[16px] bg-white p-5 shadow-[0_12px_30px_rgba(46,154,95,0.2)] sm:p-6">
             {/* Garis aksen hijau tua di kiri */}
-            <div className="absolute bottom-10 left-0 top-[88px] w-1.5 rounded-r-full bg-[#14553a]" />
+            <div className="absolute bottom-6 left-0 top-16 w-[4px] rounded-r-full bg-[#14553a]" />
 
-            <div className="flex items-center gap-5">
-              <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-2xl bg-[#eef9f3]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-[56px] w-[64px] shrink-0 items-center justify-center rounded-[12px] bg-[#eef9f3]">
                 <HeartPulse
-                  className="h-10 w-10 text-[#14553a]"
+                  className="h-[26px] w-[26px] text-[#14553a]"
                   strokeWidth={2.2}
                 />
               </div>
               <div>
-                <h3 className="font-[Montserrat] text-xl font-bold text-[#1b1b1b]">
+                <h3 className="text-[15px] font-bold text-[#1b1b1b]">
                   Kesejahteraan Mental
                 </h3>
-                <p className="font-[Poppins] text-xs text-[#1b1b1b]">
+                <p className="text-[10px] text-[#1b1b1b]">
                   Prioritas Utama Kami di Kampus
                 </p>
               </div>
             </div>
 
-            <ul className="mt-8 space-y-5 pl-4 font-[Poppins]">
+            <ul className="mt-5 space-y-3 pl-2">
               {points.map((point) => (
                 <li
                   key={point}
-                  className="flex items-center gap-4 text-[15px] text-[#1b1b1b]"
+                  className="flex items-center gap-2.5 text-[12px] text-[#1b1b1b]"
                 >
                   <CircleCheck
-                    className="h-5 w-5 shrink-0 fill-[#36c08f] text-white"
+                    className="h-[16px] w-[16px] shrink-0 fill-[#36c08f] text-white"
                     strokeWidth={2.2}
                   />
                   {point}
@@ -103,10 +102,12 @@ function AboutHero() {
               ))}
             </ul>
 
-            <div className="mt-10 flex items-center justify-between border-t border-gray-300 pt-6 font-[Poppins]">
-              <span className="text-base text-[#36c08f]">Terbuka untuk :</span>
-              <span className="rounded-full border border-[#36c08f] px-4 py-1.5 text-xs text-[#1b1b1b]">
-                Mahasiswa &amp; Dosen / Karyawan
+            <div className="mt-auto flex items-center justify-between border-t border-gray-300 pt-4 pt-6">
+              <span className="text-[12px] text-[#36c08f]">
+                Terbuka untuk :
+              </span>
+              <span className="rounded-full border border-[#36c08f] px-2.5 py-1 text-[10px] text-[#1b1b1b]">
+                Mahasiswa &amp; Dosen atau Staff
               </span>
             </div>
           </div>
@@ -115,7 +116,7 @@ function AboutHero() {
 
       {/* Wave bawah abu-abu ke putih */}
       <svg
-        className="absolute inset-x-0 -bottom-px z-10 block h-24 w-full md:h-32"
+        className="absolute inset-x-0 -bottom-px z-10 block h-[60px] w-full md:h-[80px]"
         viewBox="0 0 1440 320"
         preserveAspectRatio="none"
       >
@@ -150,68 +151,72 @@ function VisiMisi() {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-white py-20 md:py-28">
+    <section className="relative overflow-hidden bg-white py-12 md:py-16">
       {/* Watermark */}
-      <span className="pointer-events-none absolute right-0 top-24 select-none font-[Montserrat] text-[120px] font-black leading-none text-[#e3f5ec] md:text-[180px]">
+      <span className="pointer-events-none absolute right-0 top-12 select-none font-[Montserrat] text-[56px] font-black leading-none text-[#e3f5ec] md:text-[84px]">
         MISI
       </span>
-      <span className="pointer-events-none absolute bottom-10 left-0 select-none font-[Montserrat] text-[120px] font-black leading-none text-[#e3f5ec] md:text-[180px]">
+      <span className="pointer-events-none absolute bottom-5 left-0 select-none font-[Montserrat] text-[56px] font-black leading-none text-[#e3f5ec] md:text-[84px]">
         VISI
       </span>
 
       <div className={`relative z-10 ${container}`}>
-        <h2 className="text-center font-[Montserrat] text-3xl font-bold text-[#1e5b3a] sm:text-4xl">
+        <h2 className="text-center font-[Montserrat] text-[20px] font-bold text-[#1e5b3a] sm:text-[24px]">
           Visi & Misi Layanan
         </h2>
 
-        <div className="mt-12 grid gap-8 md:grid-cols-2 md:gap-10">
+        <div className="mx-auto mt-6 grid max-w-[900px] gap-4 md:grid-cols-2 md:gap-5">
           {/* Visi */}
-          <div className="rounded-2xl bg-linear-to-br from-[#2a8a63] to-[#1b5e45] p-7 text-white shadow-xl sm:p-10">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15">
-                <Eye className="h-5 w-5 text-white" />
+          <div className="rounded-[14px] bg-linear-to-br from-[#2a8a63] to-[#1b5e45] p-5 text-white shadow-xl sm:p-6">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-white/15">
+                <Eye className="h-[14px] w-[14px] text-white" />
               </div>
-              <span className="text-sm font-semibold tracking-wide">VISI</span>
+              <span className="text-[11px] font-semibold tracking-wide">
+                VISI
+              </span>
             </div>
-            <h3 className="mt-6 font-[Montserrat] text-xl font-bold leading-snug sm:text-2xl">
+            <h3 className="mt-3 font-[Montserrat] text-[15px] font-bold leading-snug sm:text-[17px]">
               Menjadi penyedia Layanan Psikologis Terpercaya
             </h3>
-            <p className="mt-6 pl-4 text-sm leading-relaxed text-white/90 sm:text-[15px]">
+            <p className="mt-3 pl-2.5 text-[12px] leading-relaxed text-white/90 sm:text-[13px]">
               Menjadi penyedia layanan psikologis perguruan tinggi yang
               profesional, terpercaya, & berperan aktif dalam membentuk
               ketangguhan mental mahasiswa, dosen, & staff.
             </p>
-            <div className="mt-8 border-t border-white/25 pt-4">
-              <p className="flex items-center gap-2 text-xs text-[#9ff0c8]">
-                <Shield className="h-4 w-4" />
+            <div className="mt-4 border-t border-white/25 pt-3">
+              <p className="flex items-center gap-2 text-[10px] text-[#9ff0c8]">
+                <Shield className="h-[12px] w-[12px]" />
                 Berpedoman Kode Etik Psikolog
               </p>
             </div>
           </div>
 
           {/* Misi */}
-          <div className="rounded-2xl bg-linear-to-br from-[#f1fbf7] to-[#e2f6ee] p-7 shadow-sm sm:p-10">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2e9a5f]">
-                <Target className="h-5 w-5 text-white" />
+          <div className="rounded-[14px] bg-linear-to-br from-[#f1fbf7] to-[#e2f6ee] p-5 shadow-sm sm:p-6">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-[#2e9a5f]">
+                <Target className="h-[14px] w-[14px] text-white" />
               </div>
-              <span className="text-sm font-semibold tracking-wide text-[#1e5b3a]">
+              <span className="text-[11px] font-semibold tracking-wide text-[#1e5b3a]">
                 MISI
               </span>
             </div>
-            <h3 className="mt-6 font-[Montserrat] text-xl font-bold text-[#1e5b3a] sm:text-2xl">
+            <h3 className="mt-3 font-[Montserrat] text-[15px] font-bold text-[#1e5b3a] sm:text-[17px]">
               Langkah Nyata Pelayanan Kami
             </h3>
 
-            <ul className="mt-8 space-y-6">
+            <ul className="mt-4 space-y-3">
               {misi.map((item) => (
-                <li key={item.no} className="flex gap-4">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2e9a5f] text-sm font-bold text-white">
+                <li key={item.no} className="flex gap-2.5">
+                  <span className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full bg-[#2e9a5f] text-[10px] font-bold text-white">
                     {item.no}
                   </span>
                   <div>
-                    <p className="font-semibold text-[#2e9a5f]">{item.title}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                    <p className="text-[12px] font-semibold text-[#2e9a5f]">
+                      {item.title}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
                       {item.text}
                     </p>
                   </div>
@@ -225,12 +230,12 @@ function VisiMisi() {
   );
 }
 
+/* ========================= FOKUS LAYANAN ========================= */
 function FokusLayanan() {
   const cards: {
     icon: ElementType;
     title: string;
     text: string;
-    highlight?: boolean;
   }[] = [
     {
       icon: User,
@@ -241,7 +246,6 @@ function FokusLayanan() {
       icon: GraduationCap,
       title: "Konseling Edukasional",
       text: "Lorem ipsum dolor sit amet consectetur adipiscing elit facere exercitation mollit consectetur excepteur cum quos laboris illum quo minus nihil excepturi reprehenderit quos quod assumenda quibusdam.",
-      highlight: true,
     },
     {
       icon: Briefcase,
@@ -253,8 +257,7 @@ function FokusLayanan() {
   // Index kartu yang sedang di-hover (null = posisi awal)
   const [hovered, setHovered] = useState<number | null>(null);
 
-  // Slot posisi (0 = kiri, 1 = tengah, 2 = kanan).
-  // Kartu yang di-hover pindah ke tengah, kartu tengah gantian pindah ke slot kartu tsb.
+  // Slot posisi (0 = kiri, 1 = tengah, 2 = kanan)
   const slotOf = (i: number) => {
     if (hovered === null || hovered === 1) return i;
     if (i === hovered) return 1;
@@ -263,15 +266,14 @@ function FokusLayanan() {
   };
 
   return (
-    <section className="relative overflow-hidden bg-linear-to-b from-[#effcf5] to-[#f5fdf9] py-20 md:py-28">
+    <section className="relative overflow-hidden bg-white py-14 md:py-20">
       <div className={`relative z-10 ${container}`}>
-        <h2 className="font-[Montserrat] text-3xl font-bold text-[#064e3b] sm:text-4xl">
+        <h2 className="font-[Montserrat] text-2xl font-bold text-[#064e3b] sm:text-3xl">
           Fokus Layanan Utama
         </h2>
 
-        {/* --step = jarak antar slot (lebar kartu - tumpang tindih 4rem) */}
         <div
-          className="mt-14 flex flex-col items-center gap-8 md:flex-row md:items-start md:justify-center md:gap-0 md:[--step:16rem] lg:[--step:18rem]"
+          className="mt-10 flex flex-col items-center gap-6 md:flex-row md:items-start md:justify-center md:gap-0 md:[--step:15rem] lg:[--step:16rem]"
           onMouseLeave={() => setHovered(null)}
         >
           {cards.map((card, i) => {
@@ -285,8 +287,8 @@ function FokusLayanan() {
               <div
                 key={card.title}
                 onMouseEnter={() => setHovered(i)}
-                className={`relative w-full max-w-sm md:h-[510px] md:w-80 md:max-w-none lg:w-88 ${
-                  i === 0 ? "md:-mr-16" : i === 2 ? "md:-ml-16" : ""
+                className={`relative w-full max-w-sm md:h-[460px] md:w-[18rem] md:max-w-none lg:w-[20rem] ${
+                  i === 0 ? "md:-mr-12" : i === 2 ? "md:-ml-12" : ""
                 }`}
               >
                 <div
@@ -295,28 +297,29 @@ function FokusLayanan() {
                       "--tx": `calc(var(--step) * ${slot - i})`,
                     } as CSSProperties
                   }
-                  className={`group relative flex flex-col overflow-hidden rounded-[28px] border border-[#064e3b] bg-white p-7 shadow-[0_20px_50px_rgba(0,0,0,0.12)] sm:p-8 md:pointer-events-none md:absolute md:inset-x-0 md:top-0 md:translate-x-[var(--tx)] md:transition-[translate,scale,transform,height,box-shadow,padding] md:duration-700 md:ease-[cubic-bezier(0.22,1,0.36,1)] md:will-change-transform ${
+                  className={`group relative flex flex-col overflow-hidden rounded-[28px] border border-[#36c08f] bg-white p-7 sm:p-8 md:pointer-events-none md:absolute md:inset-x-0 md:top-0 md:translate-x-[var(--tx)] md:transition-[translate,scale,transform,height,box-shadow,padding] md:duration-700 md:ease-[cubic-bezier(0.22,1,0.36,1)] md:will-change-transform ${
                     isCenter
-                      ? "md:z-30 md:h-[480px] md:translate-y-0 md:py-10 md:shadow-[0_30px_60px_rgba(0,0,0,0.22)]"
-                      : "md:z-10 md:h-[420px] md:translate-y-[72px]"
+                      ? "md:z-30 md:h-[430px] md:translate-y-0 md:shadow-[0_24px_48px_rgba(0,0,0,0.20)]"
+                      : "md:z-10 md:h-[375px] md:translate-y-[64px] md:shadow-[0_20px_40px_rgba(0,0,0,0.14)]"
                   } ${isHovered ? "md:scale-[1.03]" : ""}`}
                 >
                   {/* Ikon besar transparan di sudut kanan bawah */}
                   <Icon
                     fill="currentColor"
                     strokeWidth={1}
-                    className="pointer-events-none absolute -bottom-6 -right-6 h-40 w-40 -rotate-12 text-[#064e3b]/10"
+                    className="pointer-events-none absolute -bottom-6 -right-6 h-36 w-36 -rotate-12 text-[#36c08f]/25"
                   />
 
-                  <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#064e3b]">
+                  {/* Kotak ikon hijau (1:1) */}
+                  <div className="relative flex aspect-square w-16 items-center justify-center rounded-xl bg-[#36c08f]">
                     <Icon className="h-8 w-8 text-white" />
                   </div>
 
-                  <h3 className="relative mt-6 font-[Montserrat] text-2xl font-bold text-black">
+                  <h3 className="relative mt-6 font-[Montserrat] text-xl font-bold leading-tight text-black md:text-[22px]">
                     {card.title}
                   </h3>
 
-                  <p className="relative mt-8 font-[Poppins] text-sm leading-relaxed text-[#1b1b1b] sm:text-[15px] md:mt-10">
+                  <p className="relative mt-6 text-[13px] leading-relaxed text-[#1b1b1b] md:mt-8 md:text-sm">
                     {card.text}
                   </p>
                 </div>
@@ -332,29 +335,29 @@ function FokusLayanan() {
 /* ========================= PRINSIP LAYANAN ========================= */
 function PrinsipLayanan() {
   const circles = [
-    { icon: HandHeart, pos: "left-0 top-0", size: "h-24 w-24 sm:h-28 sm:w-28" },
+    { icon: HandHeart, pos: "left-0 top-0", size: "h-20 w-20 sm:h-24 sm:w-24" },
     {
       icon: ShieldCheck,
-      pos: "left-12 top-16 sm:left-16 sm:top-20",
-      size: "h-32 w-32 sm:h-40 sm:w-40 z-10",
+      pos: "left-10 top-12 sm:left-12 sm:top-16",
+      size: "h-28 w-28 sm:h-32 sm:w-32 z-10",
     },
     {
       icon: Users,
-      pos: "left-0 top-44 sm:top-52",
-      size: "h-24 w-24 sm:h-28 sm:w-28",
+      pos: "left-0 top-36 sm:top-44",
+      size: "h-20 w-20 sm:h-24 sm:w-24",
     },
   ];
 
   return (
-    <section className="relative overflow-hidden bg-white py-20 md:py-28">
+    <section className="relative overflow-hidden bg-white py-14 md:py-20">
       <div className={`relative z-10 ${container}`}>
-        <h2 className="font-[Montserrat] text-3xl font-bold text-[#1e5b3a] sm:text-4xl">
+        <h2 className="font-[Montserrat] text-2xl font-bold text-[#1e5b3a] sm:text-3xl">
           Prinsip Layanan Kami
         </h2>
 
-        <div className="mt-14 grid items-center gap-12 md:grid-cols-2">
+        <div className="mt-10 grid items-center gap-8 md:grid-cols-2">
           {/* Lingkaran ikon */}
-          <div className="relative mx-auto h-72 w-full max-w-sm sm:h-80">
+          <div className="relative mx-auto h-60 w-full max-w-xs sm:h-64">
             {circles.map((c, i) => {
               const Icon = c.icon;
               return (
@@ -369,12 +372,12 @@ function PrinsipLayanan() {
           </div>
 
           {/* Kartu Kerahasiaan */}
-          <div className="relative overflow-hidden rounded-2xl border-2 border-[#3ee08a] bg-white p-8 shadow-md sm:p-10">
-            <Shield className="pointer-events-none absolute -right-6 -top-6 h-48 w-48 text-[#e3f5ec]" />
-            <h3 className="relative font-[Montserrat] text-2xl font-bold text-[#1b1b1b] sm:text-3xl">
+          <div className="relative overflow-hidden rounded-xl border-2 border-[#3ee08a] bg-white p-6 shadow-md sm:p-8">
+            <Shield className="pointer-events-none absolute -right-5 -top-5 h-36 w-36 text-[#e3f5ec]" />
+            <h3 className="relative font-[Montserrat] text-xl font-bold text-[#1b1b1b] sm:text-2xl">
               Kerahasiaan
             </h3>
-            <p className="relative mt-6 text-sm leading-relaxed text-[#1b1b1b] sm:text-base">
+            <p className="relative mt-4 text-[13px] leading-relaxed text-[#1b1b1b] sm:text-sm">
               Lorem ipsum dolor sit amet consectetur adipiscing elit culpa qui
               occaecat molestias fugiat provident non cupiditate est dignissimos
               dolor iusto officia ut cumque ipsum laborum possimus sunt dolor id
@@ -392,20 +395,20 @@ function PrinsipLayanan() {
 /* ========================= CTA ========================= */
 function CtaSection() {
   return (
-    <section className="relative overflow-hidden bg-white pt-20 pb-0 text-center md:pt-28">
+    <section className="relative overflow-hidden bg-white pt-14 pb-0 text-center md:pt-20">
       <div className={`relative z-10 ${container}`}>
-        <h2 className="font-[Montserrat] text-3xl font-bold text-[#1e5b3a] sm:text-4xl md:text-[44px]">
+        <h2 className="font-[Montserrat] text-2xl font-bold text-[#1e5b3a] sm:text-3xl md:text-4xl">
           Butuh Teman Bicara atau Bimbingan
           <span className="text-[#e0b83a]">?</span>
         </h2>
-        <p className="mx-auto mt-6 max-w-3xl text-base leading-relaxed text-[#1e5b3a] sm:text-lg md:text-2xl">
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[#1e5b3a] sm:text-base md:text-lg">
           Jangan ragu untuk menghubungi kami. Tim psikolog & konselor BK Unika
           De La Salle Manado siap mendampingi anda.
         </p>
       </div>
 
       {/* Latar wave */}
-      <div className="relative mt-16 h-64 md:h-96">
+      <div className="relative mt-12 h-48 md:h-72">
         <svg
           className="absolute inset-x-0 bottom-0 h-full w-full"
           viewBox="0 0 1440 388"
@@ -482,8 +485,8 @@ function CtaSection() {
         </svg>
 
         <div className="relative z-10 flex h-full items-center justify-center">
-          <button className="flex items-center gap-2 rounded-lg bg-[#2e9a5f] px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#268050] sm:text-[15px]">
-            <CalendarDays className="h-4 w-4" />
+          <button className="flex items-center gap-2 rounded-md bg-[#2e9a5f] px-5 py-2.5 text-xs font-semibold text-white shadow-lg transition hover:bg-[#268050] sm:text-sm">
+            <CalendarDays className="h-3.5 w-3.5" />
             Mulai Konseling
           </button>
         </div>
@@ -496,10 +499,6 @@ function CtaSection() {
 export default function AboutPage() {
   return (
     <div className="overflow-x-clip bg-white">
-      {/* Navbar sticky di paling atas halaman */}
-      <div className="sticky top-0 z-50">
-        <Navbar />
-      </div>
       <AboutHero />
       <VisiMisi />
       <FokusLayanan />

@@ -204,7 +204,7 @@ export default function CounselorDashboardPage() {
       {/* ================= SAPAAN ================= */}
       <section>
         <p className="text-sm font-medium text-gray-500">{todayLabel}</p>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">
+        <h1 className="mt-1 text-2xl font-extrabold tracking-tight">
           Selamat datang, Ma’am <span className="text-[#1e5b3a]">Giovanna</span>
         </h1>
         <p className="mt-2 text-sm text-gray-600 sm:text-base">{summary}</p>
