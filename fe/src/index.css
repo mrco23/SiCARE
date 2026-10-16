@@ -61,3 +61,84 @@ body {
     padding-bottom: 3rem;
   }
 }
+
+/* ===== AUTH BACKDROP (gelembung & bintang di panel login) ===== */
+.auth-bubble {
+  bottom: -10%;
+  opacity: 0;
+  animation-name: auth-bubble-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.auth-star {
+  opacity: 0.2;
+  animation-name: auth-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes auth-bubble-rise {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.9);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate3d(14px, -55vh, 0) scale(1);
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate3d(-10px, -115vh, 0) scale(1.05);
+    opacity: 0;
+  }
+}
+
+@keyframes auth-twinkle {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-bubble,
+  .auth-star {
+    animation: none;
+  }
+  .auth-bubble {
+    display: none;
+  }
+}
+
+/* ===== AUTH BACKGROUND (dekorasi melayang di halaman login) ===== */
+.auth-float {
+  animation-name: auth-float-drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes auth-float-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) rotate(3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-float {
+    animation: none;
+  }
+}
