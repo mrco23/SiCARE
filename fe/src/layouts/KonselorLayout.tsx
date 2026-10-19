@@ -78,7 +78,7 @@ const MORE_ROUTES = [
   "/konselor/profil",
 ];
 
-export default function CounselorLayout() {
+export default function KonselorLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { pathname } = useLocation();
   const moreActive = MORE_ROUTES.some((p) => pathname.startsWith(p));
