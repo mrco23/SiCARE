@@ -105,7 +105,7 @@ export default function Navbar() {
           <div className="group relative hidden h-9 w-9 lg:block">
             <div className="absolute right-0 top-0 flex h-9 max-w-9 flex-row-reverse items-center overflow-hidden rounded-full bg-transparent transition-all duration-300 ease-out group-hover:max-w-28 group-hover:bg-[#185032] group-focus-within:max-w-28 group-focus-within:bg-[#185032]">
               <Link
-                to="/profile"
+                to="/login"
                 aria-label="Profil"
                 className="flex h-9 w-9 shrink-0 items-center justify-center text-white"
               >

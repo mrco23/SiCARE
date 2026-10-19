@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { GraduationCap, Briefcase } from "lucide-react";
 
 type Schedule = { day: string; slots: string[] };
@@ -100,8 +101,8 @@ function Photo({
   className?: string;
 }) {
   return (
-    <div className={`mx-auto w-full max-w-xs md:max-w-none ${className}`}>
-      <div className="aspect-square overflow-hidden rounded-2xl bg-[#f7fcf9]">
+    <div className={`mx-auto w-full max-w-60 md:max-w-none ${className}`}>
+      <div className="aspect-square overflow-hidden rounded-xl bg-[#f7fcf9]">
         <img
           src={src}
           alt={alt}
@@ -112,9 +113,9 @@ function Photo({
   );
 }
 
-function IconBox({ children }: { children: React.ReactNode }) {
+function IconBox({ children }: { children: ReactNode }) {
   return (
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-800">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-800">
       {children}
     </span>
   );
@@ -122,13 +123,13 @@ function IconBox({ children }: { children: React.ReactNode }) {
 
 function EducationBlock({ items }: { items: Education[] }) {
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-2.5">
       <IconBox>
-        <GraduationCap className="h-5 w-5" />
+        <GraduationCap className="h-4 w-4" />
       </IconBox>
       <div>
-        <p className="text-sm font-semibold text-gray-500">Pendidikan</p>
-        <ul className="mt-1 space-y-2 text-sm">
+        <p className="text-xs font-semibold text-gray-500">Pendidikan</p>
+        <ul className="mt-1 space-y-1.5 text-xs sm:text-sm">
           {items.map((e, i) => (
             <li key={i}>
               <span className="font-semibold text-gray-900">{e.school}</span>{" "}
@@ -145,13 +146,13 @@ function EducationBlock({ items }: { items: Education[] }) {
 
 function ExperienceBlock({ value }: { value: string }) {
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-2.5">
       <IconBox>
-        <Briefcase className="h-5 w-5" />
+        <Briefcase className="h-4 w-4" />
       </IconBox>
       <div>
-        <p className="text-sm font-semibold text-gray-500">Pengalaman</p>
-        <p className="mt-1 font-semibold text-gray-900">{value}</p>
+        <p className="text-xs font-semibold text-gray-500">Pengalaman</p>
+        <p className="mt-1 text-sm font-semibold text-gray-900">{value}</p>
       </div>
     </div>
   );
@@ -159,11 +160,11 @@ function ExperienceBlock({ value }: { value: string }) {
 
 function Chips({ items }: { items: string[] }) {
   return (
-    <div className="mt-5 flex flex-wrap gap-2.5">
+    <div className="mt-4 flex flex-wrap gap-2">
       {items.map((t) => (
         <span
           key={t}
-          className="inline-flex items-center rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-800"
+          className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 sm:text-sm"
         >
           {t}
         </span>
@@ -176,21 +177,21 @@ function ScheduleTable({ schedule }: { schedule: Schedule[] }) {
   return (
     <>
       {/* Desktop/tablet: tabel */}
-      <div className="mt-5 hidden overflow-hidden rounded-2xl border border-gray-200 bg-white sm:block">
-        <table className="w-full text-left text-sm">
+      <div className="mt-4 hidden overflow-hidden rounded-xl border border-gray-200 bg-white sm:block">
+        <table className="w-full text-left text-xs sm:text-sm">
           <thead className="bg-blue-50 text-gray-700">
             <tr>
-              <th className="px-5 py-3 font-semibold">Hari</th>
-              <th className="px-5 py-3 font-semibold">Waktu yang tersedia</th>
+              <th className="px-4 py-2.5 font-semibold">Hari</th>
+              <th className="px-4 py-2.5 font-semibold">Waktu yang tersedia</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {schedule.map((s) => (
               <tr key={s.day}>
-                <td className="px-5 py-3 font-medium">{s.day}</td>
-                <td className="px-5 py-3">
+                <td className="px-4 py-2.5 font-medium">{s.day}</td>
+                <td className="px-4 py-2.5">
                   {s.slots.length ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {s.slots.map((slot) => (
                         <SlotChip key={slot} label={slot} />
                       ))}
@@ -206,21 +207,21 @@ function ScheduleTable({ schedule }: { schedule: Schedule[] }) {
       </div>
 
       {/* Mobile: kartu per hari */}
-      <ul className="mt-5 space-y-3 sm:hidden">
+      <ul className="mt-4 space-y-2.5 sm:hidden">
         {schedule.map((s) => (
           <li
             key={s.day}
-            className="rounded-xl border border-gray-200 bg-white p-4"
+            className="rounded-lg border border-gray-200 bg-white p-3"
           >
-            <p className="font-semibold">{s.day}</p>
+            <p className="text-sm font-semibold">{s.day}</p>
             {s.slots.length ? (
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {s.slots.map((slot) => (
                   <SlotChip key={slot} label={slot} />
                 ))}
               </div>
             ) : (
-              <p className="mt-1 text-sm text-gray-400">Tidak tersedia</p>
+              <p className="mt-1 text-xs text-gray-400">Tidak tersedia</p>
             )}
           </li>
         ))}
@@ -231,7 +232,7 @@ function ScheduleTable({ schedule }: { schedule: Schedule[] }) {
 
 function SlotChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center whitespace-nowrap rounded-full bg-blue-100 px-3.5 py-1.5 text-[13px] font-semibold text-blue-800">
+    <span className="inline-flex items-center whitespace-nowrap rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">
       {label}
     </span>
   );
@@ -241,23 +242,23 @@ function CounselorCard({ c, reverse }: { c: Counselor; reverse: boolean }) {
   const info = (
     <div className={reverse ? "order-2 md:order-1" : ""}>
       <div className={`flex ${reverse ? "md:justify-end" : ""}`}>
-        <span className="inline-block rounded-full bg-blue-100 px-4 py-1.5 text-sm font-semibold text-blue-800">
+        <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 sm:text-sm">
           Profile Konselor
         </span>
       </div>
       <h2
-        className={`mt-4 font-[Montserrat] text-2xl font-bold leading-snug text-gray-900 sm:text-3xl ${
+        className={`mt-3 font-[Montserrat] text-xl font-bold leading-snug text-gray-900 sm:text-2xl ${
           reverse ? "md:text-right" : ""
         }`}
       >
         {c.name}
       </h2>
       <p
-        className={`mt-4 text-[15px] leading-relaxed text-gray-600 sm:text-base ${reverse ? "md:text-right" : ""}`}
+        className={`mt-3 text-sm leading-relaxed text-gray-600 ${reverse ? "md:text-right" : ""}`}
       >
         {c.description}
       </p>
-      <div className="mt-8 grid gap-6 sm:grid-cols-2">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {reverse ? (
           <>
             <ExperienceBlock value={c.experience} />
@@ -282,9 +283,9 @@ function CounselorCard({ c, reverse }: { c: Counselor; reverse: boolean }) {
   );
 
   return (
-    <article className="overflow-hidden rounded-3xl bg-white shadow-[0_20px_50px_rgba(0,0,0,0.08)] ring-1 ring-gray-100">
+    <article className="overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(0,0,0,0.06)] ring-1 ring-gray-100">
       <div
-        className={`grid gap-8 p-6 sm:p-8 md:items-center md:gap-10 lg:p-12 ${
+        className={`grid gap-6 p-4 sm:p-6 md:items-center md:gap-8 lg:p-8 ${
           reverse
             ? "md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]"
             : "md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
@@ -303,20 +304,20 @@ function CounselorCard({ c, reverse }: { c: Counselor; reverse: boolean }) {
         )}
       </div>
 
-      <div className="grid gap-8 border-t border-gray-100 bg-[#f7fcf9] p-6 sm:p-8 md:grid-cols-2 md:gap-10 lg:p-12">
+      <div className="grid gap-6 border-t border-gray-100 bg-[#f7fcf9] p-4 sm:p-6 md:grid-cols-2 md:gap-8 lg:p-8">
         {reverse ? (
           <>
             <div>
-              <h3 className="font-[Montserrat] text-xl font-bold text-gray-900 sm:text-2xl">
+              <h3 className="font-[Montserrat] text-base font-bold text-gray-900 sm:text-lg">
                 Topik Keahlian
               </h3>
               <Chips items={c.topics} />
             </div>
-            <div className="md:border-l md:border-gray-200 md:pl-10">
-              <h3 className="font-[Montserrat] text-xl font-bold text-gray-900 sm:text-2xl">
+            <div className="md:border-l md:border-gray-200 md:pl-8">
+              <h3 className="font-[Montserrat] text-base font-bold text-gray-900 sm:text-lg">
                 Jadwal Konseling
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-xs text-gray-500">
                 Sesi berdurasi 1 jam.
               </p>
               <ScheduleTable schedule={c.schedule} />
@@ -325,16 +326,16 @@ function CounselorCard({ c, reverse }: { c: Counselor; reverse: boolean }) {
         ) : (
           <>
             <div>
-              <h3 className="font-[Montserrat] text-xl font-bold text-gray-900 sm:text-2xl">
+              <h3 className="font-[Montserrat] text-base font-bold text-gray-900 sm:text-lg">
                 Jadwal Konseling
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-xs text-gray-500">
                 Sesi berdurasi 1 jam.
               </p>
               <ScheduleTable schedule={c.schedule} />
             </div>
-            <div className="md:border-l md:border-gray-200 md:pl-10">
-              <h3 className="font-[Montserrat] text-xl font-bold text-gray-900 sm:text-2xl">
+            <div className="md:border-l md:border-gray-200 md:pl-8">
+              <h3 className="font-[Montserrat] text-base font-bold text-gray-900 sm:text-lg">
                 Topik Keahlian
               </h3>
               <Chips items={c.topics} />
@@ -350,18 +351,18 @@ export default function CounselorPage() {
   return (
     <div className="overflow-x-hidden bg-white">
       {/* Header halaman */}
-      <section className="mx-auto w-[92%] pb-10 pt-24 sm:w-[88%] md:pt-32 lg:w-[86%]">
-        <h1 className="font-[Montserrat] text-3xl font-extrabold text-[#14553a] sm:text-4xl">
+      <section className="mx-auto w-[92%] pb-8 pt-20 sm:w-[88%] md:pt-28 lg:w-[86%]">
+        <h1 className="font-[Montserrat] text-2xl font-extrabold text-[#14553a] sm:text-3xl lg:text-4xl">
           Profil Konselor
         </h1>
-        <p className="mt-2 text-base text-gray-600 sm:text-lg">
+        <p className="mt-2 text-sm text-gray-600 sm:text-base">
           Kenali lebih dekat konselor yang siap mendampingi kebutuhanmu.
         </p>
-        <div className="mt-5 h-1 w-32 rounded-full bg-[#14553a]" />
+        <div className="mt-4 h-1 w-24 rounded-full bg-[#14553a]" />
       </section>
 
       {/* Daftar konselor */}
-      <main className="mx-auto w-[92%] space-y-16 pb-16 sm:w-[88%] lg:w-[86%]">
+      <main className="mx-auto w-[92%] space-y-10 pb-12 sm:w-[88%] lg:w-[86%]">
         {counselors.map((c, i) => (
           <CounselorCard key={c.id} c={c} reverse={i % 2 === 1} />
         ))}

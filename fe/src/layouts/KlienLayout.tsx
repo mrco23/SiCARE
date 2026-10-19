@@ -16,7 +16,7 @@ const NAV_ITEMS: {
   short: string;
   icon: LucideIcon;
 }[] = [
-  { to: "/klien/beranda", label: "Beranda", short: "Beranda", icon: Home },
+  { to: "/klien", label: "Beranda", short: "Beranda", icon: Home },
   {
     to: "/klien/pesanan",
     label: "Pesanan Konseling",
@@ -66,6 +66,7 @@ export default function KlienLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === "/klien"}
                 className={({ isActive }) =>
                   isActive
                     ? "border-b-2 border-[#1e5b3a] pb-1 font-semibold text-[#1e5b3a]"
@@ -99,6 +100,7 @@ export default function KlienLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === "/klien"}
                 className={({ isActive }) =>
                   `flex flex-col items-center gap-0.5 py-2 text-[11px] ${
                     isActive
