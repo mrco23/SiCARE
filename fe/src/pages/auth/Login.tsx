@@ -52,7 +52,7 @@ export default function Login() {
     try {
       // TODO: ganti dengan pemanggilan API login yang sebenarnya.
       await new Promise((resolve) => setTimeout(resolve, 600));
-      navigate("/client");
+      navigate("/admin");
     } catch {
       setSubmitError(
         "Gagal masuk. Periksa kembali NIM/NIP dan kata sandi Anda.",

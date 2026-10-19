@@ -209,7 +209,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       >
         <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white">
           <img
-            src="/android-192x192.png"
+            src="/icon-512x512.png"
             alt="Logo Universitas Katolik De La Salle Manado"
             className="h-[37px] w-[37px] rounded-full object-contain"
           />
