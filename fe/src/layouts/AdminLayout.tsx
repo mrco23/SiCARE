@@ -179,7 +179,7 @@ export default function AdminLayout() {
       <Navbar />
 
       <main
-        className="min-h-screen min-w-0 pb-24 lg:ml-[248px] lg:pb-0"
+        className="min-h-screen min-w-0 pb-24 lg:ml-62 lg:pb-0"
         style={{ paddingTop: NAVBAR_H }}
       >
         <div className="p-4 sm:p-6">
@@ -205,7 +205,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       <Link
         to="/"
         onClick={onClose}
-        className="absolute left-[20px] top-[18px] flex items-center gap-2.5"
+        className="absolute left-5 top-4.5 flex items-center gap-2.5"
       >
         <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white">
           <img
