@@ -5,14 +5,14 @@ import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 
 /* Layouts */
-import ClientLayout from "../layouts/ClientLayout";
 import CounselorLayout from "../layouts/CounselorLayout";
 import AdminLayout from "../layouts/AdminLayout";
+import KlienLayout from "../layouts/KlienLayout";
 
 /* Pages */
 
 /* Client */
-import ClientDashboard from "../pages/client/ClientBerandaPage";
+import BerandaKlienPage from "../pages/client/BerandaKlienPage";
 
 /* Admin */
 import AdminBerandaPage from "../pages/admin/AdminBerandaPage";
@@ -35,6 +35,12 @@ import RiwayatPage from "../pages/counselor/RiwayatPage";
 import AdminAkunPage from "../pages/admin/AdminAkunPage";
 import AdminPengaturanPage from "../pages/admin/AdminPengaturanPage";
 import PanduanPage from "../pages/public/PanduanPage";
+import KlienPesananPage from "../pages/client/KlienPesananPage";
+import KlienAktivitasPage from "../pages/client/KlienAktivitasPage";
+import KlienKonselorPage from "../pages/client/KlienKonselorPage";
+import KlienRiwayatPage from "../pages/client/KlienRiwayatPage";
+import KonselorPermintaanPage from "../pages/counselor/CounselorDashboardPage";
+import KonselorAktivitasPage from "../pages/counselor/KonselorAktivitasPage";
 
 export default function AppRouter() {
   return (
@@ -51,17 +57,19 @@ export default function AppRouter() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      <Route path="/client" element={<ClientLayout />}>
-        <Route index element={<ClientDashboard />} />
-        <Route path="aktivitas" element={<></>} />
-        <Route path="riwayat" element={<></>} />
+      <Route path="/klien" element={<KlienLayout />}>
+        <Route index element={<BerandaKlienPage />} />
+        <Route path="pesanan" element={<KlienPesananPage />} />
+        <Route path="aktivitas" element={<KlienAktivitasPage />} />
+        <Route path="konselor" element={<KlienKonselorPage />} />
+        <Route path="riwayat" element={<KlienRiwayatPage />} />
         <Route path="pengaturan" element={<></>} />
       </Route>
 
       <Route path="/konselor" element={<CounselorLayout />}>
         <Route index element={<CounselorDashboardPage />} />
-        <Route path="aktivitas" element={<></>} />
-        <Route path="permintaan" element={<></>} />
+        <Route path="aktivitas" element={<KonselorAktivitasPage />} />
+        <Route path="permintaan" element={<KonselorPermintaanPage />} />
         <Route path="riwayat" element={<RiwayatPage />} />
         <Route path="jadwal" element={<JadwalPage />} />
         <Route path="pengaturan" element={<></>} />

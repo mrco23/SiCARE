@@ -139,7 +139,7 @@ function Stars({ value }: { value: number }) {
       {Array.from({ length: 5 }).map((_, i) => (
         <Star
           key={i}
-          className={`h-4 w-4 sm:h-5 sm:w-5 ${i < value ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
+          className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${i < value ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
         />
       ))}
     </div>
@@ -148,13 +148,13 @@ function Stars({ value }: { value: number }) {
 
 function FormatChip({ format }: { format: Format }) {
   return format === "Kelompok" ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-300 px-3 py-1 text-xs font-semibold text-[#0c2619] sm:text-sm">
-      <Users className="h-3.5 w-3.5" />
+    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-300 px-2.5 py-0.5 text-[11px] font-semibold text-[#0c2619] sm:text-xs">
+      <Users className="h-3 w-3" />
       Kelompok
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white sm:text-sm">
-      <User className="h-3.5 w-3.5" />
+    <span className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-2.5 py-0.5 text-[11px] font-semibold text-white sm:text-xs">
+      <User className="h-3 w-3" />
       Individu
     </span>
   );
@@ -162,26 +162,22 @@ function FormatChip({ format }: { format: Format }) {
 
 function ReviewCard({ r }: { r: Review }) {
   return (
-    <article className="flex flex-col rounded-2xl border-2 border-[#14553a] bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:p-6">
+    <article className="flex flex-col rounded-2xl border-2 border-[#14553a] bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:p-5">
       <div className="flex items-center justify-between gap-3">
         <Stars value={r.rating} />
-        <span className="shrink-0 text-xs text-gray-500 sm:text-sm">
+        <span className="shrink-0 text-[11px] text-gray-500 sm:text-xs">
           {timeAgo(r.days)}
         </span>
       </div>
 
-      <p className="mt-4 text-[15px] leading-relaxed text-gray-800">
-        “{r.text}”
-      </p>
+      <p className="mt-3 text-sm leading-relaxed text-gray-800">“{r.text}”</p>
 
-      <div className="mt-auto pt-6">
-        <div className="flex items-end justify-between gap-4 border-t border-gray-200 pt-4">
+      <div className="mt-auto pt-5">
+        <div className="flex items-end justify-between gap-3 border-t border-gray-200 pt-3">
           <div className="min-w-0">
-            <p className="truncate text-base font-bold text-gray-900">
-              {r.name}
-            </p>
-            <p className="text-sm text-gray-500">{r.role}</p>
-            <p className="mt-1 text-sm text-gray-700">
+            <p className="truncate text-sm font-bold text-gray-900">{r.name}</p>
+            <p className="text-xs text-gray-500">{r.role}</p>
+            <p className="mt-1 text-xs text-gray-700">
               Topik: <span className="font-medium">{r.topic}</span>
             </p>
           </div>
@@ -227,39 +223,39 @@ export default function FeedbackPage() {
   return (
     <div className="overflow-x-hidden bg-white">
       {/* Hero */}
-      <section className="mx-auto w-[92%] pb-12 pt-24 sm:w-[88%] md:pt-32 lg:w-[86%]">
-        <h1 className="font-[Montserrat] text-3xl font-extrabold leading-tight text-[#14553a] sm:text-4xl lg:text-5xl">
+      <section className="mx-auto w-[92%] pb-10 pt-20 sm:w-[88%] md:pt-28 lg:w-[86%]">
+        <h1 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-[#14553a] sm:text-3xl lg:text-4xl">
           Feedback &amp; Ulasan Publik
         </h1>
-        <p className="mt-4 max-w-3xl text-base leading-relaxed text-gray-600 sm:text-lg">
+        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-gray-600 sm:text-base">
           Pengalaman klien yang telah menyelesaikan sesi konseling. Identitas
           klien selalu dianonimkan demi menjaga privasi dan rasa aman.
         </p>
       </section>
 
       {/* Konten */}
-      <section className="bg-[#f7fcf9] py-12 sm:py-16">
+      <section className="bg-[#f7fcf9] py-10 sm:py-12">
         <div className="mx-auto w-[92%] sm:w-[88%] lg:w-[86%]">
           {/* Ringkasan rating */}
-          <div className="flex flex-col gap-6 rounded-3xl border-2 border-[#14553a] bg-white p-6 sm:p-8 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-5">
+          <div className="flex flex-col gap-5 rounded-2xl border-2 border-[#14553a] bg-white p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4">
               <div className="text-center">
-                <div className="flex items-center gap-2">
-                  <span className="font-[Montserrat] text-5xl font-extrabold text-[#14553a] sm:text-6xl">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-[Montserrat] text-4xl font-extrabold text-[#14553a] sm:text-5xl">
                     4.9
                   </span>
-                  <Star className="h-10 w-10 fill-amber-400 text-amber-400 sm:h-12 sm:w-12" />
+                  <Star className="h-7 w-7 fill-amber-400 text-amber-400 sm:h-8 sm:w-8" />
                 </div>
-                <p className="mt-1 text-sm font-semibold text-[#14553a]">
+                <p className="mt-1 text-xs font-semibold text-[#14553a]">
                   Rata-rata rating
                 </p>
               </div>
-              <div className="hidden h-16 w-px bg-gray-200 sm:block" />
+              <div className="hidden h-12 w-px bg-gray-200 sm:block" />
               <div>
-                <h2 className="text-lg font-bold text-[#14553a] sm:text-xl">
+                <h2 className="text-base font-bold text-[#14553a] sm:text-lg">
                   Kualitas Layanan
                 </h2>
-                <p className="mt-1 max-w-md text-sm text-gray-500 sm:text-base">
+                <p className="mt-1 max-w-md text-xs text-gray-500 sm:text-sm">
                   Berdasarkan 180+ tanggapan klien sejak peluncuran sistem
                   SiCARE.
                 </p>
@@ -267,8 +263,11 @@ export default function FeedbackPage() {
             </div>
 
             {/* Urutkan */}
-            <div className="flex items-center gap-3 md:shrink-0">
-              <label htmlFor="sortSelect" className="text-sm text-gray-500">
+            <div className="flex items-center gap-2.5 md:shrink-0">
+              <label
+                htmlFor="sortSelect"
+                className="text-xs text-gray-500 sm:text-sm"
+              >
                 Urutkan:
               </label>
               <div className="relative">
@@ -276,19 +275,19 @@ export default function FeedbackPage() {
                   id="sortSelect"
                   value={sortMode}
                   onChange={(e) => changeSort(e.target.value as SortMode)}
-                  className="appearance-none rounded-full bg-[#14553a] py-2.5 pl-5 pr-11 text-sm font-semibold text-white shadow-md outline-none transition hover:bg-[#0c2619] focus-visible:ring-4 focus-visible:ring-[#2e9a5f]/40"
+                  className="appearance-none rounded-full bg-[#14553a] py-2 pl-4 pr-9 text-xs font-semibold text-white shadow-md outline-none transition hover:bg-[#0c2619] focus-visible:ring-4 focus-visible:ring-[#2e9a5f]/40 sm:text-sm"
                 >
                   <option value="terbaru">Terbaru</option>
                   <option value="tertinggi">Rating tertinggi</option>
                   <option value="terendah">Rating terendah</option>
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white" />
               </div>
             </div>
           </div>
 
           {/* Filter peran */}
-          <div className="no-scrollbar mt-8 flex gap-2 overflow-x-auto pb-1">
+          <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto pb-1">
             {ROLE_FILTERS.map((f) => {
               const active = roleFilter === f.value;
               return (
@@ -296,7 +295,7 @@ export default function FeedbackPage() {
                   key={f.value}
                   type="button"
                   onClick={() => changeRole(f.value)}
-                  className={`shrink-0 rounded-full border border-[#14553a] px-5 py-2 text-sm font-semibold transition ${
+                  className={`shrink-0 rounded-full border border-[#14553a] px-4 py-1.5 text-xs font-semibold transition sm:text-sm ${
                     active
                       ? "bg-[#14553a] text-white"
                       : "bg-white text-[#14553a] hover:bg-[#f7fcf9]"
@@ -309,31 +308,31 @@ export default function FeedbackPage() {
           </div>
 
           {/* Daftar ulasan */}
-          <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
             {shown.map((r) => (
               <ReviewCard key={r.id} r={r} />
             ))}
           </div>
 
           {list.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-[#14553a]/40 bg-white p-10 text-center text-gray-500">
+            <div className="rounded-2xl border border-dashed border-[#14553a]/40 bg-white p-8 text-center text-sm text-gray-500">
               Belum ada ulasan untuk filter ini.
             </div>
           )}
 
           {shown.length < list.length && (
-            <div className="mt-10 flex justify-center">
+            <div className="mt-8 flex justify-center">
               <button
                 type="button"
                 onClick={() => setVisible((v) => v + PAGE_SIZE)}
-                className="rounded-full bg-[#14553a] px-8 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#0c2619]"
+                className="rounded-full bg-[#14553a] px-6 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-[#0c2619] sm:text-sm"
               >
                 Muat lebih banyak
               </button>
             </div>
           )}
 
-          <p className="mt-10 text-center text-sm text-gray-500">
+          <p className="mt-8 text-center text-xs text-gray-500 sm:text-sm">
             *Klien yang telah menyelesaikan sesi konseling akan menerima tautan
             evaluasi khusus melalui email kampus.
           </p>
