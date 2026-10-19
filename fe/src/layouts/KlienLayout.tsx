@@ -45,7 +45,7 @@ export default function KlienLayout() {
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white sm:h-10 sm:w-10">
               <img
-                src="/logo.png"
+                src="/icon-512x512.png"
                 alt="Logo Unika De La Salle Manado"
                 className="h-6 w-6 rounded-full object-contain sm:h-7 sm:w-7"
               />

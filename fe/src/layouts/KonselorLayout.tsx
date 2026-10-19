@@ -123,7 +123,7 @@ function Navbar() {
       >
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white">
           <img
-            src="/android-192x192.png"
+            src="/icon-512x512.png"
             alt="Logo SiCARE"
             className="h-7 w-7 rounded-full object-contain"
           />
