@@ -39,10 +39,7 @@ export default function KlienLayout() {
       {/* ================= NAVBAR ================= */}
       <header className="sticky top-0 z-50 px-3 pt-2 sm:px-5">
         <div className="relative mx-auto flex h-14 w-full max-w-7xl items-center justify-between rounded-full bg-white/90 px-4 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur sm:h-16 sm:px-5 lg:px-6">
-          <NavLink
-            to="/klien/beranda"
-            className="flex min-w-0 items-center gap-2 sm:gap-3"
-          >
+          <NavLink to="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white sm:h-10 sm:w-10">
               <img
                 src="/icon-512x512.png"
@@ -79,7 +76,7 @@ export default function KlienLayout() {
           </nav>
 
           <NavLink
-            to="/klien/profil"
+            to="/klien/pengaturan"
             aria-label="Profil"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-gray-700 ring-2 ring-white sm:h-10 sm:w-10"
           >
