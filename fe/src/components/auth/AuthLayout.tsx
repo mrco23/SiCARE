@@ -28,7 +28,7 @@ export default function CenteredAuthLayout({
           <Link to="/" className="mb-6 flex flex-col items-center gap-3">
             <div className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white shadow-sm">
               <img
-                src="/android-192x192.png"
+                src="logo.png"
                 alt="Logo Universitas Katolik De La Salle Manado"
                 className="h-12 w-12 rounded-full object-contain"
               />

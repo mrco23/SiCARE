@@ -288,6 +288,136 @@ function Testimonials() {
   );
 }
 
+const counselors = [
+  {
+    id: 1,
+    name: "Giovanna Yusi, S.Psi., M.Psi., Psikolog",
+    image: "/gio.jpeg",
+    topics: ["Konseling Akademik", "Manajemen Stres", "Pengembangan Diri"],
+    description:
+      "Mendampingi mahasiswa dalam menghadapi tantangan akademik, mengelola stres, dan mengembangkan potensi diri.",
+    experience: "3 tahun pengalaman konseling",
+    education: "S2 Psikologi",
+  },
+  {
+    id: 2,
+    name: "Rico Kornelius Wahani, S.Psi., M.Psi., Psikolog.",
+    image: "/rico.png",
+    topics: ["Kesehatan Mental", "Relasi Sosial", "Kecemasan"],
+    description:
+      "Membantu mahasiswa memahami emosi, membangun relasi yang sehat, dan menghadapi kecemasan.",
+    experience: "4 tahun pengalaman konseling",
+    education: "S2 Psikologi Profesi",
+  },
+];
+
+function Counselors() {
+  return (
+    <section className="bg-[#f5fdf9] py-12 md:py-16">
+      <div className="mx-auto w-[90%] md:w-[84%] lg:w-[76%] xl:w-[80%]">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold leading-tight text-[#1b1b1b] sm:text-3xl md:text-4xl">
+            Ayo Bertemu dengan Konselor Anda!
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-xs leading-relaxed text-[#1b1b1b] sm:text-sm md:text-base">
+            Lihat bagaimana proses booking konseling di SiCARE dan temukan
+            langkah yang sesuai untukmu.
+          </p>
+        </div>
+
+        <div className="mt-8 flex flex-wrap justify-center gap-6 md:mt-12 md:gap-5 lg:gap-7">
+          {counselors.slice(0, 3).map((counselor) => (
+            <article
+              key={counselor.id}
+              tabIndex={0}
+              className={`group relative isolate w-full max-w-sm overflow-hidden rounded-2xl border border-[#dcebe2] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(0,0,0,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e5b3a] ${
+                counselors.slice(0, 3).length === 2
+                  ? "md:w-[calc(50%_-_0.625rem)]"
+                  : counselors.slice(0, 3).length === 3
+                    ? "md:w-[calc(33.333%_-_0.84rem)]"
+                    : "md:w-full"
+              }`}
+            >
+              <div className="aspect-square overflow-hidden bg-[#e8f4ec]">
+                <img
+                  src={counselor.image}
+                  alt={`Foto ${counselor.name}`}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 group-focus-within:scale-105"
+                  onError={(e) => {
+                    e.currentTarget.style.visibility = "hidden";
+                  }}
+                />
+              </div>
+
+              <div className="min-h-[142px] p-5">
+                <h3 className="font-[Montserrat] text-base font-bold text-[#1b1b1b] sm:text-lg">
+                  {counselor.name}
+                </h3>
+                <p className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500 sm:text-xs">
+                  Topik Keahlian
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {counselor.topics.slice(0, 3).map((topic) => (
+                    <span
+                      key={topic}
+                      className="rounded-full bg-[#eef8f3] px-2.5 py-1 font-[Montserrat] text-[10px] font-medium text-[#1e5b3a] sm:text-xs"
+                    >
+                      {topic}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-b from-[#163c2c]/90 via-[#174a32]/95 to-[#123b29] p-5 text-white opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100 group-focus:pointer-events-auto group-focus:opacity-100 sm:p-6">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[#b9e4cc]">
+                    Tentang Konselor
+                  </p>
+                  <h3 className="mt-2 font-[Montserrat] text-lg font-bold sm:text-xl">
+                    {counselor.name}
+                  </h3>
+                  <p className="mt-3 text-xs leading-relaxed text-white/90 sm:text-sm">
+                    {counselor.description}
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#b9e4cc] sm:text-xs">
+                        Pengalaman
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed sm:text-sm">
+                        {counselor.experience}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#b9e4cc] sm:text-xs">
+                        Pendidikan Terakhir
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed sm:text-sm">
+                        {counselor.education}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <a
+                  href="/profil-konselor"
+                  className="mt-5 flex w-fit items-center gap-2 rounded-full bg-white py-2 pl-4 pr-1.5 text-xs font-medium text-[#1b1b1b] shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition hover:shadow-lg sm:text-sm"
+                >
+                  Kenali Lebih Lanjut
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1d3a86] text-white">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </span>
+                </a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function HomePage() {
   return (
     <>
@@ -454,6 +584,7 @@ export default function HomePage() {
           </div>
         </section>
         <Panduan />
+        <Counselors />
       </div>
       <Testimonials />
     </>

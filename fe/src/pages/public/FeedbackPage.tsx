@@ -146,44 +146,48 @@ function Stars({ value }: { value: number }) {
   );
 }
 
-function FormatChip({ format }: { format: Format }) {
-  return format === "Kelompok" ? (
-    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-300 px-2.5 py-0.5 text-[11px] font-semibold text-[#0c2619] sm:text-xs">
-      <Users className="h-3 w-3" />
-      Kelompok
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-2.5 py-0.5 text-[11px] font-semibold text-white sm:text-xs">
-      <User className="h-3 w-3" />
-      Individu
-    </span>
+function FeedbackFormatBackground({ format }: { format: Format }) {
+  const isGroup = format === "Kelompok";
+  const Icon = isGroup ? Users : User;
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none absolute -bottom-4 -right-3 ${
+        isGroup ? "text-[#C7BFA9]" : "text-[#B7CCBE]"
+      } opacity-[0.22]`}
+    >
+      <Icon className="h-28 w-28 sm:h-32 sm:w-32" strokeWidth={1.15} />
+    </div>
   );
 }
 
 function ReviewCard({ r }: { r: Review }) {
   return (
-    <article className="flex flex-col rounded-2xl border-2 border-[#14553a] bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:p-5">
-      <div className="flex items-center justify-between gap-3">
+    <article className="relative isolate flex flex-col overflow-hidden rounded-2xl border border-[#E3EAE5] bg-white p-4 shadow-[0_3px_12px_rgba(20,85,58,0.04)] transition duration-300 hover:-translate-y-1 hover:border-[#D4E1D7] hover:shadow-[0_12px_28px_rgba(20,85,58,0.09)] sm:p-5">
+      <FeedbackFormatBackground format={r.format} />
+
+      <div className="relative z-10 flex items-center justify-between gap-3">
         <Stars value={r.rating} />
         <span className="shrink-0 text-[11px] text-gray-500 sm:text-xs">
           {timeAgo(r.days)}
         </span>
       </div>
 
-      <p className="mt-3 text-sm leading-relaxed text-gray-800">“{r.text}”</p>
+      <p className="relative z-10 mt-3 pr-5 text-sm leading-relaxed text-gray-800">
+        “{r.text}”
+      </p>
 
-      <div className="mt-auto pt-5">
-        <div className="flex items-end justify-between gap-3 border-t border-gray-200 pt-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-gray-900">{r.name}</p>
-            <p className="text-xs text-gray-500">{r.role}</p>
-            <p className="mt-1 text-xs text-gray-700">
-              Topik: <span className="font-medium">{r.topic}</span>
-            </p>
-          </div>
-          <div className="shrink-0">
-            <FormatChip format={r.format} />
-          </div>
+      <div className="relative z-10 mt-auto pt-5">
+        <div className="border-t border-[#E8EDE9] pt-3">
+          <p className="truncate text-sm font-bold text-gray-900">{r.name}</p>
+          <p className="text-xs text-gray-500">{r.role}</p>
+          <p className="mt-1 text-xs text-gray-700">
+            Topik: <span className="font-medium">{r.topic}</span>
+          </p>
+          <p className="mt-2 text-[10px] font-medium uppercase tracking-[0.12em] text-[#718078]">
+            Sesi {r.format === "Kelompok" ? "Kelompok" : "Individu"}
+          </p>
         </div>
       </div>
     </article>
@@ -234,10 +238,10 @@ export default function FeedbackPage() {
       </section>
 
       {/* Konten */}
-      <section className="bg-[#f7fcf9] py-10 sm:py-12">
+      <section className="bg-[#F7FAF8] py-10 sm:py-12">
         <div className="mx-auto w-[92%] sm:w-[88%] lg:w-[86%]">
           {/* Ringkasan rating */}
-          <div className="flex flex-col gap-5 rounded-2xl border-2 border-[#14553a] bg-white p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-5 rounded-2xl border border-[#E3EAE5] bg-white p-5 shadow-[0_3px_12px_rgba(20,85,58,0.04)] sm:p-6 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-4">
               <div className="text-center">
                 <div className="flex items-center gap-1.5">
@@ -275,13 +279,13 @@ export default function FeedbackPage() {
                   id="sortSelect"
                   value={sortMode}
                   onChange={(e) => changeSort(e.target.value as SortMode)}
-                  className="appearance-none rounded-full bg-[#14553a] py-2 pl-4 pr-9 text-xs font-semibold text-white shadow-md outline-none transition hover:bg-[#0c2619] focus-visible:ring-4 focus-visible:ring-[#2e9a5f]/40 sm:text-sm"
+                  className="appearance-none rounded-full border border-[#E0E7E2] bg-white py-2 pl-4 pr-9 text-xs font-semibold text-[#355444] shadow-sm outline-none transition hover:border-[#C8D8CD] hover:bg-[#F7FAF8] focus-visible:ring-4 focus-visible:ring-[#2e9a5f]/25 sm:text-sm"
                 >
                   <option value="terbaru">Terbaru</option>
                   <option value="tertinggi">Rating tertinggi</option>
                   <option value="terendah">Rating terendah</option>
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white" />
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#52715E]" />
               </div>
             </div>
           </div>
@@ -295,10 +299,10 @@ export default function FeedbackPage() {
                   key={f.value}
                   type="button"
                   onClick={() => changeRole(f.value)}
-                  className={`shrink-0 rounded-full border border-[#14553a] px-4 py-1.5 text-xs font-semibold transition sm:text-sm ${
+                  className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e9a5f]/40 focus-visible:ring-offset-2 sm:text-sm ${
                     active
-                      ? "bg-[#14553a] text-white"
-                      : "bg-white text-[#14553a] hover:bg-[#f7fcf9]"
+                      ? "border-[#14553a] bg-[#14553a] text-white shadow-sm"
+                      : "border-[#E0E7E2] bg-white text-[#52635A] hover:border-[#C8D8CD] hover:bg-[#F3F7F4]"
                   }`}
                 >
                   {f.label}
@@ -315,7 +319,7 @@ export default function FeedbackPage() {
           </div>
 
           {list.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-[#14553a]/40 bg-white p-8 text-center text-sm text-gray-500">
+            <div className="rounded-2xl border border-dashed border-[#D6E1D9] bg-white p-8 text-center text-sm text-gray-500">
               Belum ada ulasan untuk filter ini.
             </div>
           )}

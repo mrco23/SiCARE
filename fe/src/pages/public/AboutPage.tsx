@@ -151,7 +151,7 @@ function VisiMisi() {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-white py-12 md:py-16">
+    <section className="relative overflow-hidden bg-white py-14 md:py-[4.5rem]">
       {/* Watermark */}
       <span className="pointer-events-none absolute right-0 top-12 select-none font-[Montserrat] text-[56px] font-black leading-none text-[#e3f5ec] md:text-[84px]">
         MISI
@@ -161,13 +161,13 @@ function VisiMisi() {
       </span>
 
       <div className={`relative z-10 ${container}`}>
-        <h2 className="text-center font-[Montserrat] text-[20px] font-bold text-[#1e5b3a] sm:text-[24px]">
+        <h2 className="text-center font-[Montserrat] text-[22px] font-bold text-[#1e5b3a] sm:text-[26px]">
           Visi & Misi Layanan
         </h2>
 
-        <div className="mx-auto mt-6 grid max-w-[900px] gap-4 md:grid-cols-2 md:gap-5">
+        <div className="mx-auto mt-7 grid max-w-[960px] gap-5 md:grid-cols-2 md:gap-6">
           {/* Visi */}
-          <div className="rounded-[14px] bg-linear-to-br from-[#2a8a63] to-[#1b5e45] p-5 text-white shadow-xl sm:p-6">
+          <div className="rounded-[16px] bg-linear-to-br from-[#2a8a63] to-[#1b5e45] p-6 text-white shadow-xl sm:p-7">
             <div className="flex items-center gap-2.5">
               <div className="flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-white/15">
                 <Eye className="h-[14px] w-[14px] text-white" />
@@ -176,10 +176,10 @@ function VisiMisi() {
                 VISI
               </span>
             </div>
-            <h3 className="mt-3 font-[Montserrat] text-[15px] font-bold leading-snug sm:text-[17px]">
+            <h3 className="mt-3 font-[Montserrat] text-[16px] font-bold leading-snug sm:text-[18px]">
               Menjadi penyedia Layanan Psikologis Terpercaya
             </h3>
-            <p className="mt-3 pl-2.5 text-[12px] leading-relaxed text-white/90 sm:text-[13px]">
+            <p className="mt-3 pl-2.5 text-[13px] leading-relaxed text-white/90 sm:text-[14px]">
               Menjadi penyedia layanan psikologis perguruan tinggi yang
               profesional, terpercaya, & berperan aktif dalam membentuk
               ketangguhan mental mahasiswa, dosen, & staff.
@@ -193,7 +193,7 @@ function VisiMisi() {
           </div>
 
           {/* Misi */}
-          <div className="rounded-[14px] bg-linear-to-br from-[#f1fbf7] to-[#e2f6ee] p-5 shadow-sm sm:p-6">
+          <div className="rounded-[16px] bg-linear-to-br from-[#f1fbf7] to-[#e2f6ee] p-6 shadow-sm sm:p-7">
             <div className="flex items-center gap-2.5">
               <div className="flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-[#2e9a5f]">
                 <Target className="h-[14px] w-[14px] text-white" />
@@ -202,7 +202,7 @@ function VisiMisi() {
                 MISI
               </span>
             </div>
-            <h3 className="mt-3 font-[Montserrat] text-[15px] font-bold text-[#1e5b3a] sm:text-[17px]">
+            <h3 className="mt-3 font-[Montserrat] text-[16px] font-bold text-[#1e5b3a] sm:text-[18px]">
               Langkah Nyata Pelayanan Kami
             </h3>
 
@@ -213,10 +213,10 @@ function VisiMisi() {
                     {item.no}
                   </span>
                   <div>
-                    <p className="text-[12px] font-semibold text-[#2e9a5f]">
+                    <p className="text-[13px] font-semibold text-[#2e9a5f]">
                       {item.title}
                     </p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
+                    <p className="mt-1 text-[12px] leading-relaxed text-gray-600">
                       {item.text}
                     </p>
                   </div>
@@ -334,19 +334,36 @@ function FokusLayanan() {
 
 /* ========================= PRINSIP LAYANAN ========================= */
 function PrinsipLayanan() {
-  const circles = [
-    { icon: HandHeart, pos: "left-0 top-0", size: "h-20 w-20 sm:h-24 sm:w-24" },
+  const [activePrinciple, setActivePrinciple] = useState(1);
+
+  const principles = [
+    {
+      icon: HandHeart,
+      title: "Inklusif",
+      text: "Kami menyediakan ruang konseling yang terbuka dan menghargai setiap individu. Setiap mahasiswa, dosen, dan staf dapat mencari dukungan tanpa merasa dihakimi atau dibedakan.",
+    },
     {
       icon: ShieldCheck,
-      pos: "left-10 top-12 sm:left-12 sm:top-16",
-      size: "h-28 w-28 sm:h-32 sm:w-32 z-10",
+      title: "Kerahasiaan",
+      text: "Informasi dan cerita yang disampaikan selama proses konseling dijaga sesuai prinsip kerahasiaan dan kode etik yang berlaku. Konseli dapat berbicara dengan lebih nyaman dalam ruang yang aman.",
     },
     {
       icon: Users,
-      pos: "left-0 top-36 sm:top-44",
-      size: "h-20 w-20 sm:h-24 sm:w-24",
+      title: "Profesional",
+      text: "Layanan diberikan dengan sikap profesional, empati, dan tanggung jawab. Proses pendampingan disesuaikan dengan kebutuhan konseli serta mengacu pada etika dan kompetensi layanan.",
     },
   ];
+
+  // Susunan awal tetap: kiri atas, tengah, kiri bawah.
+  // Ikon aktif bertukar posisi dengan ikon tengah agar selalu berpindah ke tengah.
+  const positions = [
+    "left-0 top-0",
+    "left-10 top-12 sm:left-12 sm:top-16",
+    "left-0 top-36 sm:top-44",
+  ];
+
+  const active = principles[activePrinciple];
+  const ActiveIcon = active.icon;
 
   return (
     <section className="relative overflow-hidden bg-white py-14 md:py-20">
@@ -355,37 +372,54 @@ function PrinsipLayanan() {
           Prinsip Layanan Kami
         </h2>
 
-        <div className="mt-10 grid items-center gap-8 md:grid-cols-2">
-          {/* Lingkaran ikon */}
+        <div className="mt-10 grid items-center gap-8 md:grid-cols-2 md:gap-10">
+          {/* Layout ikon asli dipertahankan; ikon aktif berpindah ke posisi tengah. */}
           <div className="relative mx-auto h-60 w-full max-w-xs sm:h-64">
-            {circles.map((c, i) => {
-              const Icon = c.icon;
+            {principles.map((principle, i) => {
+              const Icon = principle.icon;
+              const isActive = activePrinciple === i;
+              const slot = isActive ? 1 : i === 1 ? activePrinciple : i;
+              const position = positions[slot];
+
               return (
-                <div
-                  key={i}
-                  className={`absolute flex items-center justify-center rounded-full border-2 border-[#3ee08a] bg-linear-to-br from-[#2ecc7a] to-[#127a47] shadow-xl ${c.pos} ${c.size}`}
+                <button
+                  key={principle.title}
+                  type="button"
+                  onClick={() => setActivePrinciple(i)}
+                  aria-label={`Tampilkan prinsip ${principle.title}`}
+                  aria-pressed={isActive}
+                  className={`absolute ${position} flex items-center justify-center rounded-full border transition-all duration-500 ease-in-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2e9a5f]/25 ${
+                    isActive
+                      ? "z-20 h-28 w-28 border-[#14553a] bg-gradient-to-br from-[#2ecc7a] to-[#127a47] shadow-[0_12px_26px_rgba(20,85,58,0.22)] sm:h-32 sm:w-32"
+                      : "z-10 h-20 w-20 border-[#D4E1D7] bg-gradient-to-br from-[#E5F0E8] to-[#C9DDCF] shadow-[0_4px_12px_rgba(20,85,58,0.08)] hover:scale-105 hover:border-[#B9D0C0] sm:h-24 sm:w-24"
+                  }`}
                 >
-                  <Icon className="h-1/3 w-1/3 text-white" />
-                </div>
+                  <Icon
+                    className={`h-1/3 w-1/3 transition-colors duration-300 ${
+                      isActive ? "text-white" : "text-[#276344]"
+                    }`}
+                    strokeWidth={isActive ? 2 : 1.8}
+                  />
+                </button>
               );
             })}
           </div>
 
-          {/* Kartu Kerahasiaan */}
-          <div className="relative overflow-hidden rounded-xl border-2 border-[#3ee08a] bg-white p-6 shadow-md sm:p-8">
-            <Shield className="pointer-events-none absolute -right-5 -top-5 h-36 w-36 text-[#e3f5ec]" />
-            <h3 className="relative font-[Montserrat] text-xl font-bold text-[#1b1b1b] sm:text-2xl">
-              Kerahasiaan
+          {/* Card informasi: hanya judul dan deskripsi prinsip yang dipilih. */}
+          <article
+            key={active.title}
+            className="relative overflow-hidden rounded-2xl border border-[#E3EAE5] bg-white p-6 shadow-[0_3px_12px_rgba(20,85,58,0.04)] transition-all duration-300 sm:p-8"
+          >
+            <div className="pointer-events-none absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#F0F5F1] text-[#276344]">
+              <ActiveIcon className="h-5 w-5" strokeWidth={1.8} />
+            </div>
+            <h3 className="relative pr-12 font-[Montserrat] text-xl font-bold text-[#1b1b1b] sm:text-2xl">
+              {active.title}
             </h3>
-            <p className="relative mt-4 text-[13px] leading-relaxed text-[#1b1b1b] sm:text-sm">
-              Lorem ipsum dolor sit amet consectetur adipiscing elit culpa qui
-              occaecat molestias fugiat provident non cupiditate est dignissimos
-              dolor iusto officia ut cumque ipsum laborum possimus sunt dolor id
-              cillum reprehenderit adipiscing minim similique labore id et eos
-              quibusdam ut excepturi dolorem libero est in id autem ut
-              assumenda.
+            <p className="relative mt-4 text-sm leading-relaxed text-[#35433B] sm:text-base">
+              {active.text}
             </p>
-          </div>
+          </article>
         </div>
       </div>
     </section>

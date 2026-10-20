@@ -43,13 +43,13 @@ function StepItem({ s }) {
       {/* node */}
       <div className="absolute left-4 top-7 z-10 -translate-x-1/2 md:left-1/2">
         <span
-          className={`relative block h-5 w-5 rounded-full border-[3px] border-black motion-safe:transition-colors motion-safe:duration-500 ${
-            inView ? "bg-[#14553a]" : "bg-[#d9fbe8]"
+          className={`relative block h-5 w-5 rounded-full border-[3px] border-[#14553a] motion-safe:transition-colors motion-safe:duration-500 ${
+            inView ? "bg-[#14553a]" : "bg-[#DCE8DE]"
           }`}
         >
           {/* konektor horizontal (desktop) */}
           <span
-            className={`absolute top-1/2 hidden h-[3px] w-10 origin-left -translate-y-1/2 bg-black motion-safe:transition-transform motion-safe:duration-700 md:block ${
+            className={`absolute top-1/2 hidden h-[3px] w-10 origin-left -translate-y-1/2 bg-[#B8C9BC] motion-safe:transition-transform motion-safe:duration-700 md:block ${
               isRight ? "left-full" : "right-full"
             } ${inView ? "scale-x-100" : "scale-x-0"}`}
           />
@@ -58,7 +58,7 @@ function StepItem({ s }) {
 
       {/* ghost number */}
       <span
-        className={`pointer-events-none absolute select-none text-[110px] font-bold leading-none text-[#a6f4d2] md:text-[150px] ${s.numClass}`}
+        className={`pointer-events-none absolute select-none text-[110px] font-bold leading-none text-[#C4E2CE] md:text-[150px] ${s.numClass}`}
       >
         {s.no}
       </span>
@@ -78,7 +78,7 @@ function StepItem({ s }) {
         }`}
       >
         <div
-          className={`max-w-[420px] rounded-2xl border border-[#bdeed7] bg-white/80 p-6 shadow-sm backdrop-blur-sm md:p-7 ${
+          className={`max-w-[420px] rounded-2xl border border-[#DCE8DE] bg-white p-6 shadow-sm backdrop-blur-sm md:p-7 ${
             isRight ? "" : "md:ml-auto"
           }`}
         >
@@ -100,7 +100,7 @@ function AlurSistem() {
 
   return (
     <>
-      <section className="relative mt-16 bg-[#d9fbe8] pb-28 pt-20 md:mt-24 md:pb-32">
+      <section className="relative mt-16 bg-[#E3F2E7] pb-28 pt-20 md:mt-24 md:pb-32">
         {/* gelombang atas */}
         <svg
           className="absolute -top-[59px] left-0 h-[60px] w-full"
@@ -110,7 +110,7 @@ function AlurSistem() {
         >
           <path
             d="M0,60 L0,30 C200,0 400,50 720,25 C1040,0 1240,45 1440,20 L1440,60 Z"
-            fill="#d9fbe8"
+            fill="#E3F2E7"
           />
         </svg>
         {/* gelombang bawah */}
@@ -122,7 +122,7 @@ function AlurSistem() {
         >
           <path
             d="M0,0 L1440,0 L1440,25 C1200,60 1000,5 720,35 C440,65 240,10 0,40 Z"
-            fill="#d9fbe8"
+            fill="#E3F2E7"
           />
         </svg>
 
@@ -136,7 +136,7 @@ function AlurSistem() {
           <path
             d="M20,70 C120,190 300,230 560,215 C800,200 900,80 1200,50 L1420,40"
             fill="none"
-            stroke="#a9d9c2"
+            stroke="#B8D8C2"
             strokeWidth="3"
             strokeDasharray="18 22"
             vectorEffect="non-scaling-stroke"
@@ -144,14 +144,14 @@ function AlurSistem() {
           <path
             d="M1420,640 C1250,680 1150,760 1000,860 C850,960 600,990 300,960 C200,950 120,900 60,860"
             fill="none"
-            stroke="#a9d9c2"
+            stroke="#B8D8C2"
             strokeWidth="3"
             strokeDasharray="18 22"
             vectorEffect="non-scaling-stroke"
           />
         </svg>
 
-        <div className="relative mx-auto w-full max-w-7xl px-6 lg:px-12">
+        <div className="relative mx-auto w-[92%] sm:w-[88%] lg:w-[86%]">
           <SectionTitle>
             Alur Sistem dari Pengunjung hingga Selesai
           </SectionTitle>
@@ -159,7 +159,7 @@ function AlurSistem() {
           <div className="relative mt-24" ref={listRef}>
             {/* garis tengah: tergambar dari atas ke bawah */}
             <div
-              className={`absolute bottom-0 top-0 left-4 w-[3px] origin-top -translate-x-1/2 bg-black motion-safe:transition-transform motion-safe:duration-1000 md:left-1/2 ${
+              className={`absolute bottom-0 top-0 left-4 w-[3px] origin-top -translate-x-1/2 bg-[#B8C9BC] motion-safe:transition-transform motion-safe:duration-1000 md:left-1/2 ${
                 listInView ? "scale-y-100" : "scale-y-0"
               }`}
             />
@@ -196,7 +196,7 @@ function JenisLayanan() {
   ];
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-6 pb-20 pt-10 lg:px-12 md:pb-28 md:pt-20">
+    <section className="mx-auto w-[92%] pb-20 pt-10 sm:w-[88%] md:pb-28 md:pt-20 lg:w-[86%]">
       <div className="mb-16 flex flex-col gap-3 md:mb-24">
         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#36c08f]">
           Layanan Kami
@@ -217,7 +217,7 @@ function JenisLayanan() {
               <div className="pointer-events-none absolute inset-0 hidden md:block">
                 {isIndividu ? (
                   <svg
-                    className="absolute -left-10 -top-14 h-40 w-40 text-[#c8f5cf] transition duration-500 ease-out group-hover:-translate-y-10"
+                    className="absolute -left-10 -top-14 h-40 w-40 text-[#DCE8DE] transition duration-500 ease-out group-hover:-translate-y-10"
                     viewBox="0 0 100 100"
                     fill="none"
                   >
@@ -231,7 +231,7 @@ function JenisLayanan() {
                   </svg>
                 ) : (
                   <svg
-                    className="absolute -top-16 left-6 h-44 w-72 text-[#d8f7de] transition duration-500 ease-out group-hover:-translate-y-10"
+                    className="absolute -top-16 left-6 h-44 w-72 text-[#DCE8DE] transition duration-500 ease-out group-hover:-translate-y-10"
                     viewBox="0 0 280 120"
                     fill="currentColor"
                   >
@@ -243,12 +243,12 @@ function JenisLayanan() {
               </div>
 
               {/* Card */}
-              <div className="relative z-10 flex min-h-[340px] flex-col overflow-hidden rounded-[32px] border border-[#d4f3e3] bg-gradient-to-br from-white via-[#eefcf5] to-[#bff5df] p-8 shadow-[0_12px_32px_-12px_rgba(20,85,58,0.18)] transition duration-300 group-hover:shadow-[0_20px_40px_-12px_rgba(20,85,58,0.25)] md:p-10">
+              <div className="relative z-10 flex min-h-[340px] flex-col overflow-hidden rounded-[32px] border border-[#DCE8DE] bg-gradient-to-br from-white via-[#F7F9F6] to-[#DCE8DE] p-8 shadow-[0_12px_32px_-12px_rgba(20,85,58,0.18)] transition duration-300 group-hover:shadow-[0_20px_40px_-12px_rgba(20,85,58,0.25)] md:p-10">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#236c44] shadow-md">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#14553a] shadow-md">
                     <Icon className="h-7 w-7 text-white" strokeWidth={2} />
                   </div>
-                  <span className="rounded-full bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#236c44] backdrop-blur">
+                  <span className="rounded-full bg-[#F7F9F6] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#236c44] backdrop-blur">
                     {s.label}
                   </span>
                 </div>
@@ -358,7 +358,7 @@ const StarShape = ({ className }: { className?: string }) => (
 );
 
 const SectionTitle = ({ children }: { children: ReactNode }) => (
-  <h2 className=" text-2xl font-bold text-[#14553a] md:text-[26px]">
+  <h2 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-[#14553a] md:text-[30px]">
     {children}
   </h2>
 );
@@ -370,13 +370,13 @@ export default function PanduanPage() {
   return (
     <div className="overflow-x-clip bg-white font-[Inter] text-slate-800">
       {/* ============ HERO ============ */}
-      <section className="relative bg-[#d8fbe6] pb-24 pt-28 md:pb-32 md:pt-40">
+      <section className="relative isolate overflow-hidden bg-[#E5F3E8] pb-20 pt-20 md:pb-24 md:pt-28">
         {/* dekorasi bintang */}
-        <StarShape className="pointer-events-none absolute right-6 top-24 h-8 w-8 text-[#a6f4d2] md:right-10" />
-        <StarShape className="pointer-events-none absolute -right-8 top-44 h-28 w-28 text-[#a6f4d2] md:top-52 md:h-36 md:w-36" />
+        <StarShape className="pointer-events-none absolute right-6 top-24 z-0 h-8 w-8 text-[#B8DCC3] md:right-10" />
+        <StarShape className="pointer-events-none absolute -right-8 top-36 z-0 h-28 w-28 text-[#B8DCC3] md:top-44 md:h-36 md:w-36" />
 
-        <div className="relative z-10 mx-auto w-full max-w-7xl px-6 lg:px-12">
-          <h1 className=" text-3xl font-bold text-[#14553a] md:text-[34px]">
+        <div className="relative z-20 mx-auto w-[92%] sm:w-[88%] lg:w-[86%]">
+          <h1 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-[#14553a] sm:text-3xl lg:text-4xl">
             Panduan Lengkap Konseling
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-relaxed text-slate-800">
@@ -393,7 +393,7 @@ export default function PanduanPage() {
 
         {/* gelombang bawah */}
         <svg
-          className="absolute bottom-[-1px] left-0 h-[70px] w-full md:h-[110px]"
+          className="absolute bottom-[-1px] left-0 z-10 h-[70px] w-full md:h-[110px]"
           viewBox="0 0 1440 120"
           preserveAspectRatio="none"
           aria-hidden="true"
@@ -435,7 +435,7 @@ export default function PanduanPage() {
       <AlurSistem />
 
       {/* ============ FAQ ============ */}
-      <section className="mx-auto w-full max-w-7xl px-6 pb-24 pt-32 lg:px-12 md:pt-40">
+      <section className="mx-auto w-[92%] pb-24 pt-32 sm:w-[88%] md:pt-40 lg:w-[86%]">
         <SectionTitle>Pertanyaan yang Sering Diajukan (FAQ)</SectionTitle>
 
         <div className="mx-auto mt-14 max-w-4xl space-y-6">
