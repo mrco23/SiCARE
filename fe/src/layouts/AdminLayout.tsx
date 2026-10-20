@@ -1,6 +1,12 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Bell, MessageSquareText, MoreHorizontal, X } from "lucide-react";
+import {
+  Bell,
+  CalendarDays,
+  MessageSquareText,
+  MoreHorizontal,
+  X,
+} from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
 const SIDEBAR_W = 248;
@@ -128,6 +134,7 @@ const menuItems: MenuItem[] = [
     icon: IconRequest,
     to: "/admin/konseling",
   },
+
   { label: "Akun", short: "Akun", icon: IconAccount, to: "/admin/akun" },
   {
     label: "Feedback",
@@ -142,6 +149,12 @@ const menuItems: MenuItem[] = [
     to: "/admin/laporan",
   },
   {
+    label: "Periode",
+    short: "Periode",
+    icon: CalendarDays,
+    to: "/admin/periode",
+  },
+  {
     label: "Pengaturan",
     short: "Pengaturan",
     icon: IconSettings,
@@ -153,8 +166,8 @@ const menuItems: MenuItem[] = [
 const bottomNavItems: MenuItem[] = [
   menuItems[0], // Beranda
   menuItems[1], // Konseling
-  menuItems[2], // Akun
-  menuItems[4], // Laporan
+  menuItems[3], // Akun
+  menuItems[5], // Laporan
 ];
 
 // Rute yang hanya bisa diakses lewat drawer "Lainnya"
