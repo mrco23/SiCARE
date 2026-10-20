@@ -1,0 +1,970 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  CalendarDays,
+  CalendarX,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Download,
+  FileChartColumnIncreasing,
+  FileSpreadsheet,
+  Printer,
+  Users,
+  UsersRound,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  fmtDate,
+  isInPeriod,
+  loadPeriods,
+  periodStatus,
+  sortPeriods,
+  toISO,
+  type AcademicPeriod,
+  type PeriodStatus,
+} from "../../lib/academicPeriods";
+
+type Session = {
+  id: string;
+  date: string;
+  format: "Individu" | "Kelompok";
+  status: "Selesai" | "Dibatalkan";
+  counselor: string;
+  cancellationReason: string;
+};
+
+const COUNSELORS = [
+  "Konselor A",
+  "Konselor B",
+  "Konselor C",
+  "Konselor D",
+  "Konselor E",
+];
+
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+];
+
+const CANCELLATION_REASONS = [
+  "Klien berhalangan",
+  "Konselor berhalangan",
+  "Jadwal bentrok",
+  "Alasan administratif",
+];
+
+/* Data sintetis untuk desain frontend. Ganti dengan data agregat dari backend. */
+const SESSIONS: Session[] = Array.from({ length: 240 }, (_, index) => {
+  const date = new Date(Date.UTC(2024, 7, 20) + index * 2.3 * 864e5);
+  const cancelled = index % 8 === 0 || index % 17 === 0;
+
+  return {
+    id: `S${String(index + 1).padStart(3, "0")}`,
+    date: date.toISOString().slice(0, 10),
+    format: index % 4 === 0 ? "Kelompok" : "Individu",
+    status: cancelled ? "Dibatalkan" : "Selesai",
+    counselor: COUNSELORS[index % COUNSELORS.length],
+    cancellationReason: cancelled
+      ? CANCELLATION_REASONS[index % CANCELLATION_REASONS.length]
+      : "",
+  };
+});
+
+const STATUS_STYLE: Record<PeriodStatus, string> = {
+  Aktif: "border-emerald-200 bg-emerald-50 text-[#14553a]",
+  Mendatang: "border-sky-200 bg-sky-50 text-sky-700",
+  Selesai: "border-slate-200 bg-slate-100 text-slate-500",
+};
+
+const percent = (value: number, total: number) =>
+  total > 0 ? Math.round((value / total) * 100) : 0;
+
+const sessionsInPeriod = (period: AcademicPeriod | null) =>
+  SESSIONS.filter(
+    (session) =>
+      !period ||
+      isInPeriod(toISO(new Date(`${session.date}T00:00:00`)), period),
+  );
+
+function MetricCard({
+  label,
+  value,
+  note,
+  icon: Icon,
+  tone = "green",
+}: {
+  label: string;
+  value: number | string;
+  note: string;
+  icon: typeof CheckCircle2;
+  tone?: "green" | "red" | "blue" | "gold";
+}) {
+  const tones = {
+    green: "bg-emerald-50 text-emerald-700",
+    red: "bg-red-50 text-red-600",
+    blue: "bg-blue-50 text-blue-700",
+    gold: "bg-amber-50 text-amber-700",
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-semibold leading-5 text-slate-500">
+          {label}
+        </p>
+        <span className={`rounded-xl p-2 ${tones[tone]}`}>
+          <Icon className="h-5 w-5" />
+        </span>
+      </div>
+      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-slate-500">{note}</p>
+    </div>
+  );
+}
+
+function PeriodDropdown({
+  periods,
+  selectedId,
+  onSelect,
+  today,
+}: {
+  periods: AcademicPeriod[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  today: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeYear, setActiveYear] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = periods.find((period) => period.id === selectedId) ?? null;
+
+  const years = useMemo(
+    () => [...new Set(periods.map((period) => period.ta))].sort().reverse(),
+    [periods],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (!open) setActiveYear(selected?.ta ?? years[0] ?? null);
+    setOpen((value) => !value);
+  };
+
+  const selectPeriod = (id: string) => {
+    onSelect(id);
+    setOpen(false);
+  };
+
+  const year = activeYear ?? years[0] ?? null;
+  const selectedStatus = selected ? periodStatus(selected, today) : null;
+
+  return (
+    <div ref={rootRef} className="relative w-full sm:w-[390px]">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition ${
+          open
+            ? "border-[#2a8f5a] ring-4 ring-[#2a8f5a]/15"
+            : "border-slate-200 hover:border-[#2a8f5a]/50"
+        }`}
+      >
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Periode laporan
+          </p>
+          <p className="truncate text-sm font-bold text-slate-800">
+            {selected ? `TA ${selected.ta} · ${selected.sem}` : "Semua periode"}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {selectedStatus && (
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLE[selectedStatus]}`}
+            >
+              {selectedStatus}
+            </span>
+          )}
+          <ChevronDown
+            className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </div>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-30 mt-2 w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-100 p-3">
+            <button
+              type="button"
+              onClick={() => selectPeriod("all")}
+              className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                selectedId === "all"
+                  ? "bg-[#f0fdf4] text-[#14553a]"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Semua periode
+              {selectedId === "all" && <Check className="h-4 w-4" />}
+            </button>
+          </div>
+
+          {periods.length === 0 ? (
+            <div className="p-5 text-sm text-slate-500">
+              Belum ada periode akademik. Tambahkan periode melalui menu
+              Periode.
+            </div>
+          ) : (
+            <div className="grid grid-cols-[9rem_1fr]">
+              <div className="max-h-72 space-y-1 overflow-y-auto border-r border-slate-100 bg-slate-50/60 p-2">
+                <p className="px-2 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Tahun akademik
+                </p>
+                {years.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setActiveYear(item)}
+                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition ${
+                      year === item
+                        ? "bg-white text-[#14553a] shadow-sm"
+                        : "text-slate-600 hover:bg-white/70"
+                    }`}
+                  >
+                    {item}
+                    {selected?.ta === item && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#2a8f5a]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-2 p-3">
+                <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Semester · TA {year}
+                </p>
+                {(["Ganjil", "Genap"] as const).map((semester) => {
+                  const period = periods
+                    .filter((item) => item.ta === year)
+                    .find((item) => item.sem === semester);
+
+                  if (!period) {
+                    return (
+                      <div
+                        key={semester}
+                        className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-400"
+                      >
+                        <span className="font-semibold">{semester}</span> ·
+                        belum tersedia
+                      </div>
+                    );
+                  }
+
+                  const active = selectedId === period.id;
+                  const status = periodStatus(period, today);
+                  const sessionCount = sessionsInPeriod(period).length;
+
+                  return (
+                    <button
+                      key={semester}
+                      type="button"
+                      onClick={() => selectPeriod(period.id)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                        active
+                          ? "border-[#14553a] bg-[#14553a] text-white"
+                          : "border-slate-200 bg-white hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold">{semester}</p>
+                        <p
+                          className={`truncate text-[11px] ${active ? "text-emerald-100" : "text-slate-400"}`}
+                        >
+                          {fmtDate(period.start)} – {fmtDate(period.end)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${active ? "bg-white/15 text-white" : "bg-slate-100 text-slate-600"}`}
+                        >
+                          {sessionCount} sesi
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold ${active ? "text-emerald-100" : status === "Aktif" ? "text-[#15803d]" : "text-slate-400"}`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function downloadCSV(filename: string, data: (string | number)[][]) {
+  const csv = data
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+    )
+    .join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export default function KepalaLMILaporanPage() {
+  const today = useMemo(() => toISO(new Date()), []);
+  const periods = useMemo(() => sortPeriods(loadPeriods()), []);
+  const [periodId, setPeriodId] = useState<string>(() => {
+    const active = periods.find((period) => isInPeriod(today, period));
+    return active?.id ?? periods[periods.length - 1]?.id ?? "all";
+  });
+
+  const period = periods.find((item) => item.id === periodId) ?? null;
+  const rows = useMemo(() => sessionsInPeriod(period), [period]);
+
+  const completed = rows.filter((session) => session.status === "Selesai");
+  const cancelled = rows.filter((session) => session.status === "Dibatalkan");
+  const individualCompleted = completed.filter(
+    (session) => session.format === "Individu",
+  );
+  const groupCompleted = completed.filter(
+    (session) => session.format === "Kelompok",
+  );
+  const individualCancelled = cancelled.filter(
+    (session) => session.format === "Individu",
+  );
+  const groupCancelled = cancelled.filter(
+    (session) => session.format === "Kelompok",
+  );
+
+  const previousPeriod = useMemo(() => {
+    if (!period) return null;
+    const sorted = sortPeriods(periods);
+    const index = sorted.findIndex((item) => item.id === period.id);
+    return index > 0 ? sorted[index - 1] : null;
+  }, [period, periods]);
+
+  const previousRows = useMemo(
+    () => (previousPeriod ? sessionsInPeriod(previousPeriod) : []),
+    [previousPeriod],
+  );
+  const previousCompleted = previousRows.filter(
+    (session) => session.status === "Selesai",
+  ).length;
+  const completedChange = completed.length - previousCompleted;
+  const completedChangePct =
+    previousCompleted > 0
+      ? Math.round((completedChange / previousCompleted) * 100)
+      : null;
+
+  const monthly = useMemo(() => {
+    const map: Record<string, { done: number; cancelled: number }> = {};
+    rows.forEach((session) => {
+      const key = session.date.slice(0, 7);
+      map[key] ??= { done: 0, cancelled: 0 };
+      if (session.status === "Selesai") map[key].done += 1;
+      else map[key].cancelled += 1;
+    });
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => ({ key, ...value }));
+  }, [rows]);
+
+  const maxMonth = Math.max(
+    1,
+    ...monthly.map((month) => month.done + month.cancelled),
+  );
+
+  const counselorRows = useMemo(
+    () =>
+      COUNSELORS.map((counselor) => {
+        const counselorSessions = rows.filter(
+          (session) => session.counselor === counselor,
+        );
+        const done = counselorSessions.filter(
+          (session) => session.status === "Selesai",
+        );
+        const canceled = counselorSessions.filter(
+          (session) => session.status === "Dibatalkan",
+        );
+        return {
+          counselor,
+          individualDone: done.filter(
+            (session) => session.format === "Individu",
+          ).length,
+          groupDone: done.filter((session) => session.format === "Kelompok")
+            .length,
+          individualCancelled: canceled.filter(
+            (session) => session.format === "Individu",
+          ).length,
+          groupCancelled: canceled.filter(
+            (session) => session.format === "Kelompok",
+          ).length,
+          done: done.length,
+          cancelled: canceled.length,
+          total: counselorSessions.length,
+        };
+      }).filter((item) => item.total > 0),
+    [rows],
+  );
+
+  const cancellationRows = useMemo(
+    () =>
+      CANCELLATION_REASONS.map((reason) => ({
+        reason,
+        count: cancelled.filter(
+          (session) => session.cancellationReason === reason,
+        ).length,
+      }))
+        .filter((item) => item.count > 0)
+        .sort((a, b) => b.count - a.count),
+    [cancelled],
+  );
+
+  const exportReport = () => {
+    const data: (string | number)[][] = [
+      ["Laporan Kinerja Layanan SiCARE"],
+      [
+        "Periode",
+        period ? `TA ${period.ta} Semester ${period.sem}` : "Semua periode",
+      ],
+      [
+        "Rentang tanggal",
+        period
+          ? `${period.start} sampai ${period.end}`
+          : "Seluruh rentang data",
+      ],
+      [],
+      ["Indikator", "Jumlah"],
+      ["Total sesi", rows.length],
+      ["Sesi selesai", completed.length],
+      ["Sesi individu selesai", individualCompleted.length],
+      ["Sesi kelompok selesai", groupCompleted.length],
+      ["Sesi dibatalkan", cancelled.length],
+      ["Sesi individu dibatalkan", individualCancelled.length],
+      ["Sesi kelompok dibatalkan", groupCancelled.length],
+      ["Persentase sesi selesai", `${percent(completed.length, rows.length)}%`],
+      ["Persentase pembatalan", `${percent(cancelled.length, rows.length)}%`],
+      [],
+      [
+        "Konselor",
+        "Individu selesai",
+        "Kelompok selesai",
+        "Individu batal",
+        "Kelompok batal",
+        "Total selesai",
+        "Total batal",
+        "Total sesi",
+      ],
+      ...counselorRows.map((item) => [
+        item.counselor,
+        item.individualDone,
+        item.groupDone,
+        item.individualCancelled,
+        item.groupCancelled,
+        item.done,
+        item.cancelled,
+        item.total,
+      ]),
+      [],
+      ["Bulan", "Selesai", "Dibatalkan"],
+      ...monthly.map((item) => [item.key, item.done, item.cancelled]),
+      [],
+      ["Alasan pembatalan", "Jumlah"],
+      ...cancellationRows.map((item) => [item.reason, item.count]),
+    ];
+    downloadCSV(`laporan-sicare-kepala-lmi-${periodId}.csv`, data);
+  };
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
+      <style>{`
+        @media print {
+          aside, header, nav, .no-print { display: none !important; }
+          main { margin-left: 0 !important; padding: 0 !important; }
+          body { background: #fff !important; }
+          .print-break-inside { break-inside: avoid; }
+          .print-shadow-none { box-shadow: none !important; }
+        }
+      `}</style>
+
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2a8f5a]">
+            Panel Pimpinan
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            Laporan Layanan Konseling
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            Rekapitulasi pelaksanaan layanan, pembatalan, dan distribusi sesi
+            per konselor untuk mendukung evaluasi LMI.
+          </p>
+        </div>
+        <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center">
+          <PeriodDropdown
+            periods={periods}
+            selectedId={periodId}
+            onSelect={setPeriodId}
+            today={today}
+          />
+          <button
+            type="button"
+            onClick={exportReport}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-[#14553a]" />
+            Ekspor CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f4430]"
+          >
+            <Printer className="h-4 w-4" />
+            Cetak / PDF
+          </button>
+        </div>
+      </div>
+
+      <section className="rounded-2xl border border-[#d6eadc] bg-gradient-to-r from-[#f0faf3] to-white p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#32734f]">
+              Periode laporan
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">
+              {period
+                ? `TA ${period.ta} · Semester ${period.sem}`
+                : "Semua periode akademik"}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              {period
+                ? `${fmtDate(period.start)} – ${fmtDate(period.end)}`
+                : "Seluruh rentang data yang tersedia"}
+            </p>
+          </div>
+          <Link
+            to="/kepala-lmi"
+            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-[#cce3d3] bg-white px-4 py-2.5 text-sm font-semibold text-[#14553a] transition hover:bg-[#f6fcf8] sm:self-auto"
+          >
+            Kembali ke beranda <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">
+            Ringkasan eksekutif
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Angka agregat untuk melihat volume layanan dan pola pembatalan pada
+            periode terpilih.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Total sesi"
+            value={rows.length}
+            note="Sesi selesai dan dibatalkan"
+            icon={CalendarDays}
+            tone="blue"
+          />
+          <MetricCard
+            label="Sesi selesai"
+            value={completed.length}
+            note={`${percent(completed.length, rows.length)}% dari total sesi`}
+            icon={CheckCircle2}
+          />
+          <MetricCard
+            label="Sesi dibatalkan"
+            value={cancelled.length}
+            note={`${percent(cancelled.length, rows.length)}% dari total sesi`}
+            icon={CalendarX}
+            tone="red"
+          />
+          <MetricCard
+            label="Konselor dengan aktivitas"
+            value={counselorRows.length}
+            note="Memiliki sesi pada periode terpilih"
+            icon={Users}
+            tone="gold"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Individu selesai"
+            value={individualCompleted.length}
+            note="Sesi individu terlaksana"
+            icon={Users}
+          />
+          <MetricCard
+            label="Kelompok selesai"
+            value={groupCompleted.length}
+            note="Sesi kelompok terlaksana"
+            icon={UsersRound}
+          />
+          <MetricCard
+            label="Individu dibatalkan"
+            value={individualCancelled.length}
+            note="Sesi individu dibatalkan"
+            icon={Users}
+            tone="red"
+          />
+          <MetricCard
+            label="Kelompok dibatalkan"
+            value={groupCancelled.length}
+            note="Sesi kelompok dibatalkan"
+            icon={UsersRound}
+            tone="red"
+          />
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:col-span-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="font-bold text-slate-900">
+                Tren layanan per bulan
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Jumlah sesi selesai dibandingkan dengan sesi dibatalkan.
+              </p>
+            </div>
+            <div className="flex gap-3 text-[11px] font-medium text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#2a8f5a]" />
+                Selesai
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-red-400" />
+                Dibatalkan
+              </span>
+            </div>
+          </div>
+          {monthly.length === 0 ? (
+            <div className="flex h-48 items-center justify-center text-sm text-slate-400">
+              Belum ada data pada periode ini.
+            </div>
+          ) : (
+            <>
+              <div className="mt-6 flex h-48 items-end gap-2 border-b border-slate-100 pb-1 sm:gap-3">
+                {monthly.map((month) => {
+                  const total = month.done + month.cancelled;
+                  const height = (total / maxMonth) * 100;
+                  const doneHeight = total ? (month.done / total) * 100 : 0;
+                  return (
+                    <div
+                      key={month.key}
+                      className="flex h-full min-w-0 flex-1 flex-col justify-end"
+                      title={`${month.key}: ${month.done} selesai, ${month.cancelled} dibatalkan`}
+                    >
+                      <div
+                        className="flex w-full flex-col overflow-hidden rounded-t-md"
+                        style={{ height: `${height}%` }}
+                      >
+                        <div
+                          className="bg-red-400"
+                          style={{ height: `${100 - doneHeight}%` }}
+                        />
+                        <div
+                          className="bg-[#2a8f5a]"
+                          style={{ height: `${doneHeight}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex gap-2 sm:gap-3">
+                {monthly.map((month) => (
+                  <div
+                    key={month.key}
+                    className="min-w-0 flex-1 text-center text-[10px] font-semibold text-slate-500"
+                  >
+                    {MONTHS[Number(month.key.slice(5, 7)) - 1]}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="font-bold text-slate-900">Perbandingan semester</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Perubahan jumlah sesi selesai dibandingkan periode sebelumnya.
+          </p>
+          <div className="mt-5 rounded-xl bg-slate-50 p-4">
+            <p className="text-xs font-semibold text-slate-500">
+              Sesi selesai periode ini
+            </p>
+            <p className="mt-1 text-3xl font-bold text-slate-900">
+              {completed.length}
+            </p>
+            <div
+              className={`mt-2 inline-flex items-center gap-1 text-sm font-bold ${completedChange > 0 ? "text-emerald-700" : completedChange < 0 ? "text-red-600" : "text-slate-500"}`}
+            >
+              {completedChange > 0 ? (
+                <ArrowUpRight className="h-4 w-4" />
+              ) : completedChange < 0 ? (
+                <ArrowDownRight className="h-4 w-4" />
+              ) : null}
+              {previousPeriod
+                ? `${completedChange > 0 ? "+" : ""}${completedChange} sesi${completedChangePct !== null ? ` (${completedChangePct > 0 ? "+" : ""}${completedChangePct}%)` : ""}`
+                : "Belum ada periode pembanding"}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              {previousPeriod
+                ? `Dibandingkan TA ${previousPeriod.ta} · ${previousPeriod.sem} (${previousCompleted} sesi selesai)`
+                : "Pilih periode yang memiliki semester sebelumnya untuk perbandingan."}
+            </p>
+          </div>
+          <div className="mt-4 space-y-3">
+            <div>
+              <div className="mb-1 flex justify-between text-xs text-slate-600">
+                <span>Tingkat penyelesaian</span>
+                <strong>{percent(completed.length, rows.length)}%</strong>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-[#2a8f5a]"
+                  style={{
+                    width: `${percent(completed.length, rows.length)}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="mb-1 flex justify-between text-xs text-slate-600">
+                <span>Tingkat pembatalan</span>
+                <strong>{percent(cancelled.length, rows.length)}%</strong>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-red-400"
+                  style={{
+                    width: `${percent(cancelled.length, rows.length)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print-break-inside">
+        <div className="border-b border-slate-100 p-4 sm:p-5">
+          <h2 className="font-bold text-slate-900">
+            Distribusi layanan per konselor
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Ringkasan sesi berdasarkan jenis dan status. Angka ini menunjukkan
+            distribusi aktivitas, bukan penilaian kualitas individual.
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Konselor</th>
+                <th className="px-4 py-3 text-right">Individu selesai</th>
+                <th className="px-4 py-3 text-right">Kelompok selesai</th>
+                <th className="px-4 py-3 text-right">Individu batal</th>
+                <th className="px-4 py-3 text-right">Kelompok batal</th>
+                <th className="px-4 py-3 text-right">Total selesai</th>
+                <th className="px-4 py-3 text-right">Total batal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {counselorRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-5 py-8 text-center text-sm text-slate-400"
+                  >
+                    Belum ada data konselor pada periode ini.
+                  </td>
+                </tr>
+              ) : (
+                counselorRows.map((item) => (
+                  <tr key={item.counselor} className="hover:bg-slate-50/70">
+                    <td className="whitespace-nowrap px-4 py-3 font-semibold">
+                      {item.counselor}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {item.individualDone}
+                    </td>
+                    <td className="px-4 py-3 text-right">{item.groupDone}</td>
+                    <td className="px-4 py-3 text-right text-red-600">
+                      {item.individualCancelled}
+                    </td>
+                    <td className="px-4 py-3 text-right text-red-600">
+                      {item.groupCancelled}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#14553a]">
+                      {item.done}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-red-600">
+                      {item.cancelled}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print-break-inside">
+          <h2 className="font-bold text-slate-900">Ringkasan pembatalan</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Alasan administratif yang tercatat pada data contoh.
+          </p>
+          {cancellationRows.length === 0 ? (
+            <p className="mt-5 text-sm text-slate-400">
+              Tidak ada pembatalan pada periode ini.
+            </p>
+          ) : (
+            <div className="mt-5 space-y-4">
+              {cancellationRows.map((item) => (
+                <div key={item.reason}>
+                  <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+                    <span>{item.reason}</span>
+                    <span>
+                      {item.count} ({percent(item.count, cancelled.length)}%)
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-red-400"
+                      style={{
+                        width: `${percent(item.count, cancelled.length)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print-break-inside">
+          <h2 className="font-bold text-slate-900">Catatan evaluasi</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Panduan membaca indikator laporan.
+          </p>
+          <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+            <li className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2a8f5a]" />
+              <span>
+                Gunakan perubahan volume sesi sebagai bahan evaluasi pemanfaatan
+                layanan, bukan sebagai satu-satunya indikator keberhasilan.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2a8f5a]" />
+              <span>
+                Tinjau alasan pembatalan bersama konteksnya. Pembatalan tidak
+                otomatis menunjukkan masalah kinerja konselor.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2a8f5a]" />
+              <span>
+                Jumlah sesi kelompok tidak sama dengan jumlah mahasiswa yang
+                terlayani. Keduanya perlu dicatat sebagai indikator terpisah.
+              </span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <div className="no-print flex flex-col gap-4 rounded-2xl border border-[#d6eadc] bg-[#f5fbf6] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex items-start gap-3">
+          <span className="rounded-xl bg-white p-2.5 text-[#14553a]">
+            <FileChartColumnIncreasing className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="font-bold text-slate-900">
+              Simpan laporan periode ini
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Ekspor ringkasan untuk analisis lanjutan atau cetak laporan untuk
+              dokumentasi organisasi.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={exportReport}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-white"
+          >
+            <Download className="h-4 w-4" /> Ekspor CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4430]"
+          >
+            <Printer className="h-4 w-4" /> Cetak / PDF
+          </button>
+        </div>
+      </div>
+
+      <p className="pb-3 text-center text-[11px] text-slate-400">
+        Laporan ini menggunakan data simulasi frontend. Data produksi perlu
+        berasal dari sumber backend yang sama dengan dashboard dan dibatasi pada
+        informasi agregat yang diperlukan Kepala LMI.
+      </p>
+    </div>
+  );
+}

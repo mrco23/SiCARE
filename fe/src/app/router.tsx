@@ -8,6 +8,7 @@ import Register from "../pages/auth/Register";
 import KonselorLayout from "../layouts/KonselorLayout";
 import AdminLayout from "../layouts/AdminLayout";
 import KlienLayout from "../layouts/KlienLayout";
+import KepalaLMILayout from "../layouts/KepalaLMILayout";
 
 /* Client */
 import KlienBerandaPage from "../pages/client/KlienBerandaPage";
@@ -23,6 +24,7 @@ import AdminActivityPage from "../pages/admin/AdminAktivitasPage";
 import AdminFeedbackPage from "../pages/admin/AdminFeedbackPage";
 import AdminPeriodePage from "../pages/admin/AdminPeriodePage";
 import AdminKonselingPage from "../pages/admin/AdminKonselingPage";
+import AdminLaporanPage from "../pages/admin/AdminLaporanPage.tsx";
 import AdminAkunPage from "../pages/admin/AdminAkunPage";
 import AdminPengaturanPage from "../pages/admin/AdminPengaturanPage.tsx";
 
@@ -39,10 +41,16 @@ import PanduanPage from "../pages/public/PanduanPage";
 import KonselorBerandaPage from "../pages/counselor/KonselorBerandaPage";
 import KonselorJadwalPage from "../pages/counselor/KonselorJadwalPage";
 import KonselorRiwayatPage from "../pages/counselor/KonselorRiwayatPage";
-import KonselorPermintaanPage from "../pages/counselor/KonselorBerandaPage";
+import KonselorPermintaanPage from "../pages/counselor/KonselorPermintaanPage.tsx";
 import KonselorAktivitasPage from "../pages/counselor/KonselorAktivitasPage";
 import KonselorPengaturanPage from "../pages/counselor/KonselorPengaturanPage.tsx";
 import KonselorFeedbackPage from "../pages/counselor/KonselorFeedbackPage.tsx";
+
+/* Head LMI */
+import KepalaLMIBerandaPage from "../pages/headlmi/KepalaLMIBerandaPage.tsx";
+import KepalaLMILaporanPage from "../pages/headlmi/KepalaLMILaporanPage.tsx";
+import KepalaLMIPengaturanPage from "../pages/headlmi/KepalaLMIPengaturanPage.tsx";
+import KepalaLMIFeedbackPage from "../pages/headlmi/KepalaLMIFeedbackPage.tsx";
 
 export default function AppRouter() {
   return (
@@ -84,8 +92,16 @@ export default function AppRouter() {
         <Route path="akun" element={<AdminAkunPage />} />
         <Route path="konseling" element={<AdminKonselingPage />} />
         <Route path="feedback" element={<AdminFeedbackPage />} />
+        <Route path="laporan" element={<AdminLaporanPage />} />
         <Route path="periode" element={<AdminPeriodePage />} />
         <Route path="pengaturan" element={<AdminPengaturanPage />} />
+      </Route>
+
+      <Route path="/kepala-lmi" element={<KepalaLMILayout />}>
+        <Route index element={<KepalaLMIBerandaPage />} />
+        <Route path="laporan" element={<KepalaLMILaporanPage />} />
+        <Route path="feedback" element={<KepalaLMIFeedbackPage />} />
+        <Route path="pengaturan" element={<KepalaLMIPengaturanPage />} />
       </Route>
 
       {/*       <Route path="*" element={<Navigate to="/" replace />} /> */}
