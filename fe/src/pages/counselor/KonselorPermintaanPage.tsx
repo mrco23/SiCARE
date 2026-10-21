@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, Search, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
 
 const initialRequests = [
   {
@@ -45,37 +45,6 @@ const initialRequests = [
     isNew: false,
     pastSessions: 1,
     topic: "Stres kerja",
-  },
-];
-
-const rooms = [
-  {
-    id: "R1",
-    name: "Ruang Konseling 1",
-    floor: "Lantai 2",
-    capacity: 2,
-    busy: [],
-  },
-  {
-    id: "R2",
-    name: "Ruang Konseling 2",
-    floor: "Lantai 2",
-    capacity: 2,
-    busy: ["15.00"],
-  },
-  {
-    id: "R3",
-    name: "Ruang Konseling 3",
-    floor: "Lantai 3",
-    capacity: 6,
-    busy: [],
-  },
-  {
-    id: "R4",
-    name: "Ruang Kelompok A",
-    floor: "Lantai 1",
-    capacity: 10,
-    busy: ["10.00"],
   },
 ];
 
@@ -223,7 +192,8 @@ export default function KonselorPermintaanPage() {
   const [search, setSearch] = useState("");
   const [currentId, setCurrentId] = useState(null);
   const [confirm, setConfirm] = useState(null);
-  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [roomInput, setRoomInput] = useState("");
+  const [confirmRoomSave, setConfirmRoomSave] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
   const pendingRequests = useMemo(() => {
@@ -252,40 +222,14 @@ export default function KonselorPermintaanPage() {
     (request) => request.format === "Kelompok",
   ).length;
 
-  const availableRooms = useMemo(() => {
-    if (!confirm || !confirm.accept) return [];
-    const request = requests.find((item) => item.id === confirm.id);
-    if (!request) return [];
-    const capacityNeeded = request.format === "Kelompok" ? 4 : 1;
-    return rooms.map((room) => {
-      const occupiedByAcceptedRequest = requests.some(
-        (item) =>
-          item.status === "accepted" &&
-          item.time === request.time &&
-          item.room === room.name,
-      );
-      const busy =
-        room.busy.includes(request.time) || occupiedByAcceptedRequest;
-      const capacityOk = room.capacity >= capacityNeeded;
-      return {
-        ...room,
-        available: capacityOk && !busy,
-        reason: !capacityOk
-          ? `Kapasitas ${room.capacity} orang tidak cukup`
-          : busy
-            ? `Terpakai pukul ${request.time}`
-            : "Tersedia",
-      };
-    });
-  }, [confirm, requests]);
-
   function notify(message) {
     setToastMsg(message);
     window.setTimeout(() => setToastMsg(""), 2600);
   }
 
   function openDecision(id, accept) {
-    setSelectedRoomId("");
+    setRoomInput("");
+    setConfirmRoomSave(false);
     setConfirm({ id, accept });
   }
 
@@ -294,10 +238,8 @@ export default function KonselorPermintaanPage() {
     const request = requests.find((item) => item.id === confirm.id);
     if (!request) return;
 
-    if (confirm.accept && !selectedRoomId) return;
-    const room = confirm.accept
-      ? rooms.find((item) => item.id === selectedRoomId)
-      : null;
+    if (confirm.accept && !roomInput.trim()) return;
+    const room = confirm.accept ? roomInput.trim() : "";
 
     setRequests((previous) =>
       previous.map((item) =>
@@ -305,18 +247,18 @@ export default function KonselorPermintaanPage() {
           ? {
               ...item,
               status: confirm.accept ? "accepted" : "rejected",
-              room: room?.name || "",
+              room,
             }
           : item,
       ),
     );
 
     setConfirm(null);
-    setSelectedRoomId("");
+    setRoomInput("");
     if (currentId === confirm.id) setCurrentId(null);
     notify(
       confirm.accept
-        ? `Permintaan diterima. Ruangan ditetapkan di ${room.name}.`
+        ? `Permintaan diterima. Ruangan ditetapkan: ${room}.`
         : "Permintaan ditolak.",
     );
   }
@@ -727,7 +669,7 @@ export default function KonselorPermintaanPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-bold">
-                        Pilih ruangan konseling
+                        Tentukan ruangan konseling
                       </h2>
                       <p className="mt-1 text-sm text-gray-500">
                         {requests.find((item) => item.id === confirm.id)?.name}{" "}
@@ -751,44 +693,26 @@ export default function KonselorPermintaanPage() {
                     </button>
                   </div>
                 </div>
-                <div className="space-y-2.5 overflow-y-auto p-6">
-                  {availableRooms.map((room) => (
-                    <label
-                      key={room.id}
-                      className={`flex items-center gap-4 rounded-xl border p-4 transition ${
-                        room.available
-                          ? "cursor-pointer border-gray-200 hover:border-[#36c08f] has-[:checked]:border-[#1e5b3a] has-[:checked]:bg-[#f7fcf9]"
-                          : "cursor-not-allowed border-gray-200 bg-gray-50 opacity-60"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="room"
-                        value={room.id}
-                        checked={selectedRoomId === room.id}
-                        onChange={() => setSelectedRoomId(room.id)}
-                        disabled={!room.available}
-                        className="h-4 w-4 accent-[#1e5b3a]"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold text-gray-900">
-                          {room.name}
-                        </span>
-                        <span className="block text-xs text-gray-500">
-                          {room.floor} · kapasitas {room.capacity} orang
-                        </span>
-                      </span>
-                      <Badge
-                        className={
-                          room.available
-                            ? "bg-[#e8f9f0] text-[#1e5b3a]"
-                            : "bg-red-50 text-red-700"
-                        }
-                      >
-                        {room.reason}
-                      </Badge>
-                    </label>
-                  ))}
+                <div className="space-y-3 p-6">
+                  <label
+                    htmlFor="counseling-room"
+                    className="block text-sm font-semibold text-gray-800"
+                  >
+                    Ruangan pelaksanaan
+                  </label>
+                  <input
+                    id="counseling-room"
+                    type="text"
+                    value={roomInput}
+                    onChange={(event) => setRoomInput(event.target.value)}
+                    placeholder="Contoh: Ruang B-203, lantai 2"
+                    autoComplete="off"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+                  />
+                  <p className="text-xs leading-relaxed text-gray-500">
+                    Masukkan nama atau lokasi ruangan secara manual. Informasi
+                    ini akan dicatat pada permintaan yang diterima.
+                  </p>
                 </div>
                 <div className="flex justify-end gap-2 border-t border-gray-200 p-6 pt-4">
                   <button
@@ -800,16 +724,78 @@ export default function KonselorPermintaanPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleDecision}
-                    disabled={!selectedRoomId}
-                    className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => setConfirmRoomSave(true)}
+                    disabled={!roomInput.trim()}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Terima &amp; tetapkan ruangan
+                    <Check className="h-4 w-4" />
+                    Terima &amp; simpan ruangan
                   </button>
                 </div>
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {confirmRoomSave && confirm?.accept && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#0c2619]/50 p-4">
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="confirm-room-title"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
+              <MapPin className="h-6 w-6" />
+            </div>
+            <h2
+              id="confirm-room-title"
+              className="mt-4 text-lg font-bold text-gray-900"
+            >
+              Konfirmasi penerimaan permintaan
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              Apakah Anda yakin ingin menerima permintaan konseling dari{" "}
+              <span className="font-semibold text-gray-900">
+                {requests.find((item) => item.id === confirm.id)?.name}
+              </span>{" "}
+              dengan lokasi pelaksanaan berikut?
+            </p>
+            <div className="mt-4 rounded-xl border border-[#ccebd9] bg-[#f4fbf7] p-4">
+              <p className="text-xs font-medium text-gray-500">
+                Ruangan yang akan disimpan
+              </p>
+              <p className="mt-1 flex items-start gap-2 font-semibold text-[#1e5b3a]">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="break-words">{roomInput.trim()}</span>
+              </p>
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Setelah dikonfirmasi, permintaan akan berstatus diterima dan nama
+              ruangan ini akan dicatat pada data permintaan.
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmRoomSave(false)}
+                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Periksa kembali
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmRoomSave(false);
+                  handleDecision();
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+              >
+                <Check className="h-4 w-4" />
+                Ya, terima permintaan
+              </button>
+            </div>
+          </section>
         </div>
       )}
 

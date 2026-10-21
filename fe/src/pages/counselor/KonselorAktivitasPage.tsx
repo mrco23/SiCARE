@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarDays,
-  Check,
   ChevronDown,
   Clock3,
   HeartPulse,
@@ -17,11 +17,12 @@ const CANCEL_REASONS = [
   { code: "LAINNYA", label: "Lainnya" },
 ];
 
-const clamp = (value) => Math.min(1380, Math.max(0, value));
-const toMinutes = (time) => {
-  const [hours, minutes] = time.split(".").map(Number);
-  return hours * 60 + minutes;
-};
+// Jam kerja konseling: sesi mulai 08.00 – 15.00 (selesai paling lambat 16.00)
+const WORK_START = 8 * 60;
+const WORK_LAST_START = 15 * 60;
+
+const clamp = (value) =>
+  Math.min(WORK_LAST_START, Math.max(WORK_START, Math.round(value / 15) * 15));
 const formatMinutes = (minutes) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}.${String(minutes % 60).padStart(2, "0")}`;
 const initials = (name) =>
@@ -35,6 +36,87 @@ const initials = (name) =>
 function getCurrentMinutes() {
   const now = new Date();
   return now.getHours() * 60 + now.getMinutes();
+}
+
+const emptySession = {
+  cancel: null,
+  noteCounselor: "",
+  noteClient: "",
+  plan: "",
+};
+
+// Data dummy relatif terhadap jam sekarang. Hanya ada satu sesi yang berlangsung.
+function buildDummySessions(nowM) {
+  const scheduled = (id, client, topic, format, offset, minStart) => ({
+    id,
+    client,
+    topic,
+    format,
+    start: clamp(Math.max(nowM + offset, minStart)),
+    status: "scheduled",
+    startedAt: null,
+    ...emptySession,
+  });
+
+  return [
+    {
+      id: 1,
+      client: "Yusli Ngongano",
+      topic: "Pengembangan Diri",
+      format: "Individu",
+      start: clamp(nowM - 20),
+      status: "ongoing",
+      startedAt: clamp(nowM - 20),
+      ...emptySession,
+    },
+    scheduled(2, "Ayu Pratiwi", "Motivasi", "Kelompok", 60, 495),
+    scheduled(3, "Dimas Prasetyo", "Kecemasan", "Individu", 150, 510),
+    scheduled(6, "Nadia Putri", "Manajemen Emosi", "Individu", 210, 525),
+    scheduled(7, "Rizky Ramadhan", "Adaptasi Akademik", "Individu", 270, 540),
+    scheduled(8, "Siti Maharani", "Pengembangan Diri", "Kelompok", 330, 555),
+    scheduled(9, "Fajar Nugraha", "Stres Akademik", "Individu", 390, 570),
+    scheduled(10, "Intan Permata", "Kepercayaan Diri", "Individu", 450, 585),
+    scheduled(11, "Rafi Kurniawan", "Perencanaan Karier", "Individu", 510, 600),
+    scheduled(12, "Melati Safitri", "Relasi Sosial", "Kelompok", 570, 615),
+    scheduled(13, "Andi Saputra", "Pengelolaan Waktu", "Individu", 630, 630),
+    scheduled(14, "Putri Amelia", "Motivasi Belajar", "Individu", 690, 645),
+    scheduled(15, "Bima Prakoso", "Stres Kerja", "Individu", 750, 660),
+    scheduled(16, "Nabila Zahra", "Regulasi Emosi", "Kelompok", 810, 675),
+    scheduled(17, "Dewi Anggraini", "Persiapan Karier", "Individu", 870, 690),
+    scheduled(18, "Arga Pratama", "Komunikasi Asertif", "Individu", 930, 705),
+    {
+      id: 4,
+      client: "Bagas Hermawan",
+      topic: "Stres kerja",
+      format: "Individu",
+      start: clamp(nowM - 300),
+      status: "done",
+      startedAt: clamp(nowM - 300),
+      cancel: null,
+      noteCounselor:
+        "Klien menunjukkan tanda kelelahan tinggi. Perlu asesmen lanjutan terkait beban kerja.",
+      noteClient:
+        "Kamu sudah mulai mengenali pemicu stres. Latihan pernapasan yang kita pelajari bisa dilakukan setiap pagi.",
+      plan: "Sesi lanjutan dua minggu lagi.",
+    },
+    {
+      id: 5,
+      client: "Chelsea Ngongano",
+      topic: "Motivasi",
+      format: "Individu",
+      start: clamp(nowM - 150),
+      status: "cancelled",
+      startedAt: null,
+      cancel: {
+        code: "KLIEN_SAKIT",
+        label: "Klien sakit",
+        note: "Klien mendadak sakit dan meminta jadwal ulang.",
+      },
+      noteCounselor: "",
+      noteClient: "",
+      plan: "",
+    },
+  ];
 }
 
 function Badge({ children, className = "" }) {
@@ -63,7 +145,7 @@ function ScaleView({ value }) {
             key={number}
             className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
               number === value
-                ? "bg-[#1e5b3a] text-white"
+                ? "bg-[#064e3b] text-white"
                 : "bg-gray-100 text-gray-400"
             }`}
           >
@@ -87,7 +169,7 @@ function AnswerRow({ question, answer }) {
       ? "bg-red-100 text-red-800"
       : answer === "Mungkin"
         ? "bg-amber-100 text-amber-800"
-        : "bg-[#e8f9f0] text-[#1e5b3a]";
+        : "bg-gray-100 text-gray-700";
 
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 py-3 last:border-0">
@@ -110,9 +192,9 @@ function EssayCard({ title, children }) {
 
 function StatCard({ icon: Icon, label, value, tone = "slate" }) {
   const tones = {
-    slate: "border-slate-200 text-slate-600 bg-slate-100",
-    green: "border-[#36c08f]/40 text-[#1e5b3a] bg-[#e8f9f0]",
-    amber: "border-amber-200/70 text-amber-600 bg-amber-50",
+    slate: "text-slate-600 bg-slate-100",
+    green: "text-gray-700 bg-gray-100",
+    amber: "text-amber-600 bg-amber-50",
   };
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
@@ -129,86 +211,20 @@ function StatCard({ icon: Icon, label, value, tone = "slate" }) {
   );
 }
 
+const primaryBtn =
+  "rounded-xl bg-[#064e3b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#043d2e]";
+const inputFocus =
+  "outline-none focus:border-[#064e3b] focus:ring-4 focus:ring-[#064e3b]/10";
+
 export default function KonselorAktivitasPage() {
+  const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
-  const [sessions, setSessions] = useState(() => {
-    const base = getCurrentMinutes();
-    return [
-      {
-        id: 1,
-        client: "Yusli Ngongano",
-        topic: "Pengembangan Diri",
-        format: "Individu",
-        start: clamp(base - 15),
-        status: "scheduled",
-        startedAt: null,
-        cancel: null,
-        noteCounselor: "",
-        noteClient: "",
-        plan: "",
-      },
-      {
-        id: 2,
-        client: "Ayu Pratiwi",
-        topic: "Motivasi",
-        format: "Kelompok",
-        start: clamp(base + 120),
-        status: "scheduled",
-        startedAt: null,
-        cancel: null,
-        noteCounselor: "",
-        noteClient: "",
-        plan: "",
-      },
-      {
-        id: 3,
-        client: "Bagas Hermawan",
-        topic: "Stres kerja",
-        format: "Individu",
-        start: clamp(base - 180),
-        status: "done",
-        startedAt: clamp(base - 180),
-        cancel: null,
-        noteCounselor:
-          "Klien menunjukkan tanda kelelahan tinggi. Perlu asesmen lanjutan terkait beban kerja.",
-        noteClient:
-          "Kamu sudah mulai mengenali pemicu stres. Latihan pernapasan yang kita pelajari bisa dilakukan setiap pagi.",
-        plan: "Sesi lanjutan dua minggu lagi.",
-      },
-      {
-        id: 4,
-        client: "Chelsea Ngongano",
-        topic: "Stres",
-        format: "Individu",
-        start: clamp(base + 300),
-        status: "scheduled",
-        startedAt: null,
-        cancel: null,
-        noteCounselor: "",
-        noteClient: "",
-        plan: "",
-      },
-      {
-        id: 5,
-        client: "Chelsea Ngongano",
-        topic: "Motivasi",
-        format: "Individu",
-        start: clamp(base - 240),
-        status: "cancelled",
-        startedAt: null,
-        cancel: {
-          code: "KLIEN_SAKIT",
-          label: "Klien sakit",
-          note: "Klien mendadak sakit dan meminta jadwal ulang.",
-        },
-        noteCounselor: "",
-        noteClient: "",
-        plan: "",
-      },
-    ];
-  });
+  const [sessions, setSessions] = useState(() =>
+    buildDummySessions(getCurrentMinutes()),
+  );
   const [filter, setFilter] = useState("semua");
-  const [historyFilter, setHistoryFilter] = useState("semua");
+  const [visibleUpcomingCount, setVisibleUpcomingCount] = useState(10);
+  const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [view, setView] = useState("list");
   const [currentId, setCurrentId] = useState(null);
   const [dialog, setDialog] = useState(null);
@@ -231,6 +247,9 @@ export default function KonselorAktivitasPage() {
 
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const currentSession = sessions.find((session) => session.id === currentId);
+  const ongoingSession = sessions.find(
+    (session) => session.status === "ongoing",
+  );
 
   const canStart = (session) =>
     session.status === "scheduled" && nowMinutes >= session.start;
@@ -250,11 +269,21 @@ export default function KonselorAktivitasPage() {
     [sessions, filter, now],
   );
 
-  const readySessions = activeSessions.filter(
-    (session) => session.status === "ongoing" || canStart(session),
-  );
-  const upcomingSessions = activeSessions.filter(
-    (session) => session.status === "scheduled" && !canStart(session),
+  // Satu sesi aktif ditampilkan pada area utama. Jika ada sesi berlangsung,
+  // sesi terjadwal yang waktunya terlewat tetap berada di daftar sesi mendatang.
+  const readySessions = activeSessions.some(
+    (session) => session.status === "ongoing",
+  )
+    ? activeSessions
+        .filter((session) => session.status === "ongoing")
+        .slice(0, 1)
+    : activeSessions.filter((session) => canStart(session)).slice(0, 1);
+  const upcomingSessions = activeSessions
+    .filter((session) => session.status === "scheduled" && !canStart(session))
+    .sort((a, b) => a.start - b.start);
+  const visibleUpcomingSessions = upcomingSessions.slice(
+    0,
+    visibleUpcomingCount,
   );
   const scheduledCount = sessions.filter(
     (session) => session.status === "scheduled",
@@ -265,21 +294,6 @@ export default function KonselorAktivitasPage() {
   const todayCount = sessions.filter(
     (session) => session.status === "scheduled" || session.status === "ongoing",
   ).length;
-
-  const historySessions = useMemo(
-    () =>
-      sessions
-        .filter(
-          (session) =>
-            session.status === "done" || session.status === "cancelled",
-        )
-        .filter(
-          (session) =>
-            historyFilter === "semua" || session.status === historyFilter,
-        )
-        .sort((a, b) => b.start - a.start),
-    [sessions, historyFilter],
-  );
 
   const intakeFor = (client) => {
     const base = {
@@ -306,6 +320,7 @@ export default function KonselorAktivitasPage() {
         topics: ["Karir, pendidikan, dan pekerjaan", "Motivasi"],
       },
       "Ayu Pratiwi": { distress: "Mungkin", sleep: 4, finance: 4 },
+      "Dimas Prasetyo": { topics: ["Kecemasan"], sleep: 2 },
       "Chelsea Ngongano": {
         abuse: "Mungkin",
         finance: 2,
@@ -322,9 +337,12 @@ export default function KonselorAktivitasPage() {
     if (session.status === "done")
       return { label: "Selesai", style: "bg-gray-100 text-gray-700" };
     if (session.status === "ongoing")
-      return { label: "Berlangsung", style: "bg-[#1e5b3a] text-white" };
+      return { label: "Berlangsung", style: "bg-[#064e3b] text-white" };
     if (canStart(session))
-      return { label: "Siap dimulai", style: "bg-[#e8f9f0] text-[#1e5b3a]" };
+      return {
+        label: "Siap dimulai",
+        style: "bg-gray-100 text-gray-700 ring-1 ring-gray-200",
+      };
     return { label: "Terjadwal", style: "bg-slate-100 text-slate-600" };
   };
 
@@ -346,6 +364,14 @@ export default function KonselorAktivitasPage() {
     if (!dialog) return;
     const session = sessions.find((item) => item.id === dialog.id);
     if (!session) return;
+    // Hanya boleh satu sesi yang berlangsung dalam satu waktu
+    if (ongoingSession && ongoingSession.id !== session.id) {
+      setDialog(null);
+      notify(
+        `Masih ada sesi dengan ${ongoingSession.client} yang berlangsung. Selesaikan dulu sebelum memulai sesi lain.`,
+      );
+      return;
+    }
     setSessions((previous) =>
       previous.map((item) =>
         item.id === dialog.id
@@ -426,6 +452,12 @@ export default function KonselorAktivitasPage() {
   }
 
   const intake = currentSession ? intakeFor(currentSession.client) : null;
+  const selectedBooking = sessions.find(
+    (session) => session.id === selectedBookingId,
+  );
+  const selectedBookingIntake = selectedBooking
+    ? intakeFor(selectedBooking.client)
+    : null;
   const safetyFlags = intake
     ? [
         intake.selfHarm !== "Tidak" ? "keinginan menyakiti diri" : null,
@@ -470,7 +502,7 @@ export default function KonselorAktivitasPage() {
             />
           </section>
 
-          <section className="mt-6 flex flex-wrap gap-2 rounded-2xl border border-gray-200 bg-white p-3">
+          <section className="mt-6 inline-flex max-w-full items-center gap-1 rounded-2xl border border-gray-200 bg-gray-100/80 p-1">
             {[
               { value: "semua", label: "Semua" },
               { value: "scheduled", label: "Terjadwal" },
@@ -479,11 +511,12 @@ export default function KonselorAktivitasPage() {
               <button
                 key={item.value}
                 type="button"
+                aria-pressed={filter === item.value}
                 onClick={() => setFilter(item.value)}
-                className={`rounded-xl px-4 py-2 text-sm transition ${
+                className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm transition-colors ${
                   filter === item.value
-                    ? "bg-[#1e5b3a] font-semibold text-white"
-                    : "text-gray-600 hover:bg-gray-100"
+                    ? "bg-white font-semibold text-gray-900 shadow-sm ring-1 ring-black/5"
+                    : "font-medium text-gray-500 hover:text-gray-800"
                 }`}
               >
                 {item.label}
@@ -496,18 +529,18 @@ export default function KonselorAktivitasPage() {
           </p>
 
           {readySessions.length > 0 && (
-            <section className="mt-4 rounded-2xl border border-[#36c08f]/50 bg-[#f7fcf9] p-4 sm:p-5">
+            <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2e9a5f] opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#1e5b3a]" />
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#0a7a5c] opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#064e3b]" />
                   </span>
-                  <h2 className="text-base font-bold text-[#14553a]">
-                    Siap dimulai
+                  <h2 className="text-base font-bold text-gray-900">
+                    {ongoingSession ? "Sedang berlangsung" : "Siap dimulai"}
                   </h2>
                 </div>
-                <Badge className="bg-[#1e5b3a] text-white">
+                <Badge className="bg-gray-100 text-gray-700">
                   {readySessions.length}
                 </Badge>
               </div>
@@ -518,15 +551,14 @@ export default function KonselorAktivitasPage() {
                   return (
                     <li
                       key={session.id}
-                      className={`rounded-2xl border bg-white p-5 ${
-                        ongoing
-                          ? "border-2 border-[#1e5b3a] shadow-sm"
-                          : "border-2 border-[#1e5b3a]/60 shadow-md"
-                      }`}
+                      className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
                     >
+                      {ongoing && (
+                        <div className="absolute inset-y-0 left-0 w-1 bg-[#064e3b]" />
+                      )}
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] font-bold text-[#1e5b3a]">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 font-bold text-gray-700">
                             {initials(session.client)}
                           </div>
                           <div className="min-w-0">
@@ -538,11 +570,13 @@ export default function KonselorAktivitasPage() {
                             </p>
                           </div>
                         </div>
-                        <Badge className={status.style}>{status.label}</Badge>
+                        {!ongoing && (
+                          <Badge className={status.style}>{status.label}</Badge>
+                        )}
                       </div>
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#36c08f]/30 pt-4">
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
                         <div>
-                          <p className="text-xs font-medium text-[#1e5b3a]">
+                          <p className="text-xs font-medium text-gray-500">
                             Jadwal
                           </p>
                           <p className="text-base font-bold text-gray-900">
@@ -554,7 +588,7 @@ export default function KonselorAktivitasPage() {
                             <button
                               type="button"
                               onClick={() => openSession(session.id)}
-                              className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                              className={primaryBtn}
                             >
                               Lanjutkan Sesi
                             </button>
@@ -565,7 +599,7 @@ export default function KonselorAktivitasPage() {
                                 onClick={() =>
                                   setDialog({ type: "start", id: session.id })
                                 }
-                                className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                                className={primaryBtn}
                               >
                                 Mulai Sesi
                               </button>
@@ -598,13 +632,22 @@ export default function KonselorAktivitasPage() {
                 </Badge>
               </div>
               <ul className="space-y-2">
-                {upcomingSessions.map((session) => (
+                {visibleUpcomingSessions.map((session) => (
                   <li
                     key={session.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-3"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedBookingId(session.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedBookingId(session.id);
+                      }
+                    }}
+                    className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 transition-colors hover:border-[#0a7a5c]/40 hover:bg-[#dff5e8]/30 focus:outline-none focus:ring-2 focus:ring-[#064e3b]/20"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-slate-500 ring-1 ring-slate-200">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
                         {initials(session.client)}
                       </div>
                       <div className="min-w-0">
@@ -621,11 +664,14 @@ export default function KonselorAktivitasPage() {
                         <p className="text-sm font-semibold text-slate-700">
                           {formatMinutes(session.start)} WITA
                         </p>
-                        <p className="text-xs text-slate-400">Belum waktunya</p>
+                        <p className="text-xs text-slate-500">Sesi terjadwal</p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => openCancel(session.id)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openCancel(session.id);
+                        }}
                         className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
                       >
                         Batalkan
@@ -634,6 +680,21 @@ export default function KonselorAktivitasPage() {
                   </li>
                 ))}
               </ul>
+              {upcomingSessions.length > visibleUpcomingCount && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleUpcomingCount((count) =>
+                        Math.min(count + 10, upcomingSessions.length),
+                      )
+                    }
+                    className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#0a7a5c]/40 hover:bg-[#dff5e8]/30"
+                  >
+                    Muat lebih banyak
+                  </button>
+                </div>
+              )}
             </section>
           )}
 
@@ -652,7 +713,7 @@ export default function KonselorAktivitasPage() {
             <button
               type="button"
               onClick={backToList}
-              className="inline-flex items-center gap-1 font-semibold text-[#1e5b3a] hover:underline"
+              className="inline-flex items-center gap-1 font-semibold text-gray-700 hover:underline"
             >
               <ArrowLeft className="h-4 w-4" /> Aktivitas Saya
             </button>
@@ -663,7 +724,7 @@ export default function KonselorAktivitasPage() {
           </nav>
 
           <section className="mt-5 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#1e5b3a] text-xl font-bold text-white">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xl font-bold text-white">
               {initials(currentSession.client)}
             </div>
             <div className="min-w-0 flex-1">
@@ -733,7 +794,7 @@ export default function KonselorAktivitasPage() {
           <details className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
             <summary className="flex cursor-pointer list-none items-center justify-between text-base font-bold">
               Formulir intake klien
-              <span className="text-sm font-semibold text-[#1e5b3a]">
+              <span className="text-sm font-semibold text-gray-600">
                 Lihat / sembunyikan
               </span>
             </summary>
@@ -840,7 +901,7 @@ export default function KonselorAktivitasPage() {
                     onChange={(event) =>
                       updateNote("noteCounselor", event.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-gray-300 bg-white p-3 text-sm outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+                    className={`mt-2 w-full rounded-xl border border-gray-300 bg-white p-3 text-sm ${inputFocus}`}
                     placeholder="Perkembangan klien, asesmen, dan hal penting untuk konselor (minimal 20 karakter)"
                   />
                   <p className="mt-1 text-xs text-gray-400">
@@ -848,7 +909,7 @@ export default function KonselorAktivitasPage() {
                     minimum
                   </p>
                 </div>
-                <div className="rounded-xl border border-[#36c08f]/50 bg-[#f7fcf9] p-4">
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
                   <label
                     htmlFor="noteClient"
                     className="text-sm font-semibold text-gray-800"
@@ -866,7 +927,7 @@ export default function KonselorAktivitasPage() {
                     onChange={(event) =>
                       updateNote("noteClient", event.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-gray-300 bg-white p-3 text-sm outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+                    className={`mt-2 w-full rounded-xl border border-gray-300 bg-white p-3 text-sm ${inputFocus}`}
                     placeholder="Ringkasan yang dapat dibaca klien (minimal 20 karakter)"
                   />
                   <p className="mt-1 text-xs text-gray-400">
@@ -889,7 +950,7 @@ export default function KonselorAktivitasPage() {
                     rows={2}
                     value={currentSession.plan}
                     onChange={(event) => updateNote("plan", event.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+                    className={`mt-1.5 w-full rounded-xl border border-gray-300 p-3 text-sm ${inputFocus}`}
                     placeholder="Misalnya: sesi lanjutan minggu depan"
                   />
                 </div>
@@ -915,7 +976,7 @@ export default function KonselorAktivitasPage() {
                   setDialog({ type: "finish", id: currentSession.id })
                 }
                 disabled={!isFilled(currentSession)}
-                className="rounded-xl bg-[#1e5b3a] px-5 py-3 text-sm font-semibold text-white hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Selesaikan Sesi
               </button>
@@ -924,123 +985,176 @@ export default function KonselorAktivitasPage() {
         </>
       )}
 
-      {view === "history" && (
-        <>
-          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-            Riwayat Konseling
-          </h1>
-          <p className="mt-1 text-sm text-gray-500 sm:text-base">
-            Sesi yang telah selesai dan dibatalkan. Catatan konselor hanya
-            terlihat oleh Anda.
-          </p>
-          <section className="mt-6 flex flex-wrap gap-2 rounded-2xl border border-gray-200 bg-white p-3">
-            {[
-              { value: "semua", label: "Semua" },
-              { value: "done", label: "Selesai" },
-              { value: "cancelled", label: "Dibatalkan" },
-            ].map((item) => (
+      {selectedBooking && selectedBookingIntake && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4"
+          onClick={() => setSelectedBookingId(null)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-detail-title"
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between gap-4 border-b border-gray-100 p-5 sm:p-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#0a7a5c]">
+                  Detail booking klien
+                </p>
+                <h2
+                  id="booking-detail-title"
+                  className="mt-1 text-xl font-bold text-gray-900"
+                >
+                  {selectedBooking.client}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {selectedBooking.topic} · {selectedBooking.format}
+                </p>
+              </div>
               <button
-                key={item.value}
                 type="button"
-                onClick={() => setHistoryFilter(item.value)}
-                className={`rounded-xl px-4 py-2 text-sm transition ${
-                  historyFilter === item.value
-                    ? "bg-[#1e5b3a] font-semibold text-white"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
+                onClick={() => setSelectedBookingId(null)}
+                aria-label="Tutup detail booking"
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
               >
-                {item.label}
+                <X className="h-5 w-5" />
               </button>
-            ))}
-          </section>
-          <ul className="mt-5 space-y-4">
-            {historySessions.map((session) => (
-              <li
-                key={session.id}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] font-bold text-[#1e5b3a]">
-                      {initials(session.client)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-gray-900">
-                        {session.client}
-                      </p>
-                      <p className="truncate text-xs text-gray-500">
-                        {session.topic} · {session.format} ·{" "}
-                        {formatMinutes(session.start)} WITA
-                      </p>
+            </header>
+
+            <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
+              <section className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-[#dff5e8]/70 p-4">
+                  <p className="text-xs font-medium text-gray-500">
+                    Jenis layanan
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {selectedBooking.format}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[#dff5e8]/70 p-4">
+                  <p className="text-xs font-medium text-gray-500">
+                    Topik booking
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {selectedBooking.topic}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[#dff5e8]/70 p-4">
+                  <p className="text-xs font-medium text-gray-500">Jadwal</p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {formatMinutes(selectedBooking.start)} WITA
+                  </p>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-sm font-bold text-gray-900">
+                  Kondisi saat ini
+                </h3>
+                <div className="mt-2 divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
+                  <AnswerRow
+                    question="Apakah Anda sedang merasa ingin bunuh diri?"
+                    answer={selectedBookingIntake.selfHarm}
+                  />
+                  <AnswerRow
+                    question="Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?"
+                    answer={selectedBookingIntake.distress}
+                  />
+                  <AnswerRow
+                    question="Apakah Anda pernah mengalami pelecehan (fisik, seksual, dan/atau emosional)?"
+                    answer={selectedBookingIntake.abuse}
+                  />
+                  <AnswerRow
+                    question="Apakah saat ini Anda sedang menggunakan obat-obatan?"
+                    answer={selectedBookingIntake.substance}
+                  />
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-sm font-semibold text-gray-700">
+                      Kualitas tidur
+                    </p>
+                    <div className="mt-2">
+                      <ScaleView value={selectedBookingIntake.sleep} />
                     </div>
                   </div>
-                  <Badge className={statusInfo(session).style}>
-                    {statusInfo(session).label}
-                  </Badge>
-                </div>
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  {session.status === "cancelled" ? (
-                    <>
-                      <p className="text-sm text-gray-700">
-                        <span className="font-semibold">Alasan:</span>{" "}
-                        {session.cancel?.label}
-                      </p>
-                      {session.cancel?.note && (
-                        <p className="mt-1 text-sm text-gray-600">
-                          <span className="font-semibold">Penjelasan:</span>{" "}
-                          {session.cancel.note}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="rounded-xl bg-gray-50 p-4">
-                        <p className="text-xs font-semibold text-gray-500">
-                          Catatan konselor (privat)
-                        </p>
-                        <p className="mt-1 whitespace-pre-line text-sm text-gray-800">
-                          {session.noteCounselor || "-"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-[#f7fcf9] p-4">
-                        <p className="text-xs font-semibold text-[#1e5b3a]">
-                          Catatan untuk klien
-                        </p>
-                        <p className="mt-1 whitespace-pre-line text-sm text-gray-800">
-                          {session.noteClient || "-"}
-                        </p>
-                      </div>
-                      {session.plan && (
-                        <p className="text-sm text-gray-700">
-                          <span className="font-semibold">
-                            Rencana tindak lanjut:
-                          </span>{" "}
-                          {session.plan}
-                        </p>
-                      )}
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-sm font-semibold text-gray-700">
+                      Keadaan finansial
+                    </p>
+                    <div className="mt-2">
+                      <ScaleView value={selectedBookingIntake.finance} />
                     </div>
-                  )}
+                  </div>
                 </div>
-              </li>
-            ))}
-          </ul>
-          {historySessions.length === 0 && (
-            <div className="mt-5 rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
-              Belum ada riwayat.
+              </section>
+
+              <section>
+                <h3 className="text-sm font-bold text-gray-900">
+                  Masalah yang ingin dibahas
+                </h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedBookingIntake.topics.map((topic) => (
+                    <Badge key={topic} className="bg-[#dff5e8] text-[#064e3b]">
+                      {topic}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <EssayCard title="Deskripsikan keluhan yang Anda rasakan">
+                  {selectedBookingIntake.complaint}
+                </EssayCard>
+                <EssayCard title="Deskripsikan riwayat terjadinya keluhan">
+                  {selectedBookingIntake.history}
+                </EssayCard>
+                <EssayCard title="Keluhan dan alasan ingin memulai konseling">
+                  {selectedBookingIntake.reason}
+                </EssayCard>
+                <EssayCard title="Apa yang sudah dilakukan untuk menangani masalah ini?">
+                  {selectedBookingIntake.efforts}
+                </EssayCard>
+                <EssayCard title="Solusi apa yang diinginkan dari bantuan yang diterima?">
+                  {selectedBookingIntake.goal}
+                </EssayCard>
+                <EssayCard title="Apa kelebihan diri Anda?">
+                  {selectedBookingIntake.strengths}
+                </EssayCard>
+                <EssayCard title="Apa kekurangan diri Anda?">
+                  {selectedBookingIntake.weaknesses}
+                </EssayCard>
+              </section>
+
+              {selectedBooking.format === "Kelompok" && (
+                <section className="rounded-xl border border-gray-200 p-4">
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Informasi kelompok
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Nama kelompok, jumlah anggota, dan daftar anggota belum
+                    tersedia pada data dummy booking ini.
+                  </p>
+                </section>
+              )}
             </div>
-          )}
-          <button
-            type="button"
-            onClick={() => setView("list")}
-            className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#1e5b3a] hover:underline"
-          >
-            <ArrowLeft className="h-4 w-4" /> Kembali ke Aktivitas Saya
-          </button>
-        </>
+
+            <footer className="flex justify-end border-t border-gray-100 p-4 sm:p-5">
+              <button
+                type="button"
+                onClick={() => setSelectedBookingId(null)}
+                className={primaryBtn}
+              >
+                Tutup detail
+              </button>
+            </footer>
+          </section>
+        </div>
       )}
 
       {dialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-lg font-bold">
@@ -1073,7 +1187,7 @@ export default function KonselorAktivitasPage() {
               <button
                 type="button"
                 onClick={dialog.type === "start" ? startSession : finishSession}
-                className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                className={primaryBtn}
               >
                 {dialog.type === "start" ? "Ya, mulai sesi" : "Ya, selesaikan"}
               </button>
@@ -1083,7 +1197,7 @@ export default function KonselorAktivitasPage() {
       )}
 
       {cancelId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4">
           <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="border-b border-gray-200 p-6 pb-4">
               <div className="flex items-start justify-between gap-3">
@@ -1208,8 +1322,8 @@ export default function KonselorAktivitasPage() {
       {view === "list" && (
         <button
           type="button"
-          onClick={() => setView("history")}
-          className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#1e5b3a] hover:underline"
+          onClick={() => navigate("/konselor/riwayat")}
+          className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-gray-700 hover:underline"
         >
           Lihat Riwayat Konseling <ChevronDown className="h-4 w-4" />
         </button>

@@ -3,14 +3,92 @@ import type { FormEvent } from "react";
 import {
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   Eye,
   EyeOff,
   Lock,
   Search,
   X,
 } from "lucide-react";
+import {
+  isInPeriod,
+  loadPeriods,
+  sortPeriods,
+  toISO,
+  type AcademicPeriod,
+} from "../../lib/academicPeriods";
 
 type Format = "Individu" | "Kelompok";
+
+type PeriodKey = "hari" | "minggu" | "bulan" | "semester";
+const PERIOD_OPTIONS: [PeriodKey, string][] = [
+  ["hari", "Hari"],
+  ["minggu", "Minggu"],
+  ["bulan", "Bulan"],
+  ["semester", "Semester"],
+];
+const DAY_MS = 864e5;
+
+const relativeDate = (daysAgo: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  return toISO(date);
+};
+
+type DateRange = { start: Date; end: Date };
+const parseISODate = (iso: string) => {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+const getDateRange = (
+  period: PeriodKey,
+  anchor: Date,
+  semester: AcademicPeriod | null,
+): DateRange => {
+  const y = anchor.getFullYear();
+  const m = anchor.getMonth();
+  const d = anchor.getDate();
+  if (period === "hari")
+    return { start: new Date(y, m, d), end: new Date(y, m, d + 1) };
+  if (period === "minggu")
+    return { start: new Date(y, m, d - 6), end: new Date(y, m, d + 1) };
+  if (period === "bulan")
+    return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
+  if (!semester) return { start: new Date(0), end: new Date(0) };
+  return {
+    start: parseISODate(semester.start),
+    end: new Date(parseISODate(semester.end).getTime() + DAY_MS),
+  };
+};
+const dateRangeLabel = (
+  period: PeriodKey,
+  range: DateRange,
+  semester: AcademicPeriod | null,
+) => {
+  if (period === "hari") {
+    return range.start.toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+  if (period === "minggu") {
+    const end = new Date(range.end.getTime() - DAY_MS);
+    return `${range.start.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} – ${end.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+  }
+  if (period === "bulan") {
+    return range.start.toLocaleDateString("id-ID", {
+      month: "long",
+      year: "numeric",
+    });
+  }
+  return semester ? `TA ${semester.ta} · ${semester.sem}` : "Belum ada periode";
+};
+const inDateRange = (date: string, range: DateRange) => {
+  const value = parseISODate(date).getTime();
+  return value >= range.start.getTime() && value < range.end.getTime();
+};
 
 type Session = {
   id: number;
@@ -108,6 +186,282 @@ const clients: Client[] = [
       },
     ],
   },
+
+  {
+    id: "c4",
+    name: "Nadia Putri",
+    email: "nadia@mhs.unikadelasalle.ac.id",
+    role: "Mahasiswa",
+    password: "1234",
+    sessions: [
+      {
+        id: 6,
+        topic: "Manajemen Stres",
+        format: "Individu",
+        date: relativeDate(0),
+        time: "09.00",
+        summary:
+          "Klien membahas pemicu stres akademik dan strategi pengelolaan waktu.",
+        note: "Disepakati jadwal harian yang realistis dan latihan pernapasan.",
+      },
+      {
+        id: 7,
+        topic: "Manajemen Stres",
+        format: "Individu",
+        date: relativeDate(5),
+        time: "09.00",
+        summary: "Tindak lanjut strategi pengelolaan stres.",
+        note: "Klien mulai menerapkan jadwal belajar. Evaluasi dilanjutkan pada sesi berikutnya.",
+      },
+    ],
+  },
+  {
+    id: "c5",
+    name: "Rizky Mahendra",
+    email: "rizky@mhs.unikadelasalle.ac.id",
+    role: "Mahasiswa",
+    password: "1234",
+    sessions: [
+      {
+        id: 8,
+        topic: "Motivasi Belajar",
+        format: "Kelompok",
+        date: relativeDate(1),
+        time: "10.00",
+        summary: "Diskusi kelompok mengenai motivasi dan kebiasaan belajar.",
+        note: "Peserta menyusun target belajar mingguan.",
+      },
+      {
+        id: 9,
+        topic: "Motivasi Belajar",
+        format: "Kelompok",
+        date: relativeDate(12),
+        time: "10.00",
+        summary: "Evaluasi target belajar kelompok.",
+        note: "Sebagian target tercapai. Kelompok menyepakati strategi tindak lanjut.",
+      },
+    ],
+  },
+  {
+    id: "c6",
+    name: "Clara Lumenta",
+    email: "clara@mhs.unikadelasalle.ac.id",
+    role: "Mahasiswa",
+    password: "1234",
+    sessions: [
+      {
+        id: 10,
+        topic: "Kepercayaan Diri",
+        format: "Individu",
+        date: relativeDate(2),
+        time: "13.00",
+        summary: "Klien membahas rasa gugup saat presentasi.",
+        note: "Latihan presentasi bertahap direkomendasikan.",
+      },
+      {
+        id: 11,
+        topic: "Kepercayaan Diri",
+        format: "Individu",
+        date: relativeDate(18),
+        time: "13.00",
+        summary: "Tindak lanjut latihan presentasi.",
+        note: "Klien melaporkan peningkatan kesiapan berbicara.",
+      },
+    ],
+  },
+  {
+    id: "c7",
+    name: "Fajar Saputra",
+    email: "fajar@staf.unikadelasalle.ac.id",
+    role: "Dosen / Staf",
+    password: "1234",
+    sessions: [
+      {
+        id: 12,
+        topic: "Keseimbangan Kerja",
+        format: "Individu",
+        date: relativeDate(3),
+        time: "14.00",
+        summary: "Diskusi keseimbangan antara pekerjaan dan kehidupan pribadi.",
+        note: "Klien akan mengevaluasi batas waktu kerja dan waktu istirahat.",
+      },
+      {
+        id: 13,
+        topic: "Keseimbangan Kerja",
+        format: "Individu",
+        date: relativeDate(25),
+        time: "14.00",
+        summary: "Evaluasi rutinitas kerja dan istirahat.",
+        note: "Perlu mempertahankan rutinitas yang sudah membantu.",
+      },
+    ],
+  },
+  {
+    id: "c8",
+    name: "Melisa Tumiwa",
+    email: "melisa@mhs.unikadelasalle.ac.id",
+    role: "Mahasiswa",
+    password: "1234",
+    sessions: [
+      {
+        id: 14,
+        topic: "Relasi Sosial",
+        format: "Individu",
+        date: relativeDate(4),
+        time: "11.00",
+        summary:
+          "Klien mengeksplorasi kesulitan membangun komunikasi dengan teman.",
+        note: "Latihan komunikasi asertif diberikan sebagai tugas refleksi.",
+      },
+      {
+        id: 15,
+        topic: "Relasi Sosial",
+        format: "Individu",
+        date: relativeDate(30),
+        time: "11.00",
+        summary: "Tinjauan pengalaman komunikasi asertif.",
+        note: "Klien mulai mencoba menyampaikan kebutuhan secara langsung.",
+      },
+    ],
+  },
+  {
+    id: "c9",
+    name: "Kevin Manopo",
+    email: "kevin@mhs.unikadelasalle.ac.id",
+    role: "Mahasiswa",
+    password: "1234",
+    sessions: [
+      {
+        id: 16,
+        topic: "Adaptasi Kampus",
+        format: "Kelompok",
+        date: relativeDate(6),
+        time: "15.00",
+        summary:
+          "Sesi kelompok untuk membahas adaptasi terhadap lingkungan kampus.",
+        note: "Peserta berbagi pengalaman dan menyusun rencana dukungan sebaya.",
+      },
+      {
+        id: 17,
+        topic: "Adaptasi Kampus",
+        format: "Kelompok",
+        date: relativeDate(35),
+        time: "15.00",
+        summary: "Tindak lanjut proses adaptasi kampus.",
+        note: "Peserta didorong untuk menjaga komunikasi dengan kelompok.",
+      },
+    ],
+  },
+  {
+    id: "c10",
+    name: "Anisa Rahmawati",
+    email: "anisa@mhs.unikadelasalle.ac.id",
+    role: "Mahasiswa",
+    password: "1234",
+    sessions: [
+      {
+        id: 18,
+        topic: "Pengembangan Diri",
+        format: "Individu",
+        date: relativeDate(8),
+        time: "08.30",
+        summary: "Klien menetapkan prioritas pengembangan diri.",
+        note: "Target mingguan dibuat dengan indikator sederhana.",
+      },
+      {
+        id: 19,
+        topic: "Pengembangan Diri",
+        format: "Individu",
+        date: relativeDate(42),
+        time: "08.30",
+        summary: "Evaluasi target pengembangan diri.",
+        note: "Target diperbarui sesuai perkembangan klien.",
+      },
+    ],
+  },
+  {
+    id: "c11",
+    name: "Dimas Prakoso",
+    email: "dimas@staf.unikadelasalle.ac.id",
+    role: "Dosen / Staf",
+    password: "1234",
+    sessions: [
+      {
+        id: 20,
+        topic: "Pengelolaan Emosi",
+        format: "Individu",
+        date: relativeDate(10),
+        time: "16.00",
+        summary:
+          "Klien membahas cara mengenali dan mengelola emosi saat bekerja.",
+        note: "Klien diminta mencatat situasi pemicu dan respons yang muncul.",
+      },
+      {
+        id: 21,
+        topic: "Pengelolaan Emosi",
+        format: "Individu",
+        date: relativeDate(50),
+        time: "16.00",
+        summary: "Tinjauan catatan situasi pemicu emosi.",
+        note: "Identifikasi pemicu membaik. Strategi regulasi emosi dilanjutkan.",
+      },
+    ],
+  },
+  {
+    id: "c12",
+    name: "Grace Kalalo",
+    email: "grace@mhs.unikadelasalle.ac.id",
+    role: "Mahasiswa",
+    password: "1234",
+    sessions: [
+      {
+        id: 22,
+        topic: "Kesiapan Karier",
+        format: "Kelompok",
+        date: relativeDate(14),
+        time: "13.30",
+        summary:
+          "Diskusi kelompok tentang kesiapan karier dan eksplorasi minat.",
+        note: "Peserta akan mencari informasi bidang karier yang diminati.",
+      },
+      {
+        id: 23,
+        topic: "Kesiapan Karier",
+        format: "Kelompok",
+        date: relativeDate(60),
+        time: "13.30",
+        summary: "Sesi awal eksplorasi minat karier.",
+        note: "Peserta mulai mengidentifikasi kekuatan dan bidang minat.",
+      },
+    ],
+  },
+  {
+    id: "c13",
+    name: "Andreas Wenas",
+    email: "andreas@mhs.unikadelasalle.ac.id",
+    role: "Mahasiswa",
+    password: "1234",
+    sessions: [
+      {
+        id: 24,
+        topic: "Kecemasan Akademik",
+        format: "Individu",
+        date: relativeDate(20),
+        time: "12.30",
+        summary: "Klien membahas kecemasan menjelang ujian.",
+        note: "Strategi persiapan ujian dan relaksasi dibahas.",
+      },
+      {
+        id: 25,
+        topic: "Kecemasan Akademik",
+        format: "Individu",
+        date: relativeDate(75),
+        time: "12.30",
+        summary: "Tindak lanjut kecemasan akademik.",
+        note: "Klien akan melanjutkan latihan relaksasi sebelum ujian.",
+      },
+    ],
+  },
 ];
 
 const allSessions = clients.flatMap((c) => c.sessions);
@@ -127,24 +481,32 @@ const fmtDate = (iso: string) =>
     year: "numeric",
   });
 
-const monthLabel = (ym: string) =>
-  new Date(`${ym}-01T00:00:00`).toLocaleDateString("id-ID", {
-    month: "long",
-    year: "numeric",
-  });
-
 const sessionKey = (s: Session) => `${s.date} ${s.time}`;
 
-const matches = (s: Session, format: Format, month: string) =>
-  s.format === format && (month === "all" || s.date.startsWith(month));
-
-const monthOptions = [...new Set(allSessions.map((s) => s.date.slice(0, 7)))]
-  .sort()
-  .reverse();
+const matches = (s: Session, format: Format, range: DateRange) =>
+  s.format === format && inDateRange(s.date, range);
 
 export default function RiwayatPage() {
+  const today = useMemo(() => toISO(new Date()), []);
+  const periods = useMemo(() => sortPeriods(loadPeriods()), []);
+  const defaultSemester =
+    periods.find((p) => isInPeriod(today, p)) ??
+    periods[periods.length - 1] ??
+    null;
+  const [period, setPeriod] = useState<PeriodKey>("bulan");
+  const [anchor, setAnchor] = useState(
+    () =>
+      new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        new Date().getDate(),
+        12,
+      ),
+  );
+  const [semesterId, setSemesterId] = useState<string | null>(
+    defaultSemester?.id ?? null,
+  );
   const [format, setFormat] = useState<Format>("Individu");
-  const [month, setMonth] = useState("all");
   const [query, setQuery] = useState("");
   const [timeSort, setTimeSort] = useState<"terbaru" | "terlama">("terbaru");
 
@@ -185,13 +547,40 @@ export default function RiwayatPage() {
   }, [now, selectedId, accessUntil]);
 
   const hasAccess = (cid: string) => (accessUntil[cid] ?? 0) > now;
+  const semester = periods.find((p) => p.id === semesterId) ?? null;
+  const range = useMemo(
+    () => getDateRange(period, anchor, semester),
+    [period, anchor, semester],
+  );
+  const label = dateRangeLabel(period, range, semester);
+
+  function stepPeriod(direction: -1 | 1) {
+    if (period === "semester") {
+      const index = periods.findIndex((p) => p.id === semesterId);
+      const next = periods[index + direction];
+      if (next) setSemesterId(next.id);
+      return;
+    }
+    const next = new Date(anchor);
+    if (period === "hari") next.setDate(next.getDate() + direction);
+    else if (period === "minggu") next.setDate(next.getDate() + 7 * direction);
+    else {
+      next.setDate(15);
+      next.setMonth(next.getMonth() + direction);
+    }
+    setAnchor(next);
+  }
+
+  const semesterIndex = periods.findIndex((p) => p.id === semesterId);
+  const canPrevious = period !== "semester" || semesterIndex > 0;
+  const canNext = period !== "semester" || semesterIndex < periods.length - 1;
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return clients
       .filter((c) => !q || c.name.toLowerCase().includes(q))
       .map((c) => {
-        const sessions = c.sessions.filter((s) => matches(s, format, month));
+        const sessions = c.sessions.filter((s) => matches(s, format, range));
         const latest =
           sessions
             .map((s) => s.date)
@@ -201,20 +590,20 @@ export default function RiwayatPage() {
       })
       .filter((r) => r.count > 0)
       .sort((a, b) => b.latest.localeCompare(a.latest));
-  }, [query, format, month]);
+  }, [query, format, range]);
 
   const selected = clients.find((c) => c.id === selectedId) ?? null;
 
   const detailSessions = useMemo(() => {
     if (!selected) return [];
     return selected.sessions
-      .filter((s) => matches(s, format, month))
+      .filter((s) => matches(s, format, range))
       .sort((a, b) =>
         timeSort === "terlama"
           ? sessionKey(a).localeCompare(sessionKey(b))
           : sessionKey(b).localeCompare(sessionKey(a)),
       );
-  }, [selected, format, month, timeSort]);
+  }, [selected, format, range, timeSort]);
 
   const lastDate =
     detailSessions
@@ -308,23 +697,24 @@ export default function RiwayatPage() {
             </p>
           </section>
 
-          {/* Filter */}
-          <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:p-4">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Cari nama client ..."
-                className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:bg-white focus:ring-4 focus:ring-[#1e5b3a]/15"
-              />
-            </div>
+          {/* Filter nama, format, dan periode waktu */}
+          <div className="mt-6 space-y-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Cari nama klien ..."
+                  className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:bg-white focus:ring-4 focus:ring-[#1e5b3a]/15"
+                />
+              </div>
 
-            <div className="flex items-center gap-2">
               <div
                 role="tablist"
-                className="flex flex-1 rounded-xl border border-gray-200 bg-gray-100/70 p-1 sm:flex-none"
+                aria-label="Format konseling"
+                className="flex w-full rounded-xl border border-gray-200 bg-gray-100/70 p-1 lg:w-auto"
               >
                 {(["Individu", "Kelompok"] as Format[]).map((f) => {
                   const active = format === f;
@@ -335,7 +725,7 @@ export default function RiwayatPage() {
                       role="tab"
                       aria-selected={active}
                       onClick={() => setFormat(f)}
-                      className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition sm:flex-none ${
+                      className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition lg:flex-none ${
                         active
                           ? "bg-white font-semibold text-gray-900 shadow-sm"
                           : "font-medium text-gray-500"
@@ -346,28 +736,69 @@ export default function RiwayatPage() {
                   );
                 })}
               </div>
+            </div>
 
-              <div className="relative">
-                <select
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-4 pr-10 text-sm text-gray-600 outline-none focus:border-[#1e5b3a] focus:bg-white sm:w-auto"
+            <div className="flex flex-col gap-3 border-t border-gray-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-1 rounded-xl border border-gray-200 bg-gray-100/70 p-1">
+                {PERIOD_OPTIONS.map(([key, labelText]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setPeriod(key)}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${
+                      period === key
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-900"
+                    }`}
+                  >
+                    {labelText}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => stepPeriod(-1)}
+                  disabled={!canPrevious}
+                  aria-label="Periode sebelumnya"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40"
                 >
-                  <option value="all">Semua Bulan</option>
-                  {monthOptions.map((m) => (
-                    <option key={m} value={m}>
-                      {monthLabel(m)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="min-w-[170px] flex-1 text-center text-sm font-semibold text-gray-800 sm:flex-none">
+                  {label}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => stepPeriod(1)}
+                  disabled={!canNext}
+                  aria-label="Periode berikutnya"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                {period === "semester" && (
+                  <select
+                    value={semesterId ?? ""}
+                    onChange={(e) => setSemesterId(e.target.value)}
+                    aria-label="Pilih semester akademik"
+                    className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#1e5b3a] focus:ring-2 focus:ring-[#1e5b3a]/20"
+                  >
+                    {periods.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        TA {p.ta} · {p.sem}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
           </div>
 
           <p className="mt-4 text-xs text-gray-500">
-            Menampilkan {rows.length} klien · {format}
-            {month !== "all" && ` · ${monthLabel(month)}`}
+            Menampilkan {rows.length} klien · {format} · {label}
           </p>
 
           <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -462,8 +893,7 @@ export default function RiwayatPage() {
                 Riwayat sesi
               </h3>
               <p className="text-xs text-gray-500">
-                {format}
-                {month !== "all" && ` · ${monthLabel(month)}`}
+                {format} · {label}
               </p>
             </div>
             <div className="relative">

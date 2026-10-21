@@ -7,7 +7,6 @@ import React, {
   useState,
 } from "react";
 import {
-  Bell,
   BriefcaseBusiness,
   Camera,
   CheckCircle2,
@@ -34,7 +33,6 @@ type Profile = {
   topics: string[];
   phone: string;
   services: { individual: boolean; group: boolean };
-  notify: { newRequest: boolean; reschedule: boolean; feedback: boolean };
 };
 type Errors = Record<string, string>;
 
@@ -67,7 +65,6 @@ const INITIAL: Profile = {
   ],
   phone: "081234567890",
   services: { individual: true, group: true },
-  notify: { newRequest: true, reschedule: true, feedback: false },
 };
 const clone = (v: Profile): Profile => JSON.parse(JSON.stringify(v));
 const MAX_TOPICS = 6;
@@ -137,11 +134,7 @@ export default function KonselorPengaturanPage() {
   function update<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile((prev) => ({ ...prev, [key]: value }));
   }
-  function updateToggle(
-    group: "services" | "notify",
-    key: string,
-    value: boolean,
-  ) {
+  function updateToggle(group: "services", key: string, value: boolean) {
     setProfile(
       (prev) =>
         ({ ...prev, [group]: { ...prev[group], [key]: value } }) as Profile,
@@ -741,30 +734,6 @@ export default function KonselorPengaturanPage() {
           {showErrors && errors.services && (
             <p className="mt-2 text-xs text-red-600">{errors.services}</p>
           )}
-        </Panel>
-
-        <Panel
-          icon={<Bell className="h-5 w-5" />}
-          title="Notifikasi"
-          description="Pilih kejadian yang ingin kamu terima pemberitahuannya."
-        >
-          <div className="divide-y divide-gray-100">
-            <SwitchRow
-              title="Permintaan konseling baru"
-              checked={profile.notify.newRequest}
-              onChange={(v) => updateToggle("notify", "newRequest", v)}
-            />
-            <SwitchRow
-              title="Permintaan jadwal ulang"
-              checked={profile.notify.reschedule}
-              onChange={(v) => updateToggle("notify", "reschedule", v)}
-            />
-            <SwitchRow
-              title="Feedback baru dari klien"
-              checked={profile.notify.feedback}
-              onChange={(v) => updateToggle("notify", "feedback", v)}
-            />
-          </div>
         </Panel>
 
         <Panel
