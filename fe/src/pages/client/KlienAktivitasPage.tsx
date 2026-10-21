@@ -476,12 +476,6 @@ export default function KlienAktivitasPage() {
   );
 
   const renderLiveCard = (session: Session) => {
-    const elapsed = Math.min(
-      SESSION_MIN,
-      Math.max(0, Math.floor((now - session.start.getTime()) / 60_000)),
-    );
-    const progress = Math.round((elapsed / SESSION_MIN) * 100);
-
     return (
       <article
         key={session.id}
@@ -504,17 +498,17 @@ export default function KlienAktivitasPage() {
           {session.service} · {session.room}
         </p>
         <div
-          className="relative mt-6 h-1.5 w-full overflow-hidden rounded-full bg-white/15"
-          aria-label={`Durasi sesi ${progress}%`}
-          role="progressbar"
-          aria-valuenow={progress}
-          aria-valuemin={0}
-          aria-valuemax={100}
+          className="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-white/15"
+          role="status"
+          aria-label="Sesi konseling sedang berlangsung"
         >
-          <div
-            className="h-full rounded-full bg-[#36c08f] transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-[#36c08f]/40 via-[#8fe3bf] to-[#36c08f]/40 animate-[session-loading_1.8s_ease-in-out_infinite]" />
+          <style>{`
+            @keyframes session-loading {
+              0% { left: -35%; }
+              100% { left: 100%; }
+            }
+          `}</style>
         </div>
         <p className="relative mt-5 text-sm text-white/85">
           Sesimu sedang berjalan. Kamu aman untuk bercerita.

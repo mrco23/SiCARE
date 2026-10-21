@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Bell,
   CheckCircle2,
   GraduationCap,
   IdCard,
@@ -18,12 +17,6 @@ type ClientProfile = {
   address: string;
   occupation: string;
   education: string;
-  notify: {
-    bookingConfirmed: boolean;
-    sessionReminder: boolean;
-    scheduleChanged: boolean;
-    feedbackRequest: boolean;
-  };
 };
 
 type Errors = Partial<
@@ -55,12 +48,6 @@ const INITIAL: ClientProfile = {
   address: "Jl. Contoh No. 12, Manado",
   occupation: "Mahasiswa",
   education: "SMA/Sederajat",
-  notify: {
-    bookingConfirmed: true,
-    sessionReminder: true,
-    scheduleChanged: true,
-    feedbackRequest: false,
-  },
 };
 
 const clone = (v: ClientProfile): ClientProfile =>
@@ -117,13 +104,6 @@ export default function KlienPengaturanPage() {
     value: ClientProfile[K],
   ) {
     setProfile((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function updateNotify(key: keyof ClientProfile["notify"], value: boolean) {
-    setProfile((prev) => ({
-      ...prev,
-      notify: { ...prev.notify, [key]: value },
-    }));
   }
 
   function saveChanges() {
@@ -212,11 +192,11 @@ export default function KlienPengaturanPage() {
       </section>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6">
-        {/* Data pribadi (read-only, dari registrasi) */}
+        {/* Data pribadi dan akademik (read-only) */}
         <Panel
           icon={<IdCard className="h-5 w-5" />}
-          title="Data Pribadi"
-          description="Data dari saat registrasi. Hubungi admin bila ada yang perlu diubah."
+          title="Data Pribadi & Akademik"
+          description="Data registrasi dan informasi akademik sesuai data kampus. Hubungi admin jika ada data yang perlu diubah."
         >
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ReadonlyField label="Nama lengkap" value={ACCOUNT.fullName} />
@@ -233,16 +213,6 @@ export default function KlienPengaturanPage() {
               label="Urutan anak dalam keluarga"
               value={`Anak ke-${ACCOUNT.childOrder} dari ${ACCOUNT.siblingsCount} bersaudara`}
             />
-          </dl>
-        </Panel>
-
-        {/* Akademik (read-only) */}
-        <Panel
-          icon={<GraduationCap className="h-5 w-5" />}
-          title="Akademik"
-          description="Fakultas dan program studi sesuai data kampus."
-        >
-          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ReadonlyField label="Fakultas" value={ACCOUNT.faculty} />
             <ReadonlyField label="Program studi" value={ACCOUNT.studyProgram} />
             <ReadonlyField label="Email kampus" value={ACCOUNT.email} wide />
@@ -320,38 +290,6 @@ export default function KlienPengaturanPage() {
               Email kampus tidak dapat diubah. Hubungi admin bila perlu
               perubahan.
             </div>
-          </div>
-        </Panel>
-
-        {/* Notifikasi */}
-        <Panel
-          icon={<Bell className="h-5 w-5" />}
-          title="Notifikasi"
-          description="Pilih kejadian yang ingin kamu terima pemberitahuannya."
-        >
-          <div className="divide-y divide-gray-100">
-            <SwitchRow
-              title="Booking dikonfirmasi konselor"
-              checked={profile.notify.bookingConfirmed}
-              onChange={(v) => updateNotify("bookingConfirmed", v)}
-            />
-            <SwitchRow
-              title="Pengingat sebelum sesi"
-              description="Dikirim 1 jam sebelum sesi dimulai."
-              checked={profile.notify.sessionReminder}
-              onChange={(v) => updateNotify("sessionReminder", v)}
-            />
-            <SwitchRow
-              title="Jadwal diubah atau dibatalkan konselor"
-              checked={profile.notify.scheduleChanged}
-              onChange={(v) => updateNotify("scheduleChanged", v)}
-            />
-            <SwitchRow
-              title="Ajakan mengisi feedback"
-              description="Dikirim setelah sesi selesai."
-              checked={profile.notify.feedbackRequest}
-              onChange={(v) => updateNotify("feedbackRequest", v)}
-            />
           </div>
         </Panel>
 
@@ -524,47 +462,5 @@ function ReadonlyField({
         {value}
       </dd>
     </div>
-  );
-}
-
-function SwitchRow({
-  title,
-  description,
-  checked,
-  onChange,
-}: {
-  title: string;
-  description?: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 py-3">
-      <span>
-        <span className="block text-sm font-semibold">{title}</span>
-        {description && (
-          <span className="mt-0.5 block text-xs leading-relaxed text-gray-500">
-            {description}
-          </span>
-        )}
-      </span>
-      <span
-        className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          checked ? "bg-[#1e5b3a]" : "bg-gray-300"
-        }`}
-      >
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          className="peer sr-only"
-        />
-        <span
-          className={`pointer-events-none absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-            checked ? "translate-x-5" : "translate-x-0"
-          }`}
-        />
-      </span>
-    </label>
   );
 }
