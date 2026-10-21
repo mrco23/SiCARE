@@ -7,7 +7,6 @@ import {
   CircleCheck,
   Circle,
   Clock,
-  FileSpreadsheet,
   Inbox,
 } from "lucide-react";
 
@@ -266,13 +265,6 @@ function CounselorWorkload() {
             Monitor ketersediaan dan jumlah penanganan sesi aktif.
           </p>
         </div>
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded-xl bg-[#f0fdf4] px-4 py-2 text-xs font-bold text-[#15803d] transition-colors hover:bg-[#dcfce7]"
-        >
-          <FileSpreadsheet className="h-4 w-4" />
-          Unduh Rekap Laporan
-        </button>
       </div>
 
       <div className="overflow-x-auto">

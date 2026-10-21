@@ -1,10 +1,12 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CalendarDays,
-  FileSpreadsheet,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Check,
   Printer,
   Star,
-  Table2,
   TriangleAlert,
   Users,
   UsersRound,
@@ -164,28 +166,6 @@ const average = (rows: Session[]) => {
   };
 };
 
-function downloadCSV(filename: string, rows: (string | number | null)[][]) {
-  const csv = rows
-    .map((row) =>
-      row
-        .map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`)
-        .join(","),
-    )
-    .join("\r\n");
-
-  const blob = new Blob(["\uFEFF" + csv], {
-    type: "text/csv;charset=utf-8;",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
 function KpiCard({
   label,
   value,
@@ -217,7 +197,276 @@ function KpiCard({
   );
 }
 
+type PeriodKey = "semester";
+const PERIOD_OPTIONS: [PeriodKey, string][] = [["semester", "Semester"]];
+const DAY_MS = 864e5;
+type DateRange = { start: Date; end: Date };
+const parseISODate = (iso: string) => {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+const getDateRange = (
+  key: PeriodKey,
+  anchor: Date,
+  semester: Period,
+): DateRange => {
+  const y = anchor.getFullYear();
+  const m = anchor.getMonth();
+  const d = anchor.getDate();
+  if (key === "hari")
+    return { start: new Date(y, m, d), end: new Date(y, m, d + 1) };
+  if (key === "minggu")
+    return { start: new Date(y, m, d - 6), end: new Date(y, m, d + 1) };
+  if (key === "bulan")
+    return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
+  return {
+    start: parseISODate(semester.start),
+    end: new Date(parseISODate(semester.end).getTime() + DAY_MS),
+  };
+};
+const formatRangeLabel = (
+  key: PeriodKey,
+  range: DateRange,
+  semester: Period,
+) => {
+  if (key === "hari")
+    return range.start.toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  if (key === "minggu") {
+    const end = new Date(range.end.getTime() - DAY_MS);
+    return `${range.start.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} – ${end.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+  }
+  if (key === "bulan")
+    return range.start.toLocaleDateString("id-ID", {
+      month: "long",
+      year: "numeric",
+    });
+  return semester.id === "all"
+    ? "Semua periode akademik"
+    : `TA ${semester.label}`;
+};
+
+function SemesterPeriodDropdown({
+  periods,
+  selectedId,
+  onSelect,
+}: {
+  periods: Period[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeYear, setActiveYear] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = periods.find((period) => period.id === selectedId) ?? null;
+  const years = useMemo(
+    () =>
+      [...new Set(periods.map((period) => period.label.split(" ")[0]))]
+        .sort()
+        .reverse(),
+    [periods],
+  );
+  const semestersOf = (year: string) =>
+    periods.filter((period) => period.label.startsWith(year + " "));
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (!open) setActiveYear(selected?.label.split(" ")[0] ?? years[0] ?? null);
+    setOpen((value) => !value);
+  };
+  const pick = (id: string) => {
+    onSelect(id);
+    setOpen(false);
+  };
+  const year = activeYear ?? years[0] ?? null;
+  const statusFor = (period: Period) => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (today < period.start) return "Mendatang";
+    if (today > period.end) return "Selesai";
+    return "Aktif";
+  };
+
+  return (
+    <div ref={rootRef} className="relative w-full sm:w-96">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition-colors ${
+          open
+            ? "border-[#2a8f5a] ring-4 ring-[#2a8f5a]/15"
+            : "border-slate-200 hover:border-[#2a8f5a]/50"
+        }`}
+      >
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Periode akademik
+          </p>
+          <p className="truncate text-sm font-bold text-slate-800">
+            {selected ? `TA ${selected.label}` : "Semua periode"}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {selected && (
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                statusFor(selected) === "Aktif"
+                  ? "bg-emerald-50 text-[#14553a] border-emerald-200"
+                  : statusFor(selected) === "Mendatang"
+                    ? "bg-sky-50 text-sky-700 border-sky-200"
+                    : "bg-slate-100 text-slate-500 border-slate-200"
+              }`}
+            >
+              {statusFor(selected)}
+            </span>
+          )}
+          <ChevronDown
+            className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </div>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-30 mt-2 w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-100 p-3">
+            <button
+              type="button"
+              onClick={() => pick("all")}
+              className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                selectedId === "all"
+                  ? "bg-[#f0fdf4] text-[#14553a]"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Semua periode
+              {selectedId === "all" && <Check className="h-4 w-4" />}
+            </button>
+          </div>
+          {periods.length === 0 ? (
+            <div className="p-5 text-sm text-slate-500">
+              Belum ada periode akademik. Tambahkan periode melalui Pengaturan
+              Periode.
+            </div>
+          ) : (
+            <div className="grid grid-cols-[9rem_1fr]">
+              <div className="max-h-72 space-y-1 overflow-y-auto border-r border-slate-100 bg-slate-50/60 p-2">
+                <p className="px-2 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Tahun ajaran
+                </p>
+                {years.map((itemYear) => (
+                  <button
+                    key={itemYear}
+                    type="button"
+                    onClick={() => setActiveYear(itemYear)}
+                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition-colors ${
+                      year === itemYear
+                        ? "bg-white text-[#14553a] shadow-sm"
+                        : "text-slate-600 hover:bg-white/70"
+                    }`}
+                  >
+                    {itemYear}
+                    {selected?.label.startsWith(itemYear + " ") && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#2a8f5a]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-2 p-3">
+                <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Semester · TA {year}
+                </p>
+                {(["Ganjil", "Genap"] as const).map((semesterName) => {
+                  const item = year
+                    ? semestersOf(year).find((period) =>
+                        period.label.endsWith(semesterName),
+                      )
+                    : undefined;
+                  if (!item) {
+                    return (
+                      <div
+                        key={semesterName}
+                        className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-400"
+                      >
+                        <span className="font-semibold">{semesterName}</span> ·
+                        belum tersedia
+                      </div>
+                    );
+                  }
+                  const active = selectedId === item.id;
+                  const status = statusFor(item);
+                  const count = SESSIONS.filter((session) =>
+                    inRange(session.date, item),
+                  ).length;
+                  const fmt = (date: string) =>
+                    new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    });
+                  return (
+                    <button
+                      key={semesterName}
+                      type="button"
+                      onClick={() => pick(item.id)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                        active
+                          ? "border-[#14553a] bg-[#14553a] text-white"
+                          : "border-slate-200 bg-white hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold">{semesterName}</p>
+                        <p
+                          className={`truncate text-[11px] ${active ? "text-emerald-100" : "text-slate-400"}`}
+                        >
+                          {fmt(item.start)} – {fmt(item.end)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${active ? "bg-white/15 text-white" : "bg-slate-100 text-slate-600"}`}
+                        >
+                          {count} sesi
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold ${active ? "text-emerald-100" : status === "Aktif" ? "text-[#15803d]" : "text-slate-400"}`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminLaporanPage() {
+  const [periodKey, setPeriodKey] = useState<PeriodKey>("semester");
   const [periodId, setPeriodId] = useState<string>(
     PERIODS[PERIODS.length - 1].id,
   );
@@ -225,19 +474,34 @@ export default function AdminLaporanPage() {
     "Semua",
   );
   const [counselorFilter, setCounselorFilter] = useState("Semua");
-  const [searchTerm, setSearchTerm] = useState("");
 
-  const period = useMemo(
-    () =>
-      periodId === "all"
-        ? ALL_PERIOD
-        : (PERIODS.find((p) => p.id === periodId) ?? ALL_PERIOD),
-    [periodId],
+  const selectedSemester = PERIODS.find((p) => p.id === periodId) ?? ALL_PERIOD;
+  const range = useMemo(
+    () => getDateRange("semester", new Date(), selectedSemester),
+    [selectedSemester],
   );
+  const periodLabel = formatRangeLabel("semester", range, selectedSemester);
+  const period = selectedSemester;
+
+  function stepPeriod(direction: -1 | 1) {
+    const index = PERIODS.findIndex((item) => item.id === periodId);
+    const next = PERIODS[index + direction];
+    if (next) setPeriodId(next.id);
+  }
 
   const periodRows = useMemo(
-    () => SESSIONS.filter((session) => inRange(session.date, period)),
-    [period],
+    () =>
+      SESSIONS.filter((session) =>
+        periodKey === "semester"
+          ? inRange(session.date, selectedSemester)
+          : (() => {
+              const date = parseISODate(session.date).getTime();
+              return (
+                date >= range.start.getTime() && date < range.end.getTime()
+              );
+            })(),
+      ),
+    [periodKey, selectedSemester, range],
   );
 
   const rows = useMemo(
@@ -246,15 +510,9 @@ export default function AdminLaporanPage() {
         (session) =>
           (format === "Semua" || session.format === format) &&
           (counselorFilter === "Semua" ||
-            session.counselor === counselorFilter) &&
-          (searchTerm.trim() === "" ||
-            session.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            session.counselor
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()) ||
-            session.topic.toLowerCase().includes(searchTerm.toLowerCase())),
+            session.counselor === counselorFilter),
       ),
-    [periodRows, format, counselorFilter, searchTerm],
+    [periodRows, format, counselorFilter],
   );
 
   const done = rows.filter((row) => row.status === "Selesai");
@@ -354,88 +612,8 @@ export default function AdminLaporanPage() {
     [rows],
   );
 
-  const exportSummary = () => {
-    const output: (string | number | null)[][] = [
-      ["Laporan SiCARE", period.label],
-      ["Filter jenis sesi", format],
-      ["Total sesi", rows.length],
-      ["Sesi selesai", done.length],
-      ["Selesai individu", doneIndividual.length],
-      ["Selesai kelompok", doneGroup.length],
-      ["Sesi dibatalkan", cancelled.length],
-      ["Dibatalkan individu", cancelledIndividual.length],
-      ["Dibatalkan kelompok", cancelledGroup.length],
-      [
-        "Rata-rata rating sesi selesai",
-        rating.n ? rating.value.toFixed(2) : "",
-      ],
-      [],
-      [
-        "Konselor",
-        "Individu selesai",
-        "Kelompok selesai",
-        "Individu dibatalkan",
-        "Kelompok dibatalkan",
-        "Total selesai",
-        "Total dibatalkan",
-      ],
-      ...counselorRows.map((row) => [
-        row.counselor,
-        row.individualDone,
-        row.groupDone,
-        row.individualCancelled,
-        row.groupCancelled,
-        row.totalDone,
-        row.totalCancelled,
-      ]),
-      [],
-      ["Topik", "Total sesi", "Selesai", "Dibatalkan", "Rata-rata rating"],
-      ...topicRows.map((row) => [
-        row.topic,
-        row.total,
-        row.completed,
-        row.cancelled,
-        row.rating === "-" ? "" : row.rating,
-      ]),
-    ];
-
-    downloadCSV(`laporan-sicare-${periodId}.csv`, output);
-  };
-
-  const exportData = () => {
-    const output: (string | number | null)[][] = [
-      [
-        "ID Sesi",
-        "ID Klien (anonim)",
-        "Tanggal",
-        "Jenis Sesi",
-        "Topik",
-        "Konselor",
-        "Status",
-        "Rating",
-        "Pihak Pembatal",
-        "Alasan Pembatalan",
-      ],
-      ...rows.map((row) => [
-        row.id,
-        row.clientId,
-        row.date,
-        row.format,
-        row.topic,
-        row.counselor,
-        row.status,
-        row.rating,
-        row.cancelledBy,
-        row.reason,
-      ]),
-    ];
-    downloadCSV(`data-sesi-anonim-${periodId}.csv`, output);
-  };
-
   const selectClass =
     "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-[#2a8f5a] focus:ring-2 focus:ring-[#2a8f5a]/20 sm:w-auto";
-  const outlineButtonClass =
-    "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
@@ -465,31 +643,13 @@ export default function AdminLaporanPage() {
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <CalendarDays className="h-4 w-4" />
-          <span>Periode: {period.label}</span>
+          <span>Periode: {periodLabel}</span>
         </div>
       </div>
 
       {/* Filters and export actions */}
       <section className="no-print rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <label className="space-y-1.5">
-            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-              Tahun akademik / semester
-            </span>
-            <select
-              value={periodId}
-              onChange={(event) => setPeriodId(event.target.value)}
-              className={selectClass + " w-full"}
-            >
-              <option value="all">Semua periode</option>
-              {[...PERIODS].reverse().map((item) => (
-                <option key={item.id} value={item.id}>
-                  TA {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
           <label className="space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
               Jenis sesi
@@ -506,7 +666,6 @@ export default function AdminLaporanPage() {
               <option value="Kelompok">Konseling kelompok</option>
             </select>
           </label>
-
           <label className="space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
               Konselor
@@ -524,20 +683,21 @@ export default function AdminLaporanPage() {
               ))}
             </select>
           </label>
-
-          <label className="space-y-1.5">
-            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-              Cari laporan
-            </span>
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="ID sesi, konselor, topik..."
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#2a8f5a] focus:ring-2 focus:ring-[#2a8f5a]/20"
-            />
-          </label>
         </div>
-
+        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <SemesterPeriodDropdown
+              periods={PERIODS}
+              selectedId={periodId}
+              onSelect={setPeriodId}
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-slate-500">
+                {periodLabel}
+              </span>
+            </div>
+          </div>
+        </div>
         <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <p className="text-xs text-slate-500">
             Menampilkan <strong>{rows.length}</strong> sesi sesuai filter.
@@ -545,34 +705,18 @@ export default function AdminLaporanPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={exportSummary}
-              className={outlineButtonClass}
-            >
-              <FileSpreadsheet className="h-4 w-4 text-[#14553a]" />
-              Ekspor ringkasan CSV
-            </button>
-            <button
-              type="button"
-              onClick={exportData}
-              className={outlineButtonClass}
-            >
-              <Table2 className="h-4 w-4 text-[#14553a]" />
-              Ekspor data sesi
-            </button>
-            <button
-              type="button"
               onClick={() => window.print()}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f4430]"
             >
               <Printer className="h-4 w-4" />
-              Cetak / PDF
+              Unduh Laporan PDF
             </button>
           </div>
         </div>
       </section>
 
       {/* Data quality warning */}
-      {orphanCount > 0 && (
+      {periodKey === "semester" && orphanCount > 0 && (
         <div className="no-print flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
           <p>
@@ -938,8 +1082,7 @@ export default function AdminLaporanPage() {
         </div>
         {rows.length > 12 && (
           <p className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
-            Menampilkan 12 dari {rows.length} sesi. Gunakan tombol Ekspor Data
-            Sesi untuk mengambil seluruh data sesuai filter.
+            Menampilkan 12 dari {rows.length} sesi pada pratinjau laporan.
           </p>
         )}
       </section>

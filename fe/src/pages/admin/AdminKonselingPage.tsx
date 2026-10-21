@@ -1,1129 +1,1206 @@
-import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
-import type { LucideIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Ban,
   CalendarDays,
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleCheck,
-  FolderOpen,
-  List,
-  Lock,
+  Check,
+  Printer,
   Star,
-  User,
-  UserRound,
+  TriangleAlert,
   Users,
+  UsersRound,
+  CalendarX,
+  CheckCircle2,
+  ClipboardList,
+  UserRound,
   X,
 } from "lucide-react";
-import {
-  isInPeriod,
-  loadPeriods,
-  sortPeriods,
-  toISO,
-  type AcademicPeriod,
-} from "../../lib/academicPeriods";
 
-/* ========================= DATA CONTOH ========================= */
-/* Ganti dengan fetch('/api/admin/konseling?start=...&end=...') */
-const COUNSELORS = [
-  "Ma'am Giovanna Yudi, M.Psi",
-  "Dr. Budi Santoso, Psikolog",
-  "Sari Wulandari, M.Psi",
-];
-const RATING = [4.8, 4.2, 4.5]; // dari halaman Feedback
-const REASONS = [
-  "Konflik jadwal pribadi",
-  "Klien sakit",
-  "Tidak ada respons dari klien",
-  "Konselor berhalangan",
-  "Masalah koneksi sesi online",
-];
+/* ========================= TIPE & DATA ========================= */
 
-type SessionType = "individu" | "kelompok";
-type SessionStatus = "selesai" | "dibatalkan";
+type Period = {
+  id: string;
+  label: string;
+  start: string;
+  end: string;
+};
+
+type SessionStatus = "Selesai" | "Dibatalkan";
 
 type Session = {
-  id: number;
-  start: Date;
-  type: SessionType;
-  durasi: number;
-  konselor: number;
-  participants: number[];
+  id: string;
+  clientId: string; // ID anonim untuk data contoh
+  date: string; // YYYY-MM-DD
+  format: "Individu" | "Kelompok";
+  topic: string;
   status: SessionStatus;
-  cancelledBy: "konselor" | "klien" | null;
-  cancelReason: string | null;
-  cancelLead: number | null; // jam sebelum jadwal
+  rating: number | null;
+  reason: string;
+  cancelledBy: "Klien" | "Konselor" | "Administrasi" | "";
+  counselor: string;
 };
 
-const NOW = new Date();
-let seed = 7;
-const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+/*
+ * DATA CONTOH FRONTEND
+ * Ganti PERIODS dengan data dari pengaturan periode akademik dan SESSIONS
+ * dengan data API ketika backend sudah tersedia.
+ *
+ * Sesi masuk ke periode berdasarkan tanggal sesi. Untuk sesi yang dibatalkan,
+ * implementasi backend perlu menetapkan apakah periode dihitung dari tanggal
+ * jadwal awal atau tanggal pembatalan. Di halaman ini digunakan tanggal sesi.
+ */
+const PERIODS: Period[] = [
+  {
+    id: "2024-2025-ganjil",
+    label: "2024/2025 Ganjil",
+    start: "2024-08-19",
+    end: "2025-01-31",
+  },
+  {
+    id: "2024-2025-genap",
+    label: "2024/2025 Genap",
+    start: "2025-02-01",
+    end: "2025-07-31",
+  },
+  {
+    id: "2025-2026-ganjil",
+    label: "2025/2026 Ganjil",
+    start: "2025-08-18",
+    end: "2026-01-31",
+  },
+  {
+    id: "2025-2026-genap",
+    label: "2025/2026 Genap",
+    start: "2026-02-01",
+    end: "2026-07-31",
+  },
+  {
+    id: "2026-2027-ganjil",
+    label: "2026/2027 Ganjil",
+    start: "2026-08-17",
+    end: "2027-01-31",
+  },
+];
 
-const SESI: Session[] = Array.from({ length: 60 }, (_, i) => {
-  const ago = i < 6 ? 0 : i < 9 ? 1 : Math.floor(rnd() * 240);
-  const hour = 8 + Math.floor(rnd() * 9);
-  const start = new Date(
-    NOW.getFullYear(),
-    NOW.getMonth(),
-    NOW.getDate() - ago,
-    hour,
-    0,
+const TOPICS = [
+  "Pengembangan Diri",
+  "Motivasi",
+  "Stres kerja",
+  "Kecemasan",
+  "Relasi keluarga",
+];
+
+const REASONS = [
+  "Klien sakit",
+  "Konselor berhalangan",
+  "Klien tidak hadir tanpa kabar",
+  "Jadwal bentrok",
+];
+
+const COUNSELORS = ["Gio...", "Rico..."];
+
+/* Data sintetis untuk menampilkan rancangan halaman sebelum backend tersedia. */
+const SESSIONS: Session[] = Array.from({ length: 220 }, (_, i) => {
+  const date = new Date(
+    Date.UTC(2024, 7, 26) + i * 4 * 864e5 + (i % 3) * 864e5,
   );
-  const type: SessionType = rnd() < 0.65 ? "individu" : "kelompok";
-  const cancelled = rnd() < 0.15;
-  const n = type === "individu" ? 1 : 3 + Math.floor(rnd() * 6);
+  const cancelled = i % 7 === 0 || i % 19 === 0;
+  const format = i % 4 === 0 ? "Kelompok" : "Individu";
+
   return {
-    id: 1001 + i,
-    start,
-    type,
-    durasi: rnd() < 0.7 ? 60 : 45,
-    konselor: Math.floor(rnd() * 3),
-    participants: Array.from({ length: n }, (_, k) => i * 10 + k),
-    status: cancelled ? "dibatalkan" : "selesai",
-    cancelledBy: cancelled ? (rnd() < 0.6 ? "konselor" : "klien") : null,
-    cancelReason: cancelled
-      ? REASONS[Math.floor(rnd() * REASONS.length)]
-      : null,
-    cancelLead: cancelled ? Math.round(rnd() * 48) : null,
+    id: `S${String(i + 1).padStart(3, "0")}`,
+    clientId: `K${String((i % 23) + 1).padStart(2, "0")}`,
+    date: date.toISOString().slice(0, 10),
+    format,
+    topic: TOPICS[i % TOPICS.length],
+    status: cancelled ? "Dibatalkan" : "Selesai",
+    rating: cancelled ? null : [5, 4, 5, 3, 4, 5, 2, 4][i % 8],
+    reason: cancelled ? REASONS[i % REASONS.length] : "",
+    cancelledBy: cancelled
+      ? (["Klien", "Konselor", "Administrasi"][i % 3] as Session["cancelledBy"])
+      : "",
+    counselor: COUNSELORS[i % COUNSELORS.length],
   };
-}).sort((a, b) => b.start.getTime() - a.start.getTime());
+});
 
-/* ========================= UTIL ========================= */
-type PeriodKey = "hari" | "minggu" | "bulan" | "semester";
-type TblKey = "semua" | "individu" | "kelompok" | "dibatalkan";
-type ViewKey = "daftar" | "detail";
+/* ========================= HELPER ========================= */
 
-const PAGE_SIZE = 20;
-const DAY = 864e5;
-
-const PERIOD_OPTS: [PeriodKey, string][] = [
-  ["hari", "Hari"],
-  ["minggu", "Minggu"],
-  ["bulan", "Bulan"],
-  ["semester", "Semester"],
-];
-const TBL_OPTS: [TblKey, string][] = [
-  ["semua", "Semua"],
-  ["individu", "Individu"],
-  ["kelompok", "Kelompok"],
-  ["dibatalkan", "Dibatalkan"],
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
 ];
 
-const anonOf = (id: number) =>
-  "Klien Anonim #" +
-  ((id * 2654435761) >>> 0).toString(16).slice(-4).toUpperCase();
-
-const initials = (n: string) =>
-  n
-    .replace(/[^A-Za-z ]/g, "")
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-
-const fmtT = (d: Date) =>
-  d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-const fmtDT = (d: Date) =>
-  `${d.toLocaleDateString("id-ID", { day: "numeric", month: "short" })}, ${fmtT(d)}`;
-const fmtShort = (d: Date) =>
-  d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-
-const parseISO = (iso: string) => {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
+const ALL_PERIOD: Period = {
+  id: "all",
+  label: "Semua periode",
+  start: "0000-01-01",
+  end: "9999-12-31",
 };
 
-type Range = { s: Date; e: Date };
-const inR = (t: number, r: Range) => t >= r.s.getTime() && t < r.e.getTime();
+const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
+const inRange = (date: string, period: Period) =>
+  date >= period.start && date <= period.end;
 
-/* Rentang waktu sesuai mode tampilan */
-function getRange(
-  period: PeriodKey,
+const average = (rows: Session[]) => {
+  const rated = rows.filter((row) => row.rating !== null);
+  return {
+    n: rated.length,
+    value: rated.length
+      ? rated.reduce((sum, row) => sum + (row.rating ?? 0), 0) / rated.length
+      : 0,
+  };
+};
+
+function KpiCard({
+  label,
+  value,
+  note,
+  icon,
+  valueClass = "text-slate-900",
+}: {
+  label: string;
+  value: string | number;
+  note?: string;
+  icon: ReactNode;
+  valueClass?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+          {label}
+        </p>
+        <span className="rounded-xl bg-slate-50 p-2 text-slate-500">
+          {icon}
+        </span>
+      </div>
+      <h3 className={`mt-3 text-2xl font-bold sm:text-3xl ${valueClass}`}>
+        {value}
+      </h3>
+      {note && <p className="mt-1 text-xs text-slate-500">{note}</p>}
+    </div>
+  );
+}
+
+type PeriodKey = "semester";
+const PERIOD_OPTIONS: [PeriodKey, string][] = [["semester", "Semester"]];
+const DAY_MS = 864e5;
+type DateRange = { start: Date; end: Date };
+const parseISODate = (iso: string) => {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+const getDateRange = (
+  key: PeriodKey,
   anchor: Date,
-  sem: AcademicPeriod | null,
-): Range {
+  semester: Period,
+): DateRange => {
   const y = anchor.getFullYear();
   const m = anchor.getMonth();
   const d = anchor.getDate();
-  if (period === "hari")
-    return { s: new Date(y, m, d), e: new Date(y, m, d + 1) };
-  if (period === "minggu")
-    return { s: new Date(y, m, d - 6), e: new Date(y, m, d + 1) };
-  if (period === "bulan")
-    return { s: new Date(y, m, 1), e: new Date(y, m + 1, 1) };
-  if (!sem) return { s: new Date(0), e: new Date(0) };
+  if (key === "hari")
+    return { start: new Date(y, m, d), end: new Date(y, m, d + 1) };
+  if (key === "minggu")
+    return { start: new Date(y, m, d - 6), end: new Date(y, m, d + 1) };
+  if (key === "bulan")
+    return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
   return {
-    s: parseISO(sem.start),
-    e: new Date(parseISO(sem.end).getTime() + DAY),
+    start: parseISODate(semester.start),
+    end: new Date(parseISODate(semester.end).getTime() + DAY_MS),
   };
-}
-
-function rangeLabel(
-  period: PeriodKey,
-  range: Range,
-  sem: AcademicPeriod | null,
-) {
-  if (period === "hari")
-    return range.s.toLocaleDateString("id-ID", {
+};
+const formatRangeLabel = (
+  key: PeriodKey,
+  range: DateRange,
+  semester: Period,
+) => {
+  if (key === "hari")
+    return range.start.toLocaleDateString("id-ID", {
       weekday: "long",
       day: "numeric",
       month: "long",
       year: "numeric",
     });
-  if (period === "minggu")
-    return `${fmtShort(range.s)} – ${fmtShort(new Date(range.e.getTime() - DAY))}`;
-  if (period === "bulan")
-    return range.s.toLocaleDateString("id-ID", {
+  if (key === "minggu") {
+    const end = new Date(range.end.getTime() - DAY_MS);
+    return `${range.start.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} – ${end.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+  }
+  if (key === "bulan")
+    return range.start.toLocaleDateString("id-ID", {
       month: "long",
       year: "numeric",
     });
-  return sem ? `TA ${sem.ta} · ${sem.sem}` : "Belum ada periode";
-}
+  return semester.id === "all"
+    ? "Semua periode akademik"
+    : `TA ${semester.label}`;
+};
 
-/* Bucket untuk grafik batang per konselor */
-function buckets(period: PeriodKey, range: Range) {
-  const y = range.s.getFullYear();
-  const m = range.s.getMonth();
-  const d = range.s.getDate();
-  if (period === "hari") {
-    return Array.from({ length: 9 }, (_, i) => ({
-      label: `${8 + i}:00`,
-      s: new Date(y, m, d, 8 + i),
-      e: new Date(y, m, d, 9 + i),
-    }));
-  }
-  if (period === "semester") {
-    return Array.from({ length: 6 }, (_, i) => ({
-      label: new Date(y, m + i, 1).toLocaleDateString("id-ID", {
-        month: "short",
-      }),
-      s: i === 0 ? range.s : new Date(y, m + i, 1),
-      e: new Date(y, m + i + 1, 1),
-    }));
-  }
-  const days = Math.round((range.e.getTime() - range.s.getTime()) / DAY);
-  return Array.from({ length: days }, (_, i) => {
-    const s = new Date(y, m, d + i);
-    return { label: String(s.getDate()), s, e: new Date(y, m, d + i + 1) };
-  });
-}
-
-/* ========================= KOMPONEN KECIL ========================= */
-function KpiCard({
-  icon: Icon,
-  title,
-  value,
-  sub,
+function SemesterPeriodDropdown({
+  periods,
+  selectedId,
+  onSelect,
 }: {
-  icon: LucideIcon;
-  title: string;
-  value: string | number;
-  sub: string;
+  periods: Period[];
+  selectedId: string;
+  onSelect: (id: string) => void;
 }) {
-  return (
-    <div className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            {title}
-          </p>
-          <h3 className="text-3xl font-bold">{value}</h3>
-        </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-[#15803d]">
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-      <p className="mt-3 text-xs text-slate-500">{sub}</p>
-    </div>
+  const [open, setOpen] = useState(false);
+  const [activeYear, setActiveYear] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = periods.find((period) => period.id === selectedId) ?? null;
+  const years = useMemo(
+    () =>
+      [...new Set(periods.map((period) => period.label.split(" ")[0]))]
+        .sort()
+        .reverse(),
+    [periods],
   );
-}
+  const semestersOf = (year: string) =>
+    periods.filter((period) => period.label.startsWith(year + " "));
 
-function SegmentTabs<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: [T, string][];
-  value: T;
-  onChange: (v: T) => void;
-}) {
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (!open) setActiveYear(selected?.label.split(" ")[0] ?? years[0] ?? null);
+    setOpen((value) => !value);
+  };
+  const pick = (id: string) => {
+    onSelect(id);
+    setOpen(false);
+  };
+  const year = activeYear ?? years[0] ?? null;
+  const statusFor = (period: Period) => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (today < period.start) return "Mendatang";
+    if (today > period.end) return "Selesai";
+    return "Aktif";
+  };
+
   return (
-    <div className="flex w-fit flex-wrap items-center rounded-xl border border-slate-200 bg-slate-100 p-1 text-xs font-semibold text-slate-600">
-      {options.map(([k, l]) => (
-        <button
-          key={k}
-          type="button"
-          onClick={() => onChange(k)}
-          className={`rounded-lg px-3 py-1.5 transition-colors ${
-            value === k
-              ? "bg-white text-slate-800 shadow-sm"
-              : "hover:text-slate-900"
-          }`}
-        >
-          {l}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/* Pindah tampilan: Daftar Konseling / Detail per Konselor */
-function ViewSwitch({
-  value,
-  onChange,
-}: {
-  value: ViewKey;
-  onChange: (v: ViewKey) => void;
-}) {
-  const items: { key: ViewKey; label: string; icon: LucideIcon }[] = [
-    { key: "daftar", label: "Daftar Konseling", icon: List },
-    { key: "detail", label: "Detail Konselor", icon: UserRound },
-  ];
-  return (
-    <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold text-slate-500">
-      {items.map(({ key, label, icon: Icon }) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => onChange(key)}
-          className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 transition-all ${
-            value === key
-              ? "bg-[#14553a] text-white shadow-sm"
-              : "hover:text-slate-800"
-          }`}
-        >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-const TILE_TONE = {
-  emerald: "bg-emerald-50 text-[#15803d] border-emerald-100",
-  sky: "bg-sky-50 text-sky-700 border-sky-100",
-  violet: "bg-violet-50 text-violet-700 border-violet-100",
-  rose: "bg-rose-50 text-rose-600 border-rose-100",
-} as const;
-
-function StatTile({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number;
-  tone: keyof typeof TILE_TONE;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-      <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${TILE_TONE[tone]}`}
+    <div ref={rootRef} className="relative w-full">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition-colors ${
+          open
+            ? "border-[#2a8f5a] ring-4 ring-[#2a8f5a]/15"
+            : "border-slate-200 hover:border-[#2a8f5a]/50"
+        }`}
       >
-        <Icon className="h-4.5 w-4.5" />
-      </div>
-      <div>
-        <p className="text-[11px] font-semibold text-slate-400">{label}</p>
-        <p className="text-2xl font-bold leading-tight">{value}</p>
-      </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Periode akademik
+          </p>
+          <p className="truncate text-sm font-bold text-slate-800">
+            {selected ? `TA ${selected.label}` : "Semua periode"}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {selected && (
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                statusFor(selected) === "Aktif"
+                  ? "bg-emerald-50 text-[#14553a] border-emerald-200"
+                  : statusFor(selected) === "Mendatang"
+                    ? "bg-sky-50 text-sky-700 border-sky-200"
+                    : "bg-slate-100 text-slate-500 border-slate-200"
+              }`}
+            >
+              {statusFor(selected)}
+            </span>
+          )}
+          <ChevronDown
+            className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </div>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-30 mt-2 w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-100 p-3">
+            <button
+              type="button"
+              onClick={() => pick("all")}
+              className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                selectedId === "all"
+                  ? "bg-[#f0fdf4] text-[#14553a]"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Semua periode
+              {selectedId === "all" && <Check className="h-4 w-4" />}
+            </button>
+          </div>
+          {periods.length === 0 ? (
+            <div className="p-5 text-sm text-slate-500">
+              Belum ada periode akademik. Tambahkan periode melalui Pengaturan
+              Periode.
+            </div>
+          ) : (
+            <div className="grid grid-cols-[9rem_1fr]">
+              <div className="max-h-72 space-y-1 overflow-y-auto border-r border-slate-100 bg-slate-50/60 p-2">
+                <p className="px-2 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Tahun ajaran
+                </p>
+                {years.map((itemYear) => (
+                  <button
+                    key={itemYear}
+                    type="button"
+                    onClick={() => setActiveYear(itemYear)}
+                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition-colors ${
+                      year === itemYear
+                        ? "bg-white text-[#14553a] shadow-sm"
+                        : "text-slate-600 hover:bg-white/70"
+                    }`}
+                  >
+                    {itemYear}
+                    {selected?.label.startsWith(itemYear + " ") && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#2a8f5a]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-2 p-3">
+                <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Semester · TA {year}
+                </p>
+                {(["Ganjil", "Genap"] as const).map((semesterName) => {
+                  const item = year
+                    ? semestersOf(year).find((period) =>
+                        period.label.endsWith(semesterName),
+                      )
+                    : undefined;
+                  if (!item) {
+                    return (
+                      <div
+                        key={semesterName}
+                        className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-400"
+                      >
+                        <span className="font-semibold">{semesterName}</span> ·
+                        belum tersedia
+                      </div>
+                    );
+                  }
+                  const active = selectedId === item.id;
+                  const status = statusFor(item);
+                  const count = SESSIONS.filter((session) =>
+                    inRange(session.date, item),
+                  ).length;
+                  const fmt = (date: string) =>
+                    new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    });
+                  return (
+                    <button
+                      key={semesterName}
+                      type="button"
+                      onClick={() => pick(item.id)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                        active
+                          ? "border-[#14553a] bg-[#14553a] text-white"
+                          : "border-slate-200 bg-white hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold">{semesterName}</p>
+                        <p
+                          className={`truncate text-[11px] ${active ? "text-emerald-100" : "text-slate-400"}`}
+                        >
+                          {fmt(item.start)} – {fmt(item.end)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${active ? "bg-white/15 text-white" : "bg-slate-100 text-slate-600"}`}
+                        >
+                          {count} sesi
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold ${active ? "text-emerald-100" : status === "Aktif" ? "text-[#15803d]" : "text-slate-400"}`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-/* ========================= PANEL DETAIL KONSELOR ========================= */
-/* ========================= POPUP PILIH KONSELOR ========================= */
-function CounselorPicker({
+function CounselorFilterModal({
   open,
-  kon,
+  selected,
   sessions,
   onClose,
   onSelect,
 }: {
   open: boolean;
-  kon: number;
+  selected: string;
   sessions: Session[];
   onClose: () => void;
-  onSelect: (i: number) => void;
+  onSelect: (counselor: string) => void;
 }) {
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
   if (!open) return null;
 
+  const options = ["Semua", ...COUNSELORS];
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/35 p-4"
       onClick={onClose}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="counselor-filter-title"
+        onClick={(event) => event.stopPropagation()}
+        className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
-            <p className="text-sm font-bold text-slate-800">Pilih konselor</p>
-            <p className="text-xs text-slate-400">
-              Detail akan menampilkan konselor yang dipilih
+            <p
+              id="counselor-filter-title"
+              className="text-sm font-bold text-slate-800"
+            >
+              Pilih konselor
+            </p>
+            <p className="mt-0.5 text-xs text-slate-400">
+              Pilih konselor untuk memfilter laporan
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Tutup"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+            aria-label="Tutup modal"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <ul className="divide-y divide-slate-100">
-          {COUNSELORS.map((c, i) => {
-            const active = i === kon;
-            const done = sessions.filter(
-              (s) => s.konselor === i && s.status === "selesai",
-            ).length;
+        <div className="divide-y divide-slate-100">
+          {options.map((counselor) => {
+            const active = selected === counselor;
+            const count =
+              counselor === "Semua"
+                ? sessions.length
+                : sessions.filter((session) => session.counselor === counselor)
+                    .length;
+
             return (
-              <li key={c}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(i)}
-                  className={`flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors ${
-                    active ? "bg-[#f6fcf8]" : "hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
-                    {initials(c)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800">
-                      {c}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {done} sesi selesai · rating {RATING[i].toFixed(1)}
-                    </p>
-                  </div>
-                  {active && <Check className="h-4 w-4 text-[#15803d]" />}
-                </button>
-              </li>
+              <button
+                key={counselor}
+                type="button"
+                onClick={() => onSelect(counselor)}
+                className={`flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors ${
+                  active ? "bg-[#f6fcf8]" : "hover:bg-slate-50"
+                }`}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  {counselor === "Semua" ? (
+                    <Users className="h-4 w-4" />
+                  ) : (
+                    <UserRound className="h-4 w-4" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-slate-800">
+                    {counselor === "Semua" ? "Semua konselor" : counselor}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-400">
+                    {count} sesi pada periode terpilih
+                  </span>
+                </span>
+                {active && <Check className="h-4 w-4 text-[#15803d]" />}
+              </button>
             );
           })}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-/* ========================= PANEL DETAIL KONSELOR ========================= */
-function CounselorPanel({
-  sessions,
-  kon,
-  onKonChange,
-  period,
-  range,
-  onOpen,
-}: {
-  sessions: Session[];
-  kon: number;
-  onKonChange: (i: number) => void;
-  period: PeriodKey;
-  range: Range;
-  onOpen: (id: number) => void;
-}) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-
-  const KP = sessions.filter((s) => s.konselor === kon);
-  const KSelesai = KP.filter((s) => s.status === "selesai");
-  const KInd = KSelesai.filter((s) => s.type === "individu").length;
-  const KBatal = KP.filter((s) => s.status === "dibatalkan").length;
-
-  const bk = buckets(period, range);
-  const counts = bk.map(
-    (b) =>
-      KSelesai.filter((s) => inR(s.start.getTime(), { s: b.s, e: b.e })).length,
-  );
-  const maxCount = Math.max(1, ...counts);
-  const unit =
-    period === "hari" ? "jam" : period === "semester" ? "bulan" : "hari";
-
-  return (
-    <div className="space-y-5 p-6">
-      {/* Konselor terpilih + tombol ganti */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600">
-            {initials(COUNSELORS[kon])}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-800">
-              {COUNSELORS[kon]}
-            </p>
-            <p className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
-              <span className="flex items-center gap-1">
-                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                {RATING[kon].toFixed(1)} rating
-              </span>
-              <span className="text-slate-300">|</span>
-              <span>{KP.length} jadwal periode ini</span>
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-        >
-          Ganti konselor
-          <ChevronDown className="h-4 w-4 text-slate-400" />
-        </button>
-      </div>
-
-      <CounselorPicker
-        open={pickerOpen}
-        kon={kon}
-        sessions={sessions}
-        onClose={() => setPickerOpen(false)}
-        onSelect={(i) => {
-          onKonChange(i);
-          setPickerOpen(false);
-        }}
-      />
-
-      {/* Statistik */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile
-          icon={CircleCheck}
-          label="Sesi selesai"
-          value={KSelesai.length}
-          tone="emerald"
-        />
-        <StatTile icon={User} label="Individu" value={KInd} tone="sky" />
-        <StatTile
-          icon={Users}
-          label="Kelompok"
-          value={KSelesai.length - KInd}
-          tone="violet"
-        />
-        <StatTile icon={Ban} label="Dibatalkan" value={KBatal} tone="rose" />
-      </div>
-
-      {/* Grafik & daftar sesi */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
-        <div className="rounded-2xl border border-slate-200 p-5 xl:col-span-3">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold text-slate-800">
-                Layanan per {unit}
-              </p>
-              <p className="text-xs text-slate-400">
-                Sesi selesai pada periode yang dipilih
-              </p>
-            </div>
-            <p className="text-xs font-semibold text-slate-500">
-              Total: <span className="text-slate-800">{KSelesai.length}</span>
-            </p>
-          </div>
-          <div className="flex h-40 items-end gap-1.5">
-            {counts.map((c, i) => (
-              <div
-                key={i}
-                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
-              >
-                <span className="mb-1 text-[10px] font-semibold text-slate-500">
-                  {c || ""}
-                </span>
-                <div
-                  className={`w-full rounded-t-md ${c ? "bg-[#14553a]" : "bg-slate-100"}`}
-                  style={{
-                    height: `${Math.max(c ? 8 : 4, Math.round((c / maxCount) * 100))}%`,
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 flex gap-1.5 border-t border-slate-100 pt-2">
-            {bk.map((b, i) => (
-              <span
-                key={i}
-                className="flex-1 truncate text-center text-[10px] text-slate-400"
-              >
-                {b.label}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 xl:col-span-2">
-          <div className="border-b border-slate-100 px-5 py-4">
-            <p className="text-sm font-bold text-slate-800">
-              Sesi konselor ini
-            </p>
-            <p className="text-xs text-slate-400">
-              {KP.length} jadwal pada periode ini
-            </p>
-          </div>
-          <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
-            {KP.length > 0 ? (
-              KP.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => onOpen(s.id)}
-                  className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition-colors hover:bg-slate-50"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-slate-700">
-                      {fmtDT(s.start)}
-                    </p>
-                    <p className="truncate text-[11px] text-slate-400">
-                      {s.type === "individu"
-                        ? anonOf(s.participants[0])
-                        : `${s.participants.length} peserta`}{" "}
-                      · {s.durasi} menit
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                      s.status === "selesai"
-                        ? "bg-emerald-50 text-[#15803d]"
-                        : "bg-rose-50 text-rose-600"
-                    }`}
-                  >
-                    {s.status === "selesai" ? "Selesai" : "Dibatalkan"}
-                  </span>
-                </button>
-              ))
-            ) : (
-              <p className="p-8 text-center text-xs text-slate-400">
-                Tidak ada sesi pada periode ini.
-              </p>
-            )}
-          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/* ========================= HALAMAN ========================= */
-export default function AdminKonselingPage() {
-  const today = useMemo(() => toISO(new Date()), []);
-  const periods = useMemo(() => sortPeriods(loadPeriods()), []);
-  const defaultSem =
-    periods.find((p) => isInPeriod(today, p)) ??
-    periods[periods.length - 1] ??
-    null;
-
-  const [period, setPeriod] = useState<PeriodKey>("bulan");
-  const [anchor, setAnchor] = useState(
-    () => new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate(), 12),
+export default function AdminLaporanPage() {
+  const [periodKey, setPeriodKey] = useState<PeriodKey>("semester");
+  const [periodId, setPeriodId] = useState<string>(
+    PERIODS[PERIODS.length - 1].id,
   );
-  const [semId, setSemId] = useState<string | null>(defaultSem?.id ?? null);
-  const [tbl, setTbl] = useState<TblKey>("semua");
-  const [limit, setLimit] = useState(PAGE_SIZE);
-  const [openId, setOpenId] = useState<number | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [format, setFormat] = useState<"Semua" | "Individu" | "Kelompok">(
+    "Semua",
+  );
+  const [counselorFilter, setCounselorFilter] = useState("Semua");
+  const [counselorPickerOpen, setCounselorPickerOpen] = useState(false);
 
-  // Terima state dari halaman lain (mis. Beranda) saat halaman dibuka
-  const location = useLocation();
-  const navState = location.state as {
-    view?: ViewKey;
-    konselor?: string;
-  } | null;
-
-  const [view, setView] = useState<ViewKey>(navState?.view ?? "daftar");
-  const [kon, setKon] = useState(() => {
-    const i = COUNSELORS.indexOf(navState?.konselor ?? "");
-    return i >= 0 ? i : 0;
-  });
-
-  // Jika halaman sudah terbuka dan menerima navigasi baru, terapkan juga
-  useEffect(() => {
-    if (!navState) return;
-    if (navState.view) setView(navState.view);
-    if (navState.konselor) {
-      const i = COUNSELORS.indexOf(navState.konselor);
-      if (i >= 0) setKon(i);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.key]);
-
-  // Tutup drawer dengan Escape
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawerOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
-
-  // Kembali ke 20 data setiap filter atau periode berubah
-  useEffect(() => {
-    setLimit(PAGE_SIZE);
-  }, [period, anchor, semId, tbl]);
-
-  const semester = periods.find((p) => p.id === semId) ?? null;
+  const selectedSemester = PERIODS.find((p) => p.id === periodId) ?? ALL_PERIOD;
   const range = useMemo(
-    () => getRange(period, anchor, semester),
-    [period, anchor, semester],
+    () => getDateRange("semester", new Date(), selectedSemester),
+    [selectedSemester],
   );
-  const label = rangeLabel(period, range, semester);
+  const periodLabel = formatRangeLabel("semester", range, selectedSemester);
+  const period = selectedSemester;
 
-  const P = useMemo(
-    () => SESI.filter((s) => inR(s.start.getTime(), range)),
-    [range],
-  );
-
-  /* ----- navigasi periode ----- */
-  const semIdx = periods.findIndex((p) => p.id === semId);
-  const canPrev = period === "semester" ? semIdx > 0 : true;
-  const canNext = period === "semester" ? semIdx < periods.length - 1 : true;
-
-  function step(dir: -1 | 1) {
-    if (period === "semester") {
-      const next = periods[semIdx + dir];
-      if (next) setSemId(next.id);
-      return;
-    }
-    const d = new Date(anchor);
-    if (period === "hari") d.setDate(d.getDate() + dir);
-    else if (period === "minggu") d.setDate(d.getDate() + 7 * dir);
-    else {
-      d.setDate(15);
-      d.setMonth(d.getMonth() + dir);
-    }
-    setAnchor(d);
+  function stepPeriod(direction: -1 | 1) {
+    const index = PERIODS.findIndex((item) => item.id === periodId);
+    const next = PERIODS[index + direction];
+    if (next) setPeriodId(next.id);
   }
 
-  /* ----- KPI ----- */
-  const selesai = P.filter((s) => s.status === "selesai");
-  const batal = P.filter((s) => s.status === "dibatalkan");
-  const indCount = selesai.filter((s) => s.type === "individu").length;
-  const pctBatal = P.length ? Math.round((batal.length / P.length) * 100) : 0;
-  const aktifKonselor = new Set(P.map((s) => s.konselor)).size;
-
-  /* ----- tabel ----- */
-  const rows = P.filter(
-    (s) =>
-      tbl === "semua" ||
-      (tbl === "individu" && s.type === "individu") ||
-      (tbl === "kelompok" && s.type === "kelompok") ||
-      (tbl === "dibatalkan" && s.status === "dibatalkan"),
+  const periodRows = useMemo(
+    () =>
+      SESSIONS.filter((session) =>
+        periodKey === "semester"
+          ? inRange(session.date, selectedSemester)
+          : (() => {
+              const date = parseISODate(session.date).getTime();
+              return (
+                date >= range.start.getTime() && date < range.end.getTime()
+              );
+            })(),
+      ),
+    [periodKey, selectedSemester, range],
   );
-  const shown = rows.slice(0, limit);
-  const remaining = rows.length - shown.length;
 
-  /* ----- drawer ----- */
-  const sesi = SESI.find((s) => s.id === openId) ?? null;
-  const openDrawer = (id: number) => {
-    setOpenId(id);
-    setDrawerOpen(true);
-  };
+  const rows = useMemo(
+    () =>
+      periodRows.filter(
+        (session) =>
+          (format === "Semua" || session.format === format) &&
+          (counselorFilter === "Semua" ||
+            session.counselor === counselorFilter),
+      ),
+    [periodRows, format, counselorFilter],
+  );
+
+  const done = rows.filter((row) => row.status === "Selesai");
+  const cancelled = rows.filter((row) => row.status === "Dibatalkan");
+  const doneIndividual = done.filter((row) => row.format === "Individu");
+  const doneGroup = done.filter((row) => row.format === "Kelompok");
+  const cancelledIndividual = cancelled.filter(
+    (row) => row.format === "Individu",
+  );
+  const cancelledGroup = cancelled.filter((row) => row.format === "Kelompok");
+  const rating = average(done);
+
+  const orphanCount = useMemo(
+    () =>
+      SESSIONS.filter(
+        (session) => !PERIODS.some((p) => inRange(session.date, p)),
+      ).length,
+    [],
+  );
+
+  const monthly = useMemo(() => {
+    const map: Record<string, { done: number; cancelled: number }> = {};
+
+    rows.forEach((row) => {
+      const key = row.date.slice(0, 7);
+      map[key] ??= { done: 0, cancelled: 0 };
+      if (row.status === "Selesai") map[key].done += 1;
+      else map[key].cancelled += 1;
+    });
+
+    return Object.keys(map)
+      .sort()
+      .map((key) => ({ key, ...map[key] }));
+  }, [rows]);
+
+  const maxMonth = Math.max(
+    1,
+    ...monthly.map((month) => month.done + month.cancelled),
+  );
+
+  const counselorRows = useMemo(
+    () =>
+      COUNSELORS.map((counselor) => {
+        const counselorSessions = rows.filter(
+          (row) => row.counselor === counselor,
+        );
+        const completed = counselorSessions.filter(
+          (row) => row.status === "Selesai",
+        );
+        const canceled = counselorSessions.filter(
+          (row) => row.status === "Dibatalkan",
+        );
+        return {
+          counselor,
+          individualDone: completed.filter((row) => row.format === "Individu")
+            .length,
+          groupDone: completed.filter((row) => row.format === "Kelompok")
+            .length,
+          individualCancelled: canceled.filter(
+            (row) => row.format === "Individu",
+          ).length,
+          groupCancelled: canceled.filter((row) => row.format === "Kelompok")
+            .length,
+          totalDone: completed.length,
+          totalCancelled: canceled.length,
+        };
+      }).filter((row) => row.totalDone + row.totalCancelled > 0),
+    [rows],
+  );
+
+  const reasonCount = useMemo(
+    () =>
+      REASONS.map((reason) => ({
+        reason,
+        count: cancelled.filter((row) => row.reason === reason).length,
+      })).sort((a, b) => b.count - a.count),
+    [cancelled],
+  );
+
+  const topicRows = useMemo(
+    () =>
+      TOPICS.map((topic) => {
+        const topicSessions = rows.filter((row) => row.topic === topic);
+        const completed = topicSessions.filter(
+          (row) => row.status === "Selesai",
+        );
+        const avg = average(completed);
+        return {
+          topic,
+          total: topicSessions.length,
+          completed: completed.length,
+          cancelled: topicSessions.filter((row) => row.status === "Dibatalkan")
+            .length,
+          rating: avg.n ? avg.value.toFixed(1) : "-",
+        };
+      }),
+    [rows],
+  );
+
+  const selectClass =
+    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-[#2a8f5a] focus:ring-2 focus:ring-[#2a8f5a]/20 sm:w-auto";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
-      {/* ================= HEADER ================= */}
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <style>{`
+        @media print {
+          aside, header, nav, .no-print { display: none !important; }
+          main { margin-left: 0 !important; padding: 0 !important; }
+          body { background: #fff !important; }
+          .print-break-inside { break-inside: avoid; }
+          .print-shadow-none { box-shadow: none !important; }
+        }
+      `}</style>
+
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold">Monitoring Konseling</h2>
-          <p className="hidden text-xs text-slate-500 sm:block">
-            Pantau sesi konseling individu dan kelompok, serta pembatalan.
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2a8f5a]">
+            Administrasi SiCARE
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+            Laporan Konseling
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+            Ringkasan sesi, pembatalan, distribusi layanan per konselor, dan
+            ekspor data berdasarkan periode akademik.
           </p>
         </div>
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <CalendarDays className="h-4 w-4" />
+          <span>Periode: {periodLabel}</span>
+        </div>
+      </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <SegmentTabs
-            options={PERIOD_OPTS}
-            value={period}
-            onChange={setPeriod}
-          />
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => step(-1)}
-              disabled={!canPrev}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+      {/* Filters and export actions */}
+      <section className="no-print rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-3">
+          <label className="min-w-0 space-y-1.5">
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Kategori sesi
+            </span>
+            <select
+              value={format}
+              onChange={(event) =>
+                setFormat(event.target.value as typeof format)
+              }
+              className={selectClass + " w-full"}
             >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="min-w-[190px] text-center text-sm font-bold">
-              {label}
+              <option value="Semua">Semua kategori</option>
+              <option value="Individu">Individu</option>
+              <option value="Kelompok">Kelompok</option>
+            </select>
+          </label>
+
+          <div className="min-w-0 space-y-1.5">
+            <span className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+              Konselor
             </span>
             <button
               type="button"
-              onClick={() => step(1)}
-              disabled={!canNext}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+              onClick={() => setCounselorPickerOpen(true)}
+              aria-haspopup="dialog"
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-medium text-slate-700 outline-none transition hover:border-[#2a8f5a]/50 focus:border-[#2a8f5a] focus:ring-2 focus:ring-[#2a8f5a]/20"
             >
-              <ChevronRight className="h-4 w-4" />
+              <span className="truncate">
+                {counselorFilter === "Semua"
+                  ? "Semua konselor"
+                  : counselorFilter}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
             </button>
           </div>
 
-          {period === "semester" && (
-            <select
-              value={semId ?? ""}
-              onChange={(e) => setSemId(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#22c55e]/30"
-            >
-              {periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  TA {p.ta} · {p.sem}
-                </option>
-              ))}
-            </select>
-          )}
+          <div className="min-w-0 space-y-1.5">
+            <span className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+              Periode semester
+            </span>
+            <SemesterPeriodDropdown
+              periods={PERIODS}
+              selectedId={periodId}
+              onSelect={setPeriodId}
+            />
+          </div>
         </div>
-      </div>
+        <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <p className="text-xs text-slate-500">
+            Menampilkan <strong>{rows.length}</strong> sesi sesuai filter.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f4430]"
+            >
+              <Printer className="h-4 w-4" />
+              Unduh Laporan PDF
+            </button>
+          </div>
+        </div>
+      </section>
 
-      {/* ================= KPI ================= */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiCard
-          icon={CircleCheck}
-          title="Sesi Selesai"
-          value={selesai.length}
-          sub={`${indCount} individu · ${selesai.length - indCount} kelompok`}
-        />
-        <KpiCard
-          icon={Ban}
-          title="Dibatalkan"
-          value={batal.length}
-          sub={`${pctBatal}% dari ${P.length} jadwal`}
-        />
-        <KpiCard
-          icon={UserRound}
-          title="Konselor Aktif"
-          value={`${aktifKonselor}/${COUNSELORS.length}`}
-          sub="melayani sesi pada periode ini"
-        />
-      </div>
+      <CounselorFilterModal
+        open={counselorPickerOpen}
+        selected={counselorFilter}
+        sessions={periodRows}
+        onClose={() => setCounselorPickerOpen(false)}
+        onSelect={(counselor) => {
+          setCounselorFilter(counselor);
+          setCounselorPickerOpen(false);
+        }}
+      />
 
-      {/* ================= SECTION UTAMA (SATU TAMPILAN SEKALIGUS) ================= */}
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-6 lg:flex-row lg:items-center lg:justify-between">
+      {/* Data quality warning */}
+      {periodKey === "semester" && orphanCount > 0 && (
+        <div className="no-print flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            <strong>{orphanCount} sesi</strong> berada di luar periode akademik
+            yang terdaftar. Sesi tersebut tidak masuk ke laporan semester.
+            Periksa kembali rentang tanggal pada menu Periode Akademik.
+          </p>
+        </div>
+      )}
+
+      {/* KPI summary */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">Ringkasan sesi</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Semua angka mengikuti periode, jenis sesi, konselor, dan pencarian
+            yang dipilih.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <KpiCard
+            label="Total sesi"
+            value={rows.length}
+            note="Sesi selesai dan dibatalkan"
+            icon={<ClipboardList className="h-5 w-5" />}
+          />
+          <KpiCard
+            label="Sesi selesai"
+            value={done.length}
+            note={`${pct(done.length, rows.length)}% dari total sesi`}
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            valueClass="text-[#14553a]"
+          />
+          <KpiCard
+            label="Sesi dibatalkan"
+            value={cancelled.length}
+            note={`${pct(cancelled.length, rows.length)}% dari total sesi`}
+            icon={<CalendarX className="h-5 w-5" />}
+            valueClass="text-red-600"
+          />
+          <KpiCard
+            label="Individu selesai"
+            value={doneIndividual.length}
+            note="Sesi individu dengan status selesai"
+            icon={<Users className="h-5 w-5" />}
+            valueClass="text-[#14553a]"
+          />
+          <KpiCard
+            label="Kelompok selesai"
+            value={doneGroup.length}
+            note="Sesi kelompok dengan status selesai"
+            icon={<UsersRound className="h-5 w-5" />}
+            valueClass="text-[#14553a]"
+          />
+          <KpiCard
+            label="Rata-rata rating"
+            value={rating.n ? rating.value.toFixed(1) : "-"}
+            note={`Berdasarkan ${rating.n} penilaian sesi selesai`}
+            icon={<Star className="h-5 w-5" />}
+            valueClass="text-amber-600"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <KpiCard
+            label="Individu dibatalkan"
+            value={cancelledIndividual.length}
+            note="Sesi individu dengan status dibatalkan"
+            icon={<Users className="h-5 w-5" />}
+            valueClass="text-red-600"
+          />
+          <KpiCard
+            label="Kelompok dibatalkan"
+            value={cancelledGroup.length}
+            note="Sesi kelompok dengan status dibatalkan"
+            icon={<UsersRound className="h-5 w-5" />}
+            valueClass="text-red-600"
+          />
+        </div>
+      </section>
+
+      {/* Monthly chart */}
+      <section className="print-break-inside rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="text-base font-bold">
-              {view === "daftar" ? "Daftar Konseling" : "Detail per Konselor"}
-            </h3>
-            <p className="text-xs text-slate-400">
-              {view === "daftar"
-                ? `Menampilkan ${shown.length} dari ${rows.length} sesi pada periode ini`
-                : "Layanan konselor pada periode yang dipilih"}
+            <h2 className="font-bold text-slate-900">
+              Perkembangan sesi per bulan
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Perbandingan jumlah sesi selesai dan dibatalkan dalam periode
+              terpilih.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {view === "daftar" && (
-              <SegmentTabs options={TBL_OPTS} value={tbl} onChange={setTbl} />
-            )}
-            <ViewSwitch value={view} onChange={setView} />
+          <div className="flex gap-3 text-xs font-medium text-slate-600">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-[#2a8f5a]" /> Selesai
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-red-400" /> Dibatalkan
+            </span>
           </div>
         </div>
 
-        {view === "daftar" ? (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50/70 text-[11px] uppercase tracking-wider text-slate-400">
-                  <tr>
-                    <th className="px-6 py-3 text-left font-bold">Waktu</th>
-                    <th className="px-4 py-3 text-left font-bold">Klien</th>
-                    <th className="px-4 py-3 text-left font-bold">Konselor</th>
-                    <th className="px-4 py-3 text-left font-bold">Jenis</th>
-                    <th className="px-4 py-3 text-left font-bold">Durasi</th>
-                    <th className="px-6 py-3 text-left font-bold">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {shown.map((s) => (
-                    <tr
-                      key={s.id}
-                      onClick={() => openDrawer(s.id)}
-                      className="cursor-pointer transition-colors hover:bg-slate-50"
-                    >
-                      <td className="whitespace-nowrap px-6 py-3.5 text-xs font-medium text-slate-600">
-                        {fmtDT(s.start)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3.5 text-xs">
-                        {s.type === "individu" ? (
-                          <span className="font-semibold">
-                            {anonOf(s.participants[0])}
-                          </span>
-                        ) : (
-                          <>
-                            <span className="font-semibold">
-                              {s.participants.length} peserta
-                            </span>{" "}
-                            <span className="text-slate-400">
-                              · {anonOf(s.participants[0])} dst.
-                            </span>
-                          </>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-600">
-                        {COUNSELORS[s.konselor]}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3.5">
-                        {s.type === "individu" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-sky-100 bg-sky-50 px-2 py-1 text-[10px] font-bold text-sky-700">
-                            <User className="h-3 w-3" /> Individu
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
-                            <Users className="h-3 w-3" /> Kelompok
-                          </span>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-500">
-                        {s.durasi} menit
-                      </td>
-                      <td className="px-6 py-3.5">
-                        {s.status === "selesai" ? (
-                          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-[#15803d]">
-                            Selesai
-                          </span>
-                        ) : (
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-1">
-                              <span className="rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700">
-                                Dibatalkan {s.cancelledBy}
-                              </span>
-                              {(s.cancelLead ?? 99) < 24 && (
-                                <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700">
-                                  Mendadak H-{s.cancelLead}j
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-400">
-                              {s.cancelReason}
-                            </p>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {rows.length === 0 && (
-              <div className="flex flex-col items-center py-14 text-center text-slate-400">
-                <FolderOpen className="mb-2 h-8 w-8" />
-                <p className="text-sm font-medium">
-                  Tidak ada data konseling pada periode ini.
-                </p>
-              </div>
-            )}
-
-            {remaining > 0 && (
-              <div className="flex flex-col items-center gap-2 border-t border-slate-100 p-4">
-                <button
-                  type="button"
-                  onClick={() => setLimit((l) => l + PAGE_SIZE)}
-                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
-                >
-                  Muat lebih banyak
-                </button>
-                <p className="text-[11px] text-slate-400">
-                  {remaining} sesi lagi · {Math.min(PAGE_SIZE, remaining)} akan
-                  ditambahkan
-                </p>
-              </div>
-            )}
-          </>
+        {monthly.length === 0 ? (
+          <div className="flex h-48 items-center justify-center text-sm text-slate-400">
+            Tidak ada data pada filter ini.
+          </div>
         ) : (
-          <CounselorPanel
-            sessions={P}
-            kon={kon}
-            onKonChange={setKon}
-            period={period}
-            range={range}
-            onOpen={openDrawer}
-          />
+          <div className="mt-6">
+            <div className="flex h-52 items-end gap-2 border-b border-slate-100 pb-1 sm:gap-3">
+              {monthly.map((month) => {
+                const total = month.done + month.cancelled;
+                const height = (total / maxMonth) * 100;
+                const doneHeight = total ? (month.done / total) * 100 : 0;
+                return (
+                  <div
+                    key={month.key}
+                    className="flex h-full min-w-0 flex-1 flex-col justify-end"
+                    title={`${month.key}: ${month.done} selesai, ${month.cancelled} dibatalkan`}
+                  >
+                    <div
+                      className="flex w-full flex-col overflow-hidden rounded-t-md"
+                      style={{ height: `${height}%` }}
+                    >
+                      <div
+                        className="bg-red-400"
+                        style={{ height: `${100 - doneHeight}%` }}
+                      />
+                      <div
+                        className="bg-[#2a8f5a]"
+                        style={{ height: `${doneHeight}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex gap-2 sm:gap-3">
+              {monthly.map((month) => (
+                <div
+                  key={month.key}
+                  className="min-w-0 flex-1 text-center text-[10px] font-semibold text-slate-500 sm:text-xs"
+                >
+                  {MONTHS[Number(month.key.slice(5, 7)) - 1]}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </section>
 
-      {/* ================= DRAWER DETAIL SESI ================= */}
-      <div
-        onClick={() => setDrawerOpen(false)}
-        className={`fixed inset-0 z-30 bg-slate-900/30 transition-opacity ${
-          drawerOpen ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
-      />
-      <aside
-        className={`fixed right-0 top-0 z-40 flex h-full w-full flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 sm:w-[440px] ${
-          drawerOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Detail Sesi
+      {/* Counselor and topic tables */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <section className="print-break-inside overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 p-4 sm:p-5">
+            <h2 className="font-bold text-slate-900">Laporan per konselor</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Distribusi sesi selesai dan dibatalkan berdasarkan jenis
+              konseling.
             </p>
-            <h4 className="text-base font-bold">
-              {sesi ? `Sesi #${sesi.id}` : ""}
-            </h4>
           </div>
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(false)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {sesi && (
-          <div className="flex-1 space-y-5 overflow-y-auto p-6">
-            <div className="flex flex-wrap gap-2">
-              <span
-                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                  sesi.type === "individu"
-                    ? "bg-sky-50 text-sky-700"
-                    : "bg-violet-50 text-violet-700"
-                }`}
-              >
-                {sesi.type === "individu" ? "Individu" : "Kelompok"}
-              </span>
-              <span
-                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                  sesi.status === "selesai"
-                    ? "bg-emerald-50 text-[#15803d]"
-                    : "bg-rose-50 text-rose-700"
-                }`}
-              >
-                {sesi.status === "selesai" ? "Selesai" : "Dibatalkan"}
-              </span>
-            </div>
-
-            <dl className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Waktu
-                </dt>
-                <dd className="mt-1 font-semibold">{fmtDT(sesi.start)}</dd>
-              </div>
-              <div>
-                <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Durasi
-                </dt>
-                <dd className="mt-1 font-semibold">{sesi.durasi} menit</dd>
-              </div>
-              <div className="col-span-2">
-                <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Konselor
-                </dt>
-                <dd className="mt-1 font-semibold">
-                  {COUNSELORS[sesi.konselor]}
-                </dd>
-              </div>
-              <div className="col-span-2">
-                <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  {sesi.type === "individu"
-                    ? "Klien"
-                    : `Peserta (${sesi.participants.length})`}
-                </dt>
-                <dd className="mt-1">
-                  {sesi.type === "individu" ? (
-                    <p className="font-semibold">
-                      {anonOf(sesi.participants[0])}
-                    </p>
-                  ) : (
-                    <ul className="space-y-1 text-sm">
-                      {sesi.participants.map((p) => (
-                        <li key={p} className="flex items-center gap-2">
-                          <Lock className="h-3 w-3 text-slate-300" />
-                          {anonOf(p)}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </dd>
-              </div>
-            </dl>
-
-            {sesi.status === "dibatalkan" && (
-              <div
-                className={`space-y-2 rounded-2xl border p-4 ${
-                  (sesi.cancelLead ?? 99) < 24
-                    ? "border-amber-200 bg-amber-50"
-                    : "border-slate-200 bg-slate-50"
-                }`}
-              >
-                <p
-                  className={`text-xs font-bold uppercase tracking-wider ${
-                    (sesi.cancelLead ?? 99) < 24
-                      ? "text-amber-700"
-                      : "text-slate-500"
-                  }`}
-                >
-                  Pembatalan
-                </p>
-                <p className="text-sm">
-                  <span className="text-slate-500">Dibatalkan oleh:</span>{" "}
-                  <b className="capitalize">{sesi.cancelledBy}</b>
-                </p>
-                <p className="text-sm">
-                  <span className="text-slate-500">Alasan:</span>{" "}
-                  {sesi.cancelReason}
-                </p>
-                <p className="text-sm">
-                  <span className="text-slate-500">Waktu:</span> H-
-                  {sesi.cancelLead} jam sebelum jadwal
-                  {(sesi.cancelLead ?? 99) < 24 && (
-                    <span className="ml-1 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                      Mendadak
-                    </span>
-                  )}
-                </p>
-              </div>
-            )}
-
-            <div>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Riwayat
-              </p>
-              <ol className="space-y-2 border-l-2 border-slate-100 pl-4 text-xs">
-                <li>
-                  {fmtDT(new Date(sesi.start.getTime() - 2 * DAY))} · Sesi
-                  dijadwalkan
-                </li>
-                {sesi.status === "selesai" ? (
-                  <li>{fmtDT(sesi.start)} · Sesi selesai dicatat</li>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Konselor</th>
+                  <th className="px-4 py-3 text-right">Individu selesai</th>
+                  <th className="px-4 py-3 text-right">Kelompok selesai</th>
+                  <th className="px-4 py-3 text-right">Individu batal</th>
+                  <th className="px-4 py-3 text-right">Kelompok batal</th>
+                  <th className="px-4 py-3 text-right">Total selesai</th>
+                  <th className="px-4 py-3 text-right">Total batal</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {counselorRows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-8 text-center text-sm text-slate-400"
+                    >
+                      Tidak ada data konselor pada filter ini.
+                    </td>
+                  </tr>
                 ) : (
-                  <li>
-                    {fmtDT(
-                      new Date(
-                        sesi.start.getTime() - (sesi.cancelLead ?? 0) * 3600e3,
-                      ),
-                    )}{" "}
-                    · Dibatalkan oleh {sesi.cancelledBy}
-                  </li>
+                  counselorRows.map((row) => (
+                    <tr key={row.counselor} className="hover:bg-slate-50/70">
+                      <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">
+                        {row.counselor}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {row.individualDone}
+                      </td>
+                      <td className="px-4 py-3 text-right">{row.groupDone}</td>
+                      <td className="px-4 py-3 text-right text-red-600">
+                        {row.individualCancelled}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-600">
+                        {row.groupCancelled}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-[#14553a]">
+                        {row.totalDone}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-red-600">
+                        {row.totalCancelled}
+                      </td>
+                    </tr>
+                  ))
                 )}
-              </ol>
-            </div>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-            <p className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-[11px] text-slate-400">
-              <Lock className="mt-0.5 h-3 w-3 shrink-0" />
-              Identitas klien ditampilkan dalam bentuk anonim. Setiap akses
-              dicatat dalam log audit.
+        <section className="print-break-inside overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 p-4 sm:p-5">
+            <h2 className="font-bold text-slate-900">Sesi per topik</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Ringkasan topik tanpa menampilkan isi catatan atau cerita pribadi
+              klien.
             </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-left text-sm">
+              <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Topik</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">Selesai</th>
+                  <th className="px-4 py-3 text-right">Dibatalkan</th>
+                  <th className="px-4 py-3 text-right">Rating</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {topicRows.map((row) => (
+                  <tr key={row.topic} className="hover:bg-slate-50/70">
+                    <td className="px-4 py-3 font-medium">{row.topic}</td>
+                    <td className="px-4 py-3 text-right">{row.total}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#14553a]">
+                      {row.completed}
+                    </td>
+                    <td className="px-4 py-3 text-right text-red-600">
+                      {row.cancelled}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                        {row.rating}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      {/* Cancellation analysis */}
+      <section className="print-break-inside rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div>
+          <h2 className="font-bold text-slate-900">Analisis pembatalan</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Ringkasan alasan pembatalan berdasarkan data contoh yang tersedia.
+          </p>
+        </div>
+        {cancelled.length === 0 ? (
+          <p className="mt-5 text-sm text-slate-400">
+            Tidak ada pembatalan pada filter ini.
+          </p>
+        ) : (
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+            {reasonCount.map(({ reason, count }) => (
+              <div key={reason}>
+                <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+                  <span>{reason}</span>
+                  <span>
+                    {count} ({pct(count, cancelled.length)}%)
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-red-400 transition-all"
+                    style={{ width: `${pct(count, cancelled.length)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </aside>
+        <p className="mt-4 text-xs text-slate-400">
+          Alasan pembatalan merupakan informasi administratif. Gunakan data ini
+          untuk evaluasi proses, bukan sebagai satu-satunya ukuran kinerja
+          konselor.
+        </p>
+      </section>
+
+      {/* Session details */}
+      <section className="print-break-inside overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 p-4 sm:p-5">
+          <h2 className="font-bold text-slate-900">Rincian data sesi</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Data identitas klien disamarkan. Gunakan ekspor hanya sesuai
+            kebutuhan dan kewenangan.
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">ID sesi</th>
+                <th className="px-4 py-3">Tanggal</th>
+                <th className="px-4 py-3">Jenis sesi</th>
+                <th className="px-4 py-3">Topik</th>
+                <th className="px-4 py-3">Konselor</th>
+                <th className="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-sm text-slate-400"
+                  >
+                    Tidak ada sesi yang sesuai dengan filter.
+                  </td>
+                </tr>
+              ) : (
+                rows.slice(0, 12).map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50/70">
+                    <td className="whitespace-nowrap px-4 py-3 font-semibold">
+                      {row.id}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                      {new Date(`${row.date}T00:00:00`).toLocaleDateString(
+                        "id-ID",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        },
+                      )}
+                    </td>
+                    <td className="px-4 py-3">{row.format}</td>
+                    <td className="px-4 py-3">{row.topic}</td>
+                    <td className="px-4 py-3">{row.counselor}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          row.status === "Selesai"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-red-50 text-red-700"
+                        }`}
+                      >
+                        {row.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        {rows.length > 12 && (
+          <p className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+            Menampilkan 12 dari {rows.length} sesi pada pratinjau laporan.
+          </p>
+        )}
+      </section>
+
+      <p className="pb-4 text-center text-[11px] text-slate-400">
+        Laporan frontend menggunakan data sintetis. Data produksi harus berasal
+        dari backend dengan kontrol akses dan pembatasan informasi konseling.
+      </p>
     </div>
   );
 }
