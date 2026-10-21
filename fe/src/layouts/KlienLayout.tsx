@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import {
   Activity,
+  Bell,
   CalendarDays,
   History,
   Home,
@@ -74,6 +75,19 @@ export default function KlienLayout() {
               </NavLink>
             ))}
           </nav>
+
+          <button
+            type="button"
+            aria-label="Notifikasi"
+            title="Notifikasi"
+            className="mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#333] transition-colors hover:bg-gray-100 hover:text-[#14553a] sm:mr-4 sm:h-10 sm:w-10"
+          >
+            <Bell
+              className="h-[19px] w-[19px]"
+              fill="currentColor"
+              strokeWidth={1.5}
+            />
+          </button>
 
           <NavLink
             to="/klien/pengaturan"
