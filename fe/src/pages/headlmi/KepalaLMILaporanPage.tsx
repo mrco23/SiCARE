@@ -8,9 +8,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  Download,
   FileChartColumnIncreasing,
-  FileSpreadsheet,
   Printer,
   Users,
   UsersRound,
@@ -338,23 +336,6 @@ function PeriodDropdown({
   );
 }
 
-function downloadCSV(filename: string, data: (string | number)[][]) {
-  const csv = data
-    .map((row) =>
-      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
-    )
-    .join("\r\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-}
-
 export default function KepalaLMILaporanPage() {
   const today = useMemo(() => toISO(new Date()), []);
   const periods = useMemo(() => sortPeriods(loadPeriods()), []);
@@ -465,61 +446,6 @@ export default function KepalaLMILaporanPage() {
     [cancelled],
   );
 
-  const exportReport = () => {
-    const data: (string | number)[][] = [
-      ["Laporan Kinerja Layanan SiCARE"],
-      [
-        "Periode",
-        period ? `TA ${period.ta} Semester ${period.sem}` : "Semua periode",
-      ],
-      [
-        "Rentang tanggal",
-        period
-          ? `${period.start} sampai ${period.end}`
-          : "Seluruh rentang data",
-      ],
-      [],
-      ["Indikator", "Jumlah"],
-      ["Total sesi", rows.length],
-      ["Sesi selesai", completed.length],
-      ["Sesi individu selesai", individualCompleted.length],
-      ["Sesi kelompok selesai", groupCompleted.length],
-      ["Sesi dibatalkan", cancelled.length],
-      ["Sesi individu dibatalkan", individualCancelled.length],
-      ["Sesi kelompok dibatalkan", groupCancelled.length],
-      ["Persentase sesi selesai", `${percent(completed.length, rows.length)}%`],
-      ["Persentase pembatalan", `${percent(cancelled.length, rows.length)}%`],
-      [],
-      [
-        "Konselor",
-        "Individu selesai",
-        "Kelompok selesai",
-        "Individu batal",
-        "Kelompok batal",
-        "Total selesai",
-        "Total batal",
-        "Total sesi",
-      ],
-      ...counselorRows.map((item) => [
-        item.counselor,
-        item.individualDone,
-        item.groupDone,
-        item.individualCancelled,
-        item.groupCancelled,
-        item.done,
-        item.cancelled,
-        item.total,
-      ]),
-      [],
-      ["Bulan", "Selesai", "Dibatalkan"],
-      ...monthly.map((item) => [item.key, item.done, item.cancelled]),
-      [],
-      ["Alasan pembatalan", "Jumlah"],
-      ...cancellationRows.map((item) => [item.reason, item.count]),
-    ];
-    downloadCSV(`laporan-sicare-kepala-lmi-${periodId}.csv`, data);
-  };
-
   return (
     <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
       <style>{`
@@ -552,14 +478,6 @@ export default function KepalaLMILaporanPage() {
             onSelect={setPeriodId}
             today={today}
           />
-          <button
-            type="button"
-            onClick={exportReport}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
-            <FileSpreadsheet className="h-4 w-4 text-[#14553a]" />
-            Ekspor CSV
-          </button>
           <button
             type="button"
             onClick={() => window.print()}
@@ -862,7 +780,7 @@ export default function KepalaLMILaporanPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <section className="grid grid-cols-1 gap-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print-break-inside">
           <h2 className="font-bold text-slate-900">Ringkasan pembatalan</h2>
           <p className="mt-1 text-xs text-slate-500">
@@ -873,7 +791,7 @@ export default function KepalaLMILaporanPage() {
               Tidak ada pembatalan pada periode ini.
             </p>
           ) : (
-            <div className="mt-5 space-y-4">
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
               {cancellationRows.map((item) => (
                 <div key={item.reason}>
                   <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
@@ -895,69 +813,31 @@ export default function KepalaLMILaporanPage() {
             </div>
           )}
         </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print-break-inside">
-          <h2 className="font-bold text-slate-900">Catatan evaluasi</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Panduan membaca indikator laporan.
-          </p>
-          <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-            <li className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2a8f5a]" />
-              <span>
-                Gunakan perubahan volume sesi sebagai bahan evaluasi pemanfaatan
-                layanan, bukan sebagai satu-satunya indikator keberhasilan.
-              </span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2a8f5a]" />
-              <span>
-                Tinjau alasan pembatalan bersama konteksnya. Pembatalan tidak
-                otomatis menunjukkan masalah kinerja konselor.
-              </span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2a8f5a]" />
-              <span>
-                Jumlah sesi kelompok tidak sama dengan jumlah mahasiswa yang
-                terlayani. Keduanya perlu dicatat sebagai indikator terpisah.
-              </span>
-            </li>
-          </ul>
-        </div>
       </section>
 
       <div className="no-print flex flex-col gap-4 rounded-2xl border border-[#d6eadc] bg-[#f5fbf6] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="flex items-start gap-3">
           <span className="rounded-xl bg-white p-2.5 text-[#14553a]">
-            <FileChartColumnIncreasing className="h-5 w-5" />
+            <Printer className="h-5 w-5" />
           </span>
           <div>
             <h2 className="font-bold text-slate-900">
-              Simpan laporan periode ini
+              Cetak atau simpan laporan PDF
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Ekspor ringkasan untuk analisis lanjutan atau cetak laporan untuk
-              dokumentasi organisasi.
+              Gunakan fitur cetak browser, lalu pilih “Simpan sebagai PDF” untuk
+              menyimpan laporan periode terpilih.
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={exportReport}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-white"
-          >
-            <Download className="h-4 w-4" /> Ekspor CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4430]"
-          >
-            <Printer className="h-4 w-4" /> Cetak / PDF
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4430]"
+        >
+          <Printer className="h-4 w-4" />
+          Cetak / PDF
+        </button>
       </div>
 
       <p className="pb-3 text-center text-[11px] text-slate-400">
