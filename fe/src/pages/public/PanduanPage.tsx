@@ -286,7 +286,7 @@ const audiences: { title: string; icon: ReactNode; desc: string }[] = [
     desc: LOREM,
   },
   {
-    title: "Staff & Tenaga Kerja",
+    title: "Tenaga Pendidikan dan Tenaga Penunjang ",
     icon: <Briefcase className="h-9 w-9" />,
     desc: LOREM,
   },

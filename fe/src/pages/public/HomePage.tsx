@@ -3,7 +3,6 @@ import {
   CalendarDays,
   ClipboardList,
   Heart,
-  HeartHandshake,
   Lock,
   SquarePen,
   UserRoundSearch,
@@ -431,85 +430,30 @@ export default function HomePage() {
             className="absolute inset-0 -z-10 h-full w-full object-cover object-[70%_30%] md:object-center"
           />
 
-          {/* Overlay: bawah gelap di mobile, kiri di desktop */}
-          <div className="absolute inset-0 -z-10 bg-gradient-to from-white via-white/70 to-transparent md:bg-gradient-to-b md:from-white/40 md:via-white/60 md:to-white/80 lg:bg-gradient-to-r lg:from-white/60 lg:via-white/20 lg:to-transparent" />
+          {/* Overlay tipis: foto tetap terlihat, teks tetap terbaca */}
+          <div className="absolute inset-0 -z-10 bg-gradient-to-t from-white/60 via-white/25 to-white/10 md:from-white/50 md:via-white/25 md:to-white/10" />
 
-          {/* Konten */}
+          {/* Konten: selalu di tengah */}
           <div
-            className={`relative z-10 flex min-h-[inherit] flex-col justify-end pb-12 pt-24 text-center md:justify-center md:pb-20 md:pt-36 lg:items-start lg:pb-28 lg:text-left ${container}`}
+            className={`relative z-10 flex min-h-[inherit] flex-col items-center justify-center pb-16 pt-24 text-center md:pb-20 md:pt-36 lg:pb-28 ${container}`}
           >
-            <div className="mx-auto flex max-w-xl flex-col items-center lg:mx-0 lg:items-start">
-              <h1 className="text-2xl font-bold leading-[1.2] text-[#1b1b1b] sm:text-3xl lg:max-w-[18ch] lg:text-[38px]">
+            <div className="mx-auto flex max-w-xl flex-col items-center lg:max-w-2xl">
+              <h1 className="text-2xl font-bold leading-[1.2] text-[#1b1b1b] sm:text-3xl lg:text-[38px]">
                 Lorem ipsum dolor <span className="text-[#2e9a5f]">sit</span>{" "}
                 amet, <span className="text-[#2e9a5f]">consectetur</span>{" "}
                 <span className="text-[#2e9a5f]">adipiscing elit.</span>
               </h1>
 
-              <p className="mt-3 max-w-sm text-justify text-xs leading-relaxed text-[#1b1b1b] text-balance sm:text-sm md:mt-4 md:max-w-md lg:max-w-md lg:text-left">
+              <p className="mt-3 max-w-sm text-center text-xs leading-relaxed text-[#1b1b1b] text-balance sm:text-sm md:mt-4 md:max-w-md lg:max-w-lg">
                 Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse
                 temporibus id sit non possimus facilis aliquip libero officia
                 occaecat et qui.
               </p>
 
-              <button className="mt-5 flex w-fit items-center gap-2 rounded-md bg-[#1e5b3a] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-[#174a2f] md:mt-6 sm:px-5 sm:text-sm">
+              <button className="mt-5 flex w-fit items-center gap-2 rounded-md bg-[#1e5b3a] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-[#174a2f] sm:px-5 sm:text-sm md:mt-6">
                 <CalendarDays className="h-3.5 w-3.5" />
                 Mulai Konseling
               </button>
-            </div>
-
-            {/* Badge: mobile saja */}
-            <div className="mx-auto mt-5 inline-flex w-fit items-center gap-2 rounded-lg bg-white/95 px-2.5 py-1.5 shadow md:hidden">
-              <HeartHandshake className="h-4 w-4 text-primary" />
-              <div className="text-left">
-                <p className="text-[11px] font-semibold text-[#1b1b1b]">
-                  Dampingan Humanis
-                </p>
-                <p className="text-[9px] text-gray-500">
-                  Dukungan akademik & personal
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Polaroid mobile: kecil di kanan atas */}
-          <div className="pointer-events-none absolute right-6 top-32 z-0 h-20 w-24 md:hidden">
-            <Polaroid
-              src="/maskot.png"
-              className="right-0 top-0 h-16 w-14"
-              rotate={6}
-            />
-            <Polaroid
-              src="/maskot.png"
-              className="bottom-0 left-0 h-12 w-12"
-              rotate={-6}
-            />
-          </div>
-
-          {/* Polaroid desktop */}
-          <div className="pointer-events-none absolute right-[10%] top-1/2 z-0 hidden h-52 w-72 -translate-y-1/2 lg:block">
-            <Polaroid
-              src="/maskot.png"
-              className="right-0 top-0 h-36 w-44"
-              rotate={6}
-            />
-            <Polaroid
-              src="/maskot.png"
-              className="bottom-0 left-0 h-24 w-24"
-              rotate={-8}
-            />
-            {/* Kartu Dampingan Humanis: desktop */}
-            <div className="pointer-events-none absolute right-[18%] top-[-20%] z-20 hidden lg:block">
-              <div className="flex items-center gap-2.5 rounded-lg bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
-                <HeartHandshake className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-[12px] font-semibold text-[#1b1b1b]">
-                    Dampingan Humanis
-                  </p>
-                  <p className="text-[10px] text-gray-500">
-                    Dukungan akademik & personal
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
 

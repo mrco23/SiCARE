@@ -103,10 +103,10 @@ function AboutHero() {
             </ul>
 
             <div className="mt-auto flex items-center justify-between border-t border-gray-300 pt-4 pt-6">
-              <span className="text-[12px] text-[#36c08f]">
+              <span className="text-[12px] text-primary font-semibold">
                 Terbuka untuk :
               </span>
-              <span className="rounded-full border border-[#36c08f] px-2.5 py-1 text-[10px] text-[#1b1b1b]">
+              <span className="rounded-full border border-primary px-2.5 py-1 text-[10px] text-[#1b1b1b]">
                 Mahasiswa &amp; Dosen atau Staff
               </span>
             </div>

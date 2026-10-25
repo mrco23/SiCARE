@@ -41,7 +41,7 @@ type RegisterForm = {
   confirmPassword: string;
   fullName: string;
   gender: string;
-  age: string;
+  birthDate: string;
   phone: string;
   ethnicity: string;
   religion: string;
@@ -66,7 +66,7 @@ const INITIAL_FORM: RegisterForm = {
   confirmPassword: "",
   fullName: "",
   gender: "",
-  age: "",
+  birthDate: "",
   phone: "",
   ethnicity: "",
   religion: "",
@@ -142,10 +142,35 @@ function validatePersonal(f: RegisterForm): RegisterErrors {
   if (!f.fullName.trim()) e.fullName = "Nama lengkap wajib diisi";
   if (!f.gender) e.gender = "Pilih jenis kelamin";
 
-  const age = Number(f.age);
-  if (!f.age) e.age = "Usia wajib diisi";
-  else if (!Number.isInteger(age) || age < 15 || age > 100)
-    e.age = "Masukkan usia yang valid (15–100 tahun)";
+  if (!f.birthDate) {
+    e.birthDate = "Tanggal lahir wajib diisi";
+  } else {
+    const parts = f.birthDate.split("-").map(Number);
+    const [year, month, day] = parts;
+    const birthDate = new Date(year, month - 1, day);
+    const today = new Date();
+    const validDate =
+      parts.length === 3 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(f.birthDate) &&
+      birthDate.getFullYear() === year &&
+      birthDate.getMonth() === month - 1 &&
+      birthDate.getDate() === day;
+
+    if (!validDate || birthDate > today) {
+      e.birthDate = "Masukkan tanggal lahir yang valid";
+    } else {
+      let age = today.getFullYear() - year;
+      if (
+        today.getMonth() + 1 < month ||
+        (today.getMonth() + 1 === month && today.getDate() < day)
+      ) {
+        age--;
+      }
+      if (age < 15 || age > 100) {
+        e.birthDate = "Usia harus antara 15–100 tahun";
+      }
+    }
+  }
 
   const phone = f.phone.replace(/[\s()-]/g, "");
   if (!phone) e.phone = "Nomor telepon wajib diisi";
@@ -561,18 +586,20 @@ export default function Register() {
                 />
               </Field>
 
-              <Field label="Usia" htmlFor="age" error={errors.age} required>
+              <Field
+                label="Tanggal lahir"
+                htmlFor="birthDate"
+                error={errors.birthDate}
+                required
+              >
                 <TextInput
-                  id="age"
-                  name="age"
-                  type="number"
-                  inputMode="numeric"
-                  min={15}
-                  max={100}
-                  placeholder="Contoh: 20"
-                  value={form.age}
-                  error={errors.age}
-                  onChange={(e) => setField("age", e.target.value)}
+                  id="birthDate"
+                  name="birthDate"
+                  type="date"
+                  autoComplete="bday"
+                  value={form.birthDate}
+                  error={errors.birthDate}
+                  onChange={(e) => setField("birthDate", e.target.value)}
                 />
               </Field>
 
@@ -843,7 +870,7 @@ export default function Register() {
               <ReviewRow label="Email kampus" value={form.email} />
               <ReviewRow label="Nama lengkap" value={form.fullName} />
               <ReviewRow label="Jenis kelamin" value={form.gender} />
-              <ReviewRow label="Usia" value={form.age} />
+              <ReviewRow label="Tanggal lahir" value={form.birthDate} />
               <ReviewRow label="Nomor telepon" value={form.phone} />
               <ReviewRow label="Suku bangsa" value={form.ethnicity} />
               <ReviewRow label="Agama" value={form.religion} />
