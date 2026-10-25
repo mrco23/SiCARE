@@ -59,7 +59,7 @@ export default function KlienLayout() {
             </div>
           </NavLink>
 
-          <nav className="hidden items-center gap-6 font-display text-[15px] text-gray-900 lg:flex xl:gap-10">
+          <nav className="hidden items-center gap-6 font-display text-[13px] text-gray-900 lg:flex xl:gap-10">
             {NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}

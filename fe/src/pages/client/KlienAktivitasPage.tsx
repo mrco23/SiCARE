@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -6,6 +7,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  FileSignature,
   Star,
   X,
 } from "lucide-react";
@@ -30,6 +32,9 @@ type Session = {
   feedbackGiven: boolean;
   rating: number;
   pendingSlot?: PendingSlot | null;
+  consentSigned?: boolean;
+  consentSignature?: string | null;
+  consentSignedAt?: Date | null;
 };
 
 type RescheduleState = {
@@ -51,6 +56,9 @@ const RESCHEDULE_MIN_HOURS = 24;
 const RESCHEDULE_MAX = 1;
 const SESSION_MIN = 60;
 const MAX_AHEAD_DAYS = 60;
+
+// Letakkan file PDF di folder public/
+const CONSENT_PDF_URL = "/informed-consent.pdf";
 
 const RESCHEDULE_REASONS = [
   "Bentrok jadwal kuliah",
@@ -87,6 +95,9 @@ function createInitialSessions(): Session[] {
       feedbackGiven: false,
       rating: 0,
       pendingSlot: null,
+      consentSigned: false,
+      consentSignature: null,
+      consentSignedAt: null,
     },
     {
       id: 2,
@@ -206,6 +217,249 @@ const canReschedule = (session: Session, now: number) => {
 const needsFeedback = (session: Session, now: number) =>
   statusOf(session, now) === "done" && !session.feedbackGiven;
 
+/* ============================================================
+ * Kolom tanda tangan digital (canvas, mendukung jari/stylus/mouse)
+ * ============================================================ */
+function SignaturePad({
+  onChange,
+}: {
+  onChange: (dataUrl: string | null) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const last = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ratio = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#111827";
+  }, []);
+
+  const getPoint = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const handleDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const ctx = e.currentTarget.getContext("2d");
+    if (!ctx) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drawing.current = true;
+    const p = getPoint(e);
+    last.current = p;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x + 0.01, p.y);
+    ctx.stroke();
+  };
+
+  const handleMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!drawing.current || !last.current) return;
+    const ctx = e.currentTarget.getContext("2d");
+    if (!ctx) return;
+    const p = getPoint(e);
+    ctx.beginPath();
+    ctx.moveTo(last.current.x, last.current.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last.current = p;
+  };
+
+  const handleUp = () => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    last.current = null;
+    const canvas = canvasRef.current;
+    if (canvas) onChange(canvas.toDataURL("image/png"));
+  };
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    onChange(null);
+  };
+
+  return (
+    <div>
+      <div className="relative rounded-xl border-2 border-dashed border-gray-300 bg-white">
+        <canvas
+          ref={canvasRef}
+          onPointerDown={handleDown}
+          onPointerMove={handleMove}
+          onPointerUp={handleUp}
+          onPointerCancel={handleUp}
+          className="h-40 w-full touch-none rounded-xl"
+          aria-label="Area tanda tangan"
+        />
+        <span className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-gray-400">
+          Tanda tangan di area ini
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={clear}
+        className="mt-2 text-xs font-semibold text-gray-500 hover:text-gray-800 hover:underline"
+      >
+        Hapus & ulangi
+      </button>
+    </div>
+  );
+}
+
+/* ============================================================
+ * Dialog informed consent: baca PDF -> tanda tangan digital
+ * ============================================================ */
+function ConsentDialog({
+  counselor,
+  onClose,
+  onSigned,
+}: {
+  counselor: string;
+  onClose: () => void;
+  onSigned: (signature: string) => void;
+}) {
+  const [step, setStep] = useState<"read" | "sign">("read");
+  const [agreed, setAgreed] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/50 p-4"
+      role="presentation"
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="consent-title"
+        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+      >
+        <div className="flex items-start justify-between border-b border-gray-200 p-5">
+          <div>
+            <h2 id="consent-title" className="text-lg font-bold text-gray-900">
+              Informed Consent
+            </h2>
+            <p className="mt-0.5 text-sm text-gray-500">
+              {step === "read"
+                ? `Langkah 1 dari 2 · Baca dokumen · ${counselor}`
+                : "Langkah 2 dari 2 · Tanda tangan digital"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup"
+            className="rounded-full p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {step === "read" ? (
+          <>
+            <div className="min-h-0 flex-1 bg-gray-100">
+              <object
+                data={CONSENT_PDF_URL}
+                type="application/pdf"
+                className="h-[60vh] w-full"
+                aria-label="Dokumen informed consent"
+              >
+                <div className="flex h-[60vh] flex-col items-center justify-center gap-3 p-6 text-center">
+                  <p className="text-sm text-gray-600">
+                    Browser kamu tidak bisa menampilkan PDF di halaman ini.
+                  </p>
+                  <a
+                    href={CONSENT_PDF_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full bg-[#1e5b3a] px-5 py-2 text-sm font-semibold text-white"
+                  >
+                    Buka PDF di tab baru
+                  </a>
+                </div>
+              </object>
+            </div>
+
+            <div className="space-y-3 border-t border-gray-200 p-5">
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-[#1e5b3a]"
+                />
+                Saya sudah membaca dan memahami isi informed consent ini.
+              </label>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                >
+                  Nanti
+                </button>
+                <button
+                  type="button"
+                  disabled={!agreed}
+                  onClick={() => setStep("sign")}
+                  className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Lanjut tanda tangan
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="space-y-4 overflow-y-auto p-5">
+              <p className="text-sm text-gray-600">
+                Gunakan jari, stylus, atau mouse untuk menandatangani di bawah
+                ini.
+              </p>
+              <SignaturePad onChange={setSignature} />
+              <p className="rounded-xl bg-[#f7fcf9] p-3 text-xs text-gray-600">
+                Dengan menandatangani, kamu menyatakan setuju mengikuti sesi
+                konseling sesuai ketentuan pada dokumen informed consent.
+              </p>
+            </div>
+            <div className="flex justify-between gap-2 border-t border-gray-200 p-5">
+              <button
+                type="button"
+                onClick={() => setStep("read")}
+                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                disabled={!signature}
+                onClick={() => signature && onSigned(signature)}
+                className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Simpan tanda tangan
+              </button>
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export default function KlienAktivitasPage() {
   const [sessions, setSessions] = useState<Session[]>(createInitialSessions);
   const [now, setNow] = useState(() => Date.now());
@@ -214,6 +468,7 @@ export default function KlienAktivitasPage() {
   );
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackNote, setFeedbackNote] = useState("");
+  const [consentSessionId, setConsentSessionId] = useState<number | null>(null);
   const [toast, setToast] = useState("");
   const [view, setView] = useState<"main" | "reschedule">("main");
   const [reschedule, setReschedule] = useState<RescheduleState | null>(null);
@@ -305,6 +560,10 @@ export default function KlienAktivitasPage() {
     (session) => session.id === feedbackSessionId,
   );
 
+  const consentSession = sessions.find(
+    (session) => session.id === consentSessionId,
+  );
+
   const rescheduleSession = reschedule
     ? sessions.find((session) => session.id === reschedule.sessionId)
     : undefined;
@@ -351,6 +610,25 @@ export default function KlienAktivitasPage() {
     );
     closeFeedback();
     showToast("Terima kasih! Penilaianmu sudah kami terima.");
+  };
+
+  const submitConsent = (signature: string) => {
+    if (consentSessionId === null) return;
+
+    setSessions((current) =>
+      current.map((session) =>
+        session.id === consentSessionId
+          ? {
+              ...session,
+              consentSigned: true,
+              consentSignature: signature,
+              consentSignedAt: new Date(),
+            }
+          : session,
+      ),
+    );
+    setConsentSessionId(null);
+    showToast("Informed consent berhasil ditandatangani.");
   };
 
   const openReschedule = (sessionId: number) => {
@@ -491,12 +769,38 @@ export default function KlienAktivitasPage() {
             Sedang berlangsung
           </p>
         </div>
-        <p className="relative mt-4 font-display text-2xl font-bold sm:text-3xl">
-          {session.counselor}
-        </p>
-        <p className="relative mt-1 text-sm text-white/75">
-          {session.service} · {session.room}
-        </p>
+        <div className="relative mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="font-display text-2xl font-bold sm:text-3xl">
+              {session.counselor}
+            </p>
+            <p className="mt-1 text-sm text-white/75">
+              {session.service} · {session.room}
+            </p>
+          </div>
+
+          {/* Informed consent: ringkas, di sisi kanan */}
+          {session.consentSigned ? (
+            <div className="flex w-fit shrink-0 items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-[#8fe3bf]">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              Sudah ditandatangani
+            </div>
+          ) : (
+            <div className="flex w-fit shrink-0 flex-col items-start gap-2 rounded-xl border border-amber-300/40 bg-amber-300/15 p-3 sm:items-end">
+              <p className="text-xs text-amber-100">
+                Informed consent belum ditandatangani
+              </p>
+              <button
+                type="button"
+                onClick={() => setConsentSessionId(session.id)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-[#0f3d2a] transition hover:bg-[#e8f9f0]"
+              >
+                <FileSignature className="h-4 w-4" />
+                Tanda tangan
+              </button>
+            </div>
+          )}
+        </div>
         <div
           className="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-white/15"
           role="status"
@@ -510,6 +814,7 @@ export default function KlienAktivitasPage() {
             }
           `}</style>
         </div>
+
         <p className="relative mt-5 text-sm text-white/85">
           Sesimu sedang berjalan. Kamu aman untuk bercerita.
         </p>
@@ -965,6 +1270,15 @@ export default function KlienAktivitasPage() {
   return (
     <>
       {view === "reschedule" ? renderReschedulePage() : renderMainPage()}
+
+      {consentSession && (
+        <ConsentDialog
+          key={consentSession.id}
+          counselor={consentSession.counselor}
+          onClose={() => setConsentSessionId(null)}
+          onSigned={submitConsent}
+        />
+      )}
 
       {feedbackSession && (
         <div
