@@ -74,6 +74,18 @@ const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const PHONE_RE = /^(\+62|62|0)[0-9]{8,13}$/;
 const PASSWORD_MIN = 8;
+const HISTORY_PASSWORD_KEY = "sicare:konselor:riwayat-password-digest";
+const HISTORY_ACCESS_KEY = "sicare:konselor:riwayat-access";
+const HISTORY_ATTEMPTS_KEY = "sicare:konselor:riwayat-attempts";
+
+// Hanya untuk prototipe frontend. Verifikasi sebenarnya harus dilakukan server.
+async function passwordDigest(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hash), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
 
 export default function KonselorPengaturanPage() {
   const currentYear = new Date().getFullYear();
@@ -98,6 +110,8 @@ export default function KonselorPengaturanPage() {
   const [topicInput, setTopicInput] = useState("");
   const [eduDraft, setEduDraft] = useState<Education | undefined>(undefined);
   const [eduError, setEduError] = useState("");
+  const [passwordKind, setPasswordKind] = useState<"akun" | "riwayat">("akun");
+  const [pwdSaving, setPwdSaving] = useState(false);
   const [pwdCurrent, setPwdCurrent] = useState("");
   const [pwdNext, setPwdNext] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
@@ -314,11 +328,20 @@ export default function KonselorPengaturanPage() {
     setPhotoError("");
     setTopicInput("");
   }
-  function changePassword() {
+  function selectPasswordKind(kind: "akun" | "riwayat") {
+    setPasswordKind(kind);
+    setPwdCurrent("");
+    setPwdNext("");
+    setPwdConfirm("");
+  }
+
+  async function changePassword() {
+    if (pwdSaving) return;
+    const minimumLength = passwordKind === "riwayat" ? 4 : PASSWORD_MIN;
     const issues = [
       !pwdCurrent ? "Masukkan kata sandi saat ini." : "",
-      pwdNext.length < PASSWORD_MIN
-        ? `Kata sandi baru minimal ${PASSWORD_MIN} karakter.`
+      pwdNext.length < minimumLength
+        ? `Kata sandi baru minimal ${minimumLength} karakter.`
         : "",
       pwdConfirm !== pwdNext ? "Konfirmasi kata sandi tidak sama." : "",
     ].filter(Boolean);
@@ -326,14 +349,49 @@ export default function KonselorPengaturanPage() {
       setToast(issues.join(" "));
       return;
     }
-    // Integrasi produksi: PUT /api/konselor/me/password dan verifikasi di server.
-    setPwdCurrent("");
-    setPwdNext("");
-    setPwdConfirm("");
-    setToast(
-      "Simulasi perubahan kata sandi berhasil. Hubungkan ke backend untuk menyimpan secara nyata.",
-    );
+
+    if (passwordKind === "akun") {
+      // Integrasi produksi: PUT /api/konselor/me/password.
+      setPwdCurrent("");
+      setPwdNext("");
+      setPwdConfirm("");
+      setToast(
+        "Simulasi perubahan kata sandi akun berhasil. Hubungkan ke backend untuk menyimpan secara nyata.",
+      );
+      return;
+    }
+
+    setPwdSaving(true);
+    try {
+      const currentDigest = await passwordDigest(pwdCurrent);
+      const savedDigest = sessionStorage.getItem(HISTORY_PASSWORD_KEY);
+      const defaultDigest = await passwordDigest("1234");
+      if (currentDigest !== (savedDigest ?? defaultDigest)) {
+        setToast("Kata sandi riwayat saat ini salah.");
+        return;
+      }
+      sessionStorage.setItem(
+        HISTORY_PASSWORD_KEY,
+        await passwordDigest(pwdNext),
+      );
+      // Paksa verifikasi ulang agar sesi yang memakai password lama tidak berlaku.
+      sessionStorage.removeItem(HISTORY_ACCESS_KEY);
+      sessionStorage.removeItem(HISTORY_ATTEMPTS_KEY);
+      setPwdCurrent("");
+      setPwdNext("");
+      setPwdConfirm("");
+      setToast(
+        "Kata sandi riwayat berhasil diubah untuk sesi browser ini. Akses riwayat sebelumnya dicabut.",
+      );
+    } catch {
+      setToast(
+        "Perubahan kata sandi gagal. Periksa dukungan penyimpanan browser.",
+      );
+    } finally {
+      setPwdSaving(false);
+    }
   }
+
   const validExperience =
     /^\d{4}$/.test(profile.experienceStartYear) &&
     Number(profile.experienceStartYear) >= 1950 &&
@@ -740,8 +798,38 @@ export default function KonselorPengaturanPage() {
           className="lg:col-span-2"
           icon={<ShieldCheck className="h-5 w-5" />}
           title="Keamanan"
-          description="Ubah kata sandi akunmu."
+          description="Atur kata sandi akun dan akses riwayat konseling."
         >
+          <div
+            className="mb-5 inline-flex w-full rounded-xl border border-gray-200 bg-gray-100 p-1 sm:w-auto"
+            role="tablist"
+            aria-label="Jenis kata sandi"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={passwordKind === "akun"}
+              onClick={() => selectPasswordKind("akun")}
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${passwordKind === "akun" ? "bg-white text-[#1e5b3a] shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
+            >
+              Kata Sandi Akun
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={passwordKind === "riwayat"}
+              onClick={() => selectPasswordKind("riwayat")}
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${passwordKind === "riwayat" ? "bg-white text-[#1e5b3a] shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
+            >
+              Kata Sandi Riwayat
+            </button>
+          </div>
+          {passwordKind === "riwayat" && (
+            <p className="mb-4 text-xs text-gray-500">
+              Kata sandi awal prototipe: 1234. Perubahan berlaku dalam sesi tab
+              browser ini dan akses riwayat aktif akan dicabut.
+            </p>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Field label="Kata sandi saat ini" required>
@@ -762,7 +850,9 @@ export default function KonselorPengaturanPage() {
                 value={pwdNext}
                 onChange={(e) => setPwdNext(e.target.value)}
               />
-              <p className="mt-1 text-xs text-gray-500">Minimal 8 karakter</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Minimal {passwordKind === "riwayat" ? 4 : PASSWORD_MIN} karakter
+              </p>
             </Field>
             <Field label="Ulangi kata sandi baru" required>
               <input
