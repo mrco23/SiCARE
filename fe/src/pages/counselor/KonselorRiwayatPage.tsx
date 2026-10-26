@@ -615,7 +615,6 @@ export default function KonselorRiwayatPage() {
         setPwError("");
       }
     };
-    checkTime();
     const interval = window.setInterval(checkTime, 1000);
     const timeout =
       accessUntil > Date.now()
@@ -640,7 +639,7 @@ export default function KonselorRiwayatPage() {
     return () => clearTimeout(t);
   }, [toastMsg]);
 
-  const hasAccess = accessUntil > now && accessUntil > Date.now();
+  const hasAccess = accessUntil > now;
   const semester = periods.find((p) => p.id === semesterId) ?? null;
   const range = useMemo(
     () => getDateRange(period, anchor, semester),
@@ -720,9 +719,8 @@ export default function KonselorRiwayatPage() {
   const pwUsed = attemptState.count;
   const pwLocked = attemptState.lockedUntil > now;
 
-  function openClient(cid: string) {
-    if (!hasAccess || accessUntil <= Date.now()) {
-      setNow(Date.now());
+  function handleOpenClient(cid: string) {
+    if (!hasAccess) {
       return;
     }
     setSelectedId(cid);
@@ -783,17 +781,16 @@ export default function KonselorRiwayatPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function openConsent(id: number) {
-    if (!hasAccess || accessUntil <= Date.now() || !selectedId) {
-      setNow(Date.now());
+  function handleOpenConsent(id: number) {
+    if (!hasAccess || !selectedId) {
       setConsentSessionId(null);
       return;
     }
     setConsentSessionId(id);
   }
 
-  function openNote(id: number) {
-    if (!selectedId || !hasAccess || accessUntil <= Date.now()) {
+  function handleOpenNote(id: number) {
+    if (!selectedId || !hasAccess) {
       setToastMsg("Akses habis. Masukkan kata sandi kembali.");
       backToClients();
       return;
@@ -925,7 +922,7 @@ export default function KonselorRiwayatPage() {
                 <li key={client.id}>
                   <button
                     type="button"
-                    onClick={() => openClient(client.id)}
+                    onClick={() => handleOpenClient(client.id)}
                     className="flex w-full flex-col rounded-2xl border border-gray-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-[#36c08f]/60 hover:shadow-md"
                   >
                     <div className="flex items-center gap-3">
@@ -1067,7 +1064,7 @@ export default function KonselorRiwayatPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => openConsent(s.id)}
+                            onClick={() => handleOpenConsent(s.id)}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e5b3a] px-3.5 py-2 text-sm font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
                           >
                             <FileSignature className="h-4 w-4" />
@@ -1075,7 +1072,7 @@ export default function KonselorRiwayatPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => openNote(s.id)}
+                            onClick={() => handleOpenNote(s.id)}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-[#1e5b3a] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#174a2f]"
                           >
                             <Eye className="h-4 w-4" />

@@ -8,7 +8,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  FileChartColumnIncreasing,
   Printer,
   Users,
   UsersRound,
@@ -434,16 +433,20 @@ export default function KepalaLMILaporanPage() {
   );
 
   const cancellationRows = useMemo(
-    () =>
-      CANCELLATION_REASONS.map((reason) => ({
+    () => {
+      const cancelled = rows.filter(
+        (session) => session.status === "Dibatalkan",
+      );
+      return CANCELLATION_REASONS.map((reason) => ({
         reason,
         count: cancelled.filter(
           (session) => session.cancellationReason === reason,
         ).length,
       }))
         .filter((item) => item.count > 0)
-        .sort((a, b) => b.count - a.count),
-    [cancelled],
+        .sort((a, b) => b.count - a.count);
+    },
+    [rows],
   );
 
   return (

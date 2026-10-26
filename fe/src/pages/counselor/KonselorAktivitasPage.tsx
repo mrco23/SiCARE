@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -8,6 +9,55 @@ import {
   HeartPulse,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+type SessionFormat = "Individu" | "Kelompok";
+type SessionStatus = "scheduled" | "ongoing" | "done" | "cancelled";
+
+interface CancelInfo {
+  code: string;
+  label: string;
+  note: string;
+}
+
+interface CounselingSession {
+  id: number;
+  client: string;
+  topic: string;
+  format: SessionFormat;
+  start: number;
+  status: SessionStatus;
+  startedAt: number | null;
+  cancel: CancelInfo | null;
+  noteCounselor: string;
+  noteClient: string;
+  plan: string;
+}
+
+type DialogType = "start" | "finish";
+
+interface DialogState {
+  type: DialogType;
+  id: number;
+}
+
+interface ClientIntake {
+  selfHarm: string;
+  distress: string;
+  abuse: string;
+  substance: string;
+  sleep: number;
+  finance: number;
+  topics: string[];
+  other?: string;
+  complaint: string;
+  history: string;
+  reason: string;
+  efforts: string;
+  goal: string;
+  strengths: string;
+  weaknesses: string;
+}
 
 const CANCEL_REASONS = [
   { code: "KLIEN_SAKIT", label: "Klien sakit" },
@@ -21,11 +71,11 @@ const CANCEL_REASONS = [
 const WORK_START = 8 * 60;
 const WORK_LAST_START = 15 * 60;
 
-const clamp = (value) =>
+const clamp = (value: number): number =>
   Math.min(WORK_LAST_START, Math.max(WORK_START, Math.round(value / 15) * 15));
-const formatMinutes = (minutes) =>
+const formatMinutes = (minutes: number): string =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}.${String(minutes % 60).padStart(2, "0")}`;
-const initials = (name) =>
+const initials = (name: string): string =>
   name
     .split(" ")
     .map((word) => word[0])
@@ -33,12 +83,15 @@ const initials = (name) =>
     .join("")
     .toUpperCase();
 
-function getCurrentMinutes() {
+function getCurrentMinutes(): number {
   const now = new Date();
   return now.getHours() * 60 + now.getMinutes();
 }
 
-const emptySession = {
+const emptySession: Pick<
+  CounselingSession,
+  "cancel" | "noteCounselor" | "noteClient" | "plan"
+> = {
   cancel: null,
   noteCounselor: "",
   noteClient: "",
@@ -46,8 +99,15 @@ const emptySession = {
 };
 
 // Data dummy relatif terhadap jam sekarang. Hanya ada satu sesi yang berlangsung.
-function buildDummySessions(nowM) {
-  const scheduled = (id, client, topic, format, offset, minStart) => ({
+function buildDummySessions(nowM: number): CounselingSession[] {
+  const scheduled = (
+    id: number,
+    client: string,
+    topic: string,
+    format: SessionFormat,
+    offset: number,
+    minStart: number,
+  ): CounselingSession => ({
     id,
     client,
     topic,
@@ -119,7 +179,13 @@ function buildDummySessions(nowM) {
   ];
 }
 
-function Badge({ children, className = "" }) {
+function Badge({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${className}`}
@@ -129,8 +195,8 @@ function Badge({ children, className = "" }) {
   );
 }
 
-function ScaleView({ value }) {
-  const labels = {
+function ScaleView({ value }: { value: number }) {
+  const labels: Record<number, string> = {
     1: "Sangat buruk",
     2: "Buruk",
     3: "Cukup",
@@ -163,7 +229,13 @@ function ScaleView({ value }) {
   );
 }
 
-function AnswerRow({ question, answer }) {
+function AnswerRow({
+  question,
+  answer,
+}: {
+  question: string;
+  answer: string;
+}) {
   const style =
     answer === "Ya"
       ? "bg-red-100 text-red-800"
@@ -179,7 +251,13 @@ function AnswerRow({ question, answer }) {
   );
 }
 
-function EssayCard({ title, children }) {
+function EssayCard({
+  title,
+  children,
+}: {
+  title: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-gray-200 p-4">
       <p className="text-sm font-semibold text-gray-700">{title}</p>
@@ -190,8 +268,18 @@ function EssayCard({ title, children }) {
   );
 }
 
-function StatCard({ icon: Icon, label, value, tone = "slate" }) {
-  const tones = {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  tone = "slate",
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: ReactNode;
+  tone?: "slate" | "green" | "amber";
+}) {
+  const tones: Record<"slate" | "green" | "amber", string> = {
     slate: "text-slate-600 bg-slate-100",
     green: "text-gray-700 bg-gray-100",
     amber: "text-amber-600 bg-amber-50",
@@ -219,16 +307,18 @@ const inputFocus =
 export default function KonselorAktivitasPage() {
   const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
-  const [sessions, setSessions] = useState(() =>
+  const [sessions, setSessions] = useState<CounselingSession[]>(() =>
     buildDummySessions(getCurrentMinutes()),
   );
   const [filter, setFilter] = useState("semua");
   const [visibleUpcomingCount, setVisibleUpcomingCount] = useState(10);
-  const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(
+    null,
+  );
   const [view, setView] = useState("list");
-  const [currentId, setCurrentId] = useState(null);
-  const [dialog, setDialog] = useState(null);
-  const [cancelId, setCancelId] = useState(null);
+  const [currentId, setCurrentId] = useState<number | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [cancelId, setCancelId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelOther, setCancelOther] = useState("");
   const [cancelNote, setCancelNote] = useState("");
@@ -251,9 +341,9 @@ export default function KonselorAktivitasPage() {
     (session) => session.status === "ongoing",
   );
 
-  const canStart = (session) =>
+  const canStart = (session: CounselingSession) =>
     session.status === "scheduled" && nowMinutes >= session.start;
-  const isFilled = (session) =>
+  const isFilled = (session: CounselingSession) =>
     session.noteCounselor.trim().length >= 20 &&
     session.noteClient.trim().length >= 20;
 
@@ -266,7 +356,7 @@ export default function KonselorAktivitasPage() {
         )
         .filter((session) => filter === "semua" || session.status === filter)
         .sort((a, b) => a.start - b.start),
-    [sessions, filter, now],
+    [sessions, filter],
   );
 
   // Satu sesi aktif ditampilkan pada area utama. Jika ada sesi berlangsung,
@@ -295,8 +385,8 @@ export default function KonselorAktivitasPage() {
     (session) => session.status === "scheduled" || session.status === "ongoing",
   ).length;
 
-  const intakeFor = (client) => {
-    const base = {
+  const intakeFor = (client: string): ClientIntake => {
+    const base: ClientIntake = {
       selfHarm: "Tidak",
       distress: "Tidak",
       abuse: "Tidak",
@@ -313,7 +403,7 @@ export default function KonselorAktivitasPage() {
       strengths: "Klien mudah bergaul dan bertanggung jawab.",
       weaknesses: "Klien cenderung menunda pekerjaan.",
     };
-    const overrides = {
+    const overrides: Record<string, Partial<ClientIntake>> = {
       "Yusli Ngongano": {
         distress: "Ya",
         sleep: 2,
@@ -331,7 +421,9 @@ export default function KonselorAktivitasPage() {
     return { ...base, ...(overrides[client] || {}) };
   };
 
-  const statusInfo = (session) => {
+  const statusInfo = (
+    session: CounselingSession,
+  ): { label: string; style: string } => {
     if (session.status === "cancelled")
       return { label: "Dibatalkan", style: "bg-red-100 text-red-800" };
     if (session.status === "done")
@@ -346,11 +438,11 @@ export default function KonselorAktivitasPage() {
     return { label: "Terjadwal", style: "bg-slate-100 text-slate-600" };
   };
 
-  function notify(message) {
+  function notify(message: string) {
     setToastMsg(message);
   }
 
-  function openSession(id) {
+  function openSession(id: number) {
     setCurrentId(id);
     setView("session");
   }
@@ -399,7 +491,10 @@ export default function KonselorAktivitasPage() {
     notify("Sesi diselesaikan. Catatan tersimpan di Riwayat Konseling.");
   }
 
-  function updateNote(field, value) {
+  function updateNote(
+    field: "noteCounselor" | "noteClient" | "plan",
+    value: string,
+  ) {
     if (!currentSession || currentSession.status !== "ongoing") return;
     setSessions((previous) =>
       previous.map((item) =>
@@ -408,7 +503,7 @@ export default function KonselorAktivitasPage() {
     );
   }
 
-  function openCancel(id) {
+  function openCancel(id: number) {
     setCancelId(id);
     setCancelReason("");
     setCancelOther("");
@@ -430,6 +525,7 @@ export default function KonselorAktivitasPage() {
   function confirmCancel() {
     if (!cancelId || !cancelValid) return;
     const reason = CANCEL_REASONS.find((item) => item.code === cancelReason);
+    if (!reason) return;
     const label =
       cancelReason === "LAINNYA"
         ? `Lainnya: ${cancelOther.trim()}`

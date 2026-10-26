@@ -1,7 +1,39 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
 
-const initialRequests = [
+type CounselingRequest = {
+  id: number;
+  name: string;
+  format: string;
+  time: string;
+  waitMin: number;
+  status: "pending" | "accepted" | "rejected";
+  isNew: boolean;
+  pastSessions: number;
+  topic: string;
+  room?: string;
+};
+
+type IntakeData = {
+  date: string;
+  selfHarm: string;
+  distress: string;
+  abuse: string;
+  substance: string;
+  sleep: number;
+  finance: number;
+  topics: string[];
+  other: string;
+  complaint: string;
+  history: string;
+  reason: string;
+  efforts: string;
+  goal: string;
+  strengths: string;
+  weaknesses: string;
+};
+
+const initialRequests: CounselingRequest[] = [
   {
     id: 1,
     name: "Yusli Ngongano",
@@ -68,7 +100,7 @@ const intakeDefaults = {
   weaknesses: "Klien cenderung menunda pekerjaan.",
 };
 
-const intakes = {
+const intakes: Record<number, IntakeData> = {
   1: {
     ...intakeDefaults,
     distress: "Ya",
@@ -90,7 +122,7 @@ const intakes = {
   },
 };
 
-const initials = (name) =>
+const initials = (name: string) =>
   name
     .split(" ")
     .map((word) => word[0])
@@ -98,13 +130,19 @@ const initials = (name) =>
     .join("")
     .toUpperCase();
 
-function waitLabel(minutes) {
+function waitLabel(minutes: number) {
   if (minutes < 60) return `${minutes} menit lalu`;
   if (minutes < 1440) return `${Math.floor(minutes / 60)} jam lalu`;
   return `${Math.floor(minutes / 1440)} hari lalu`;
 }
 
-function Badge({ children, className = "" }) {
+function Badge({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${className}`}
@@ -114,7 +152,15 @@ function Badge({ children, className = "" }) {
   );
 }
 
-function StatCard({ label, value, note }) {
+function StatCard({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: ReactNode;
+  note?: string;
+}) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5">
       <p className="text-sm text-gray-500">{label}</p>
@@ -124,8 +170,8 @@ function StatCard({ label, value, note }) {
   );
 }
 
-function ScaleView({ value }) {
-  const labels = {
+function ScaleView({ value }: { value: number }) {
+  const labels: Record<number, string> = {
     1: "Sangat buruk",
     2: "Buruk",
     3: "Cukup",
@@ -151,14 +197,20 @@ function ScaleView({ value }) {
       <p className="mt-2 text-xs text-gray-500">
         Dipilih:{" "}
         <span className="font-semibold text-gray-800">
-          {value} · {labels[value]}
+          {value} · {labels[value] ?? "Tidak diketahui"}
         </span>
       </p>
     </div>
   );
 }
 
-function AnswerRow({ question, answer }) {
+function AnswerRow({
+  question,
+  answer,
+}: {
+  question: string;
+  answer: string;
+}) {
   const style =
     answer === "Ya"
       ? "bg-red-100 text-red-800"
@@ -174,7 +226,13 @@ function AnswerRow({ question, answer }) {
   );
 }
 
-function EssayCard({ title, children }) {
+function EssayCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
       <p className="text-sm font-semibold text-gray-700">{title}</p>
@@ -185,13 +243,18 @@ function EssayCard({ title, children }) {
   );
 }
 
+type ConfirmDecision = {
+  id: number;
+  accept: boolean;
+};
+
 export default function KonselorPermintaanPage() {
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState<CounselingRequest[]>(initialRequests);
   const [formatFilter, setFormatFilter] = useState("Semua");
   const [sortMode, setSortMode] = useState("terlama");
   const [search, setSearch] = useState("");
-  const [currentId, setCurrentId] = useState(null);
-  const [confirm, setConfirm] = useState(null);
+  const [currentId, setCurrentId] = useState<number | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmDecision | null>(null);
   const [roomInput, setRoomInput] = useState("");
   const [confirmRoomSave, setConfirmRoomSave] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
@@ -222,12 +285,12 @@ export default function KonselorPermintaanPage() {
     (request) => request.format === "Kelompok",
   ).length;
 
-  function notify(message) {
+  function notify(message: string) {
     setToastMsg(message);
     window.setTimeout(() => setToastMsg(""), 2600);
   }
 
-  function openDecision(id, accept) {
+  function openDecision(id: number, accept: boolean) {
     setRoomInput("");
     setConfirmRoomSave(false);
     setConfirm({ id, accept });
@@ -271,7 +334,7 @@ export default function KonselorPermintaanPage() {
           : null,
         currentIntake.abuse !== "Tidak" ? "riwayat pelecehan" : null,
         currentIntake.substance !== "Tidak" ? "penggunaan obat-obatan" : null,
-      ].filter(Boolean)
+      ].filter((flag): flag is string => Boolean(flag))
     : [];
 
   return (
@@ -514,85 +577,89 @@ export default function KonselorPermintaanPage() {
             </section>
           )}
 
-          <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
-            <h3 className="text-base font-bold">Kondisi Saat Ini</h3>
-            <div className="mt-4">
-              <AnswerRow
-                question="Apakah Anda sedang merasa ingin bunuh diri?"
-                answer={currentIntake.selfHarm}
-              />
-              <AnswerRow
-                question="Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?"
-                answer={currentIntake.distress}
-              />
-              <AnswerRow
-                question="Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)"
-                answer={currentIntake.abuse}
-              />
-              <AnswerRow
-                question="Apakah saat ini Anda sedang menggunakan obat-obatan?"
-                answer={currentIntake.substance}
-              />
-            </div>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-sm font-semibold text-gray-700">
-                  Kualitas tidur
-                </p>
-                <div className="mt-2">
-                  <ScaleView value={currentIntake.sleep} />
+          {currentIntake && (
+            <>
+              <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+                <h3 className="text-base font-bold">Kondisi Saat Ini</h3>
+                <div className="mt-4">
+                  <AnswerRow
+                    question="Apakah Anda sedang merasa ingin bunuh diri?"
+                    answer={currentIntake.selfHarm}
+                  />
+                  <AnswerRow
+                    question="Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?"
+                    answer={currentIntake.distress}
+                  />
+                  <AnswerRow
+                    question="Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)"
+                    answer={currentIntake.abuse}
+                  />
+                  <AnswerRow
+                    question="Apakah saat ini Anda sedang menggunakan obat-obatan?"
+                    answer={currentIntake.substance}
+                  />
                 </div>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-700">
-                  Keadaan finansial
-                </p>
-                <div className="mt-2">
-                  <ScaleView value={currentIntake.finance} />
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">
+                      Kualitas tidur
+                    </p>
+                    <div className="mt-2">
+                      <ScaleView value={currentIntake.sleep} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">
+                      Keadaan finansial
+                    </p>
+                    <div className="mt-2">
+                      <ScaleView value={currentIntake.finance} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </section>
+              </section>
 
-          <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
-            <h3 className="text-base font-bold">Masalah yang ingin dibahas</h3>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {currentIntake.topics.map((topic) => (
-                <Badge key={topic} className="bg-blue-100 text-blue-800">
-                  {topic}
-                </Badge>
-              ))}
-              {currentIntake.other && (
-                <Badge className="bg-blue-100 text-blue-800">
-                  Lainnya: {currentIntake.other}
-                </Badge>
-              )}
-            </div>
-          </section>
+              <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+                <h3 className="text-base font-bold">Masalah yang ingin dibahas</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {currentIntake.topics.map((topic) => (
+                    <Badge key={topic} className="bg-blue-100 text-blue-800">
+                      {topic}
+                    </Badge>
+                  ))}
+                  {currentIntake.other && (
+                    <Badge className="bg-blue-100 text-blue-800">
+                      Lainnya: {currentIntake.other}
+                    </Badge>
+                  )}
+                </div>
+              </section>
 
-          <section className="mt-5 space-y-4">
-            <EssayCard title="Deskripsikan keluhan yang Anda rasakan">
-              {currentIntake.complaint}
-            </EssayCard>
-            <EssayCard title="Deskripsikan riwayat terjadinya keluhan secara jelas dan rinci">
-              {currentIntake.history}
-            </EssayCard>
-            <EssayCard title="Keluhan dan alasan ingin memulai konseling">
-              {currentIntake.reason}
-            </EssayCard>
-            <EssayCard title="Apa yang sudah dilakukan untuk menangani masalah ini?">
-              {currentIntake.efforts}
-            </EssayCard>
-            <EssayCard title="Solusi apa yang diinginkan dari bantuan yang diterima?">
-              {currentIntake.goal}
-            </EssayCard>
-            <EssayCard title="Apa kelebihan diri Anda?">
-              {currentIntake.strengths}
-            </EssayCard>
-            <EssayCard title="Apa kekurangan diri Anda?">
-              {currentIntake.weaknesses}
-            </EssayCard>
-          </section>
+              <section className="mt-5 space-y-4">
+                <EssayCard title="Deskripsikan keluhan yang Anda rasakan">
+                  {currentIntake.complaint}
+                </EssayCard>
+                <EssayCard title="Deskripsikan riwayat terjadinya keluhan secara jelas dan rinci">
+                  {currentIntake.history}
+                </EssayCard>
+                <EssayCard title="Keluhan dan alasan ingin memulai konseling">
+                  {currentIntake.reason}
+                </EssayCard>
+                <EssayCard title="Apa yang sudah dilakukan untuk menangani masalah ini?">
+                  {currentIntake.efforts}
+                </EssayCard>
+                <EssayCard title="Solusi apa yang diinginkan dari bantuan yang diterima?">
+                  {currentIntake.goal}
+                </EssayCard>
+                <EssayCard title="Apa kelebihan diri Anda?">
+                  {currentIntake.strengths}
+                </EssayCard>
+                <EssayCard title="Apa kekurangan diri Anda?">
+                  {currentIntake.weaknesses}
+                </EssayCard>
+              </section>
+            </>
+          )}
 
           <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
             <p className="text-sm text-gray-600">

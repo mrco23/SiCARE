@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle2,
-  GraduationCap,
   IdCard,
   LockKeyhole,
   Mail,

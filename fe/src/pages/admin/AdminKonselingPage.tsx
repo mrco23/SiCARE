@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   Ban,
-  CalendarDays,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -82,8 +81,12 @@ const SESI: Session[] = Array.from({ length: 60 }, (_, i) => {
     durasi: rnd() < 0.7 ? 60 : 45,
     konselor: Math.floor(rnd() * 3),
     participants: Array.from({ length: n }, (_, k) => i * 10 + k),
-    status: cancelled ? "dibatalkan" : "selesai",
-    cancelledBy: cancelled ? (rnd() < 0.6 ? "konselor" : "klien") : null,
+    status: (cancelled ? "dibatalkan" : "selesai") as SessionStatus,
+    cancelledBy: (cancelled
+      ? rnd() < 0.6
+        ? "konselor"
+        : "klien"
+      : null) as Session["cancelledBy"],
     cancelReason: cancelled
       ? REASONS[Math.floor(rnd() * REASONS.length)]
       : null,
@@ -651,16 +654,17 @@ export default function AdminKonselingPage() {
     return i >= 0 ? i : 0;
   });
 
-  // Jika halaman sudah terbuka dan menerima navigasi baru, terapkan juga
-  useEffect(() => {
-    if (!navState) return;
-    if (navState.view) setView(navState.view);
-    if (navState.konselor) {
+  // Sinkronisasi state saat menerima navigasi baru dengan location.key berbeda
+  const [prevLocationKey, setPrevLocationKey] = useState(location.key);
+  if (location.key !== prevLocationKey) {
+    setPrevLocationKey(location.key);
+    if (navState?.view) setView(navState.view);
+    if (navState?.konselor) {
       const i = COUNSELORS.indexOf(navState.konselor);
       if (i >= 0) setKon(i);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.key]);
+    setLimit(PAGE_SIZE);
+  }
 
   // Tutup drawer dengan Escape
   useEffect(() => {
@@ -670,11 +674,6 @@ export default function AdminKonselingPage() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
-
-  // Kembali ke 20 data setiap filter atau periode berubah
-  useEffect(() => {
-    setLimit(PAGE_SIZE);
-  }, [period, anchor, semId, tbl]);
 
   const semester = periods.find((p) => p.id === semId) ?? null;
   const range = useMemo(
@@ -688,12 +687,28 @@ export default function AdminKonselingPage() {
     [range],
   );
 
-  /* ----- navigasi periode ----- */
+  /* ----- navigasi periode & filter (reset pagination ke PAGE_SIZE) ----- */
+  function handlePeriodChange(p: PeriodKey) {
+    setPeriod(p);
+    setLimit(PAGE_SIZE);
+  }
+
+  function handleSemIdChange(id: string) {
+    setSemId(id);
+    setLimit(PAGE_SIZE);
+  }
+
+  function handleTblChange(t: TblKey) {
+    setTbl(t);
+    setLimit(PAGE_SIZE);
+  }
+
   const semIdx = periods.findIndex((p) => p.id === semId);
   const canPrev = period === "semester" ? semIdx > 0 : true;
   const canNext = period === "semester" ? semIdx < periods.length - 1 : true;
 
   function step(dir: -1 | 1) {
+    setLimit(PAGE_SIZE);
     if (period === "semester") {
       const next = periods[semIdx + dir];
       if (next) setSemId(next.id);
@@ -749,7 +764,7 @@ export default function AdminKonselingPage() {
           <SegmentTabs
             options={PERIOD_OPTS}
             value={period}
-            onChange={setPeriod}
+            onChange={handlePeriodChange}
           />
 
           <div className="flex items-center gap-2">
@@ -777,7 +792,7 @@ export default function AdminKonselingPage() {
           {period === "semester" && (
             <select
               value={semId ?? ""}
-              onChange={(e) => setSemId(e.target.value)}
+              onChange={(e) => handleSemIdChange(e.target.value)}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#22c55e]/30"
             >
               {periods.map((p) => (
@@ -827,7 +842,11 @@ export default function AdminKonselingPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {view === "daftar" && (
-              <SegmentTabs options={TBL_OPTS} value={tbl} onChange={setTbl} />
+              <SegmentTabs
+                options={TBL_OPTS}
+                value={tbl}
+                onChange={handleTblChange}
+              />
             )}
             <ViewSwitch value={view} onChange={setView} />
           </div>

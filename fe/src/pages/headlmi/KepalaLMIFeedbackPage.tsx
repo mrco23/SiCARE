@@ -42,6 +42,21 @@ const COUNSELORS = [
   "Konselor E",
 ];
 
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+];
+
 const SAMPLE_COMMENTS = [
   "Konselor menjelaskan dengan jelas dan membantu saya memahami langkah berikutnya.",
   "Sesi terasa nyaman dan saya diberi ruang untuk menyampaikan pendapat.",

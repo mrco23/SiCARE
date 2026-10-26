@@ -171,7 +171,7 @@ export default function AdminPeriodePage() {
   // Toast
   const [toastMsg, setToastMsg] = useState("");
   const [toastShow, setToastShow] = useState(false);
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Simpan ke localStorage setiap data berubah
   useEffect(() => {

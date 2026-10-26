@@ -60,32 +60,6 @@ const steps = [
   },
 ];
 
-function Polaroid({
-  src,
-  className,
-  rotate,
-}: {
-  src: string;
-  className: string;
-  rotate: number;
-}) {
-  return (
-    <div
-      className={`absolute bg-white p-1.5 pb-6 shadow-[0_10px_24px_rgba(0,0,0,0.18)] ${className}`}
-      style={{ transform: `rotate(${rotate}deg)` }}
-    >
-      <img
-        src={src}
-        alt=""
-        className="h-full w-full object-contain"
-        onError={(e) => {
-          e.currentTarget.style.display = "none";
-        }}
-      />
-    </div>
-  );
-}
-
 function ReasonCard({
   icon: Icon,
   title,

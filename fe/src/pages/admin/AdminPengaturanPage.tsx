@@ -3,7 +3,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type FormEvent,
   type ReactNode,
 } from "react";
 import {
@@ -16,7 +15,6 @@ import {
   ShieldCheck,
   Trash2,
   UserRound,
-  X,
 } from "lucide-react";
 
 const ADMIN_PROFILE_KEY = "sicare_admin_profile_v1";

@@ -1,8 +1,58 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+type Step = {
+  no: string;
+  title: string;
+  side: "right" | "left";
+  numClass: string;
+  desc?: string;
+};
+
+const LOREM_LONG =
+  "lorem ipsum dolor sit amet consectetur adipiscing elit culpa qui occaecat molestias fugiat provident non cupiditate est dignissimos dolor iusto officia ut cumque ipsum laborum possimus sunt dolor id cillum reprehenderit adipiscing minim similique";
+
+const steps: Step[] = [
+  {
+    no: "01",
+    title: "Pengunjung Masuk ke Portal",
+    side: "right",
+    numClass: "right-0 -top-10 md:-right-6",
+  },
+  {
+    no: "02",
+    title: "Log In dengan Akun Kampus",
+    side: "left",
+    numClass: "left-0 -top-4 md:-left-24",
+  },
+  {
+    no: "03",
+    title: "Booking Sesi Konseling",
+    side: "right",
+    numClass: "right-0 -bottom-14 md:-right-6",
+  },
+  {
+    no: "04",
+    title: "Pelaksanaan Konseling",
+    side: "left",
+    numClass: "left-0 -bottom-12 md:-left-28",
+  },
+  {
+    no: "05",
+    title: "Pemberian Feedback Anonim",
+    side: "right",
+    numClass: "right-0 -bottom-12 md:-right-6",
+  },
+];
+
+const SectionTitle = ({ children }: { children: ReactNode }) => (
+  <h2 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-[#14553a] md:text-[30px]">
+    {children}
+  </h2>
+);
 
 // Hook: true saat elemen masuk viewport (hanya sekali)
-function useInView(threshold = 0.3) {
-  const ref = useRef(null);
+function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.3) {
+  const ref = useRef<T | null>(null);
   const [inView, setInView] = useState(false);
 
   useEffect(() => {
@@ -21,12 +71,12 @@ function useInView(threshold = 0.3) {
     return () => io.disconnect();
   }, [threshold]);
 
-  return [ref, inView];
+  return [ref, inView] as const;
 }
 
 /* ============ SATU LANGKAH ============ */
-function StepItem({ s }) {
-  const [ref, inView] = useInView();
+function StepItem({ s }: { s: Step }) {
+  const [ref, inView] = useInView<HTMLLIElement>();
   const isRight = s.side === "right";
 
   return (
@@ -86,8 +136,8 @@ function StepItem({ s }) {
 }
 
 /* ============ ALUR SISTEM ============ */
-function AlurSistem() {
-  const [listRef, listInView] = useInView(0.15);
+export default function AlurSistem() {
+  const [listRef, listInView] = useInView<HTMLDivElement>(0.15);
 
   return (
     <>

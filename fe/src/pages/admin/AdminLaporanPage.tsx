@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CalendarDays,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Check,
   Printer,
   Star,
@@ -197,8 +195,7 @@ function KpiCard({
   );
 }
 
-type PeriodKey = "semester";
-const PERIOD_OPTIONS: [PeriodKey, string][] = [["semester", "Semester"]];
+type PeriodKey = "hari" | "minggu" | "bulan" | "semester";
 const DAY_MS = 864e5;
 type DateRange = { start: Date; end: Date };
 const parseISODate = (iso: string) => {
@@ -466,7 +463,7 @@ function SemesterPeriodDropdown({
 }
 
 export default function AdminLaporanPage() {
-  const [periodKey, setPeriodKey] = useState<PeriodKey>("semester");
+  const periodKey: PeriodKey = "semester";
   const [periodId, setPeriodId] = useState<string>(
     PERIODS[PERIODS.length - 1].id,
   );
@@ -481,13 +478,6 @@ export default function AdminLaporanPage() {
     [selectedSemester],
   );
   const periodLabel = formatRangeLabel("semester", range, selectedSemester);
-  const period = selectedSemester;
-
-  function stepPeriod(direction: -1 | 1) {
-    const index = PERIODS.findIndex((item) => item.id === periodId);
-    const next = PERIODS[index + direction];
-    if (next) setPeriodId(next.id);
-  }
 
   const periodRows = useMemo(
     () =>
@@ -584,12 +574,14 @@ export default function AdminLaporanPage() {
   );
 
   const reasonCount = useMemo(
-    () =>
-      REASONS.map((reason) => ({
+    () => {
+      const cancelledRows = rows.filter((row) => row.status === "Dibatalkan");
+      return REASONS.map((reason) => ({
         reason,
-        count: cancelled.filter((row) => row.reason === reason).length,
-      })).sort((a, b) => b.count - a.count),
-    [cancelled],
+        count: cancelledRows.filter((row) => row.reason === reason).length,
+      })).sort((a, b) => b.count - a.count);
+    },
+    [rows],
   );
 
   const topicRows = useMemo(

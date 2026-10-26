@@ -9,9 +9,17 @@ import {
   Users,
 } from "lucide-react";
 
+type Step = {
+  no: string;
+  title: string;
+  side: "right" | "left";
+  numClass: string;
+  desc?: string;
+};
+
 // Hook: true saat elemen masuk viewport (hanya sekali)
-function useInView(threshold = 0.3) {
-  const ref = useRef(null);
+function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.3) {
+  const ref = useRef<T | null>(null);
   const [inView, setInView] = useState(false);
 
   useEffect(() => {
@@ -30,12 +38,12 @@ function useInView(threshold = 0.3) {
     return () => io.disconnect();
   }, [threshold]);
 
-  return [ref, inView];
+  return [ref, inView] as const;
 }
 
 /* ============ SATU LANGKAH ============ */
-function StepItem({ s }) {
-  const [ref, inView] = useInView();
+function StepItem({ s }: { s: Step }) {
+  const [ref, inView] = useInView<HTMLLIElement>();
   const isRight = s.side === "right";
 
   return (
@@ -96,7 +104,7 @@ function StepItem({ s }) {
 
 /* ============ ALUR SISTEM ============ */
 function AlurSistem() {
-  const [listRef, listInView] = useInView(0.15);
+  const [listRef, listInView] = useInView<HTMLDivElement>(0.15);
 
   return (
     <>
@@ -291,13 +299,6 @@ const audiences: { title: string; icon: ReactNode; desc: string }[] = [
     desc: LOREM,
   },
 ];
-
-type Step = {
-  no: string;
-  title: string;
-  side: "right" | "left";
-  numClass: string;
-};
 
 const steps: Step[] = [
   {

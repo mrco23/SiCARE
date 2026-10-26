@@ -779,12 +779,15 @@ export default function KlienRiwayatPage() {
   const [detailSessionId, setDetailSessionId] = useState<number | null>(null);
   const [consentSessionId, setConsentSessionId] = useState<number | null>(null);
 
-  const items =
-    view === "booking"
-      ? BOOKING_ITEMS
-      : view === "konseling"
-        ? SESSION_ITEMS
-        : [];
+  const items = useMemo(
+    () =>
+      view === "booking"
+        ? BOOKING_ITEMS
+        : view === "konseling"
+          ? SESSION_ITEMS
+          : [],
+    [view],
+  );
 
   const range = useMemo(() => {
     const year = anchor.getFullYear();
@@ -849,22 +852,21 @@ export default function KlienRiwayatPage() {
     [items, range, format],
   );
 
+  // Jika konselor yang dipilih tidak ada di baseItems periode ini, fallback ke "all"
+  // tanpa mengubah state (menghindari cascading render).
+  const effectiveCounselor: "all" | CounselorKey =
+    counselor !== "all" &&
+    !baseItems.some((item) => item.counselor === counselor)
+      ? "all"
+      : counselor;
+
   const visibleItems = useMemo(
     () =>
-      counselor === "all"
+      effectiveCounselor === "all"
         ? baseItems
-        : baseItems.filter((item) => item.counselor === counselor),
-    [baseItems, counselor],
+        : baseItems.filter((item) => item.counselor === effectiveCounselor),
+    [baseItems, effectiveCounselor],
   );
-
-  useEffect(() => {
-    if (
-      counselor !== "all" &&
-      !baseItems.some((item) => item.counselor === counselor)
-    ) {
-      setCounselor("all");
-    }
-  }, [baseItems, counselor]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

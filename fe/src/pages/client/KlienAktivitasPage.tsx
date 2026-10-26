@@ -54,7 +54,6 @@ type TimeSlot = {
 
 const RESCHEDULE_MIN_HOURS = 24;
 const RESCHEDULE_MAX = 1;
-const SESSION_MIN = 60;
 const MAX_AHEAD_DAYS = 60;
 
 // Letakkan file PDF di folder public/
@@ -161,14 +160,6 @@ const startOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-
-const formatDateLong = (date: Date) =>
-  date.toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 
 const dayLabel = (date: Date, now: number) => {
   const today = startOfDay(new Date(now));
