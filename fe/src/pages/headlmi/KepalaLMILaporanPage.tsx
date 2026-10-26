@@ -1,4 +1,5 @@
 import { PageContainer, PageHeader } from "../../components/shared";
+import { SESSION_OUTCOME_LABEL } from "../../constants/status";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownRight,
@@ -24,62 +25,10 @@ import {
   type AcademicPeriod,
   type PeriodStatus,
 } from "../../lib/academicPeriods";
-
-type Session = {
-  id: string;
-  date: string;
-  format: "Individu" | "Kelompok";
-  status: "Selesai" | "Dibatalkan";
-  counselor: string;
-  cancellationReason: string;
-};
-
-const COUNSELORS = [
-  "Konselor A",
-  "Konselor B",
-  "Konselor C",
-  "Konselor D",
-  "Konselor E",
-];
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "Mei",
-  "Jun",
-  "Jul",
-  "Agu",
-  "Sep",
-  "Okt",
-  "Nov",
-  "Des",
-];
-
-const CANCELLATION_REASONS = [
-  "Klien berhalangan",
-  "Konselor berhalangan",
-  "Jadwal bentrok",
-  "Alasan administratif",
-];
+import { SESSIONS, CANCELLATION_REASONS } from "../../data/mock/headlmiReports";
+import { REPORT_COUNSELORS as COUNSELORS, REPORT_MONTHS as MONTHS } from "../../data/mock/reportCommon";
 
 /* Data sintetis untuk desain frontend. Ganti dengan data agregat dari backend. */
-const SESSIONS: Session[] = Array.from({ length: 240 }, (_, index) => {
-  const date = new Date(Date.UTC(2024, 7, 20) + index * 2.3 * 864e5);
-  const cancelled = index % 8 === 0 || index % 17 === 0;
-
-  return {
-    id: `S${String(index + 1).padStart(3, "0")}`,
-    date: date.toISOString().slice(0, 10),
-    format: index % 4 === 0 ? "Kelompok" : "Individu",
-    status: cancelled ? "Dibatalkan" : "Selesai",
-    counselor: COUNSELORS[index % COUNSELORS.length],
-    cancellationReason: cancelled
-      ? CANCELLATION_REASONS[index % CANCELLATION_REASONS.length]
-      : "",
-  };
-});
 
 const STATUS_STYLE: Record<PeriodStatus, string> = {
   Aktif: "border-emerald-200 bg-emerald-50 text-primary",
@@ -347,8 +296,8 @@ export default function KepalaLMILaporanPage() {
   const period = periods.find((item) => item.id === periodId) ?? null;
   const rows = useMemo(() => sessionsInPeriod(period), [period]);
 
-  const completed = rows.filter((session) => session.status === "Selesai");
-  const cancelled = rows.filter((session) => session.status === "Dibatalkan");
+  const completed = rows.filter((session) => session.status === SESSION_OUTCOME_LABEL.COMPLETED);
+  const cancelled = rows.filter((session) => session.status === SESSION_OUTCOME_LABEL.CANCELLED);
   const individualCompleted = completed.filter(
     (session) => session.format === "Individu",
   );
@@ -374,7 +323,7 @@ export default function KepalaLMILaporanPage() {
     [previousPeriod],
   );
   const previousCompleted = previousRows.filter(
-    (session) => session.status === "Selesai",
+    (session) => session.status === SESSION_OUTCOME_LABEL.COMPLETED,
   ).length;
   const completedChange = completed.length - previousCompleted;
   const completedChangePct =
@@ -387,7 +336,7 @@ export default function KepalaLMILaporanPage() {
     rows.forEach((session) => {
       const key = session.date.slice(0, 7);
       map[key] ??= { done: 0, cancelled: 0 };
-      if (session.status === "Selesai") map[key].done += 1;
+      if (session.status === SESSION_OUTCOME_LABEL.COMPLETED) map[key].done += 1;
       else map[key].cancelled += 1;
     });
     return Object.entries(map)
@@ -407,10 +356,10 @@ export default function KepalaLMILaporanPage() {
           (session) => session.counselor === counselor,
         );
         const done = counselorSessions.filter(
-          (session) => session.status === "Selesai",
+          (session) => session.status === SESSION_OUTCOME_LABEL.COMPLETED,
         );
         const canceled = counselorSessions.filter(
-          (session) => session.status === "Dibatalkan",
+          (session) => session.status === SESSION_OUTCOME_LABEL.CANCELLED,
         );
         return {
           counselor,
@@ -436,7 +385,7 @@ export default function KepalaLMILaporanPage() {
   const cancellationRows = useMemo(
     () => {
       const cancelled = rows.filter(
-        (session) => session.status === "Dibatalkan",
+        (session) => session.status === SESSION_OUTCOME_LABEL.CANCELLED,
       );
       return CANCELLATION_REASONS.map((reason) => ({
         reason,

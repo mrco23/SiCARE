@@ -1,4 +1,8 @@
 import { PageHeader } from "../../components/shared";
+import {
+  CLIENT_SESSION_TIMELINE_STATUS,
+  type ClientSessionTimelineStatus,
+} from "../../constants/status";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Link } from "react-router-dom";
@@ -12,31 +16,7 @@ import {
   Star,
   X,
 } from "lucide-react";
-
-type SessionStatus = "ongoing" | "done" | "upcoming";
-
-type PendingSlot = {
-  reason: string;
-  note: string;
-  label: string;
-};
-
-type Session = {
-  id: number;
-  counselor: string;
-  initials: string;
-  service: string;
-  room: string;
-  start: Date;
-  end: Date;
-  rescheduleCount: number;
-  feedbackGiven: boolean;
-  rating: number;
-  pendingSlot?: PendingSlot | null;
-  consentSigned?: boolean;
-  consentSignature?: string | null;
-  consentSignedAt?: Date | null;
-};
+import { COUNSELOR_SCHEDULE, RESCHEDULE_REASONS, createInitialSessions, type Session } from "../../data/mock/clientActivity";
 
 type RescheduleState = {
   sessionId: number;
@@ -59,100 +39,6 @@ const MAX_AHEAD_DAYS = 60;
 
 // Letakkan file PDF di folder public/
 const CONSENT_PDF_URL = "/informed-consent.pdf";
-
-const RESCHEDULE_REASONS = [
-  "Bentrok jadwal kuliah",
-  "Sakit",
-  "Keperluan mendesak",
-  "Lainnya",
-];
-
-const COUNSELOR_WEEK: Record<number, string[]> = {
-  2: ["14.00-15.00", "15.00-16.00"],
-  3: ["09.00-10.00", "10.00-11.00"],
-  4: ["14.00-15.00", "15.00-16.00"],
-};
-
-const COUNSELOR_SCHEDULE: Record<string, Record<number, string[]>> = {
-  "Giovanna Yudi, S.Psi., M.Psi.": COUNSELOR_WEEK,
-  "Rico Kornelius Wahani, S.Psi., M.Psi.": COUNSELOR_WEEK,
-};
-
-function createInitialSessions(): Session[] {
-  const at = (minutesFromNow: number) =>
-    new Date(Date.now() + minutesFromNow * 60_000);
-
-  return [
-    {
-      id: 1,
-      counselor: "Giovanna Yudi, S.Psi., M.Psi.",
-      initials: "GY",
-      service: "Konseling Individu",
-      room: "Ruang Konseling 01",
-      start: at(-10),
-      end: at(50),
-      rescheduleCount: 0,
-      feedbackGiven: false,
-      rating: 0,
-      pendingSlot: null,
-      consentSigned: false,
-      consentSignature: null,
-      consentSignedAt: null,
-    },
-    {
-      id: 2,
-      counselor: "Rico Kornelius Wahani, S.Psi., M.Psi.",
-      initials: "RW",
-      service: "Konseling Individu",
-      room: "Ruang Konseling 02",
-      start: at(60 * 30),
-      end: at(60 * 31),
-      rescheduleCount: 0,
-      feedbackGiven: false,
-      rating: 0,
-      pendingSlot: null,
-    },
-    {
-      id: 3,
-      counselor: "Giovanna Yudi, S.Psi., M.Psi.",
-      initials: "GY",
-      service: "Konseling Individu",
-      room: "Ruang Konseling 01",
-      start: at(-60 * 20),
-      end: at(-60 * 19),
-      rescheduleCount: 0,
-      feedbackGiven: false,
-      rating: 0,
-      pendingSlot: null,
-    },
-    {
-      id: 4,
-      counselor: "Rico Kornelius Wahani, S.Psi., M.Psi.",
-      initials: "RW",
-      service: "Konseling Individu",
-      room: "Ruang Konseling 02",
-      start: at(-60 * 48),
-      end: at(-60 * 47),
-      rescheduleCount: 0,
-      feedbackGiven: false,
-      rating: 0,
-      pendingSlot: null,
-    },
-    {
-      id: 5,
-      counselor: "Giovanna Yudi, S.Psi., M.Psi.",
-      initials: "GY",
-      service: "Konseling Individu",
-      room: "Ruang Konseling 01",
-      start: at(-60 * 72),
-      end: at(-60 * 71),
-      rescheduleCount: 0,
-      feedbackGiven: true,
-      rating: 5,
-      pendingSlot: null,
-    },
-  ];
-}
 
 const formatTime = (date: Date) =>
   `${String(date.getHours()).padStart(2, "0")}.${String(date.getMinutes()).padStart(2, "0")}`;
@@ -189,25 +75,26 @@ const countdown = (milliseconds: number) => {
     : `${remainingMinutes} menit lagi`;
 };
 
-const statusOf = (session: Session, now: number): SessionStatus => {
+const statusOf = (session: Session, now: number): ClientSessionTimelineStatus => {
   if (now >= session.start.getTime() && now < session.end.getTime()) {
-    return "ongoing";
+    return CLIENT_SESSION_TIMELINE_STATUS.ONGOING;
   }
-  if (now >= session.end.getTime()) return "done";
-  return "upcoming";
+  if (now >= session.end.getTime()) return CLIENT_SESSION_TIMELINE_STATUS.COMPLETED;
+  return CLIENT_SESSION_TIMELINE_STATUS.UPCOMING;
 };
 
 const canReschedule = (session: Session, now: number) => {
   const hoursLeft = (session.start.getTime() - now) / 3_600_000;
   return (
-    statusOf(session, now) === "upcoming" &&
+    statusOf(session, now) === CLIENT_SESSION_TIMELINE_STATUS.UPCOMING &&
     hoursLeft >= RESCHEDULE_MIN_HOURS &&
     session.rescheduleCount < RESCHEDULE_MAX
   );
 };
 
 const needsFeedback = (session: Session, now: number) =>
-  statusOf(session, now) === "done" && !session.feedbackGiven;
+  statusOf(session, now) === CLIENT_SESSION_TIMELINE_STATUS.COMPLETED &&
+  !session.feedbackGiven;
 
 /* ============================================================
  * Kolom tanda tangan digital (canvas, mendukung jari/stylus/mouse)
@@ -491,7 +378,7 @@ export default function KlienAktivitasPage() {
   const ongoing = useMemo(
     () =>
       sessions
-        .filter((session) => statusOf(session, now) === "ongoing")
+        .filter((session) => statusOf(session, now) === CLIENT_SESSION_TIMELINE_STATUS.ONGOING)
         .sort((a, b) => a.start.getTime() - b.start.getTime()),
     [sessions, now],
   );
@@ -499,7 +386,7 @@ export default function KlienAktivitasPage() {
   const upcoming = useMemo(
     () =>
       sessions
-        .filter((session) => statusOf(session, now) === "upcoming")
+        .filter((session) => statusOf(session, now) === CLIENT_SESSION_TIMELINE_STATUS.UPCOMING)
         .sort((a, b) => a.start.getTime() - b.start.getTime()),
     [sessions, now],
   );

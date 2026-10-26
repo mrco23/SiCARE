@@ -11,6 +11,7 @@ import {
 import { motion } from "framer-motion";
 import type { ElementType } from "react";
 import { useEffect, useRef } from "react";
+import { HOME_PAGE_TESTIMONIALS as testimonials, HOME_PAGE_COUNSELORS as counselors } from "../../data/mock/publicShowcases";
 
 // Lebar konten: lebih sempit dari sebelumnya agar lebih terpusat
 const container = "mx-auto w-[84%] sm:w-[76%] md:w-[72%] lg:w-[66%] xl:w-[80%]";
@@ -97,29 +98,6 @@ function ReasonCard({
     </div>
   );
 }
-
-const testimonials = [
-  {
-    name: "G******",
-    text: "lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-  {
-    name: "G******",
-    text: "lorem banget ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-  {
-    name: "G******",
-    text: "lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-  {
-    name: "G******",
-    text: "lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-  {
-    name: "G******",
-    text: "lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-];
 
 function TestimonialCard({ name, text }: { name: string; text: string }) {
   return (
@@ -260,29 +238,6 @@ function Testimonials() {
     </section>
   );
 }
-
-const counselors = [
-  {
-    id: 1,
-    name: "Giovanna Yusi, S.Psi., M.Psi., Psikolog",
-    image: "/gio.jpeg",
-    topics: ["Konseling Akademik", "Manajemen Stres", "Pengembangan Diri"],
-    description:
-      "Mendampingi mahasiswa dalam menghadapi tantangan akademik, mengelola stres, dan mengembangkan potensi diri.",
-    experience: "3 tahun pengalaman konseling",
-    education: "S2 Psikologi",
-  },
-  {
-    id: 2,
-    name: "Rico Kornelius Wahani, S.Psi., M.Psi., Psikolog.",
-    image: "/rico.png",
-    topics: ["Kesehatan Mental", "Relasi Sosial", "Kecemasan"],
-    description:
-      "Membantu mahasiswa memahami emosi, membangun relasi yang sehat, dan menghadapi kecemasan.",
-    experience: "4 tahun pengalaman konseling",
-    education: "S2 Psikologi Profesi",
-  },
-];
 
 function Counselors() {
   return (

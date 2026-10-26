@@ -1,6 +1,7 @@
 import { useState, type ElementType } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageContainer, PageHeader } from "../../components/shared";
+import { COUNSELOR_WORKLOAD, DASHBOARD_COUNTS, WEEKLY_SESSIONS } from "../../data/mock/dashboardOverview";
 
 import {
   ArrowRight,
@@ -28,7 +29,7 @@ type Metric = {
 const metrics: Metric[] = [
   {
     label: "Total Permintaan",
-    value: 124,
+    value: DASHBOARD_COUNTS.totalRequests,
     note: "Keseluruhan booking",
     icon: Inbox,
     noteClass: "text-emerald-600",
@@ -37,7 +38,7 @@ const metrics: Metric[] = [
   },
   {
     label: "Sesi Selesai",
-    value: 98,
+    value: DASHBOARD_COUNTS.completedSessions,
     note: "Status: Completed",
     icon: CircleCheck,
     noteClass: "text-slate-500",
@@ -45,7 +46,7 @@ const metrics: Metric[] = [
   },
   {
     label: "Dibatalkan",
-    value: 8,
+    value: DASHBOARD_COUNTS.cancelled,
     note: "Status: Cancelled",
     icon: Ban,
     noteClass: "text-red-600",
@@ -53,7 +54,7 @@ const metrics: Metric[] = [
   },
   {
     label: "Menunggu Konfirmasi",
-    value: 5,
+    value: DASHBOARD_COUNTS.pending,
     note: "Status: Waiting",
     icon: Clock,
     noteClass: "text-amber-600",
@@ -61,33 +62,24 @@ const metrics: Metric[] = [
   },
 ];
 
-const weeklySessions = [
-  { label: "Minggu 1", value: 14 },
-  { label: "Minggu 2", value: 30 },
-  { label: "Minggu 3", value: 20 },
-  { label: "Minggu 4", value: 16 },
-];
+const weeklySessions = WEEKLY_SESSIONS;
 
-const serviceDistribution = { individu: 78, kelompok: 22, total: 124 };
+const serviceDistribution = {
+  individu: 78,
+  kelompok: 22,
+  total: DASHBOARD_COUNTS.totalRequests,
+};
 
-const counselors = [
-  {
-    name: "Ma'am Giovanna Yudi, M.Psi",
-    avatar:
-      "https://ui-avatars.com/api/?name=Giovanna+Yudi&background=15803d&color=fff",
-    sessions: 24,
-    status: "AVAILABLE",
-    statusClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  },
-  {
-    name: "Dr. Budi Santoso, Psikolog",
-    avatar:
-      "https://ui-avatars.com/api/?name=Budi+Santoso&background=475569&color=fff",
-    sessions: 19,
-    status: "FULLY BOOKED",
-    statusClass: "bg-amber-50 text-amber-700 border-amber-200",
-  },
-];
+const counselors = COUNSELOR_WORKLOAD.map((counselor) => ({
+  name: counselor.name,
+  sessions: counselor.sessions,
+  avatar: counselor.avatar,
+  status: counselor.availability === "available" ? "AVAILABLE" : "FULLY BOOKED",
+  statusClass:
+    counselor.availability === "available"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : "bg-amber-50 text-amber-700 border-amber-200",
+}));
 
 /* ========================= KARTU METRIK ========================= */
 function MetricCards() {

@@ -1,4 +1,8 @@
 import { PageHeader } from "../../components/shared";
+import {
+  CLIENT_BOOKING_STATUS,
+  type ClientDashboardBookingStatus,
+} from "../../constants/status";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -20,8 +24,6 @@ import {
 
 /* ========================= TIPE & DATA (contoh) ========================= */
 // Di produksi, ambil dari API sesuai akun klien yang sedang login.
-type BookingStatus = "pending" | "scheduled" | "done" | "cancelled";
-
 type NextSession = {
   date: Date;
   time: string;
@@ -33,23 +35,38 @@ type NextSession = {
 type LastBooking = {
   service: string;
   counselor: string;
-  status: BookingStatus;
+  status: ClientDashboardBookingStatus;
   requestedDate: Date;
 };
 
 const USER_NAME = "Marco";
 
-const STATUS_STYLE: Record<BookingStatus, { cls: string; label: string }> = {
-  pending: { cls: "bg-amber-50 text-amber-700", label: "Menunggu Konfirmasi" },
-  scheduled: { cls: "bg-primary-soft text-primary", label: "Terjadwal" },
-  done: { cls: "bg-gray-100 text-gray-700", label: "Selesai" },
-  cancelled: { cls: "bg-red-50 text-red-700", label: "Dibatalkan" },
+const STATUS_STYLE: Record<
+  ClientDashboardBookingStatus,
+  { cls: string; label: string }
+> = {
+  [CLIENT_BOOKING_STATUS.PENDING]: {
+    cls: "bg-amber-50 text-amber-700",
+    label: "Menunggu Konfirmasi",
+  },
+  [CLIENT_BOOKING_STATUS.SCHEDULED]: {
+    cls: "bg-primary-soft text-primary",
+    label: "Terjadwal",
+  },
+  [CLIENT_BOOKING_STATUS.COMPLETED]: {
+    cls: "bg-gray-100 text-gray-700",
+    label: "Selesai",
+  },
+  [CLIENT_BOOKING_STATUS.CANCELLED]: {
+    cls: "bg-red-50 text-red-700",
+    label: "Dibatalkan",
+  },
 };
 
 const LAST_BOOKING: LastBooking | null = {
   service: "Konseling Individu",
   counselor: "Giovanna Yudi, S. Psi., M. Psi.",
-  status: "pending",
+  status: CLIENT_BOOKING_STATUS.PENDING,
   requestedDate: new Date(2026, 9, 15),
 };
 

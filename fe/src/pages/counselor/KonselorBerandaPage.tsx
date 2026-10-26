@@ -1,4 +1,5 @@
 import { PageContainer, PageHeader } from "../../components/shared";
+import { COUNSELING_REQUEST_STATUS } from "../../constants/status";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -7,76 +8,9 @@ import {
   ClipboardList,
   MessageSquareText,
 } from "lucide-react";
-
-type Request = {
-  id: number;
-  name: string;
-  role: string;
-  topic: string;
-  format: "Individu" | "Kelompok";
-  waitMin: number;
-  status: "pending" | "accepted" | "rejected";
-};
-
-type Session = {
-  id: number;
-  client: string;
-  topic: string;
-  format: "Individu" | "Kelompok";
-  time: string; // "HH.MM", durasi 1 jam
-};
+import { initialRequests, initialSessions, SESSIONS_THIS_WEEK, RATINGS, type Request, type Session } from "../../data/mock/counselorDashboard";
 
 type SessionState = "done" | "live" | "upcoming";
-
-const initialRequests: Request[] = [
-  {
-    id: 1,
-    name: "Yusli Ngongano",
-    role: "Mahasiswa",
-    topic: "Masalah akademik & manajemen waktu",
-    format: "Individu",
-    waitMin: 185,
-    status: "pending",
-  },
-  {
-    id: 2,
-    name: "Ayu Pratiwi",
-    role: "Mahasiswa",
-    topic: "Kecemasan menghadapi ujian",
-    format: "Kelompok",
-    waitMin: 42,
-    status: "pending",
-  },
-  {
-    id: 3,
-    name: "Bagas Hermawan",
-    role: "Dosen / Staf",
-    topic: "Stres kerja",
-    format: "Individu",
-    waitMin: 1440,
-    status: "pending",
-  },
-];
-
-const initialSessions: Session[] = [
-  {
-    id: 101,
-    client: "Ayu Pratiwi",
-    topic: "Motivasi",
-    format: "Kelompok",
-    time: "10.00",
-  },
-  {
-    id: 102,
-    client: "Yusli Ngongano",
-    topic: "Pengembangan Diri",
-    format: "Individu",
-    time: "15.00",
-  },
-];
-
-const SESSIONS_THIS_WEEK = 4;
-const RATINGS = [5, 5, 4, 5, 3];
 
 const toMin = (t: string) => {
   const [h, m] = t.split(".").map(Number);
@@ -133,7 +67,7 @@ export default function CounselorDashboardPage() {
   const pendingRequests = useMemo(
     () =>
       requests
-        .filter((r) => r.status === "pending")
+        .filter((r) => r.status === COUNSELING_REQUEST_STATUS.PENDING)
         .sort((a, b) => b.waitMin - a.waitMin),
     [requests],
   );
@@ -174,7 +108,12 @@ export default function CounselorDashboardPage() {
     setRequests((prev) =>
       prev.map((r) =>
         r.id === req.id
-          ? { ...r, status: confirm.accept ? "accepted" : "rejected" }
+          ? {
+              ...r,
+              status: confirm.accept
+                ? COUNSELING_REQUEST_STATUS.ACCEPTED
+                : COUNSELING_REQUEST_STATUS.REJECTED,
+            }
           : r,
       ),
     );

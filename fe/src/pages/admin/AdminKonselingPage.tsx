@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { PageContainer, PageHeader } from "../../components/shared";
+import { SESSION_OUTCOME_STATUS } from "../../constants/status";
 import {
   Ban,
   Check,
@@ -25,75 +26,12 @@ import {
   toISO,
   type AcademicPeriod,
 } from "../../lib/academicPeriods";
+import { COUNSELORS, RATING, SESI, NOW, type Session } from "../../data/mock/adminCounseling";
 
 /* ========================= DATA CONTOH ========================= */
 /* Ganti dengan fetch('/api/admin/konseling?start=...&end=...') */
-const COUNSELORS = [
-  "Ma'am Giovanna Yudi, M.Psi",
-  "Dr. Budi Santoso, Psikolog",
-  "Sari Wulandari, M.Psi",
-];
-const RATING = [4.8, 4.2, 4.5]; // dari halaman Feedback
-const REASONS = [
-  "Konflik jadwal pribadi",
-  "Klien sakit",
-  "Tidak ada respons dari klien",
-  "Konselor berhalangan",
-  "Masalah koneksi sesi online",
-];
 
-type SessionType = "individu" | "kelompok";
-type SessionStatus = "selesai" | "dibatalkan";
-
-type Session = {
-  id: number;
-  start: Date;
-  type: SessionType;
-  durasi: number;
-  konselor: number;
-  participants: number[];
-  status: SessionStatus;
-  cancelledBy: "konselor" | "klien" | null;
-  cancelReason: string | null;
-  cancelLead: number | null; // jam sebelum jadwal
-};
-
-const NOW = new Date();
-let seed = 7;
-const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-
-const SESI: Session[] = Array.from({ length: 60 }, (_, i) => {
-  const ago = i < 6 ? 0 : i < 9 ? 1 : Math.floor(rnd() * 240);
-  const hour = 8 + Math.floor(rnd() * 9);
-  const start = new Date(
-    NOW.getFullYear(),
-    NOW.getMonth(),
-    NOW.getDate() - ago,
-    hour,
-    0,
-  );
-  const type: SessionType = rnd() < 0.65 ? "individu" : "kelompok";
-  const cancelled = rnd() < 0.15;
-  const n = type === "individu" ? 1 : 3 + Math.floor(rnd() * 6);
-  return {
-    id: 1001 + i,
-    start,
-    type,
-    durasi: rnd() < 0.7 ? 60 : 45,
-    konselor: Math.floor(rnd() * 3),
-    participants: Array.from({ length: n }, (_, k) => i * 10 + k),
-    status: (cancelled ? "dibatalkan" : "selesai") as SessionStatus,
-    cancelledBy: (cancelled
-      ? rnd() < 0.6
-        ? "konselor"
-        : "klien"
-      : null) as Session["cancelledBy"],
-    cancelReason: cancelled
-      ? REASONS[Math.floor(rnd() * REASONS.length)]
-      : null,
-    cancelLead: cancelled ? Math.round(rnd() * 48) : null,
-  };
-}).sort((a, b) => b.start.getTime() - a.start.getTime());
+ // dari halaman Feedback
 
 /* ========================= UTIL ========================= */
 type PeriodKey = "hari" | "minggu" | "bulan" | "semester";
@@ -398,7 +336,7 @@ function CounselorPicker({
           {COUNSELORS.map((c, i) => {
             const active = i === kon;
             const done = sessions.filter(
-              (s) => s.konselor === i && s.status === "selesai",
+              (s) => s.konselor === i && s.status === SESSION_OUTCOME_STATUS.COMPLETED,
             ).length;
             return (
               <li key={c}>
@@ -450,9 +388,9 @@ function CounselorPanel({
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const KP = sessions.filter((s) => s.konselor === kon);
-  const KSelesai = KP.filter((s) => s.status === "selesai");
+  const KSelesai = KP.filter((s) => s.status === SESSION_OUTCOME_STATUS.COMPLETED);
   const KInd = KSelesai.filter((s) => s.type === "individu").length;
-  const KBatal = KP.filter((s) => s.status === "dibatalkan").length;
+  const KBatal = KP.filter((s) => s.status === SESSION_OUTCOME_STATUS.CANCELLED).length;
 
   const bk = buckets(period, range);
   const counts = bk.map(
@@ -602,12 +540,12 @@ function CounselorPanel({
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                      s.status === "selesai"
+                      s.status === SESSION_OUTCOME_STATUS.COMPLETED
                         ? "bg-emerald-50 text-[#15803d]"
                         : "bg-rose-50 text-rose-600"
                     }`}
                   >
-                    {s.status === "selesai" ? "Selesai" : "Dibatalkan"}
+                    {s.status === SESSION_OUTCOME_STATUS.COMPLETED ? "Selesai" : "Dibatalkan"}
                   </span>
                 </button>
               ))
@@ -726,8 +664,8 @@ export default function AdminKonselingPage() {
   }
 
   /* ----- KPI ----- */
-  const selesai = P.filter((s) => s.status === "selesai");
-  const batal = P.filter((s) => s.status === "dibatalkan");
+  const selesai = P.filter((s) => s.status === SESSION_OUTCOME_STATUS.COMPLETED);
+  const batal = P.filter((s) => s.status === SESSION_OUTCOME_STATUS.CANCELLED);
   const indCount = selesai.filter((s) => s.type === "individu").length;
   const pctBatal = P.length ? Math.round((batal.length / P.length) * 100) : 0;
   const aktifKonselor = new Set(P.map((s) => s.konselor)).size;
@@ -738,7 +676,7 @@ export default function AdminKonselingPage() {
       tbl === "semua" ||
       (tbl === "individu" && s.type === "individu") ||
       (tbl === "kelompok" && s.type === "kelompok") ||
-      (tbl === "dibatalkan" && s.status === "dibatalkan"),
+      (tbl === "dibatalkan" && s.status === SESSION_OUTCOME_STATUS.CANCELLED),
   );
   const shown = rows.slice(0, limit);
   const remaining = rows.length - shown.length;
@@ -908,7 +846,7 @@ export default function AdminKonselingPage() {
                         {s.durasi} menit
                       </td>
                       <td className="px-6 py-3.5">
-                        {s.status === "selesai" ? (
+                        {s.status === SESSION_OUTCOME_STATUS.COMPLETED ? (
                           <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-[#15803d]">
                             Selesai
                           </span>
@@ -1017,12 +955,12 @@ export default function AdminKonselingPage() {
               </span>
               <span
                 className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                  sesi.status === "selesai"
+                  sesi.status === SESSION_OUTCOME_STATUS.COMPLETED
                     ? "bg-emerald-50 text-[#15803d]"
                     : "bg-rose-50 text-rose-700"
                 }`}
               >
-                {sesi.status === "selesai" ? "Selesai" : "Dibatalkan"}
+                {sesi.status === SESSION_OUTCOME_STATUS.COMPLETED ? "Selesai" : "Dibatalkan"}
               </span>
             </div>
 
@@ -1072,7 +1010,7 @@ export default function AdminKonselingPage() {
               </div>
             </dl>
 
-            {sesi.status === "dibatalkan" && (
+            {sesi.status === SESSION_OUTCOME_STATUS.CANCELLED && (
               <div
                 className={`space-y-2 rounded-2xl border p-4 ${
                   (sesi.cancelLead ?? 99) < 24
@@ -1118,7 +1056,7 @@ export default function AdminKonselingPage() {
                   {fmtDT(new Date(sesi.start.getTime() - 2 * DAY))} · Sesi
                   dijadwalkan
                 </li>
-                {sesi.status === "selesai" ? (
+                {sesi.status === SESSION_OUTCOME_STATUS.COMPLETED ? (
                   <li>{fmtDT(sesi.start)} · Sesi selesai dicatat</li>
                 ) : (
                   <li>

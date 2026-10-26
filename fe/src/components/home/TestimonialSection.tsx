@@ -1,66 +1,7 @@
 import { useRef, useState } from 'react';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
 import { Quote, ChevronLeft, ChevronRight } from 'lucide-react';
-
-interface Testimonial {
-  id: string;
-  anonymous: string;
-  role: string;
-  rating: number;
-  text: string;
-  category: string;
-}
-
-const TESTIMONIALS: Testimonial[] = [
-  {
-    id: 't1',
-    anonymous: 'G*****a',
-    role: 'Mahasiswa Semester 6',
-    rating: 5,
-    text: 'Awalnya saya ragu untuk mencoba konseling. Tapi setelah sesi pertama, saya merasa jauh lebih lega. Konselor sangat sabar mendengarkan dan tidak menghakimi sama sekali. Terima kasih SiCARE!',
-    category: 'Kesehatan Mental',
-  },
-  {
-    id: 't2',
-    anonymous: 'R*****n',
-    role: 'Mahasiswa Baru',
-    rating: 5,
-    text: 'Saya mengalami culture shock saat pertama kuliah. Dengan bantuan konselor, saya belajar cara beradaptasi dan membangun rasa percaya diri. Prosesnya mudah dan tidak menyulitkan sama sekali.',
-    category: 'Adaptasi & Akademik',
-  },
-  {
-    id: 't3',
-    anonymous: 'F*****i',
-    role: 'Mahasiswa Tingkat Akhir',
-    rating: 5,
-    text: 'Tekanan skripsi hampir membuatku menyerah. Layanan konseling karir di SiCARE membantu saya menemukan kembali motivasi dan strategi yang tepat. Sangat direkomendasikan!',
-    category: 'Karir & Akademik',
-  },
-  {
-    id: 't4',
-    anonymous: 'A*****s',
-    role: 'Mahasiswa Semester 4',
-    rating: 4,
-    text: 'Sistem booking sangat mudah digunakan. Konselor saya sangat profesional dan selalu menepati waktu. Sesi konseling online juga nyaman dan terasa personal.',
-    category: 'Pengalaman Layanan',
-  },
-  {
-    id: 't5',
-    anonymous: 'D*****a',
-    role: 'Mahasiswi Semester 3',
-    rating: 5,
-    text: 'Masalah hubungan yang sudah lama saya pendam akhirnya bisa saya hadapi dengan lebih bijak berkat bimbingan konselor di sini. Privasi terjaga dan tidak perlu khawatir.',
-    category: 'Hubungan Sosial',
-  },
-  {
-    id: 't6',
-    anonymous: 'H*****o',
-    role: 'Mahasiswa Pasca Sarjana',
-    rating: 5,
-    text: 'Konseling manajemen stres benar-benar mengubah cara saya menghadapi deadline dan tekanan akademik. Kini saya lebih produktif dan bahagia. Platform ini luar biasa!',
-    category: 'Manajemen Stres',
-  },
-];
+import { TESTIMONIALS } from "../../data/mock/publicShowcases";
 
 function StarRating({ rating }: { rating: number }) {
   return (

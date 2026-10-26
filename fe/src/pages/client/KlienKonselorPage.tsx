@@ -8,103 +8,11 @@ import {
   Search,
   UsersRound,
 } from "lucide-react";
+import { CLIENT_DIRECTORY_COUNSELORS as COUNSELORS, type ClientDirectoryCounselor as Counselor } from "../../data/mock/clientCounselors";
 
 const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"] as const;
 
-type CounselorEducation = {
-  school: string;
-  year: string;
-  degree: string;
-};
-
-type Counselor = {
-  id: number;
-  name: string;
-  initials: string;
-  about: string;
-  education: CounselorEducation[];
-  experience: string;
-  topics: string[];
-  schedule: Record<string, string[]>;
-};
-
 // Data contoh. Pada produksi, data konselor dapat diambil dari API.
-const COUNSELORS: Counselor[] = [
-  {
-    id: 1,
-    name: "Giovanna Yudi, S.Psi., M.Psi., Psikolog",
-    initials: "GY",
-    about:
-      "Informasi singkat mengenai konselor belum tersedia. Silakan lihat pendidikan, pengalaman, topik keahlian, dan jadwal konseling berikut.",
-    education: [
-      {
-        school: "Universitas Surabaya",
-        year: "2018",
-        degree: "Sarjana Psikologi",
-      },
-      {
-        school: "Universitas Surabaya",
-        year: "2021",
-        degree: "Magister Psikologi Profesi",
-      },
-    ],
-    experience: "5 Tahun",
-    topics: [
-      "Karir",
-      "Pengembangan Diri",
-      "Motivasi",
-      "Stres",
-      "Relasi",
-      "Keluarga",
-      "Konflik",
-      "Kesiapan Kerja",
-    ],
-    schedule: {
-      Senin: [],
-      Selasa: ["14.00–15.00", "15.00–16.00"],
-      Rabu: ["09.00–10.00", "10.00–11.00"],
-      Kamis: ["14.00–15.00", "15.00–16.00"],
-      Jumat: [],
-    },
-  },
-  {
-    id: 2,
-    name: "Rico Kornelius Wahani, S.Psi., M.Psi., Psikolog",
-    initials: "RW",
-    about:
-      "Informasi singkat mengenai konselor belum tersedia. Silakan lihat pendidikan, pengalaman, topik keahlian, dan jadwal konseling berikut.",
-    education: [
-      {
-        school: "Universitas Surabaya",
-        year: "2018",
-        degree: "Sarjana Psikologi",
-      },
-      {
-        school: "Universitas Surabaya",
-        year: "2021",
-        degree: "Magister Psikologi Profesi",
-      },
-    ],
-    experience: "5 Tahun",
-    topics: [
-      "Karir",
-      "Pengembangan Diri",
-      "Motivasi",
-      "Stres",
-      "Relasi",
-      "Keluarga",
-      "Konflik",
-      "Kesiapan Kerja",
-    ],
-    schedule: {
-      Senin: [],
-      Selasa: ["14.00–15.00", "15.00–16.00"],
-      Rabu: ["09.00–10.00", "10.00–11.00"],
-      Kamis: ["14.00–15.00", "15.00–16.00"],
-      Jumat: [],
-    },
-  },
-];
 
 function CounselorSchedule({
   schedule,

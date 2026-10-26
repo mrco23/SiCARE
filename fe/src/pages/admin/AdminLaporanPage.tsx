@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PageContainer, PageHeader } from "../../components/shared";
+import { SESSION_OUTCOME_LABEL } from "../../constants/status";
+import { DEFAULT_PERIODS } from "../../lib/academicPeriods";
 import {
   CalendarDays,
   ChevronDown,
@@ -13,6 +15,8 @@ import {
   CheckCircle2,
   ClipboardList,
 } from "lucide-react";
+import { SESSIONS, TOPICS, REASONS, type Session } from "../../data/mock/adminReports";
+import { REPORT_COUNSELORS as COUNSELORS, REPORT_MONTHS as MONTHS } from "../../data/mock/reportCommon";
 
 /* ========================= TIPE & DATA ========================= */
 
@@ -21,21 +25,6 @@ type Period = {
   label: string;
   start: string;
   end: string;
-};
-
-type SessionStatus = "Selesai" | "Dibatalkan";
-
-type Session = {
-  id: string;
-  clientId: string; // ID anonim untuk data contoh
-  date: string; // YYYY-MM-DD
-  format: "Individu" | "Kelompok";
-  topic: string;
-  status: SessionStatus;
-  rating: number | null;
-  reason: string;
-  cancelledBy: "Klien" | "Konselor" | "Administrasi" | "";
-  counselor: string;
 };
 
 /*
@@ -47,102 +36,11 @@ type Session = {
  * implementasi backend perlu menetapkan apakah periode dihitung dari tanggal
  * jadwal awal atau tanggal pembatalan. Di halaman ini digunakan tanggal sesi.
  */
-const PERIODS: Period[] = [
-  {
-    id: "2024-2025-ganjil",
-    label: "2024/2025 Ganjil",
-    start: "2024-08-19",
-    end: "2025-01-31",
-  },
-  {
-    id: "2024-2025-genap",
-    label: "2024/2025 Genap",
-    start: "2025-02-01",
-    end: "2025-07-31",
-  },
-  {
-    id: "2025-2026-ganjil",
-    label: "2025/2026 Ganjil",
-    start: "2025-08-18",
-    end: "2026-01-31",
-  },
-  {
-    id: "2025-2026-genap",
-    label: "2025/2026 Genap",
-    start: "2026-02-01",
-    end: "2026-07-31",
-  },
-  {
-    id: "2026-2027-ganjil",
-    label: "2026/2027 Ganjil",
-    start: "2026-08-17",
-    end: "2027-01-31",
-  },
-];
-
-const TOPICS = [
-  "Pengembangan Diri",
-  "Motivasi",
-  "Stres kerja",
-  "Kecemasan",
-  "Relasi keluarga",
-];
-
-const REASONS = [
-  "Klien sakit",
-  "Konselor berhalangan",
-  "Klien tidak hadir tanpa kabar",
-  "Jadwal bentrok",
-];
-
-const COUNSELORS = [
-  "Konselor A",
-  "Konselor B",
-  "Konselor C",
-  "Konselor D",
-  "Konselor E",
-];
+const PERIODS: Period[] = DEFAULT_PERIODS;
 
 /* Data sintetis untuk menampilkan rancangan halaman sebelum backend tersedia. */
-const SESSIONS: Session[] = Array.from({ length: 220 }, (_, i) => {
-  const date = new Date(
-    Date.UTC(2024, 7, 26) + i * 4 * 864e5 + (i % 3) * 864e5,
-  );
-  const cancelled = i % 7 === 0 || i % 19 === 0;
-  const format = i % 4 === 0 ? "Kelompok" : "Individu";
-
-  return {
-    id: `S${String(i + 1).padStart(3, "0")}`,
-    clientId: `K${String((i % 23) + 1).padStart(2, "0")}`,
-    date: date.toISOString().slice(0, 10),
-    format,
-    topic: TOPICS[i % TOPICS.length],
-    status: cancelled ? "Dibatalkan" : "Selesai",
-    rating: cancelled ? null : [5, 4, 5, 3, 4, 5, 2, 4][i % 8],
-    reason: cancelled ? REASONS[i % REASONS.length] : "",
-    cancelledBy: cancelled
-      ? (["Klien", "Konselor", "Administrasi"][i % 3] as Session["cancelledBy"])
-      : "",
-    counselor: COUNSELORS[i % COUNSELORS.length],
-  };
-});
 
 /* ========================= HELPER ========================= */
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "Mei",
-  "Jun",
-  "Jul",
-  "Agu",
-  "Sep",
-  "Okt",
-  "Nov",
-  "Des",
-];
 
 const ALL_PERIOD: Period = {
   id: "all",
@@ -506,8 +404,8 @@ export default function AdminLaporanPage() {
     [periodRows, format, counselorFilter],
   );
 
-  const done = rows.filter((row) => row.status === "Selesai");
-  const cancelled = rows.filter((row) => row.status === "Dibatalkan");
+  const done = rows.filter((row) => row.status === SESSION_OUTCOME_LABEL.COMPLETED);
+  const cancelled = rows.filter((row) => row.status === SESSION_OUTCOME_LABEL.CANCELLED);
   const doneIndividual = done.filter((row) => row.format === "Individu");
   const doneGroup = done.filter((row) => row.format === "Kelompok");
   const cancelledIndividual = cancelled.filter(
@@ -530,7 +428,7 @@ export default function AdminLaporanPage() {
     rows.forEach((row) => {
       const key = row.date.slice(0, 7);
       map[key] ??= { done: 0, cancelled: 0 };
-      if (row.status === "Selesai") map[key].done += 1;
+      if (row.status === SESSION_OUTCOME_LABEL.COMPLETED) map[key].done += 1;
       else map[key].cancelled += 1;
     });
 
@@ -551,10 +449,10 @@ export default function AdminLaporanPage() {
           (row) => row.counselor === counselor,
         );
         const completed = counselorSessions.filter(
-          (row) => row.status === "Selesai",
+          (row) => row.status === SESSION_OUTCOME_LABEL.COMPLETED,
         );
         const canceled = counselorSessions.filter(
-          (row) => row.status === "Dibatalkan",
+          (row) => row.status === SESSION_OUTCOME_LABEL.CANCELLED,
         );
         return {
           counselor,
@@ -576,7 +474,7 @@ export default function AdminLaporanPage() {
 
   const reasonCount = useMemo(
     () => {
-      const cancelledRows = rows.filter((row) => row.status === "Dibatalkan");
+      const cancelledRows = rows.filter((row) => row.status === SESSION_OUTCOME_LABEL.CANCELLED);
       return REASONS.map((reason) => ({
         reason,
         count: cancelledRows.filter((row) => row.reason === reason).length,
@@ -590,14 +488,14 @@ export default function AdminLaporanPage() {
       TOPICS.map((topic) => {
         const topicSessions = rows.filter((row) => row.topic === topic);
         const completed = topicSessions.filter(
-          (row) => row.status === "Selesai",
+          (row) => row.status === SESSION_OUTCOME_LABEL.COMPLETED,
         );
         const avg = average(completed);
         return {
           topic,
           total: topicSessions.length,
           completed: completed.length,
-          cancelled: topicSessions.filter((row) => row.status === "Dibatalkan")
+          cancelled: topicSessions.filter((row) => row.status === SESSION_OUTCOME_LABEL.CANCELLED)
             .length,
           rating: avg.n ? avg.value.toFixed(1) : "-",
         };
@@ -1041,7 +939,7 @@ export default function AdminLaporanPage() {
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          row.status === "Selesai"
+                          row.status === SESSION_OUTCOME_LABEL.COMPLETED
                             ? "bg-emerald-50 text-emerald-700"
                             : "bg-red-50 text-red-700"
                         }`}

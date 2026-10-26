@@ -1,5 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_ACADEMIC_PERIODS } from "../../data/mock/academicPeriods";
 import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  STORE_KEY,
+  fmtDate,
+  makePeriod,
+  periodStatus,
+  sortPeriods,
+  toISO,
+  type AcademicPeriod,
+  type PeriodStatus,
+  type Semester,
+} from "../../lib/academicPeriods";
+import {
+  differenceInCalendarDaysISO,
+  formatIndonesianDate,
+  parseLocalISODate,
+} from "../../lib/dateUtils";
 import {
   Calendar,
   CalendarX2,
@@ -10,47 +27,13 @@ import {
 } from "lucide-react";
 
 /* ========================= TIPE & DATA ========================= */
-type Semester = "Ganjil" | "Genap";
-
-type AcademicPeriod = {
-  id: string;
-  ta: string; // "2025/2026"
-  sem: Semester;
-  label: string;
-  start: string; // ISO yyyy-mm-dd
-  end: string; // ISO yyyy-mm-dd
-};
-
 type PeriodDraft = { ta: string; sem: Semester; start: string; end: string };
-type Status = "Aktif" | "Mendatang" | "Selesai";
 
 /* ===== DATA CONTOH =====
    Ganti dengan backend, mis. GET/POST/PUT/DELETE /api/admin/periode.
    Pada prototipe ini data disimpan di localStorage ("sicare.periods") supaya halaman
    Laporan & Ekspor bisa membaca periode yang sama. Di produksi, simpan di database. */
-const STORE_KEY = "sicare.periods";
-
-const mk = (
-  ta: string,
-  sem: Semester,
-  start: string,
-  end: string,
-): AcademicPeriod => ({
-  id: `${ta.replace("/", "-")}-${sem.toLowerCase()}`,
-  ta,
-  sem,
-  label: `${ta} ${sem}`,
-  start,
-  end,
-});
-
-const DEFAULT_PERIODS: AcademicPeriod[] = [
-  mk("2024/2025", "Ganjil", "2024-08-19", "2025-01-31"),
-  mk("2024/2025", "Genap", "2025-02-01", "2025-07-31"),
-  mk("2025/2026", "Ganjil", "2025-08-18", "2026-01-31"),
-  mk("2025/2026", "Genap", "2026-02-01", "2026-07-31"),
-];
-
+const DEFAULT_PERIODS: AcademicPeriod[] = DEFAULT_ACADEMIC_PERIODS;
 function loadPeriods(): AcademicPeriod[] {
   try {
     const a = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
@@ -70,34 +53,14 @@ function savePeriods(list: AcademicPeriod[]) {
 }
 
 /* ========================= HELPER TANGGAL ========================= */
-const pad = (n: number) => String(n).padStart(2, "0");
-const toISO = (d: Date) =>
-  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const utc = (iso: string) =>
-  Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
-const diffDays = (a: string, b: string) =>
-  Math.round((utc(b) - utc(a)) / 864e5); // b - a
-
-const fmt = (iso: string) =>
-  new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 const fmtLong = (iso: string) =>
-  new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
+  formatIndonesianDate(parseLocalISODate(iso), {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
-const sortedAsc = (list: AcademicPeriod[]) =>
-  [...list].sort((a, b) => a.start.localeCompare(b.start));
-
-const statusOf = (p: AcademicPeriod, today: string): Status =>
-  today < p.start ? "Mendatang" : today > p.end ? "Selesai" : "Aktif";
-
-const STATUS_STYLE: Record<Status, string> = {
+const STATUS_STYLE: Record<PeriodStatus, string> = {
   Aktif: "bg-primary-subtle text-primary border-emerald-100",
   Mendatang: "bg-sky-50 text-sky-700 border-sky-100",
   Selesai: "bg-slate-100 text-slate-500 border-slate-200",
@@ -115,7 +78,7 @@ function suggestNext(
   list: AcademicPeriod[],
   today: string,
 ): PeriodDraft & { label: string } {
-  const s = sortedAsc(list);
+  const s = sortPeriods(list);
   const last = s[s.length - 1];
   let ta: string;
   let sem: Semester;
@@ -208,13 +171,13 @@ export default function AdminPeriodePage() {
   );
 
   const gaps = useMemo(() => {
-    const s = sortedAsc(periods);
+    const s = sortPeriods(periods);
     const out: string[] = [];
     for (let i = 1; i < s.length; i++) {
-      const g = diffDays(s[i - 1].end, s[i].start) - 1;
+      const g = differenceInCalendarDaysISO(s[i - 1].end, s[i].start) - 1;
       if (g > 0) {
         out.push(
-          `Jeda ${g} hari antara ${s[i - 1].label} (${fmt(s[i - 1].end)}) dan ${s[i].label} (${fmt(s[i].start)}).`,
+          `Jeda ${g} hari antara ${s[i - 1].label} (${fmtDate(s[i - 1].end)}) dan ${s[i].label} (${fmtDate(s[i].start)}).`,
         );
       }
     }
@@ -262,13 +225,13 @@ export default function AdminPeriodePage() {
   const validate = (d: PeriodDraft): string => {
     if (!d.start || !d.end) return "Tanggal mulai dan selesai wajib diisi.";
     if (d.end <= d.start) return "Tanggal selesai harus setelah tanggal mulai.";
-    const id = mk(d.ta, d.sem, d.start, d.end).id;
+    const id = makePeriod(d.ta, d.sem, d.start, d.end).id;
     const others = periods.filter((p) => p.id !== editingId);
     if (others.some((p) => p.id === id))
       return `Periode ${d.ta} ${d.sem} sudah terdaftar.`;
     const clash = others.find((p) => p.start <= d.end && d.start <= p.end);
     if (clash)
-      return `Tanggal bertabrakan dengan ${clash.label} (${fmt(clash.start)} sampai ${fmt(clash.end)}). Periode tidak boleh tumpang tindih.`;
+      return `Tanggal bertabrakan dengan ${clash.label} (${fmtDate(clash.start)} sampai ${fmtDate(clash.end)}). Periode tidak boleh tumpang tindih.`;
     return "";
   };
 
@@ -278,7 +241,7 @@ export default function AdminPeriodePage() {
       setError(err);
       return;
     }
-    const item = mk(draft.ta, draft.sem, draft.start, draft.end);
+    const item = makePeriod(draft.ta, draft.sem, draft.start, draft.end);
     setPeriods((prev) =>
       editingId
         ? prev.map((p) => (p.id === editingId ? item : p))
@@ -334,8 +297,8 @@ export default function AdminPeriodePage() {
         <div className="px-6 pt-6">
           {active ? (
             (() => {
-              const total = diffDays(active.start, active.end) + 1;
-              const day = diffDays(active.start, today) + 1;
+              const total = differenceInCalendarDaysISO(active.start, active.end) + 1;
+              const day = differenceInCalendarDaysISO(active.start, today) + 1;
               const pct = Math.min(100, Math.round((day / total) * 100));
               return (
                 <div className="rounded-2xl border border-emerald-200 bg-primary-subtle p-5">
@@ -421,7 +384,7 @@ export default function AdminPeriodePage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rows.map((p) => {
-                  const st = statusOf(p, today);
+                  const st = periodStatus(p, today);
                   return (
                     <tr
                       key={p.id}
@@ -432,10 +395,10 @@ export default function AdminPeriodePage() {
                         {p.sem}
                       </td>
                       <td className="px-6 py-4 text-xs font-medium text-slate-600">
-                        {fmt(p.start)}
+                        {fmtDate(p.start)}
                       </td>
                       <td className="px-6 py-4 text-xs font-medium text-slate-600">
-                        {fmt(p.end)}
+                        {fmtDate(p.end)}
                       </td>
                       <td className="px-6 py-4">
                         <span

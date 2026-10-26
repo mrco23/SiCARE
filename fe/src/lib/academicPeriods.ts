@@ -1,15 +1,12 @@
-export type Semester = "Ganjil" | "Genap";
+import type { AcademicPeriod, PeriodStatus, Semester } from "../types/academicPeriod";
+import { DEFAULT_ACADEMIC_PERIODS } from "../data/mock/academicPeriods";
+import {
+  formatIndonesianDate,
+  parseLocalISODate,
+  toISODate,
+} from "./dateUtils";
 
-export type AcademicPeriod = {
-  id: string;
-  ta: string; // "2025/2026"
-  sem: Semester;
-  label: string;
-  start: string; // yyyy-mm-dd
-  end: string; // yyyy-mm-dd
-};
-
-export type PeriodStatus = "Aktif" | "Mendatang" | "Selesai";
+export type { AcademicPeriod, PeriodStatus, Semester } from "../types/academicPeriod";
 
 export const STORE_KEY = "sicare.periods";
 
@@ -27,42 +24,34 @@ export const makePeriod = (
   end,
 });
 
-export const DEFAULT_PERIODS: AcademicPeriod[] = [
-  makePeriod("2024/2025", "Ganjil", "2024-08-19", "2025-01-31"),
-  makePeriod("2024/2025", "Genap", "2025-02-01", "2025-07-31"),
-  makePeriod("2025/2026", "Ganjil", "2025-08-18", "2026-01-31"),
-  makePeriod("2025/2026", "Genap", "2026-02-01", "2026-07-31"),
-  makePeriod("2026/2027", "Ganjil", "2026-08-17", "2027-01-31"),
-];
+export const DEFAULT_PERIODS: AcademicPeriod[] = DEFAULT_ACADEMIC_PERIODS;
 
 export function loadPeriods(): AcademicPeriod[] {
   try {
-    const a = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-    if (Array.isArray(a)) return a;
+    const parsed: unknown = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    if (Array.isArray(parsed)) return parsed as AcademicPeriod[];
   } catch {
     /* abaikan */
   }
-  return DEFAULT_PERIODS.map((p) => ({ ...p }));
+  return DEFAULT_PERIODS.map((period) => ({ ...period }));
 }
 
 export const sortPeriods = (list: AcademicPeriod[]) =>
   [...list].sort((a, b) => a.start.localeCompare(b.start));
 
-const pad = (n: number) => String(n).padStart(2, "0");
+/** Backward-compatible alias used by existing pages. */
+export const toISO = toISODate;
 
-/** Tanggal lokal dalam format yyyy-mm-dd */
-export const toISO = (d: Date) =>
-  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
+/** Short date format used by the period selectors and report headers. */
 export const fmtDate = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString("id-ID", {
+  formatIndonesianDate(parseLocalISODate(iso), {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 
-export const periodStatus = (p: AcademicPeriod, today: string): PeriodStatus =>
-  today < p.start ? "Mendatang" : today > p.end ? "Selesai" : "Aktif";
+export const periodStatus = (period: AcademicPeriod, today: string): PeriodStatus =>
+  today < period.start ? "Mendatang" : today > period.end ? "Selesai" : "Aktif";
 
-export const isInPeriod = (iso: string, p: AcademicPeriod) =>
-  iso >= p.start && iso <= p.end;
+export const isInPeriod = (iso: string, period: AcademicPeriod) =>
+  iso >= period.start && iso <= period.end;

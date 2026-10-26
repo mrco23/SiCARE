@@ -73,7 +73,6 @@ const MORE_ROUTES = [
   "/konselor/riwayat",
   "/konselor/feedback",
   "/konselor/pengaturan",
-  "/konselor/profil",
 ];
 
 export default function KonselorLayout() {
@@ -166,7 +165,7 @@ function Navbar() {
 
       {/* profile */}
       <Link
-        to="/konselor/profil"
+        to="/konselor/pengaturan"
         className="absolute right-[14px] top-[16px] flex h-[40px] w-[40px] items-center justify-center rounded-full border-[2px] border-white bg-primary text-white shadow-md ring-1 ring-gray-300"
       >
         <CircleUserRound className="h-6 w-6" strokeWidth={1.6} />

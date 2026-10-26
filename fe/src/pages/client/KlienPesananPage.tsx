@@ -1,4 +1,10 @@
 import { PageHeader } from "../../components/shared";
+import type { CounselingFormat, IntakeAnswer } from "../../types/counseling";
+import {
+  formatIndonesianDate,
+  parseLocalISODate as fromISO,
+  toISODate as toISO,
+} from "../../lib/dateUtils";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   ArrowRight,
@@ -11,34 +17,19 @@ import {
   MapPin,
   Search,
 } from "lucide-react";
+import { CLIENT_BOOKING_COUNSELORS as COUNSELORS, type BookingCounselor as Counselor } from "../../data/mock/clientCounselors";
+import { INTAKE_TOPICS as TOPICS, INTAKE_YESNO_OPTIONS as YESNO, INTAKE_SCALE_OPTIONS as SCALES, INTAKE_ESSAY_OPTIONS as ESSAYS } from "../../data/mock/intakeOptions";
 
 /* ========================= TIPE ========================= */
-type Layanan = "Individu" | "Kelompok";
-type YesNo = "Ya" | "Mungkin" | "Tidak";
 type Step = 1 | 2 | 3 | 4 | 5 | 6; // 6 = selesai
-
-type Counselor = {
-  id: number;
-  name: string;
-  short: string; // baris nama (pakai \n)
-  gender: "Perempuan" | "Laki-laki";
-  initials: string;
-  degree: string;
-  experience: string;
-  room: string;
-  focus: string;
-  about: string;
-  skills: string[];
-  schedule: Record<string, string[]>; // key: nama hari
-};
 
 type Slot = { date: string; time: string }; // date: YYYY-MM-DD
 
 type IntakeForm = {
-  selfHarm: YesNo | null;
-  distress: YesNo | null;
-  abuse: YesNo | null;
-  substance: YesNo | null;
+  selfHarm: IntakeAnswer | null;
+  distress: IntakeAnswer | null;
+  abuse: IntakeAnswer | null;
+  substance: IntakeAnswer | null;
   sleep: number | null;
   finance: number | null;
   topics: string[];
@@ -57,17 +48,6 @@ type IntakeForm = {
   declared: boolean;
   consent: boolean;
 };
-
-type EssayKey =
-  | "complaint"
-  | "history"
-  | "reason"
-  | "efforts"
-  | "goal"
-  | "strengths"
-  | "weaknesses";
-type YesNoKey = "selfHarm" | "distress" | "abuse" | "substance";
-type ScaleKey = "sleep" | "finance";
 
 /* ========================= DATA (contoh) ========================= */
 // Di produksi, ambil dari API. Jadwal dan keahlian berasal dari profil konselor.
@@ -88,112 +68,7 @@ const SPESIALIS = [
   "Pengembangan Diri",
 ];
 
-const COUNSELORS: Counselor[] = [
-  {
-    id: 1,
-    name: "Giovanna Yudi, S.Psi., M.Psi., Psikolog",
-    short: "Giovanna Yudi,\nS.Psi., M.Psi.",
-    gender: "Perempuan",
-    initials: "GY",
-    degree: "S2 Psikolog",
-    experience: "5 tahun pengalaman",
-    room: "Ruang Konseling 01",
-    focus:
-      "Fokus pada pengembangan diri, manajemen stres, dan penanganan kecemasan.",
-    about:
-      "Berpengalaman dalam konseling individu dan kelompok dengan fokus pada pengelolaan stres, kecemasan, masalah hubungan, dan pengembangan diri.",
-    skills: [
-      "Kecemasan",
-      "Stres",
-      "Masalah Hubungan",
-      "Manajemen Emosi",
-      "Pengembangan Diri",
-    ],
-    schedule: {
-      Senin: ["08:00 - 10:00", "14:00 - 15:00"],
-      Selasa: ["08:00 - 10:00", "13:00 - 14:00"],
-      Rabu: [],
-      Kamis: ["08:00 - 10:00", "14:00 - 15:00"],
-      Jumat: ["08:00 - 10:00"],
-    },
-  },
-  {
-    id: 2,
-    name: "Rico Kornelius Wahani, S.Psi., M.Psi., Psikolog",
-    short: "Rico Kornelius\nWahani, S.Psi.,\nM.Psi., Psikolog",
-    gender: "Laki-laki",
-    initials: "RW",
-    degree: "S2 Psikolog",
-    experience: "5 tahun pengalaman",
-    room: "Ruang Konseling 02",
-    focus: "Fokus pada pengembangan diri, manajemen stres, dan kecemasan.",
-    about:
-      "Berpengalaman mendampingi mahasiswa dan staf dalam mengelola stres kerja, kecemasan akademik, dan pengembangan diri.",
-    skills: ["Kecemasan", "Stres", "Pengembangan Diri"],
-    schedule: {
-      Senin: ["09:00 - 10:00"],
-      Selasa: [],
-      Rabu: ["10:00 - 11:00"],
-      Kamis: ["13:00 - 14:00"],
-      Jumat: ["08:00 - 10:00", "14:00 - 15:00"],
-    },
-  },
-];
-
-const YESNO: { key: YesNoKey; label: string }[] = [
-  { key: "selfHarm", label: "Apakah Anda sedang merasa ingin bunuh diri?" },
-  {
-    key: "distress",
-    label:
-      "Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?",
-  },
-  {
-    key: "abuse",
-    label:
-      "Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)",
-  },
-  {
-    key: "substance",
-    label: "Apakah saat ini Anda sedang menggunakan obat-obatan?",
-  },
-];
-
-const SCALES: { key: ScaleKey; label: string }[] = [
-  { key: "sleep", label: "Kualitas tidur" },
-  { key: "finance", label: "Keadaan finansial" },
-];
-
-const TOPICS = [
-  "Karir, pendidikan, dan pekerjaan",
-  "Motivasi",
-  "Stres atau tekanan kerja",
-  "Emosi, mood, kepribadian",
-  "Kecemasan",
-  "Hubungan dan keluarga",
-  "Pengembangan diri",
-  "Kesehatan dan kebiasaan sehari-hari",
-];
-
-const ESSAYS: { key: EssayKey; label: string }[] = [
-  { key: "complaint", label: "Deskripsikan keluhan yang Anda rasakan" },
-  {
-    key: "history",
-    label: "Deskripsikan riwayat terjadinya keluhan secara jelas dan rinci",
-  },
-  { key: "reason", label: "Keluhan dan alasan ingin memulai konseling" },
-  {
-    key: "efforts",
-    label: "Apa yang sudah dilakukan untuk menangani masalah ini?",
-  },
-  {
-    key: "goal",
-    label: "Solusi apa yang diinginkan dari bantuan yang diterima?",
-  },
-  { key: "strengths", label: "Apa kelebihan diri Anda?" },
-  { key: "weaknesses", label: "Apa kekurangan diri Anda?" },
-];
-
-const ANSWER_STYLE: Record<YesNo, string> = {
+const ANSWER_STYLE: Record<IntakeAnswer, string> = {
   Ya: "bg-red-100 text-red-800",
   Mungkin: "bg-amber-100 text-amber-800",
   Tidak: "bg-primary-soft text-primary",
@@ -224,10 +99,6 @@ const newForm = (): IntakeForm => ({
 });
 
 /* ========================= HELPER TANGGAL ========================= */
-const pad = (n: number) => String(n).padStart(2, "0");
-const toISO = (d: Date) =>
-  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const fromISO = (iso: string) => new Date(`${iso}T00:00:00`);
 const startOfToday = () => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -241,7 +112,7 @@ const addDays = (d: Date, n: number) => {
 const minDate = () => addDays(startOfToday(), MIN_LEAD_DAYS);
 const firstOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
 const fmtLong = (iso: string) =>
-  fromISO(iso).toLocaleDateString("id-ID", {
+  formatIndonesianDate(fromISO(iso), {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -263,7 +134,7 @@ function slotsFor(c: Counselor, iso: string): string[] {
 /* ========================= HALAMAN ========================= */
 export default function KlienPesananPage() {
   const [step, setStep] = useState<Step>(1);
-  const [layanan, setLayanan] = useState<Layanan | null>(null);
+  const [layanan, setLayanan] = useState<CounselingFormat | null>(null);
   const [konselorId, setKonselorId] = useState<number | null>(null);
   const [q, setQ] = useState("");
   const [spesialis, setSpesialis] = useState("");
@@ -741,7 +612,7 @@ export default function KlienPesananPage() {
                   <div key={key} className="py-4">
                     <p className="text-sm text-gray-700">{label}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {(["Ya", "Mungkin", "Tidak"] as YesNo[]).map((v) => (
+                      {(["Ya", "Mungkin", "Tidak"] as IntakeAnswer[]).map((v) => (
                         <Pill
                           key={v}
                           selected={form[key] === v}

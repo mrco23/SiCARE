@@ -1,127 +1,8 @@
 import { PageContainer, PageHeader } from "../../components/shared";
+import { COUNSELING_REQUEST_STATUS } from "../../constants/status";
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
-
-type CounselingRequest = {
-  id: number;
-  name: string;
-  format: string;
-  time: string;
-  waitMin: number;
-  status: "pending" | "accepted" | "rejected";
-  isNew: boolean;
-  pastSessions: number;
-  topic: string;
-  room?: string;
-};
-
-type IntakeData = {
-  date: string;
-  selfHarm: string;
-  distress: string;
-  abuse: string;
-  substance: string;
-  sleep: number;
-  finance: number;
-  topics: string[];
-  other: string;
-  complaint: string;
-  history: string;
-  reason: string;
-  efforts: string;
-  goal: string;
-  strengths: string;
-  weaknesses: string;
-};
-
-const initialRequests: CounselingRequest[] = [
-  {
-    id: 1,
-    name: "Yusli Ngongano",
-    format: "Individu",
-    time: "15.00",
-    waitMin: 185,
-    status: "pending",
-    isNew: false,
-    pastSessions: 3,
-    topic: "Pengembangan Diri",
-  },
-  {
-    id: 2,
-    name: "Chelsea Ngongano",
-    format: "Kelompok",
-    time: "15.00",
-    waitMin: 42,
-    status: "pending",
-    isNew: true,
-    pastSessions: 0,
-    topic: "Motivasi",
-  },
-  {
-    id: 3,
-    name: "Chelsea Ngongano",
-    format: "Individu",
-    time: "15.00",
-    waitMin: 1440,
-    status: "pending",
-    isNew: true,
-    pastSessions: 0,
-    topic: "Stres",
-  },
-  {
-    id: 4,
-    name: "Bagas Hermawan",
-    format: "Individu",
-    time: "10.00",
-    waitMin: 300,
-    status: "pending",
-    isNew: false,
-    pastSessions: 1,
-    topic: "Stres kerja",
-  },
-];
-
-const intakeDefaults = {
-  date: "28 September 2026",
-  selfHarm: "Tidak",
-  distress: "Tidak",
-  abuse: "Tidak",
-  substance: "Tidak",
-  sleep: 3,
-  finance: 3,
-  topics: ["Motivasi"],
-  other: "",
-  complaint: "Klien merasa kewalahan dan sulit fokus.",
-  history: "Keluhan muncul sejak beberapa bulan terakhir.",
-  reason:
-    "Ingin memiliki strategi untuk mengelola kondisi yang sedang dialami.",
-  efforts: "Klien sudah mencoba beberapa cara secara mandiri.",
-  goal: "Klien berharap mendapat rencana yang realistis.",
-  strengths: "Klien mudah bergaul dan bertanggung jawab.",
-  weaknesses: "Klien cenderung menunda pekerjaan.",
-};
-
-const intakes: Record<number, IntakeData> = {
-  1: {
-    ...intakeDefaults,
-    distress: "Ya",
-    sleep: 2,
-    topics: ["Karir, pendidikan, dan pekerjaan", "Motivasi"],
-  },
-  2: { ...intakeDefaults, distress: "Mungkin", sleep: 4, finance: 4 },
-  3: {
-    ...intakeDefaults,
-    abuse: "Mungkin",
-    sleep: 3,
-    finance: 2,
-    topics: ["Stres atau tekanan kerja", "Emosi, mood, kepribadian"],
-  },
-  4: {
-    ...intakeDefaults,
-    topics: ["Karir, pendidikan, dan pekerjaan"],
-    date: "10 Oktober 2026",
-  },
-};
+import { initialRequests, intakes, type CounselingRequest } from "../../data/mock/counselorRequests";
 
 const initials = (name: string) =>
   name
@@ -263,7 +144,7 @@ export default function KonselorPermintaanPage() {
   const pendingRequests = useMemo(() => {
     const query = search.trim().toLowerCase();
     return requests
-      .filter((request) => request.status === "pending")
+      .filter((request) => request.status === COUNSELING_REQUEST_STATUS.PENDING)
       .filter(
         (request) =>
           formatFilter === "Semua" || request.format === formatFilter,
@@ -277,7 +158,7 @@ export default function KonselorPermintaanPage() {
   const currentRequest = requests.find((request) => request.id === currentId);
   const currentIntake = currentId ? intakes[currentId] : null;
   const totalPending = requests.filter(
-    (request) => request.status === "pending",
+    (request) => request.status === COUNSELING_REQUEST_STATUS.PENDING,
   );
   const individualCount = totalPending.filter(
     (request) => request.format === "Individu",
@@ -310,7 +191,9 @@ export default function KonselorPermintaanPage() {
         item.id === confirm.id
           ? {
               ...item,
-              status: confirm.accept ? "accepted" : "rejected",
+              status: confirm.accept
+                ? COUNSELING_REQUEST_STATUS.ACCEPTED
+                : COUNSELING_REQUEST_STATUS.REJECTED,
               room,
             }
           : item,

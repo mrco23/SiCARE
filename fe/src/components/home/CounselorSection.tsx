@@ -1,16 +1,5 @@
-const counselors = [
-  {
-    name: "Giovanna Yusi, S.Psi., M.Psi.",
-    role: "Psikolog",
-    image: "/assets/counselor-1.png",
-  },
 
-  {
-    name: "Rico Kornelius Wahani, S.Psi., M.Psi.",
-    role: "Psikolog",
-    image: "/assets/counselor-2.png",
-  },
-];
+import { COUNSELOR_SECTION_SHOWCASE as counselors } from "../../data/mock/publicShowcases";
 
 export default function CounselorSection() {
   return (
