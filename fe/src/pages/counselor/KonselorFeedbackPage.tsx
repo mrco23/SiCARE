@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useMemo, useState } from "react";
 import {
   ChevronLeft,
@@ -316,16 +317,15 @@ export default function KonselorFeedbackPage() {
     period === "semester" && semesterIndex === semesters.length - 1;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <section>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-          Feedback <span className="text-[#1e5b3a]">Saya</span>
-        </h1>
-        <p className="mt-2 text-sm text-gray-600 sm:text-base">
-          Penilaian anonim dari klien setelah sesi konseling Anda. Identitas
-          klien dirahasiakan.
-        </p>
-      </section>
+    <PageContainer role="counselor" spacing="none">
+      <PageHeader
+        title={
+          <>
+            Feedback <span className="text-primary">Saya</span>
+          </>
+        }
+        description="Penilaian anonim dari klien setelah sesi konseling Anda. Identitas klien dirahasiakan."
+      />
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div
@@ -340,7 +340,7 @@ export default function KonselorFeedbackPage() {
               role="tab"
               aria-selected={period === option.value}
               onClick={() => setPeriod(option.value)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${period === option.value ? "bg-white text-[#1e5b3a] shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${period === option.value ? "bg-white text-primary shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
             >
               {option.label}
             </button>
@@ -374,7 +374,7 @@ export default function KonselorFeedbackPage() {
               aria-label="Pilih semester"
               value={semesterIndex}
               onChange={(event) => setSemesterIndex(Number(event.target.value))}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-[#1e5b3a]"
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-primary"
             >
               {semesters.map((semester, index) => (
                 <option key={semester.id} value={index}>
@@ -395,7 +395,7 @@ export default function KonselorFeedbackPage() {
               </p>
               <p className="mt-1 text-4xl font-bold text-gray-900">{total}</p>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-[#1e5b3a]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-primary">
               <MessageSquare className="h-5 w-5" />
             </div>
           </div>
@@ -434,7 +434,7 @@ export default function KonselorFeedbackPage() {
                       current === rating ? 0 : rating,
                     )
                   }
-                  className={`flex w-full items-center gap-3 rounded-lg px-2 py-1 text-xs transition ${active ? "bg-[#e8f9f0]" : "hover:bg-gray-50"}`}
+                  className={`flex w-full items-center gap-3 rounded-lg px-2 py-1 text-xs transition ${active ? "bg-primary-soft" : "hover:bg-gray-50"}`}
                 >
                   <span className="w-10 text-left font-bold text-gray-600">
                     {rating}{" "}
@@ -442,7 +442,7 @@ export default function KonselorFeedbackPage() {
                   </span>
                   <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
                     <span
-                      className="block h-full rounded-full bg-[#1e5b3a] transition-all"
+                      className="block h-full rounded-full bg-primary transition-all"
                       style={{ width: `${percentage}%` }}
                     />
                   </span>
@@ -498,7 +498,7 @@ export default function KonselorFeedbackPage() {
               type="button"
               aria-pressed={starFilter === rating}
               onClick={() => setStarFilter(rating)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${starFilter === rating ? "border-[#1e5b3a] bg-[#1e5b3a] text-white" : "border-gray-200 bg-white text-gray-600 hover:border-[#2e9a5f]"}`}
+              className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${starFilter === rating ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-[#2e9a5f]"}`}
             >
               {rating === 0 ? (
                 "Semua"
@@ -564,6 +564,6 @@ export default function KonselorFeedbackPage() {
         <LockKeyhole className="h-3.5 w-3.5" /> Anda hanya dapat melihat
         feedback untuk sesi Anda sendiri.
       </p>
-    </div>
+    </PageContainer>
   );
 }

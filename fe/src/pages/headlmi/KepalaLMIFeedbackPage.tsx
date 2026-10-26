@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -84,7 +85,7 @@ const FEEDBACKS: Feedback[] = Array.from({ length: 150 }, (_, index) => {
 });
 
 const STATUS_STYLE: Record<PeriodStatus, string> = {
-  Aktif: "border-emerald-200 bg-emerald-50 text-[#14553a]",
+  Aktif: "border-emerald-200 bg-emerald-50 text-primary",
   Mendatang: "border-sky-200 bg-sky-50 text-sky-700",
   Selesai: "border-slate-200 bg-slate-100 text-slate-500",
 };
@@ -205,8 +206,8 @@ function PeriodDropdown({
         aria-expanded={open}
         className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition ${
           open
-            ? "border-[#2a8f5a] ring-4 ring-[#2a8f5a]/15"
-            : "border-slate-200 hover:border-[#2a8f5a]/50"
+            ? "border-brand-accent ring-4 ring-brand-accent/15"
+            : "border-slate-200 hover:border-brand-accent/50"
         }`}
       >
         <div className="min-w-0">
@@ -239,7 +240,7 @@ function PeriodDropdown({
               onClick={() => selectPeriod("all")}
               className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                 selectedId === "all"
-                  ? "bg-[#f0fdf4] text-[#14553a]"
+                  ? "bg-[#f0fdf4] text-primary"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -266,13 +267,13 @@ function PeriodDropdown({
                     onClick={() => setActiveYear(item)}
                     className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition ${
                       year === item
-                        ? "bg-white text-[#14553a] shadow-sm"
+                        ? "bg-white text-primary shadow-sm"
                         : "text-slate-600 hover:bg-white/70"
                     }`}
                   >
                     {item}
                     {selected?.ta === item && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#2a8f5a]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-brand-accent" />
                     )}
                   </button>
                 ))}
@@ -309,8 +310,8 @@ function PeriodDropdown({
                       onClick={() => selectPeriod(period.id)}
                       className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
                         active
-                          ? "border-[#14553a] bg-[#14553a] text-white"
-                          : "border-slate-200 bg-white hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+                          ? "border-primary bg-primary text-white"
+                          : "border-slate-200 bg-white hover:border-brand-accent/50 hover:bg-[#f6fcf8]"
                       }`}
                     >
                       <div className="min-w-0">
@@ -533,47 +534,32 @@ export default function KepalaLMIFeedbackPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
-      <style>{`
-        @media print {
-          aside, header, nav, .no-print { display: none !important; }
-          main { margin-left: 0 !important; padding: 0 !important; }
-          body { background: #fff !important; }
-          .print-break-inside { break-inside: avoid; }
-        }
-      `}</style>
+    <PageContainer role="headlmi" className="report-print-page text-slate-800">
 
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2a8f5a]">
-            Panel Pimpinan
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Feedback & Evaluasi
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Ringkasan pengalaman pengguna terhadap layanan konseling untuk
-            membantu LMI mengevaluasi mutu layanan secara agregat.
-          </p>
-        </div>
-        <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center">
-          <PeriodDropdown
-            periods={periods}
-            selectedId={periodId}
-            onSelect={setPeriodId}
-            today={today}
-            feedbackCount={(item) => feedbackInPeriod(item).length}
-          />
-          <button
-            type="button"
-            onClick={exportReport}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
-            <MessageSquareText className="h-4 w-4 text-[#14553a]" />
-            Ekspor CSV
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Panel Pimpinan"
+        title="Feedback & Evaluasi"
+        description="Ringkasan pengalaman pengguna terhadap layanan konseling untuk membantu LMI mengevaluasi mutu layanan secara agregat."
+        actions={
+          <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center">
+            <PeriodDropdown
+              periods={periods}
+              selectedId={periodId}
+              onSelect={setPeriodId}
+              today={today}
+              feedbackCount={(item) => feedbackInPeriod(item).length}
+            />
+            <button
+              type="button"
+              onClick={exportReport}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              <MessageSquareText className="h-4 w-4 text-primary" />
+              Ekspor CSV
+            </button>
+          </div>
+        }
+      />
 
       <section className="rounded-2xl border border-[#d6eadc] bg-gradient-to-r from-[#f0faf3] to-white p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -594,7 +580,7 @@ export default function KepalaLMIFeedbackPage() {
           </div>
           <Link
             to="/kepala-lmi"
-            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-[#cce3d3] bg-white px-4 py-2.5 text-sm font-semibold text-[#14553a] transition hover:bg-[#f6fcf8] sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-[#cce3d3] bg-white px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-[#f6fcf8] sm:self-auto"
           >
             Kembali ke beranda <ArrowRight className="h-4 w-4" />
           </Link>
@@ -679,7 +665,7 @@ export default function KepalaLMIFeedbackPage() {
                 </div>
                 <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
                   <div
-                    className={`h-full rounded-full ${item.rating >= 4 ? "bg-[#2a8f5a]" : item.rating === 3 ? "bg-amber-400" : "bg-red-400"}`}
+                    className={`h-full rounded-full ${item.rating >= 4 ? "bg-brand-accent" : item.rating === 3 ? "bg-amber-400" : "bg-red-400"}`}
                     style={{ width: `${(item.count / maxRatingCount) * 100}%` }}
                   />
                 </div>
@@ -784,7 +770,7 @@ export default function KepalaLMIFeedbackPage() {
                         </strong>
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#14553a]">
+                    <td className="px-4 py-3 text-right font-semibold text-primary">
                       {item.positive}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-red-600">
@@ -818,7 +804,7 @@ export default function KepalaLMIFeedbackPage() {
                   onChange={(event) =>
                     setRatingFilter(event.target.value as typeof ratingFilter)
                   }
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#2a8f5a] focus:ring-2 focus:ring-[#2a8f5a]/20"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20"
                 >
                   <option value="Semua">Semua rating</option>
                   <option value="Positif">Positif (4–5)</option>
@@ -837,7 +823,7 @@ export default function KepalaLMIFeedbackPage() {
                       event.target.value as typeof categoryFilter,
                     )
                   }
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#2a8f5a] focus:ring-2 focus:ring-[#2a8f5a]/20"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20"
                 >
                   <option value="Semua">Semua jenis</option>
                   <option value="Individu">Individu</option>
@@ -852,7 +838,7 @@ export default function KepalaLMIFeedbackPage() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="ID, konselor, masukan..."
-                  className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-slate-400 focus:border-[#2a8f5a] focus:ring-2 focus:ring-[#2a8f5a]/20"
+                  className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-slate-400 focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20"
                 />
               </label>
             </div>
@@ -925,7 +911,7 @@ export default function KepalaLMIFeedbackPage() {
 
       <section className="rounded-2xl border border-[#d6eadc] bg-[#f5fbf6] p-4 sm:p-5">
         <div className="flex items-start gap-3">
-          <span className="rounded-xl bg-white p-2.5 text-[#14553a]">
+          <span className="rounded-xl bg-white p-2.5 text-primary">
             <UsersRound className="h-5 w-5" />
           </span>
           <div>
@@ -947,6 +933,6 @@ export default function KepalaLMIFeedbackPage() {
         Halaman ini menggunakan data simulasi frontend. Data produksi harus
         berasal dari backend dan mengikuti kewenangan akses Kepala LMI.
       </p>
-    </div>
+    </PageContainer>
   );
 }

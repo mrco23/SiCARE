@@ -1,3 +1,4 @@
+import { PageHeader } from "../../components/shared";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   ArrowRight,
@@ -195,7 +196,7 @@ const ESSAYS: { key: EssayKey; label: string }[] = [
 const ANSWER_STYLE: Record<YesNo, string> = {
   Ya: "bg-red-100 text-red-800",
   Mungkin: "bg-amber-100 text-amber-800",
-  Tidak: "bg-[#e8f9f0] text-[#1e5b3a]",
+  Tidak: "bg-primary-soft text-primary",
 };
 
 const newForm = (): IntakeForm => ({
@@ -366,12 +367,10 @@ export default function KlienPesananPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-        Booking Jadwal Konseling
-      </h1>
-      <p className="mt-2 text-sm text-gray-600 sm:text-base">
-        Langkah mudah untuk mendapatkan dukungan yang kamu butuhkan.
-      </p>
+      <PageHeader
+        title="Booking Jadwal Konseling"
+        description="Langkah mudah untuk mendapatkan dukungan yang kamu butuhkan."
+      />
 
       {step <= 5 && <Stepper step={step} />}
 
@@ -411,7 +410,7 @@ export default function KlienPesananPage() {
 
           <div className="mt-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:max-w-md">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] text-[#1e5b3a]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
                 <Lock className="h-5 w-5" strokeWidth={2} />
               </span>
               <div>
@@ -454,13 +453,13 @@ export default function KlienPesananPage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Cari nama konselor..."
-                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-4 text-sm outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-4 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
             </div>
             <select
               value={spesialis}
               onChange={(e) => setSpesialis(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#1e5b3a]"
+              className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary"
             >
               <option value="">Semua Spesialis</option>
               {SPESIALIS.map((s) => (
@@ -470,7 +469,7 @@ export default function KlienPesananPage() {
             <select
               value={gender}
               onChange={(e) => setGender(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#1e5b3a]"
+              className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary"
             >
               <option value="">Semua Jenis Kelamin</option>
               <option>Perempuan</option>
@@ -486,10 +485,10 @@ export default function KlienPesananPage() {
                   key={c.id}
                   type="button"
                   onClick={() => selectCounselor(c.id)}
-                  className={`flex flex-col rounded-2xl border-2 bg-white p-4 text-left transition hover:shadow-md ${on ? "border-[#1e5b3a]" : "border-gray-200"}`}
+                  className={`flex flex-col rounded-2xl border-2 bg-white p-4 text-left transition hover:shadow-md ${on ? "border-primary" : "border-gray-200"}`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] font-bold text-[#1e5b3a]">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">
                       {c.initials}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -500,7 +499,7 @@ export default function KlienPesananPage() {
                       <p className="text-xs text-gray-500">{c.experience}</p>
                     </div>
                     {on && (
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1e5b3a] text-white">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-white">
                         <Check className="h-3.5 w-3.5" strokeWidth={3} />
                       </span>
                     )}
@@ -509,8 +508,8 @@ export default function KlienPesananPage() {
                   <span
                     className={`mt-4 inline-flex w-fit rounded-full px-4 py-1 text-xs font-semibold ${
                       on
-                        ? "bg-[#1e5b3a] text-white"
-                        : "border border-[#1e5b3a] text-[#1e5b3a]"
+                        ? "bg-primary text-white"
+                        : "border border-primary text-primary"
                     }`}
                   >
                     {on ? "Dipilih" : "Pilih"}
@@ -548,7 +547,7 @@ export default function KlienPesananPage() {
           <article className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
             <div className="flex flex-col gap-6 md:flex-row md:items-start">
               <div className="flex items-start gap-5 md:w-1/2">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] text-2xl font-bold text-[#1e5b3a] sm:h-24 sm:w-24">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary-soft text-2xl font-bold text-primary sm:h-24 sm:w-24">
                   {counselor.initials}
                 </div>
                 <div className="min-w-0">
@@ -557,14 +556,14 @@ export default function KlienPesananPage() {
                   </p>
                   <p className="mt-2 flex items-center gap-2 text-sm text-gray-600">
                     <GraduationCap
-                      className="h-4 w-4 text-[#1e5b3a]"
+                      className="h-4 w-4 text-primary"
                       strokeWidth={2}
                     />
                     {counselor.degree}
                   </p>
                   <p className="mt-1 flex items-center gap-2 text-sm text-gray-600">
                     <MapPin
-                      className="h-4 w-4 text-[#1e5b3a]"
+                      className="h-4 w-4 text-primary"
                       strokeWidth={2}
                     />
                     {counselor.room}
@@ -573,21 +572,21 @@ export default function KlienPesananPage() {
               </div>
               <div className="md:w-1/2">
                 <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <span className="h-2 w-2 rounded-full bg-[#1e5b3a]" />
+                  <span className="h-2 w-2 rounded-full bg-primary" />
                   Tentang Konselor
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">
                   {counselor.about}
                 </p>
                 <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <span className="h-2 w-2 rounded-full bg-[#1e5b3a]" />
+                  <span className="h-2 w-2 rounded-full bg-primary" />
                   Keahlian
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {counselor.skills.map((s) => (
                     <span
                       key={s}
-                      className="rounded-full bg-[#e8f9f0] px-3 py-1 text-xs font-semibold text-[#1e5b3a]"
+                      className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary"
                     >
                       {s}
                     </span>
@@ -668,7 +667,7 @@ export default function KlienPesananPage() {
             ].map((t) => (
               <span
                 key={t}
-                className="rounded-full bg-[#e8f9f0] px-3 py-1 text-[#1e5b3a]"
+                className="rounded-full bg-primary-soft px-3 py-1 text-primary"
               >
                 {t}
               </span>
@@ -918,7 +917,7 @@ export default function KlienPesananPage() {
                 <button
                   type="button"
                   onClick={() => goTo(4)}
-                  className="text-sm font-semibold text-[#1e5b3a] hover:underline"
+                  className="text-sm font-semibold text-primary hover:underline"
                 >
                   Ubah
                 </button>
@@ -1014,7 +1013,7 @@ export default function KlienPesananPage() {
               type="button"
               onClick={handleSubmit}
               disabled={!(form.declared && form.consent)}
-              className="inline-flex items-center gap-2 rounded-full bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
             >
               Kirim Janji Temu{" "}
               <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
@@ -1026,8 +1025,8 @@ export default function KlienPesananPage() {
       {/* ===== 6. SELESAI ===== */}
       {step === 6 && counselor && slot && layanan && (
         <section className="mt-6">
-          <div className="mx-auto max-w-xl rounded-2xl border border-[#36c08f]/40 bg-[#f7fcf9] p-6 text-center">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#1e5b3a] text-white">
+          <div className="mx-auto max-w-xl rounded-2xl border border-[#36c08f]/40 bg-primary-tint p-6 text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white">
               <Check className="h-7 w-7" strokeWidth={2.4} />
             </span>
             <h2 className="mt-5 font-display text-2xl font-bold">
@@ -1043,7 +1042,7 @@ export default function KlienPesananPage() {
             <button
               type="button"
               onClick={handleRestart}
-              className="mt-6 rounded-full bg-[#1e5b3a] px-5 py-2 text-sm font-semibold text-white hover:bg-[#174a2f]"
+              className="mt-6 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
             >
               Buat janji lain
             </button>
@@ -1057,12 +1056,12 @@ export default function KlienPesananPage() {
 /* ========================= STYLE ========================= */
 const CARD = "rounded-2xl border border-gray-200 bg-white p-4 sm:p-5";
 const INPUT =
-  "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15";
+  "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 const PILL_BASE =
   "inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-sm font-semibold transition";
-const PILL_ON = "border-[#1e5b3a] bg-[#1e5b3a] text-white";
+const PILL_ON = "border-primary bg-primary text-white";
 const PILL_OFF =
-  "border-gray-300 bg-white text-gray-700 hover:border-[#1e5b3a]";
+  "border-gray-300 bg-white text-gray-700 hover:border-primary";
 
 /* ========================= KOMPONEN KECIL ========================= */
 function Stepper({ step }: { step: Step }) {
@@ -1082,7 +1081,7 @@ function Stepper({ step }: { step: Step }) {
               <span
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
                   active || done
-                    ? "bg-[#1e5b3a] text-white"
+                    ? "bg-primary text-white"
                     : "bg-gray-200 text-gray-500"
                 }`}
               >
@@ -1090,12 +1089,12 @@ function Stepper({ step }: { step: Step }) {
               </span>
               {!last && (
                 <span
-                  className={`mt-0 h-0.5 flex-1 ${done ? "bg-[#1e5b3a]" : "bg-gray-200"}`}
+                  className={`mt-0 h-0.5 flex-1 ${done ? "bg-primary" : "bg-gray-200"}`}
                 />
               )}
             </div>
             <span
-              className={`mt-2 text-center text-[11px] font-semibold sm:text-xs ${active ? "text-[#1e5b3a]" : "text-gray-500"}`}
+              className={`mt-2 text-center text-[11px] font-semibold sm:text-xs ${active ? "text-primary" : "text-gray-500"}`}
             >
               {label}
             </span>
@@ -1124,10 +1123,10 @@ function LayananCard({
       type="button"
       onClick={onClick}
       className={`group flex flex-col rounded-2xl border-2 bg-white p-4 text-left transition hover:shadow-md ${
-        selected ? "border-[#1e5b3a]" : "border-gray-200"
+        selected ? "border-primary" : "border-gray-200"
       }`}
     >
-      <div className="flex h-32 items-center justify-center rounded-xl bg-[#f7fcf9]">
+      <div className="flex h-32 items-center justify-center rounded-xl bg-primary-tint">
         {art}
       </div>
       <div className="mt-4 flex items-start justify-between gap-3">
@@ -1137,7 +1136,7 @@ function LayananCard({
         </div>
         <span
           className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-            selected ? "border-[#1e5b3a] bg-[#1e5b3a]" : "border-gray-300"
+            selected ? "border-primary bg-primary" : "border-gray-300"
           }`}
         >
           {selected && <span className="h-2 w-2 rounded-full bg-white" />}
@@ -1291,16 +1290,16 @@ function CalendarPicker({
               aria-label={`${fmtLong(iso)}${has ? "" : " (tidak tersedia)"}`}
               className={`relative flex h-9 items-center justify-center rounded-xl border text-sm font-semibold transition sm:h-10 ${
                 sel
-                  ? "border-[#1e5b3a] bg-[#1e5b3a] text-white"
+                  ? "border-primary bg-primary text-white"
                   : has
-                    ? "border-[#1e5b3a]/30 bg-[#e8f9f0] text-[#1e5b3a] hover:border-[#1e5b3a]"
+                    ? "border-primary/30 bg-primary-soft text-primary hover:border-primary"
                     : "cursor-not-allowed border-transparent text-gray-300"
               }`}
             >
               {day}
               {isToday && (
                 <span
-                  className={`absolute bottom-1 h-1 w-1 rounded-full ${sel ? "bg-white" : "bg-[#1e5b3a]"}`}
+                  className={`absolute bottom-1 h-1 w-1 rounded-full ${sel ? "bg-white" : "bg-primary"}`}
                 />
               )}
             </button>
@@ -1310,15 +1309,15 @@ function CalendarPicker({
 
       <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-gray-500">
         <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded border border-[#1e5b3a]/30 bg-[#e8f9f0]" />
+          <span className="h-3 w-3 rounded border border-primary/30 bg-primary-soft" />
           Tersedia
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded bg-[#1e5b3a]" />
+          <span className="h-3 w-3 rounded bg-primary" />
           Dipilih
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-1 w-1 rounded-full bg-[#1e5b3a]" />
+          <span className="h-1 w-1 rounded-full bg-primary" />
           Hari ini
         </span>
       </div>
@@ -1366,8 +1365,8 @@ function TimePanel({
               onClick={() => onSelectSlot(t)}
               className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
                 on
-                  ? "border-[#1e5b3a] bg-[#1e5b3a] text-white"
-                  : "border-[#1e5b3a]/40 bg-[#e8f9f0] text-[#1e5b3a] hover:border-[#1e5b3a]"
+                  ? "border-primary bg-primary text-white"
+                  : "border-primary/40 bg-primary-soft text-primary hover:border-primary"
               }`}
             >
               {t}
@@ -1469,7 +1468,7 @@ function CheckRow({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 accent-[#1e5b3a]"
+        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
       />
       <span>{label}</span>
     </label>
@@ -1505,8 +1504,8 @@ function NavButton({
     "inline-flex items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40";
   const style =
     variant === "solid"
-      ? "bg-[#1e5b3a] px-5 py-2.5 text-white shadow-md hover:bg-[#174a2f]"
-      : "border border-[#1e5b3a] text-[#1e5b3a] hover:bg-[#e8f9f0]";
+      ? "bg-primary px-5 py-2.5 text-white shadow-md hover:bg-primary-dark"
+      : "border border-primary text-primary hover:bg-primary-soft";
   return (
     <button
       type="button"

@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -211,7 +212,7 @@ function ScaleView({ value }: { value: number }) {
             key={number}
             className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
               number === value
-                ? "bg-[#064e3b] text-white"
+                ? "bg-primary text-white"
                 : "bg-gray-100 text-gray-400"
             }`}
           >
@@ -300,9 +301,9 @@ function StatCard({
 }
 
 const primaryBtn =
-  "rounded-xl bg-[#064e3b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#043d2e]";
+  "rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark";
 const inputFocus =
-  "outline-none focus:border-[#064e3b] focus:ring-4 focus:ring-[#064e3b]/10";
+  "outline-none focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 export default function KonselorAktivitasPage() {
   const navigate = useNavigate();
@@ -429,7 +430,7 @@ export default function KonselorAktivitasPage() {
     if (session.status === "done")
       return { label: "Selesai", style: "bg-gray-100 text-gray-700" };
     if (session.status === "ongoing")
-      return { label: "Berlangsung", style: "bg-[#064e3b] text-white" };
+      return { label: "Berlangsung", style: "bg-primary text-white" };
     if (canStart(session))
       return {
         label: "Siap dimulai",
@@ -564,18 +565,13 @@ export default function KonselorAktivitasPage() {
     : [];
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer role="counselor" spacing="none">
       {view === "list" && (
         <>
-          <header>
-            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-              Aktivitas Saya
-            </h1>
-            <p className="mt-1 text-sm text-gray-500 sm:text-base">
-              Mulai sesi saat jam mulai tiba. Jika mendadak tidak bisa hadir,
-              batalkan dengan alasan.
-            </p>
-          </header>
+          <PageHeader
+            title="Aktivitas Saya"
+            description="Mulai sesi saat jam mulai tiba. Jika mendadak tidak bisa hadir, batalkan dengan alasan."
+          />
 
           <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             <StatCard
@@ -629,8 +625,8 @@ export default function KonselorAktivitasPage() {
               <div className="mb-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5">
                   <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#0a7a5c] opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#064e3b]" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-light opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                   </span>
                   <h2 className="text-base font-bold text-gray-900">
                     {ongoingSession ? "Sedang berlangsung" : "Siap dimulai"}
@@ -650,7 +646,7 @@ export default function KonselorAktivitasPage() {
                       className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
                     >
                       {ongoing && (
-                        <div className="absolute inset-y-0 left-0 w-1 bg-[#064e3b]" />
+                        <div className="absolute inset-y-0 left-0 w-1 bg-primary" />
                       )}
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -740,7 +736,7 @@ export default function KonselorAktivitasPage() {
                         setSelectedBookingId(session.id);
                       }
                     }}
-                    className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 transition-colors hover:border-[#0a7a5c]/40 hover:bg-[#dff5e8]/30 focus:outline-none focus:ring-2 focus:ring-[#064e3b]/20"
+                    className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 transition-colors hover:border-primary-light/40 hover:bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
@@ -785,7 +781,7 @@ export default function KonselorAktivitasPage() {
                         Math.min(count + 10, upcomingSessions.length),
                       )
                     }
-                    className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#0a7a5c]/40 hover:bg-[#dff5e8]/30"
+                    className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-primary-light/40 hover:bg-secondary/30"
                   >
                     Muat lebih banyak
                   </button>
@@ -1095,7 +1091,7 @@ export default function KonselorAktivitasPage() {
           >
             <header className="flex items-start justify-between gap-4 border-b border-gray-100 p-5 sm:p-6">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#0a7a5c]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-light">
                   Detail booking klien
                 </p>
                 <h2
@@ -1120,7 +1116,7 @@ export default function KonselorAktivitasPage() {
 
             <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
               <section className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl bg-[#dff5e8]/70 p-4">
+                <div className="rounded-xl bg-secondary/70 p-4">
                   <p className="text-xs font-medium text-gray-500">
                     Jenis layanan
                   </p>
@@ -1128,7 +1124,7 @@ export default function KonselorAktivitasPage() {
                     {selectedBooking.format}
                   </p>
                 </div>
-                <div className="rounded-xl bg-[#dff5e8]/70 p-4">
+                <div className="rounded-xl bg-secondary/70 p-4">
                   <p className="text-xs font-medium text-gray-500">
                     Topik booking
                   </p>
@@ -1136,7 +1132,7 @@ export default function KonselorAktivitasPage() {
                     {selectedBooking.topic}
                   </p>
                 </div>
-                <div className="rounded-xl bg-[#dff5e8]/70 p-4">
+                <div className="rounded-xl bg-secondary/70 p-4">
                   <p className="text-xs font-medium text-gray-500">Jadwal</p>
                   <p className="mt-1 font-semibold text-gray-900">
                     {formatMinutes(selectedBooking.start)} WITA
@@ -1192,7 +1188,7 @@ export default function KonselorAktivitasPage() {
                 </h3>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {selectedBookingIntake.topics.map((topic) => (
-                    <Badge key={topic} className="bg-[#dff5e8] text-[#064e3b]">
+                    <Badge key={topic} className="bg-secondary text-primary">
                       {topic}
                     </Badge>
                   ))}
@@ -1424,6 +1420,6 @@ export default function KonselorAktivitasPage() {
           Lihat Riwayat Konseling <ChevronDown className="h-4 w-4" />
         </button>
       )}
-    </div>
+    </PageContainer>
   );
 }

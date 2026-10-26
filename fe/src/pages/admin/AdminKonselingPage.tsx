@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
+import { PageContainer, PageHeader } from "../../components/shared";
 import {
   Ban,
   Check,
@@ -296,7 +297,7 @@ function ViewSwitch({
           onClick={() => onChange(key)}
           className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 transition-all ${
             value === key
-              ? "bg-[#14553a] text-white shadow-sm"
+              ? "bg-primary text-white shadow-sm"
               : "hover:text-slate-800"
           }`}
         >
@@ -550,7 +551,7 @@ function CounselorPanel({
                   {c || ""}
                 </span>
                 <div
-                  className={`w-full rounded-t-md ${c ? "bg-[#14553a]" : "bg-slate-100"}`}
+                  className={`w-full rounded-t-md ${c ? "bg-primary" : "bg-slate-100"}`}
                   style={{
                     height: `${Math.max(c ? 8 : 4, Math.round((c / maxCount) * 100))}%`,
                   }}
@@ -750,60 +751,57 @@ export default function AdminKonselingPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
+    <PageContainer role="admin">
       {/* ================= HEADER ================= */}
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <h2 className="text-xl font-bold">Monitoring Konseling</h2>
-          <p className="hidden text-xs text-slate-500 sm:block">
-            Pantau sesi konseling individu dan kelompok, serta pembatalan.
-          </p>
-        </div>
+      <PageHeader
+        title="Monitoring Konseling"
+        description="Pantau sesi konseling individu dan kelompok, serta pembatalan."
+        actions={
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <SegmentTabs
+              options={PERIOD_OPTS}
+              value={period}
+              onChange={handlePeriodChange}
+            />
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <SegmentTabs
-            options={PERIOD_OPTS}
-            value={period}
-            onChange={handlePeriodChange}
-          />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => step(-1)}
+                disabled={!canPrev}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="min-w-[190px] text-center text-sm font-bold">
+                {label}
+              </span>
+              <button
+                type="button"
+                onClick={() => step(1)}
+                disabled={!canNext}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => step(-1)}
-              disabled={!canPrev}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="min-w-[190px] text-center text-sm font-bold">
-              {label}
-            </span>
-            <button
-              type="button"
-              onClick={() => step(1)}
-              disabled={!canNext}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            {period === "semester" && (
+              <select
+                value={semId ?? ""}
+                onChange={(e) => handleSemIdChange(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#22c55e]/30"
+              >
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    TA {p.ta} · {p.sem}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-
-          {period === "semester" && (
-            <select
-              value={semId ?? ""}
-              onChange={(e) => handleSemIdChange(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#22c55e]/30"
-            >
-              {periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  TA {p.ta} · {p.sem}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       {/* ================= KPI ================= */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -952,7 +950,7 @@ export default function AdminKonselingPage() {
                 <button
                   type="button"
                   onClick={() => setLimit((l) => l + PAGE_SIZE)}
-                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-brand-accent/50 hover:bg-[#f6fcf8]"
                 >
                   Muat lebih banyak
                 </button>
@@ -1143,6 +1141,6 @@ export default function AdminKonselingPage() {
           </div>
         )}
       </aside>
-    </div>
+    </PageContainer>
   );
 }

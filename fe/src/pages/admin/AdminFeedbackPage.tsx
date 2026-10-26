@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PageContainer, PageHeader } from "../../components/shared";
 import {
   Check,
   CheckCircle2,
@@ -224,7 +225,7 @@ const feedbackInPeriod = (items: Feedback[], p: AcademicPeriod | null) =>
   items.filter((f) => !p || isInPeriod(toISO(new Date(f.date)), p));
 
 const STATUS_STYLE: Record<PeriodStatus, string> = {
-  Aktif: "bg-emerald-50 text-[#14553a] border-emerald-200",
+  Aktif: "bg-emerald-50 text-primary border-emerald-200",
   Mendatang: "bg-sky-50 text-sky-700 border-sky-200",
   Selesai: "bg-slate-100 text-slate-500 border-slate-200",
 };
@@ -320,8 +321,8 @@ function PeriodDropdown({
         aria-expanded={open}
         className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition-colors sm:w-96 ${
           open
-            ? "border-[#2a8f5a] ring-4 ring-[#2a8f5a]/15"
-            : "border-slate-200 hover:border-[#2a8f5a]/50"
+            ? "border-brand-accent ring-4 ring-brand-accent/15"
+            : "border-slate-200 hover:border-brand-accent/50"
         }`}
       >
         <div className="min-w-0">
@@ -355,7 +356,7 @@ function PeriodDropdown({
               onClick={() => pick("all")}
               className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
                 selectedId === "all"
-                  ? "bg-[#f0fdf4] text-[#14553a]"
+                  ? "bg-[#f0fdf4] text-primary"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -377,13 +378,13 @@ function PeriodDropdown({
                   onClick={() => setTa(y)}
                   className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition-colors ${
                     activeYear === y
-                      ? "bg-white text-[#14553a] shadow-sm"
+                      ? "bg-white text-primary shadow-sm"
                       : "text-slate-600 hover:bg-white/70"
                   }`}
                 >
                   {y}
                   {selected?.ta === y && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#2a8f5a]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand-accent" />
                   )}
                 </button>
               ))}
@@ -420,8 +421,8 @@ function PeriodDropdown({
                     onClick={() => pick(p.id)}
                     className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
                       active
-                        ? "border-[#14553a] bg-[#14553a] text-white"
-                        : "border-slate-200 bg-white hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+                        ? "border-primary bg-primary text-white"
+                        : "border-slate-200 bg-white hover:border-brand-accent/50 hover:bg-[#f6fcf8]"
                     }`}
                   >
                     <div className="min-w-0">
@@ -638,15 +639,12 @@ export default function AdminFeedbackPage() {
           : "Tidak ada feedback yang cocok.";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
+    <PageContainer role="admin">
       {/* Judul */}
-      <div>
-        <h2 className="text-xl font-bold">Feedback Klien</h2>
-        <p className="text-xs text-slate-500">
-          Penilaian anonim dari klien untuk psikolog setelah sesi konseling.
-          Periksa feedback baru, lalu tampilkan yang sesuai.
-        </p>
-      </div>
+      <PageHeader
+        title="Feedback Klien"
+        description="Penilaian anonim dari klien untuk psikolog setelah sesi konseling. Periksa feedback baru, lalu tampilkan yang sesuai."
+      />
 
       {/* Ringkasan */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -668,7 +666,7 @@ export default function AdminFeedbackPage() {
               <Clock className="h-3 w-3" />
               {pendingCount} menunggu
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-[#14553a]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-primary">
               <Eye className="h-3 w-3" />
               {shownCount} ditampilkan
             </span>
@@ -807,7 +805,7 @@ export default function AdminFeedbackPage() {
                 onClick={() => setStatusFilter(tab.key)}
                 className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors ${
                   active
-                    ? "border-[#14553a] bg-[#14553a] text-white"
+                    ? "border-primary bg-primary text-white"
                     : "border-slate-200 bg-white text-slate-600 hover:border-[#22c55e]"
                 }`}
               >
@@ -889,7 +887,7 @@ export default function AdminFeedbackPage() {
                             Dinonaktifkan
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-[#14553a]">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-primary">
                             <CheckCircle2 className="h-3 w-3" />
                             Ditampilkan
                           </span>
@@ -921,7 +919,7 @@ export default function AdminFeedbackPage() {
                           <button
                             type="button"
                             onClick={() => setFeedbackStatus(f.id, "shown")}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-[#15803d] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-[#14553a]"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-[#15803d] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-primary"
                           >
                             <Eye className="h-3.5 w-3.5" />
                             Tampilkan
@@ -1030,7 +1028,7 @@ export default function AdminFeedbackPage() {
               <button
                 type="button"
                 onClick={confirmDisable}
-                className="rounded-xl bg-[#15803d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#14553a]"
+                className="rounded-xl bg-[#15803d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary"
               >
                 Simpan alasan & nonaktifkan
               </button>
@@ -1050,6 +1048,6 @@ export default function AdminFeedbackPage() {
           </span>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

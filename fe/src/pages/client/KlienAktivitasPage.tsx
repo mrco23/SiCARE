@@ -1,3 +1,4 @@
+import { PageHeader } from "../../components/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Link } from "react-router-dom";
@@ -377,7 +378,7 @@ function ConsentDialog({
                     href={CONSENT_PDF_URL}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-full bg-[#1e5b3a] px-5 py-2 text-sm font-semibold text-white"
+                    className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
                   >
                     Buka PDF di tab baru
                   </a>
@@ -391,7 +392,7 @@ function ConsentDialog({
                   type="checkbox"
                   checked={agreed}
                   onChange={(e) => setAgreed(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-[#1e5b3a]"
+                  className="mt-0.5 h-4 w-4 accent-primary"
                 />
                 Saya sudah membaca dan memahami isi informed consent ini.
               </label>
@@ -407,7 +408,7 @@ function ConsentDialog({
                   type="button"
                   disabled={!agreed}
                   onClick={() => setStep("sign")}
-                  className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Lanjut tanda tangan
                 </button>
@@ -422,7 +423,7 @@ function ConsentDialog({
                 ini.
               </p>
               <SignaturePad onChange={setSignature} />
-              <p className="rounded-xl bg-[#f7fcf9] p-3 text-xs text-gray-600">
+              <p className="rounded-xl bg-primary-tint p-3 text-xs text-gray-600">
                 Dengan menandatangani, kamu menyatakan setuju mengikuti sesi
                 konseling sesuai ketentuan pada dokumen informed consent.
               </p>
@@ -439,7 +440,7 @@ function ConsentDialog({
                 type="button"
                 disabled={!signature}
                 onClick={() => signature && onSigned(signature)}
-                className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Simpan tanda tangan
               </button>
@@ -737,7 +738,7 @@ export default function KlienAktivitasPage() {
       <button
         type="button"
         onClick={() => openFeedback(session.id)}
-        className="rounded-full bg-[#1e5b3a] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#174a2f]"
+        className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white transition hover:bg-primary-dark"
       >
         Beri penilaian
       </button>
@@ -784,7 +785,7 @@ export default function KlienAktivitasPage() {
               <button
                 type="button"
                 onClick={() => setConsentSessionId(session.id)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-[#0f3d2a] transition hover:bg-[#e8f9f0]"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-[#0f3d2a] transition hover:bg-primary-soft"
               >
                 <FileSignature className="h-4 w-4" />
                 Tanda tangan
@@ -798,12 +799,6 @@ export default function KlienAktivitasPage() {
           aria-label="Sesi konseling sedang berlangsung"
         >
           <div className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-[#36c08f]/40 via-[#8fe3bf] to-[#36c08f]/40 animate-[session-loading_1.8s_ease-in-out_infinite]" />
-          <style>{`
-            @keyframes session-loading {
-              0% { left: -35%; }
-              100% { left: 100%; }
-            }
-          `}</style>
         </div>
 
         <p className="relative mt-5 text-sm text-white/85">
@@ -822,7 +817,7 @@ export default function KlienAktivitasPage() {
         key={session.id}
         className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
       >
-        <p className="text-xs font-semibold text-[#1e5b3a]">
+        <p className="text-xs font-semibold text-primary">
           Sesimu berikutnya
         </p>
         <p className="mt-1.5 font-display text-lg font-bold text-gray-900">
@@ -845,7 +840,7 @@ export default function KlienAktivitasPage() {
             type="button"
             disabled={!allowed}
             onClick={() => openReschedule(session.id)}
-            className="rounded-full border border-[#1e5b3a] px-4 py-2 text-xs font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full border border-primary px-4 py-2 text-xs font-semibold text-primary transition hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
           >
             Ubah jadwal
           </button>
@@ -949,9 +944,9 @@ export default function KlienAktivitasPage() {
             }
             className={`flex h-10 items-center justify-center rounded-xl border text-sm font-semibold transition disabled:cursor-not-allowed ${
               isSelected
-                ? "border-[#1e5b3a] bg-[#1e5b3a] text-white"
+                ? "border-primary bg-primary text-white"
                 : isAvailable
-                  ? "border-[#1e5b3a]/30 bg-[#e8f9f0] text-[#1e5b3a] hover:border-[#1e5b3a]"
+                  ? "border-primary/30 bg-primary-soft text-primary hover:border-primary"
                   : "border-transparent text-gray-300"
             }`}
           >
@@ -966,22 +961,22 @@ export default function KlienAktivitasPage() {
         <button
           type="button"
           onClick={backToActivity}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-[#1e5b3a] hover:underline"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
           Kembali ke aktivitas
         </button>
 
-        <section>
-          <h1 className="font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-            Ubah jadwal sesi
-          </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            {rescheduleSession.counselor} · jadwal semula{" "}
-            {dayLabel(rescheduleSession.start, now)},{" "}
-            {formatTime(rescheduleSession.start)} WITA
-          </p>
-        </section>
+        <PageHeader
+          title="Ubah jadwal sesi"
+          description={
+            <>
+              {rescheduleSession.counselor} · jadwal semula{" "}
+              {dayLabel(rescheduleSession.start, now)},{" "}
+              {formatTime(rescheduleSession.start)} WITA
+            </>
+          }
+        />
 
         <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
           <section className="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6">
@@ -998,7 +993,7 @@ export default function KlienAktivitasPage() {
                     onClick={() => updateReschedule({ reason, error: "" })}
                     className={`rounded-xl border px-3 py-3 text-left text-sm transition ${
                       selected
-                        ? "border-[#1e5b3a] bg-[#f7fcf9] font-semibold text-[#1e5b3a]"
+                        ? "border-primary bg-primary-tint font-semibold text-primary"
                         : "border-gray-200 text-gray-700 hover:border-[#36c08f]"
                     }`}
                   >
@@ -1024,7 +1019,7 @@ export default function KlienAktivitasPage() {
               onChange={(event) =>
                 updateReschedule({ note: event.target.value })
               }
-              className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none transition focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+              className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
               placeholder="Tambahkan catatan jika diperlukan"
             />
           </section>
@@ -1107,8 +1102,8 @@ export default function KlienAktivitasPage() {
                       }
                       className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
                         selected
-                          ? "border-[#1e5b3a] bg-[#1e5b3a] text-white"
-                          : "border-[#1e5b3a] bg-white text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                          ? "border-primary bg-primary text-white"
+                          : "border-primary bg-white text-primary hover:bg-primary-soft"
                       }`}
                     >
                       {slot.label.replace("-", "–")} WITA
@@ -1144,7 +1139,7 @@ export default function KlienAktivitasPage() {
               )
             }
             onClick={submitReschedule}
-            className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
           >
             Kirim pengajuan
           </button>
@@ -1155,22 +1150,16 @@ export default function KlienAktivitasPage() {
 
   const renderMainPage = () => (
     <div className="space-y-6">
-      <section>
-        <p className="text-sm text-gray-500">
-          {new Date(now).toLocaleDateString("id-ID", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })}
-        </p>
-        <h1 className="mt-1 font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-          Aktivitasmu
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-gray-600 sm:text-base">
-          {summaryLine}
-        </p>
-      </section>
+      <PageHeader
+        eyebrow={new Date(now).toLocaleDateString("id-ID", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })}
+        title="Aktivitasmu"
+        description={summaryLine}
+      />
 
       {ongoing.length > 0 && (
         <section>
@@ -1220,10 +1209,10 @@ export default function KlienAktivitasPage() {
             <div className="space-y-8">
               {timelineGroups.map((group) => (
                 <div key={group.date.toDateString()}>
-                  <p className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-[#1e5b3a]">
+                  <p className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-primary">
                     {dayLabel(group.date, now)}
                   </p>
-                  <ol className="relative space-y-3 border-l-2 border-[#e8f9f0] pl-5">
+                  <ol className="relative space-y-3 border-l-2 border-primary-soft pl-5">
                     {group.items.map(renderTimelineItem)}
                   </ol>
                 </div>
@@ -1242,7 +1231,7 @@ export default function KlienAktivitasPage() {
               </p>
               <Link
                 to="/klien/pesanan"
-                className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#1e5b3a] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#174a2f]"
+                className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
               >
                 <CalendarPlus className="h-4 w-4" />
                 Buat janji baru
@@ -1350,11 +1339,11 @@ export default function KlienAktivitasPage() {
                   value={feedbackNote}
                   onChange={(event) => setFeedbackNote(event.target.value)}
                   placeholder="Ceritakan apa yang membantumu, atau apa yang bisa kami perbaiki"
-                  className="mt-1.5 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none transition focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+                  className="mt-1.5 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
                 />
               </div>
 
-              <p className="rounded-xl bg-[#f7fcf9] p-3 text-xs text-gray-600">
+              <p className="rounded-xl bg-primary-tint p-3 text-xs text-gray-600">
                 Penilaianmu bersifat anonim dan hanya digunakan untuk
                 meningkatkan layanan. Kamu hanya dapat mengirim satu kali untuk
                 setiap sesi.
@@ -1373,7 +1362,7 @@ export default function KlienAktivitasPage() {
                 type="button"
                 disabled={feedbackRating < 1}
                 onClick={submitFeedback}
-                className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Kirim penilaian
               </button>

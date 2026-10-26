@@ -1,6 +1,6 @@
+import { PageHeader } from "../../components/shared";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   CalendarCheck,
   CalendarDays,
   Check,
@@ -633,8 +633,8 @@ const BOOK_STATUS: Record<
   },
   scheduled: {
     label: "Terjadwal",
-    badge: "bg-[#e8f9f0] text-[#1e5b3a]",
-    iconWrap: "bg-[#e8f9f0] text-[#1e5b3a]",
+    badge: "bg-primary-soft text-primary",
+    iconWrap: "bg-primary-soft text-primary",
     icon: CalendarCheck,
   },
   rejected: {
@@ -741,7 +741,7 @@ function intakeFor(id: number): Intake {
 const ANSWER_STYLE: Record<Answer, string> = {
   Ya: "bg-red-100 text-red-800",
   Mungkin: "bg-amber-100 text-amber-800",
-  Tidak: "bg-[#e8f9f0] text-[#1e5b3a]",
+  Tidak: "bg-primary-soft text-primary",
 };
 
 const PERIOD_OPTIONS: { value: Period; label: string }[] = [
@@ -971,12 +971,10 @@ export default function KlienRiwayatPage() {
     <div className="space-y-6">
       {view === "hub" ? (
         <section>
-          <h1 className="font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-            Riwayat
-          </h1>
-          <p className="mt-2 text-sm text-gray-600 sm:text-base">
-            Pilih riwayat yang ingin kamu lihat.
-          </p>
+          <PageHeader
+            title="Riwayat"
+            description="Pilih riwayat yang ingin kamu lihat."
+          />
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             <button
@@ -993,13 +991,13 @@ export default function KlienRiwayatPage() {
               <p className="mt-1 text-sm text-gray-600">
                 Lihat janji temu yang pernah kamu ajukan beserta statusnya.
               </p>
-              <p className="mt-4 text-sm font-semibold text-[#1e5b3a]">
+              <p className="mt-4 text-sm font-semibold text-primary">
                 {BOOKINGS.length} booking
                 {pendingBookings
                   ? ` · ${pendingBookings} menunggu konfirmasi`
                   : ""}
               </p>
-              <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-[#1e5b3a]">
+              <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-primary">
                 Lihat booking{" "}
                 <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
               </span>
@@ -1010,7 +1008,7 @@ export default function KlienRiwayatPage() {
               onClick={() => openList("konseling")}
               className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#36c08f] hover:shadow-md"
             >
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary">
                 <MessageSquare className="h-6 w-6" strokeWidth={1.8} />
               </span>
               <p className="mt-5 font-display text-xl font-bold text-gray-900">
@@ -1019,10 +1017,10 @@ export default function KlienRiwayatPage() {
               <p className="mt-1 text-sm text-gray-600">
                 Lihat sesi yang sudah kamu jalani dan catatan dari konselormu.
               </p>
-              <p className="mt-4 text-sm font-semibold text-[#1e5b3a]">
+              <p className="mt-4 text-sm font-semibold text-primary">
                 {SESSIONS.length} sesi · {notesCount} catatan dari konselor
               </p>
-              <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-[#1e5b3a]">
+              <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-primary">
                 Lihat konseling{" "}
                 <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
               </span>
@@ -1031,20 +1029,15 @@ export default function KlienRiwayatPage() {
         </section>
       ) : (
         <section>
-          <button
-            type="button"
-            onClick={backToHub}
-            className="inline-flex items-center gap-1 text-sm font-semibold text-[#1e5b3a] hover:underline"
-          >
-            <ArrowLeft className="h-4 w-4" /> Kembali ke riwayat
-          </button>
-
-          <h1 className="mt-3 font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-            {listMeta.title}
-          </h1>
-          <p className="mt-2 text-sm text-gray-600 sm:text-base">
-            {listMeta.desc}
-          </p>
+          <PageHeader
+            backAction={{
+              label: "Kembali ke riwayat",
+              onClick: backToHub,
+            }}
+            title={listMeta.title}
+            description={listMeta.desc}
+            className="mt-3"
+          />
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div
@@ -1061,7 +1054,7 @@ export default function KlienRiwayatPage() {
                   onClick={() => changePeriod(option.value)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
                     period === option.value
-                      ? "bg-white text-[#1e5b3a] shadow-sm"
+                      ? "bg-white text-primary shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
@@ -1100,7 +1093,7 @@ export default function KlienRiwayatPage() {
                     setSemesterIndex(Number(event.target.value));
                     setShown(PAGE_SIZE);
                   }}
-                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-[#1e5b3a]"
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-primary"
                 >
                   {SEMESTERS.map((semester, index) => (
                     <option key={semester.id} value={index}>
@@ -1136,7 +1129,7 @@ export default function KlienRiwayatPage() {
                     }}
                     className={`flex-1 rounded-full px-4 py-1.5 text-sm font-semibold transition sm:flex-none ${
                       format === option.value
-                        ? "bg-white text-[#1e5b3a] shadow-sm"
+                        ? "bg-white text-primary shadow-sm"
                         : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
@@ -1149,7 +1142,7 @@ export default function KlienRiwayatPage() {
                 aria-haspopup="dialog"
                 aria-expanded={counselorModalOpen}
                 onClick={() => setCounselorModalOpen(true)}
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#1e5b3a] sm:w-72"
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-primary sm:w-72"
               >
                 <span className="truncate">
                   {counselor === "all"
@@ -1172,7 +1165,7 @@ export default function KlienRiwayatPage() {
                 : CheckCircle2;
               const statusWrap = isBooking
                 ? BOOK_STATUS[item.status as BookingStatus].iconWrap
-                : "bg-[#e8f9f0] text-[#1e5b3a]";
+                : "bg-primary-soft text-primary";
               const statusBadge = isBooking
                 ? BOOK_STATUS[item.status as BookingStatus].badge
                 : "";
@@ -1230,7 +1223,7 @@ export default function KlienRiwayatPage() {
                         <button
                           type="button"
                           onClick={() => setDetailSessionId(Number(item.id))}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[#1e5b3a] px-4 py-1.5 text-xs font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-primary px-4 py-1.5 text-xs font-semibold text-primary hover:bg-primary-soft"
                         >
                           <Eye className="h-3.5 w-3.5" />
                           Lihat detail
@@ -1238,7 +1231,7 @@ export default function KlienRiwayatPage() {
                         <button
                           type="button"
                           onClick={() => setConsentSessionId(Number(item.id))}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[#1e5b3a] px-4 py-1.5 text-xs font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-primary px-4 py-1.5 text-xs font-semibold text-primary hover:bg-primary-soft"
                         >
                           <FileSignature className="h-3.5 w-3.5" />
                           Lihat informed consent
@@ -1271,7 +1264,7 @@ export default function KlienRiwayatPage() {
               <button
                 type="button"
                 onClick={() => setShown((current) => current + PAGE_SIZE)}
-                className="rounded-full border border-[#1e5b3a] bg-white px-5 py-2 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0]"
+                className="rounded-full border border-primary bg-white px-5 py-2 text-sm font-semibold text-primary transition hover:bg-primary-soft"
               >
                 Muat lebih banyak
               </button>
@@ -1325,7 +1318,7 @@ export default function KlienRiwayatPage() {
                     setShown(PAGE_SIZE);
                     setCounselorModalOpen(false);
                   }}
-                  className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-gray-50 ${counselor === "all" ? "bg-[#f7fcf9]" : ""}`}
+                  className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-gray-50 ${counselor === "all" ? "bg-primary-tint" : ""}`}
                 >
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
                     <UsersRound className="h-5 w-5" />
@@ -1339,7 +1332,7 @@ export default function KlienRiwayatPage() {
                     </span>
                   </span>
                   {counselor === "all" && (
-                    <Check className="h-5 w-5 shrink-0 text-[#1e5b3a]" />
+                    <Check className="h-5 w-5 shrink-0 text-primary" />
                   )}
                 </button>
               </li>
@@ -1358,7 +1351,7 @@ export default function KlienRiwayatPage() {
                         setShown(PAGE_SIZE);
                         setCounselorModalOpen(false);
                       }}
-                      className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-gray-50 ${counselor === key ? "bg-[#f7fcf9]" : ""}`}
+                      className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-gray-50 ${counselor === key ? "bg-primary-tint" : ""}`}
                     >
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-sm font-bold text-gray-700">
                         {info.initials}
@@ -1372,7 +1365,7 @@ export default function KlienRiwayatPage() {
                         </span>
                       </span>
                       {counselor === key && (
-                        <Check className="h-5 w-5 shrink-0 text-[#1e5b3a]" />
+                        <Check className="h-5 w-5 shrink-0 text-primary" />
                       )}
                     </button>
                   </li>
@@ -1439,7 +1432,7 @@ export default function KlienRiwayatPage() {
               <a
                 href={CONSENT_PDF_URL}
                 download="informed-consent.pdf"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
               >
                 <Download className="h-4 w-4" />
                 Unduh PDF
@@ -1485,7 +1478,7 @@ function DetailModal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-gray-200 p-6 pb-4">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#1e5b3a]">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
               Detail konseling
             </p>
             <h2
@@ -1510,10 +1503,10 @@ function DetailModal({
 
         <div className="space-y-8 overflow-y-auto p-6">
           <section>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#1e5b3a]">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">
               1 · Catatan dari konselor untukmu
             </p>
-            <div className="mt-3 rounded-2xl border border-[#36c08f]/40 bg-[#f7fcf9] p-5">
+            <div className="mt-3 rounded-2xl border border-[#36c08f]/40 bg-primary-tint p-5">
               {session.noteClient ? (
                 <p className="whitespace-pre-line text-sm leading-relaxed text-gray-800">
                   {session.noteClient}
@@ -1578,7 +1571,7 @@ function DetailModal({
                             key={number}
                             className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${
                               number === intake[item.key]
-                                ? "bg-[#1e5b3a] text-white"
+                                ? "bg-primary text-white"
                                 : "bg-gray-100 text-gray-400"
                             }`}
                           >

@@ -1,5 +1,7 @@
 import { useState, type ElementType } from "react";
 import { useNavigate } from "react-router-dom";
+import { PageContainer, PageHeader } from "../../components/shared";
+
 import {
   ArrowRight,
   ArrowUp,
@@ -330,35 +332,29 @@ export default function AdminBerandaPage() {
     useState<(typeof periodFilters)[number]>("Hari Ini");
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
-      {/* Judul halaman + filter waktu */}
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">
-            Dashboard Monitoring Konseling
-          </h2>
-          <p className="text-xs text-slate-500">
-            Ringkasan statistik dan operasional layanan konseling kampus.
-          </p>
-        </div>
-
-        <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1 text-xs font-semibold text-slate-600">
-          {periodFilters.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setPeriod(item)}
-              className={`rounded-lg px-3 py-1.5 transition-colors ${
-                period === item
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "hover:text-slate-900"
-              }`}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </div>
+    <PageContainer role="admin">
+      <PageHeader
+        title="Dashboard Monitoring Konseling"
+        description="Ringkasan statistik dan operasional layanan konseling kampus."
+        actions={
+          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1 text-xs font-semibold text-slate-600">
+            {periodFilters.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setPeriod(item)}
+                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                  period === item
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "hover:text-slate-900"
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       <MetricCards />
 
@@ -368,6 +364,6 @@ export default function AdminBerandaPage() {
       </div>
 
       <CounselorWorkload />
-    </div>
+    </PageContainer>
   );
 }

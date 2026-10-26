@@ -1,3 +1,4 @@
+import { PageHeader } from "../../components/shared";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -40,7 +41,7 @@ const USER_NAME = "Marco";
 
 const STATUS_STYLE: Record<BookingStatus, { cls: string; label: string }> = {
   pending: { cls: "bg-amber-50 text-amber-700", label: "Menunggu Konfirmasi" },
-  scheduled: { cls: "bg-[#e8f9f0] text-[#1e5b3a]", label: "Terjadwal" },
+  scheduled: { cls: "bg-primary-soft text-primary", label: "Terjadwal" },
   done: { cls: "bg-gray-100 text-gray-700", label: "Selesai" },
   cancelled: { cls: "bg-red-50 text-red-700", label: "Dibatalkan" },
 };
@@ -118,34 +119,35 @@ export default function BerandaKlienPage() {
   return (
     <div className="space-y-6">
       {/* ================= SAPAAN ================= */}
-      <section>
-        <h1 className="font-display text-2xl font-extrabold leading-tight text-gray-900 sm:text-3xl">
-          Selamat datang kembali,{" "}
-          <span className="text-[#1e5b3a]">{USER_NAME}!</span>{" "}
-          <span className="inline-block">👋</span>
-        </h1>
-        <p className="mt-3 text-sm leading-relaxed text-gray-600 sm:text-base">
-          Jaga kesehatan mentalmu, karena kamu juga penting.
-        </p>
+      <PageHeader
+        title={
+          <>
+            Selamat datang kembali,{" "}
+            <span className="text-primary">{USER_NAME}!</span>{" "}
+            <span className="inline-block">👋</span>
+          </>
+        }
+        description="Jaga kesehatan mentalmu, karena kamu juga penting."
+      >
         <p className="text-sm leading-relaxed text-gray-600 sm:text-base">
           Disini tempat kamu bisa berbagi, bercerita, didengar, dan mendapatkan
           dukungan.
         </p>
         <Link
           to="/klien/pesanan"
-          className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#1e5b3a]/40 bg-white px-5 py-2.5 text-sm font-semibold text-[#1e5b3a] shadow-sm transition hover:bg-[#e8f9f0] sm:text-[15px]"
+          className="mt-5 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-white px-5 py-2.5 text-sm font-semibold text-primary shadow-sm transition hover:bg-primary-soft sm:text-[15px]"
         >
           Buat janji konseling
           <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
         </Link>
-      </section>
+      </PageHeader>
 
       {/* ================= JADWAL & STATUS ================= */}
       <section className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         {/* Jadwal berikutnya */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-[0_20px_50px_rgba(0,0,0,0.06)] sm:p-6">
           <div className="flex items-center gap-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
               <CalendarDays className="h-5 w-5" strokeWidth={1.8} />
             </span>
             <h2 className="font-display text-lg font-bold sm:text-xl">
@@ -212,7 +214,7 @@ export default function BerandaKlienPage() {
               <div className="mt-5 flex justify-end">
                 <Link
                   to="/klien/aktivitas"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#1e5b3a] px-4 py-1.5 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0]"
+                  className="inline-flex items-center gap-2 rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary-soft"
                 >
                   Lihat Detail
                   <ChevronsRight className="h-4 w-4" strokeWidth={2} />
@@ -225,7 +227,7 @@ export default function BerandaKlienPage() {
         {/* Status booking terakhir */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-[0_20px_50px_rgba(0,0,0,0.06)] sm:p-6">
           <div className="flex items-center gap-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
               <CalendarCheck className="h-5 w-5" strokeWidth={1.8} />
             </span>
             <h2 className="font-display text-lg font-bold sm:text-xl">
@@ -240,7 +242,7 @@ export default function BerandaKlienPage() {
           ) : (
             <div className="mt-5">
               <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] text-[#1e5b3a]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
                   <UserRound className="h-5 w-5" strokeWidth={1.8} />
                 </span>
                 <div>
@@ -269,7 +271,7 @@ export default function BerandaKlienPage() {
               <div className="mt-5 flex justify-end">
                 <Link
                   to="/klien/riwayat"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#1e5b3a] px-4 py-1.5 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0]"
+                  className="inline-flex items-center gap-2 rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary-soft"
                 >
                   Lihat Detail
                   <ChevronsRight className="h-4 w-4" strokeWidth={2} />
@@ -282,8 +284,8 @@ export default function BerandaKlienPage() {
 
       {/* ================= BANNER PENGINGAT BESOK ================= */}
       {showTomorrowBanner && upcoming && (
-        <div className="flex items-center gap-3 rounded-2xl border border-[#36c08f]/40 bg-[#e8f9f0] p-3 sm:p-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#1e5b3a]">
+        <div className="flex items-center gap-3 rounded-2xl border border-[#36c08f]/40 bg-primary-soft p-3 sm:p-4">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-primary">
             <AlarmClock className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <div>
@@ -301,10 +303,10 @@ export default function BerandaKlienPage() {
       {/* ================= AKSES CEPAT ================= */}
       <section className="rounded-2xl bg-gray-100/60 p-4 sm:p-6">
         <div className="flex items-center justify-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8f9f0] text-[#1e5b3a]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-soft text-primary">
             <ChevronsRight className="h-5 w-5" strokeWidth={1.8} />
           </span>
-          <h2 className="font-display text-xl font-bold text-[#1e5b3a] sm:text-2xl">
+          <h2 className="font-display text-xl font-bold text-primary sm:text-2xl">
             Akses Cepat
           </h2>
         </div>
@@ -318,7 +320,7 @@ export default function BerandaKlienPage() {
                 to={card.to}
                 className="group flex min-h-[130px] flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
-                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#e8f9f0] px-3 py-1 text-sm font-semibold text-[#1e5b3a]">
+                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-primary-soft px-3 py-1 text-sm font-semibold text-primary">
                   <Icon className="h-4 w-4" strokeWidth={1.8} />
                   {card.title}
                 </span>
@@ -326,8 +328,8 @@ export default function BerandaKlienPage() {
                 <span
                   className={`ml-auto flex h-7 w-7 items-center justify-center rounded-full text-white transition group-hover:translate-x-0.5 ${
                     card.highlight
-                      ? "bg-[#1e5b3a]"
-                      : "bg-gray-300 group-hover:bg-[#1e5b3a]"
+                      ? "bg-primary"
+                      : "bg-gray-300 group-hover:bg-primary"
                   }`}
                 >
                   {card.highlight ? (
@@ -357,7 +359,7 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] text-[#1e5b3a]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
         <Icon className="h-5 w-5" strokeWidth={1.8} />
       </span>
       <div className="min-w-0 flex-1">

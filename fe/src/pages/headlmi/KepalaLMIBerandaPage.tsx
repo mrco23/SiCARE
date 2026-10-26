@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -188,28 +189,22 @@ export default function AdminBerandaPage() {
   const navigate = useNavigate();
 
   return (
-    <main className="mx-auto max-w-7xl space-y-5 font-[Inter] text-slate-800">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#15803d]">
-            Beranda Kepala LMI
-          </p>
-          <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">
-            Ringkasan Konseling
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Pantau kondisi layanan dan tindak lanjut utama.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate("/admin/laporan")}
-          className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4430] sm:self-auto"
-        >
-          Lihat laporan lengkap
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </header>
+    <PageContainer role="headlmi" spacing="none" className="space-y-5 text-slate-800">
+      <PageHeader
+        eyebrow="Beranda Kepala LMI"
+        title="Ringkasan Konseling"
+        description="Pantau kondisi layanan dan tindak lanjut utama."
+        actions={
+          <button
+            type="button"
+            onClick={() => navigate("/admin/laporan")}
+            className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark sm:self-auto"
+          >
+            Lihat laporan lengkap
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        }
+      />
 
       <MetricCards />
 
@@ -227,6 +222,6 @@ export default function AdminBerandaPage() {
         Data yang ditampilkan merupakan data contoh dan dapat dihubungkan ke
         API.
       </p>
-    </main>
+    </PageContainer>
   );
 }

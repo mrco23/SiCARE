@@ -28,7 +28,7 @@ function AboutHero() {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-[#f3fdf7] pb-20 pt-20 md:pb-24 md:pt-24">
+    <section className="relative overflow-hidden bg-primary-surface pb-20 pt-20 md:pb-24 md:pt-24">
       {/* Logo besar di latar kanan atas */}
       <img
         src="/logo.png"
@@ -42,7 +42,7 @@ function AboutHero() {
       <div className="pointer-events-none absolute left-[24px] top-[52%] h-[10px] w-[10px] rounded-full bg-[#cde2fb]" />
 
       <div className={`relative z-10 ${container}`}>
-        <h1 className="text-center text-[20px] font-bold leading-tight text-[#14553a] sm:text-[26px] md:text-[30px]">
+        <h1 className="text-center text-[20px] font-bold leading-tight text-primary sm:text-[26px] md:text-[30px]">
           Mendampingi Langka,
           <br />
           Membantu <span className="text-[#d4b82a]">Tumbuh Bersama</span>
@@ -50,7 +50,7 @@ function AboutHero() {
 
         <div className="mt-10 grid gap-8 md:grid-cols-2">
           {/* Kiri: deskripsi */}
-          <div className="flex flex-col justify-center space-y-4 text-[13px] leading-relaxed text-[#14553a] sm:text-[14px] md:text-[17px]">
+          <div className="flex flex-col justify-center space-y-4 text-[13px] leading-relaxed text-primary sm:text-[14px] md:text-[17px]">
             <p>
               <span className="font-semibold">
                 Divisi Bimbingan dan Konseling (BK)
@@ -68,12 +68,12 @@ function AboutHero() {
           {/* Kanan: kartu */}
           <div className="relative mx-auto flex h-full w-full max-w-[320px] flex-col rounded-[16px] bg-white p-5 shadow-[0_12px_30px_rgba(46,154,95,0.2)] sm:p-6">
             {/* Garis aksen hijau tua di kiri */}
-            <div className="absolute bottom-6 left-0 top-16 w-[4px] rounded-r-full bg-[#14553a]" />
+            <div className="absolute bottom-6 left-0 top-16 w-[4px] rounded-r-full bg-primary" />
 
             <div className="flex items-center gap-3">
               <div className="flex h-[56px] w-[64px] shrink-0 items-center justify-center rounded-[12px] bg-[#eef9f3]">
                 <HeartPulse
-                  className="h-[26px] w-[26px] text-[#14553a]"
+                  className="h-[26px] w-[26px] text-primary"
                   strokeWidth={2.2}
                 />
               </div>
@@ -161,7 +161,7 @@ function VisiMisi() {
       </span>
 
       <div className={`relative z-10 ${container}`}>
-        <h2 className="text-center font-[Montserrat] text-[22px] font-bold text-[#1e5b3a] sm:text-[26px]">
+        <h2 className="text-center font-[Montserrat] text-[22px] font-bold text-primary sm:text-[26px]">
           Visi & Misi Layanan
         </h2>
 
@@ -198,11 +198,11 @@ function VisiMisi() {
               <div className="flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-[#2e9a5f]">
                 <Target className="h-[14px] w-[14px] text-white" />
               </div>
-              <span className="text-[11px] font-semibold tracking-wide text-[#1e5b3a]">
+              <span className="text-[11px] font-semibold tracking-wide text-primary">
                 MISI
               </span>
             </div>
-            <h3 className="mt-3 font-[Montserrat] text-[16px] font-bold text-[#1e5b3a] sm:text-[18px]">
+            <h3 className="mt-3 font-[Montserrat] text-[16px] font-bold text-primary sm:text-[18px]">
               Langkah Nyata Pelayanan Kami
             </h3>
 
@@ -268,7 +268,7 @@ function FokusLayanan() {
   return (
     <section className="relative overflow-hidden bg-white py-14 md:py-20">
       <div className={`relative z-10 ${container}`}>
-        <h2 className="font-[Montserrat] text-2xl font-bold text-[#064e3b] sm:text-3xl">
+        <h2 className="font-[Montserrat] text-2xl font-bold text-primary sm:text-3xl">
           Fokus Layanan Utama
         </h2>
 
@@ -368,7 +368,7 @@ function PrinsipLayanan() {
   return (
     <section className="relative overflow-hidden bg-white py-14 md:py-20">
       <div className={`relative z-10 ${container}`}>
-        <h2 className="font-[Montserrat] text-2xl font-bold text-[#1e5b3a] sm:text-3xl">
+        <h2 className="font-[Montserrat] text-2xl font-bold text-primary sm:text-3xl">
           Prinsip Layanan Kami
         </h2>
 
@@ -390,7 +390,7 @@ function PrinsipLayanan() {
                   aria-pressed={isActive}
                   className={`absolute ${position} flex items-center justify-center rounded-full border transition-all duration-500 ease-in-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2e9a5f]/25 ${
                     isActive
-                      ? "z-20 h-28 w-28 border-[#14553a] bg-gradient-to-br from-[#2ecc7a] to-[#127a47] shadow-[0_12px_26px_rgba(20,85,58,0.22)] sm:h-32 sm:w-32"
+                      ? "z-20 h-28 w-28 border-primary bg-gradient-to-br from-[#2ecc7a] to-[#127a47] shadow-[0_12px_26px_rgba(20,85,58,0.22)] sm:h-32 sm:w-32"
                       : "z-10 h-20 w-20 border-[#D4E1D7] bg-gradient-to-br from-[#E5F0E8] to-[#C9DDCF] shadow-[0_4px_12px_rgba(20,85,58,0.08)] hover:scale-105 hover:border-[#B9D0C0] sm:h-24 sm:w-24"
                   }`}
                 >
@@ -431,11 +431,11 @@ function CtaSection() {
   return (
     <section className="relative overflow-hidden bg-white pt-14 pb-0 text-center md:pt-20">
       <div className={`relative z-10 ${container}`}>
-        <h2 className="font-[Montserrat] text-2xl font-bold text-[#1e5b3a] sm:text-3xl md:text-4xl">
+        <h2 className="font-[Montserrat] text-2xl font-bold text-primary sm:text-3xl md:text-4xl">
           Butuh Teman Bicara atau Bimbingan
           <span className="text-[#e0b83a]">?</span>
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[#1e5b3a] sm:text-base md:text-lg">
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-primary sm:text-base md:text-lg">
           Jangan ragu untuk menghubungi kami. Tim psikolog & konselor BK Unika
           De La Salle Manado siap mendampingi anda.
         </p>

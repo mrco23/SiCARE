@@ -1,3 +1,4 @@
+import { PageHeader } from "../../components/shared";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -150,7 +151,7 @@ function CounselorCard({ counselor }: { counselor: Counselor }) {
       <div className="flex items-center gap-4 border-b border-gray-100 p-5">
         <div
           aria-hidden="true"
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#1e5b3a] text-lg font-bold text-white"
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary text-lg font-bold text-white"
         >
           {counselor.initials}
         </div>
@@ -171,7 +172,7 @@ function CounselorCard({ counselor }: { counselor: Counselor }) {
 
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#e8f9f0] text-[#1e5b3a]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
               <GraduationCap className="h-4 w-4" strokeWidth={1.8} />
             </span>
             <div className="min-w-0 space-y-3">
@@ -193,7 +194,7 @@ function CounselorCard({ counselor }: { counselor: Counselor }) {
           </div>
 
           <div className="flex items-start gap-3 sm:pl-4">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#e8f9f0] text-[#1e5b3a]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
               <Briefcase className="h-4 w-4" strokeWidth={1.8} />
             </span>
             <div>
@@ -231,7 +232,7 @@ function CounselorCard({ counselor }: { counselor: Counselor }) {
       <div className="border-t border-gray-100 p-5">
         <Link
           to="/klien/pesanan"
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0] focus:outline-none focus:ring-4 focus:ring-[#1e5b3a]/15"
+          className="flex w-full items-center justify-center gap-2 rounded-full border border-primary px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary-soft focus:outline-none focus:ring-4 focus:ring-primary/15"
         >
           Buat janji konseling
           <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
@@ -262,14 +263,10 @@ export default function KlienKonselorPage() {
 
   return (
     <div className="space-y-6">
-      <section>
-        <h1 className="font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-          Konselor
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-gray-600 sm:text-base">
-          Kenali konselor yang siap mendampingi kebutuhanmu.
-        </p>
-      </section>
+      <PageHeader
+        title="Konselor"
+        description="Kenali konselor yang siap mendampingi kebutuhanmu."
+      />
 
       <section aria-label="Pencarian konselor">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -291,7 +288,7 @@ export default function KlienKonselorPage() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Cari nama atau topik keahlian..."
-              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
             />
           </label>
         </div>
@@ -308,7 +305,7 @@ export default function KlienKonselorPage() {
         </section>
       ) : (
         <section className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
-          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#e8f9f0] text-[#1e5b3a]">
+          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-primary-soft text-primary">
             <UsersRound className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <p className="mt-3 text-sm font-semibold text-gray-700">
@@ -320,7 +317,7 @@ export default function KlienKonselorPage() {
           <button
             type="button"
             onClick={() => setSearchQuery("")}
-            className="mt-4 rounded-full border border-[#1e5b3a] px-4 py-2 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0]"
+            className="mt-4 rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary-soft"
           >
             Hapus pencarian
           </button>

@@ -20,7 +20,7 @@ export default function AuthBackground() {
       {/* Cahaya lembut */}
       <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-secondary-dark/50 blur-3xl" />
       <div className="absolute -bottom-40 -right-32 h-[28rem] w-[28rem] rounded-full bg-secondary/80 blur-3xl" />
-      <div className="absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 rounded-full bg-[#c9a54a]/10 blur-3xl" />
+      <div className="absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 rounded-full bg-brand-gold/10 blur-3xl" />
 
       {/* Simbol Ψ dari logo, sebagai elemen utama */}
       <svg
@@ -69,7 +69,7 @@ export default function AuthBackground() {
         style={{ animationDuration: "22s", animationDelay: "-4s" }}
       />
       <HeartHandshake
-        className="auth-float absolute bottom-[10%] right-[10%] h-14 w-14 text-[#c9a54a] opacity-[0.22]"
+        className="auth-float absolute bottom-[10%] right-[10%] h-14 w-14 text-brand-gold opacity-[0.22]"
         strokeWidth={1.4}
         style={{ animationDuration: "20s", animationDelay: "-8s" }}
       />
@@ -84,12 +84,12 @@ export default function AuthBackground() {
         style={{ animationDuration: "19s", animationDelay: "-6s" }}
       />
       <Sparkles
-        className="auth-float absolute right-[30%] top-[22%] h-6 w-6 text-[#c9a54a] opacity-30"
+        className="auth-float absolute right-[30%] top-[22%] h-6 w-6 text-brand-gold opacity-30"
         strokeWidth={1.5}
         style={{ animationDuration: "12s" }}
       />
       <Sparkles
-        className="auth-float absolute left-[28%] bottom-[26%] h-5 w-5 text-[#c9a54a] opacity-25"
+        className="auth-float absolute left-[28%] bottom-[26%] h-5 w-5 text-brand-gold opacity-25"
         strokeWidth={1.5}
         style={{ animationDuration: "15s", animationDelay: "-3s" }}
       />

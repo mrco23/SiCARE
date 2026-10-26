@@ -45,7 +45,7 @@ const steps: Step[] = [
 ];
 
 const SectionTitle = ({ children }: { children: ReactNode }) => (
-  <h2 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-[#14553a] md:text-[30px]">
+  <h2 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-primary md:text-[30px]">
     {children}
   </h2>
 );
@@ -85,7 +85,7 @@ function StepItem({ s }: { s: Step }) {
       <div className="absolute left-4 top-7 z-10 -translate-x-1/2 md:left-1/2">
         <span
           className={`relative block h-5 w-5 rounded-full border-[3px] border-black motion-safe:transition-colors motion-safe:duration-500 ${
-            inView ? "bg-[#14553a]" : "bg-[#d9fbe8]"
+            inView ? "bg-primary" : "bg-[#d9fbe8]"
           }`}
         >
           {/* konektor horizontal (desktop) */}
@@ -123,7 +123,7 @@ function StepItem({ s }: { s: Step }) {
             isRight ? "" : "md:ml-auto"
           }`}
         >
-          <h3 className="font-[Montserrat] text-lg font-semibold text-[#14553a] md:text-xl">
+          <h3 className="font-[Montserrat] text-lg font-semibold text-primary md:text-xl">
             {s.title}
           </h3>
           <p className="mt-3 text-[13px] leading-relaxed text-[#3b4a44] md:text-[14px]">

@@ -84,7 +84,7 @@ export default function Footer() {
                 <span
                   className="
                   font-semibold 
-                  text-[#2d6a1f]
+                  text-brand-mark
                 "
                 >
                   Si

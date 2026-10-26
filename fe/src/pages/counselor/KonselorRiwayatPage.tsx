@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -799,19 +800,15 @@ export default function KonselorRiwayatPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer role="counselor" spacing="none">
       {hasAccess &&
         (!selected ? (
           <>
             {/* ================= DAFTAR KLIEN ================= */}
-            <section>
-              <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-                Riwayat Konseling
-              </h1>
-              <p className="mt-1 text-sm text-gray-500 sm:text-base">
-                Pilih klien untuk membuka riwayat dan catatan konseling.
-              </p>
-            </section>
+            <PageHeader
+              title="Riwayat Konseling"
+              description="Pilih klien untuk membuka riwayat dan catatan konseling."
+            />
 
             {/* Filter nama, format, dan periode waktu */}
             <div className="mt-6 space-y-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
@@ -823,7 +820,7 @@ export default function KonselorRiwayatPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Cari nama klien ..."
-                    className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:bg-white focus:ring-4 focus:ring-[#1e5b3a]/15"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15"
                   />
                 </div>
 
@@ -900,7 +897,7 @@ export default function KonselorRiwayatPage() {
                       value={semesterId ?? ""}
                       onChange={(e) => setSemesterId(e.target.value)}
                       aria-label="Pilih semester akademik"
-                      className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#1e5b3a] focus:ring-2 focus:ring-[#1e5b3a]/20"
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
                       {periods.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -926,7 +923,7 @@ export default function KonselorRiwayatPage() {
                     className="flex w-full flex-col rounded-2xl border border-gray-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-[#36c08f]/60 hover:shadow-md"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] font-bold text-[#1e5b3a]">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">
                         {initials(client.name)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -942,7 +939,7 @@ export default function KonselorRiwayatPage() {
                       <span className="text-gray-600">
                         {count} sesi {format.toLowerCase()}
                       </span>
-                      <span className="rounded-full bg-[#e8f9f0] px-2.5 py-1 text-xs font-semibold text-[#1e5b3a]">
+                      <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary">
                         Selesai
                       </span>
                     </div>
@@ -967,7 +964,7 @@ export default function KonselorRiwayatPage() {
               <button
                 type="button"
                 onClick={backToClients}
-                className="inline-flex items-center gap-1.5 font-semibold text-[#1e5b3a] hover:underline"
+                className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Riwayat Konseling
@@ -977,7 +974,7 @@ export default function KonselorRiwayatPage() {
             </nav>
 
             <div className="mt-5 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#1e5b3a] to-[#36c08f] text-xl font-bold text-white">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#36c08f] text-xl font-bold text-white">
                 {initials(selected.name)}
               </div>
               <div className="min-w-0 flex-1">
@@ -1019,7 +1016,7 @@ export default function KonselorRiwayatPage() {
                   onChange={(e) =>
                     setTimeSort(e.target.value as "terbaru" | "terlama")
                   }
-                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-100/70 py-2.5 pl-4 pr-10 text-sm text-gray-600 outline-none focus:border-[#1e5b3a] focus:bg-white sm:w-auto"
+                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-100/70 py-2.5 pl-4 pr-10 text-sm text-gray-600 outline-none focus:border-primary focus:bg-white sm:w-auto"
                 >
                   <option value="terbaru">Waktu terbaru</option>
                   <option value="terlama">Waktu terlama</option>
@@ -1058,14 +1055,14 @@ export default function KonselorRiwayatPage() {
                         </span>
                       </div>
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
-                        <span className="rounded-full bg-[#e8f9f0] px-2.5 py-1 text-xs font-semibold text-[#1e5b3a]">
+                        <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary">
                           Selesai
                         </span>
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleOpenConsent(s.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e5b3a] px-3.5 py-2 text-sm font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-3.5 py-2 text-sm font-semibold text-primary hover:bg-primary-soft"
                           >
                             <FileSignature className="h-4 w-4" />
                             Lihat informed consent
@@ -1073,7 +1070,7 @@ export default function KonselorRiwayatPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenNote(s.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1e5b3a] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
                           >
                             <Eye className="h-4 w-4" />
                             Lihat catatan
@@ -1095,7 +1092,7 @@ export default function KonselorRiwayatPage() {
             onSubmit={handleUnlock}
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
           >
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary">
               <Lock className="h-6 w-6" />
             </div>
             <h2 className="text-lg font-bold">Buka Riwayat Konseling</h2>
@@ -1122,12 +1119,12 @@ export default function KonselorRiwayatPage() {
                 value={pwInput}
                 onChange={(e) => setPwInput(e.target.value)}
                 disabled={pwLocked || verifying}
-                className="w-full rounded-xl border border-gray-300 py-2.5 pl-4 pr-20 text-sm outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:bg-gray-100"
+                className="w-full rounded-xl border border-gray-300 py-2.5 pl-4 pr-20 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:bg-gray-100"
               />
               <button
                 type="button"
                 onClick={() => setPwVisible((v) => !v)}
-                className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-primary hover:bg-primary-soft"
               >
                 {pwVisible ? (
                   <EyeOff className="h-3.5 w-3.5" />
@@ -1156,7 +1153,7 @@ export default function KonselorRiwayatPage() {
               <button
                 type="submit"
                 disabled={pwLocked || verifying || pwInput.length === 0}
-                className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f] disabled:opacity-50"
+                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
               >
                 Buka
               </button>
@@ -1208,7 +1205,7 @@ export default function KonselorRiwayatPage() {
                     href={CONSENT_PDF_URL}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-semibold text-[#1e5b3a] underline"
+                    className="font-semibold text-primary underline"
                   >
                     Buka dokumen di tab baru
                   </a>
@@ -1224,7 +1221,7 @@ export default function KonselorRiwayatPage() {
               <a
                 href={CONSENT_PDF_URL}
                 download="informed-consent.pdf"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
               >
                 <Download className="h-4 w-4" />
                 Unduh PDF
@@ -1240,7 +1237,7 @@ export default function KonselorRiwayatPage() {
           <div className="flex max-h-[88vh] w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-gray-200 p-5 sm:p-6">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#1e5b3a]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                   Catatan terbuka sementara
                 </p>
                 <h2 className="mt-1 text-lg font-bold">{noteSession.topic}</h2>
@@ -1287,6 +1284,6 @@ export default function KonselorRiwayatPage() {
       >
         {toastMsg}
       </div>
-    </div>
+    </PageContainer>
   );
 }

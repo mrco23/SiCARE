@@ -88,12 +88,12 @@ export default function TestimonialSection() {
   return (
     <section
       id="testimonials"
-      className="section-padding bg-[#064E3B] px-6 relative overflow-hidden"
+      className="section-padding bg-primary px-6 relative overflow-hidden"
       ref={ref}
     >
       {/* Decorative elements */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-[#0A7A5C] rounded-full blur-3xl opacity-30 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#043D2E] rounded-full blur-2xl opacity-50 pointer-events-none" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary-light rounded-full blur-3xl opacity-30 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary-dark rounded-full blur-2xl opacity-50 pointer-events-none" />
       <div
         className="absolute inset-0 opacity-[0.03]"
         style={{
@@ -110,12 +110,12 @@ export default function TestimonialSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-14"
         >
-          <span className="inline-block text-xs font-bold text-[#DFF5E8] bg-[#0A7A5C]/40 border border-[#DFF5E8]/20 px-4 py-1.5 rounded-full mb-4 tracking-wide uppercase">
+          <span className="inline-block text-xs font-bold text-secondary bg-primary-light/40 border border-secondary/20 px-4 py-1.5 rounded-full mb-4 tracking-wide uppercase">
             Testimoni
           </span>
           <h2 className="text-3xl md:text-4xl font-black text-white leading-tight mb-4">
             Suara dari Mereka yang{' '}
-            <span className="text-[#DFF5E8]">Telah Melangkah</span>
+            <span className="text-secondary">Telah Melangkah</span>
           </h2>
           <p className="text-green-200 text-base max-w-xl mx-auto leading-relaxed font-medium">
             Identitas pengguna dirahasiakan sepenuhnya untuk menjaga privasi.
@@ -142,12 +142,12 @@ export default function TestimonialSection() {
                 className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-3xl p-6 hover:bg-white/15 transition-all duration-300 cursor-default"
               >
                 {/* Quote icon */}
-                <div className="w-10 h-10 rounded-xl bg-[#DFF5E8]/20 flex items-center justify-center mb-4">
-                  <Quote size={18} className="text-[#DFF5E8]" />
+                <div className="w-10 h-10 rounded-xl bg-secondary/20 flex items-center justify-center mb-4">
+                  <Quote size={18} className="text-secondary" />
                 </div>
 
                 {/* Category badge */}
-                <span className="inline-block text-xs bg-[#0A7A5C]/50 text-green-200 border border-green-400/20 px-3 py-1 rounded-full font-semibold mb-3">
+                <span className="inline-block text-xs bg-primary-light/50 text-green-200 border border-green-400/20 px-3 py-1 rounded-full font-semibold mb-3">
                   {t.category}
                 </span>
 

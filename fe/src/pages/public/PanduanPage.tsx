@@ -51,8 +51,8 @@ function StepItem({ s }: { s: Step }) {
       {/* node */}
       <div className="absolute left-4 top-7 z-10 -translate-x-1/2 md:left-1/2">
         <span
-          className={`relative block h-5 w-5 rounded-full border-[3px] border-[#14553a] motion-safe:transition-colors motion-safe:duration-500 ${
-            inView ? "bg-[#14553a]" : "bg-[#DCE8DE]"
+          className={`relative block h-5 w-5 rounded-full border-[3px] border-primary motion-safe:transition-colors motion-safe:duration-500 ${
+            inView ? "bg-primary" : "bg-[#DCE8DE]"
           }`}
         >
           {/* konektor horizontal (desktop) */}
@@ -90,7 +90,7 @@ function StepItem({ s }: { s: Step }) {
             isRight ? "" : "md:ml-auto"
           }`}
         >
-          <h3 className="font-[Montserrat] text-lg font-semibold text-[#14553a] md:text-xl">
+          <h3 className="font-[Montserrat] text-lg font-semibold text-primary md:text-xl">
             {s.title}
           </h3>
           <p className="mt-3 text-[13px] leading-relaxed text-[#3b4a44] md:text-[14px]">
@@ -209,7 +209,7 @@ function JenisLayanan() {
         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#36c08f]">
           Layanan Kami
         </span>
-        <h2 className="font-[Montserrat] text-[28px] font-bold leading-tight text-[#14553a] md:text-[36px]">
+        <h2 className="font-[Montserrat] text-[28px] font-bold leading-tight text-primary md:text-[36px]">
           Jenis Layanan Konseling
         </h2>
       </div>
@@ -253,7 +253,7 @@ function JenisLayanan() {
               {/* Card */}
               <div className="relative z-10 flex min-h-[340px] flex-col overflow-hidden rounded-[32px] border border-[#DCE8DE] bg-gradient-to-br from-white via-[#F7F9F6] to-[#DCE8DE] p-8 shadow-[0_12px_32px_-12px_rgba(20,85,58,0.18)] transition duration-300 group-hover:shadow-[0_20px_40px_-12px_rgba(20,85,58,0.25)] md:p-10">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#14553a] shadow-md">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-md">
                     <Icon className="h-7 w-7 text-white" strokeWidth={2} />
                   </div>
                   <span className="rounded-full bg-[#F7F9F6] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#236c44] backdrop-blur">
@@ -261,7 +261,7 @@ function JenisLayanan() {
                   </span>
                 </div>
 
-                <h3 className="mt-8 font-[Montserrat] text-[22px] font-semibold text-[#14553a] md:text-[24px]">
+                <h3 className="mt-8 font-[Montserrat] text-[22px] font-semibold text-primary md:text-[24px]">
                   {s.title}
                 </h3>
 
@@ -359,7 +359,7 @@ const StarShape = ({ className }: { className?: string }) => (
 );
 
 const SectionTitle = ({ children }: { children: ReactNode }) => (
-  <h2 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-[#14553a] md:text-[30px]">
+  <h2 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-primary md:text-[30px]">
     {children}
   </h2>
 );
@@ -377,7 +377,7 @@ export default function PanduanPage() {
         <StarShape className="pointer-events-none absolute -right-8 top-36 z-0 h-28 w-28 text-[#B8DCC3] md:top-44 md:h-36 md:w-36" />
 
         <div className="relative z-20 mx-auto w-[92%] sm:w-[88%] lg:w-[86%]">
-          <h1 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-[#14553a] sm:text-3xl lg:text-4xl">
+          <h1 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-primary sm:text-3xl lg:text-4xl">
             Panduan Lengkap Konseling
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-relaxed text-slate-800">
@@ -385,7 +385,7 @@ export default function PanduanPage() {
             ragam jenis konseling yang tersedia, serta alur reservasi jadwal
             melalui{" "}
             <span className="whitespace-nowrap  text-2xl font-bold">
-              <span className="text-[#2a8f5a]">Si</span>
+              <span className="text-brand-accent">Si</span>
               <span className="font-semibold text-blue-900">CARE</span>
               <sup className="text-[10px] text-blue-900">®</sup>
             </span>

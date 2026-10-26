@@ -102,7 +102,7 @@ function Photo({
 }) {
   return (
     <div className={`mx-auto w-full max-w-60 md:max-w-none ${className}`}>
-      <div className="aspect-square overflow-hidden rounded-xl bg-[#f7fcf9]">
+      <div className="aspect-square overflow-hidden rounded-xl bg-primary-tint">
         <img
           src={src}
           alt={alt}
@@ -304,7 +304,7 @@ function CounselorCard({ c, reverse }: { c: Counselor; reverse: boolean }) {
         )}
       </div>
 
-      <div className="grid gap-6 border-t border-gray-100 bg-[#f7fcf9] p-4 sm:p-6 md:grid-cols-2 md:gap-8 lg:p-8">
+      <div className="grid gap-6 border-t border-gray-100 bg-primary-tint p-4 sm:p-6 md:grid-cols-2 md:gap-8 lg:p-8">
         {reverse ? (
           <>
             <div>
@@ -352,13 +352,13 @@ export default function CounselorPage() {
     <div className="overflow-x-hidden bg-white">
       {/* Header halaman */}
       <section className="mx-auto w-[92%] pb-8 pt-20 sm:w-[88%] md:pt-28 lg:w-[86%]">
-        <h1 className="font-[Montserrat] text-2xl font-extrabold text-[#14553a] sm:text-3xl lg:text-4xl">
+        <h1 className="font-[Montserrat] text-2xl font-extrabold text-primary sm:text-3xl lg:text-4xl">
           Profil Konselor
         </h1>
         <p className="mt-2 text-sm text-gray-600 sm:text-base">
           Kenali lebih dekat konselor yang siap mendampingi kebutuhanmu.
         </p>
-        <div className="mt-4 h-1 w-24 rounded-full bg-[#14553a]" />
+        <div className="mt-4 h-1 w-24 rounded-full bg-primary" />
       </section>
 
       {/* Daftar konselor */}

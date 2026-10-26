@@ -8,6 +8,13 @@
   --color-primary-light: #0a7a5c;
   --color-secondary: #dff5e8;
   --color-secondary-dark: #b8e8ca;
+  --color-primary-soft: #e8f9f0;
+  --color-primary-subtle: #e6fdee;
+  --color-primary-surface: #f3fdf7;
+  --color-primary-tint: #f7fcf9;
+  --color-brand-accent: #2a8f5a;
+  --color-brand-gold: #c9a54a;
+  --color-brand-mark: #2d6a1f;
   --color-bg: #fafaf5;
   --color-text-base: #1a1a1a;
   --color-text-muted: #6b7280;
@@ -31,8 +38,8 @@ html {
 
 body {
   font-family: "Inter", system-ui, sans-serif;
-  background-color: #fafaf5;
-  color: #1a1a1a;
+  background-color: var(--color-bg);
+  color: var(--color-text-base);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
@@ -45,7 +52,7 @@ body {
   background: #f1f1f1;
 }
 ::-webkit-scrollbar-thumb {
-  background: #064e3b;
+  background: var(--color-primary);
   border-radius: 9999px;
 }
 
@@ -140,5 +147,67 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .auth-float {
     animation: none;
+  }
+}
+
+
+/* ===== SHARED LAYOUT DIMENSIONS ===== */
+.layout-main-offset {
+  padding-top: 72px;
+}
+.layout-navbar {
+  height: 72px;
+}
+.layout-sidebar {
+  width: 248px;
+}
+
+/* ===== PAGE-SPECIFIC CSS MOVED OUT OF TSX ===== */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.mascot-happy {
+  animation: mascot-happy 1.6s ease-in-out infinite;
+}
+
+@keyframes mascot-happy {
+  0% { transform: translateY(0) rotate(0deg) scale(1); }
+  15% { transform: translateY(-14px) rotate(-4deg) scale(1.03); }
+  30% { transform: translateY(0) rotate(3deg) scale(1); }
+  45% { transform: translateY(-10px) rotate(-3deg) scale(1.02); }
+  60% { transform: translateY(0) rotate(0deg) scale(1); }
+  100% { transform: translateY(0) rotate(0deg) scale(1); }
+}
+
+@keyframes session-loading {
+  0% { left: -35%; }
+  100% { left: 100%; }
+}
+
+/* Report print rules are activated only when a report page is mounted. */
+@media print {
+  body:has(.report-print-page) {
+    background: #fff !important;
+  }
+  body:has(.report-print-page) aside,
+  body:has(.report-print-page) header,
+  body:has(.report-print-page) nav,
+  body:has(.report-print-page) .no-print {
+    display: none !important;
+  }
+  body:has(.report-print-page) main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+  body:has(.report-print-page) .print-break-inside {
+    break-inside: avoid;
+  }
+  body:has(.report-print-page) .print-shadow-none {
+    box-shadow: none !important;
   }
 }

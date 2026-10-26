@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PageContainer, PageHeader } from "../../components/shared";
 import {
   Calendar,
   CalendarX2,
@@ -97,7 +98,7 @@ const statusOf = (p: AcademicPeriod, today: string): Status =>
   today < p.start ? "Mendatang" : today > p.end ? "Selesai" : "Aktif";
 
 const STATUS_STYLE: Record<Status, string> = {
-  Aktif: "bg-[#e6fdee] text-[#14553a] border-emerald-100",
+  Aktif: "bg-primary-subtle text-primary border-emerald-100",
   Mendatang: "bg-sky-50 text-sky-700 border-sky-100",
   Selesai: "bg-slate-100 text-slate-500 border-slate-200",
 };
@@ -147,7 +148,7 @@ function suggestNext(
 
 /* ========================= KOMPONEN ========================= */
 const inputClass =
-  "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2a8f5a]/30";
+  "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-accent/30";
 
 export default function AdminPeriodePage() {
   const today = useMemo(() => toISO(new Date()), []);
@@ -306,14 +307,8 @@ export default function AdminPeriodePage() {
 
   /* ========================= RENDER ========================= */
   return (
-    <div className="mx-auto max-w-5xl space-y-6 font-[Inter] text-slate-800">
-      {/* Judul */}
-      <div>
-        <h2 className="text-2xl font-bold">Pengaturan</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Konfigurasi sistem SiCARE yang jarang berubah.
-        </p>
-      </div>
+    <PageContainer role="admin">
+      <PageHeader title="Periode Akademik" />
 
       {/* ================= PERIODE AKADEMIK ================= */}
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -329,7 +324,7 @@ export default function AdminPeriodePage() {
           <button
             type="button"
             onClick={() => openModal()}
-            className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f4430]"
+            className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-dark"
           >
             <Plus className="h-4 w-4" /> Tambah Periode
           </button>
@@ -343,10 +338,10 @@ export default function AdminPeriodePage() {
               const day = diffDays(active.start, today) + 1;
               const pct = Math.min(100, Math.round((day / total) * 100));
               return (
-                <div className="rounded-2xl border border-emerald-200 bg-[#e6fdee] p-5">
+                <div className="rounded-2xl border border-emerald-200 bg-primary-subtle p-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-[#14553a]">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
                         Periode aktif hari ini
                       </p>
                       <p className="mt-0.5 text-xl font-bold">{active.label}</p>
@@ -360,7 +355,7 @@ export default function AdminPeriodePage() {
                   </div>
                   <div className="mt-3 h-2 overflow-hidden rounded-full border border-emerald-100 bg-white">
                     <div
-                      className="h-full rounded-full bg-[#2a8f5a]"
+                      className="h-full rounded-full bg-brand-accent"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -455,7 +450,7 @@ export default function AdminPeriodePage() {
                             type="button"
                             title="Ubah"
                             onClick={() => openModal(p)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-[#14553a]"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary"
                           >
                             <SquarePen className="h-4 w-4" />
                           </button>
@@ -600,7 +595,7 @@ export default function AdminPeriodePage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-xl bg-[#14553a] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f4430]"
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
               >
                 Simpan
               </button>
@@ -654,6 +649,6 @@ export default function AdminPeriodePage() {
       >
         {toastMsg}
       </div>
-    </div>
+    </PageContainer>
   );
 }

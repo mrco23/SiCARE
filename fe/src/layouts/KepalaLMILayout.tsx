@@ -11,8 +11,6 @@ import {
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
-const SIDEBAR_W = 248;
-const NAVBAR_H = 72;
 
 type MenuItem = {
   label: string;
@@ -80,8 +78,7 @@ export default function KepalaLMILayout() {
       <Navbar />
 
       <main
-        className="min-h-screen min-w-0 pb-24 lg:ml-[248px] lg:pb-0"
-        style={{ paddingTop: NAVBAR_H }}
+        className="layout-main-offset min-h-screen min-w-0 pb-24 lg:ml-[248px] lg:pb-0"
       >
         <div className="p-4 sm:p-6">
           <Outlet />
@@ -96,9 +93,8 @@ export default function KepalaLMILayout() {
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <aside
-      style={{ width: SIDEBAR_W }}
       aria-label="Sidebar Kepala LMI"
-      className={`fixed inset-y-0 left-0 z-40 border-r border-[#d9d9d9] bg-white font-[Inter] transition-transform duration-300 lg:translate-x-0 ${
+      className={`layout-sidebar fixed inset-y-0 left-0 z-40 border-r border-[#d9d9d9] bg-white font-[Inter] transition-transform duration-300 lg:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
@@ -108,7 +104,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         className="absolute left-5 top-4.5 flex items-center gap-2.5"
         aria-label="SiCARE, ke halaman utama"
       >
-        <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white">
+        <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-brand-gold bg-white">
           <img
             src="/icon-512x512.png"
             alt="Logo Universitas Katolik De La Salle Manado"
@@ -138,8 +134,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
             className={({ isActive }) =>
               `flex min-h-[34px] items-center gap-[10px] rounded-[6px] px-2 text-[13px] font-semibold leading-none transition-colors ${
                 isActive
-                  ? "bg-[#e6fdee] text-[#14553a]"
-                  : "text-[#424242] hover:bg-[#f3fdf7] hover:text-[#14553a]"
+                  ? "bg-primary-subtle text-primary"
+                  : "text-[#424242] hover:bg-primary-surface hover:text-primary"
               }`
             }
           >
@@ -165,15 +161,14 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 function Navbar() {
   return (
     <header
-      style={{ height: NAVBAR_H }}
-      className="fixed left-0 right-0 top-0 z-30 overflow-hidden border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
+      className="layout-navbar fixed left-0 right-0 top-0 z-30 overflow-hidden border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
     >
       <Link
         to="/kepala-lmi"
         className="absolute left-4 top-1/2 flex -translate-y-1/2 items-center gap-2 lg:hidden"
         aria-label="SiCARE, ke beranda Kepala LMI"
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-brand-gold bg-white">
           <img
             src="/icon-512x512.png"
             alt="Logo SiCARE"
@@ -189,7 +184,7 @@ function Navbar() {
       <button
         type="button"
         aria-label="Notifikasi"
-        className="absolute right-[168px] top-[26px] text-[#333] transition-colors hover:text-[#14553a]"
+        className="absolute right-[168px] top-[26px] text-[#333] transition-colors hover:text-primary"
       >
         <Bell
           className="h-[19px] w-[19px]"
@@ -249,7 +244,7 @@ function BottomNav({
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 py-2 text-[11px] ${
                 isActive
-                  ? "font-semibold text-[#14553a]"
+                  ? "font-semibold text-primary"
                   : "font-medium text-gray-500"
               }`
             }
@@ -265,7 +260,7 @@ function BottomNav({
           aria-expanded={moreActive}
           className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${
             moreActive
-              ? "font-semibold text-[#14553a]"
+              ? "font-semibold text-primary"
               : "font-medium text-gray-500"
           }`}
         >

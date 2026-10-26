@@ -228,7 +228,7 @@ export default function FeedbackPage() {
     <div className="overflow-x-hidden bg-white">
       {/* Hero */}
       <section className="mx-auto w-[92%] pb-10 pt-20 sm:w-[88%] md:pt-28 lg:w-[86%]">
-        <h1 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-[#14553a] sm:text-3xl lg:text-4xl">
+        <h1 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-primary sm:text-3xl lg:text-4xl">
           Feedback &amp; Ulasan Publik
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-gray-600 sm:text-base">
@@ -245,18 +245,18 @@ export default function FeedbackPage() {
             <div className="flex items-center gap-4">
               <div className="text-center">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-[Montserrat] text-4xl font-extrabold text-[#14553a] sm:text-5xl">
+                  <span className="font-[Montserrat] text-4xl font-extrabold text-primary sm:text-5xl">
                     4.9
                   </span>
                   <Star className="h-7 w-7 fill-amber-400 text-amber-400 sm:h-8 sm:w-8" />
                 </div>
-                <p className="mt-1 text-xs font-semibold text-[#14553a]">
+                <p className="mt-1 text-xs font-semibold text-primary">
                   Rata-rata rating
                 </p>
               </div>
               <div className="hidden h-12 w-px bg-gray-200 sm:block" />
               <div>
-                <h2 className="text-base font-bold text-[#14553a] sm:text-lg">
+                <h2 className="text-base font-bold text-primary sm:text-lg">
                   Kualitas Layanan
                 </h2>
                 <p className="mt-1 max-w-md text-xs text-gray-500 sm:text-sm">
@@ -301,7 +301,7 @@ export default function FeedbackPage() {
                   onClick={() => changeRole(f.value)}
                   className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e9a5f]/40 focus-visible:ring-offset-2 sm:text-sm ${
                     active
-                      ? "border-[#14553a] bg-[#14553a] text-white shadow-sm"
+                      ? "border-primary bg-primary text-white shadow-sm"
                       : "border-[#E0E7E2] bg-white text-[#52635A] hover:border-[#C8D8CD] hover:bg-[#F3F7F4]"
                   }`}
                 >
@@ -329,7 +329,7 @@ export default function FeedbackPage() {
               <button
                 type="button"
                 onClick={() => setVisible((v) => v + PAGE_SIZE)}
-                className="rounded-full bg-[#14553a] px-6 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-[#0c2619] sm:text-sm"
+                className="rounded-full bg-primary px-6 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-[#0c2619] sm:text-sm"
               >
                 Muat lebih banyak
               </button>
@@ -342,11 +342,6 @@ export default function FeedbackPage() {
           </p>
         </div>
       </section>
-
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 }
