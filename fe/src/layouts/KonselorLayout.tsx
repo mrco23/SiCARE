@@ -17,8 +17,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-const SIDEBAR_W = 248;
-const NAVBAR_H = 72;
 
 /* ========================= MENU (sidebar desktop + drawer mobile) ========================= */
 const menuItems = [
@@ -75,7 +73,6 @@ const MORE_ROUTES = [
   "/konselor/riwayat",
   "/konselor/feedback",
   "/konselor/pengaturan",
-  "/konselor/profil",
 ];
 
 export default function KonselorLayout() {
@@ -97,8 +94,7 @@ export default function KonselorLayout() {
       <Navbar />
 
       <main
-        className="min-h-screen min-w-0 pb-24 lg:ml-[248px] lg:pb-0"
-        style={{ paddingTop: NAVBAR_H }}
+        className="layout-main-offset min-h-screen min-w-0 pb-24 lg:ml-[248px] lg:pb-0"
       >
         <div className="p-4 sm:p-6">
           <Outlet />
@@ -113,15 +109,14 @@ export default function KonselorLayout() {
 function Navbar() {
   return (
     <header
-      style={{ height: NAVBAR_H }}
-      className="fixed right-0 top-0 left-0 z-30 overflow-hidden border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
+      className="layout-navbar fixed right-0 top-0 left-0 z-30 overflow-hidden border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
     >
       {/* logo mobile (di desktop logo sudah ada di sidebar) */}
       <Link
         to="/konselor"
         className="absolute left-4 top-1/2 flex -translate-y-1/2 items-center gap-2 lg:hidden"
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-brand-gold bg-white">
           <img
             src="/icon-512x512.png"
             alt="Logo SiCARE"
@@ -129,7 +124,7 @@ function Navbar() {
           />
         </div>
         <span className="text-lg font-semibold leading-none">
-          <span className="text-[#2d6a1f]">Si</span>
+          <span className="text-brand-mark">Si</span>
           <span className="text-blue-900">CARE</span>
         </span>
       </Link>
@@ -137,7 +132,7 @@ function Navbar() {
       {/* notification */}
       <button
         type="button"
-        className="absolute right-[168px] top-[26px] text-[#333] transition-colors hover:text-[#14553a]"
+        className="absolute right-[168px] top-[26px] text-[#333] transition-colors hover:text-primary"
       >
         <Bell
           className="h-[19px] w-[19px]"
@@ -170,8 +165,8 @@ function Navbar() {
 
       {/* profile */}
       <Link
-        to="/konselor/profil"
-        className="absolute right-[14px] top-[16px] flex h-[40px] w-[40px] items-center justify-center rounded-full border-[2px] border-white bg-[#185032] text-white shadow-md ring-1 ring-gray-300"
+        to="/konselor/pengaturan"
+        className="absolute right-[14px] top-[16px] flex h-[40px] w-[40px] items-center justify-center rounded-full border-[2px] border-white bg-primary text-white shadow-md ring-1 ring-gray-300"
       >
         <CircleUserRound className="h-6 w-6" strokeWidth={1.6} />
       </Link>
@@ -200,7 +195,7 @@ function BottomNav({
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 py-2 text-[11px] ${
                 isActive
-                  ? "font-semibold text-[#14553a]"
+                  ? "font-semibold text-primary"
                   : "font-medium text-gray-500"
               }`
             }
@@ -215,7 +210,7 @@ function BottomNav({
           onClick={onMore}
           className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${
             moreActive
-              ? "font-semibold text-[#14553a]"
+              ? "font-semibold text-primary"
               : "font-medium text-gray-500"
           }`}
         >
@@ -230,8 +225,7 @@ function BottomNav({
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <aside
-      style={{ width: SIDEBAR_W }}
-      className={`fixed inset-y-0 left-0 z-40 border-r border-[#d9d9d9] bg-white font-[Inter] transition-transform duration-300 lg:translate-x-0 ${
+      className={`layout-sidebar fixed inset-y-0 left-0 z-40 border-r border-[#d9d9d9] bg-white font-[Inter] transition-transform duration-300 lg:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}
     >
@@ -241,7 +235,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         onClick={onClose}
         className="absolute left-[20px] top-[18px] flex items-center gap-2.5"
       >
-        <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white">
+        <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-brand-gold bg-white">
           <img
             src="/icon-512x512.png"
             alt="Logo SiCARE"
@@ -249,7 +243,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           />
         </div>
         <div className="flex items-start text-[22px] font-semibold leading-none tracking-tight">
-          <span className="text-[#2d6a1f]">Si</span>
+          <span className="text-brand-mark">Si</span>
           <span className="text-blue-900">CARE</span>
           <MessageSquareText
             className="ml-1 -mt-1 h-3 w-3 text-blue-900"
@@ -268,8 +262,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
             className={({ isActive }) =>
               `flex h-[30px] items-center gap-[10px] rounded-[6px] pl-[5px] text-[13px] font-semibold ${
                 isActive
-                  ? "bg-[#e6fdee] text-[#14553a]"
-                  : "text-[#424242] hover:bg-[#f3fdf7]"
+                  ? "bg-primary-subtle text-primary"
+                  : "text-[#424242] hover:bg-primary-surface"
               }`
             }
           >

@@ -1,95 +1,6 @@
 import type { ReactNode } from "react";
 import { GraduationCap, Briefcase } from "lucide-react";
-
-type Schedule = { day: string; slots: string[] };
-type Education = { school: string; year: string; major: string };
-type Counselor = {
-  id: number;
-  name: string;
-  photo: string;
-  description: string;
-  experience: string;
-  education: Education[];
-  topics: string[];
-  schedule: Schedule[];
-};
-
-const counselors: Counselor[] = [
-  {
-    id: 1,
-    name: "Giovanna Yudi, S.Psi., M.Psi., Psikolog",
-    photo: "/gio.jpeg",
-    description:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-    experience: "5 Tahun",
-    education: [
-      {
-        school: "Universitas Surabaya",
-        year: "2018",
-        major: "Sarjana Psikologi",
-      },
-      {
-        school: "Universitas Surabaya",
-        year: "2021",
-        major: "Magister Psikologi Profesi",
-      },
-    ],
-    topics: [
-      "Karir",
-      "Pengembangan Diri",
-      "Motivasi",
-      "Stres",
-      "Relasi",
-      "Keluarga",
-      "Konflik",
-      "Kesiapan Kerja",
-    ],
-    schedule: [
-      { day: "Senin", slots: [] },
-      { day: "Selasa", slots: ["14.00–15.00", "15.00–16.00"] },
-      { day: "Rabu", slots: ["09.00–10.00", "10.00–11.00"] },
-      { day: "Kamis", slots: ["14.00–15.00", "15.00–16.00"] },
-      { day: "Jumat", slots: [] },
-    ],
-  },
-  {
-    id: 2,
-    name: "Rico Kornelius Wahani, S.Psi., M.Psi., Psikolog",
-    photo: "/rico.png",
-    description:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-    experience: "5 Tahun",
-    education: [
-      {
-        school: "Universitas Surabaya",
-        year: "2018",
-        major: "Sarjana Psikologi",
-      },
-      {
-        school: "Universitas Surabaya",
-        year: "2021",
-        major: "Magister Psikologi Profesi",
-      },
-    ],
-    topics: [
-      "Karir",
-      "Pengembangan Diri",
-      "Motivasi",
-      "Stres",
-      "Relasi",
-      "Keluarga",
-      "Konflik",
-      "Kesiapan Kerja",
-    ],
-    schedule: [
-      { day: "Senin", slots: [] },
-      { day: "Selasa", slots: ["14.00–15.00", "15.00–16.00"] },
-      { day: "Rabu", slots: ["09.00–10.00", "10.00–11.00"] },
-      { day: "Kamis", slots: ["14.00–15.00", "15.00–16.00"] },
-      { day: "Jumat", slots: [] },
-    ],
-  },
-];
+import { PUBLIC_COUNSELOR_PROFILES as counselors, type PublicCounselorProfile as Counselor, type PublicCounselorEducation as Education, type PublicCounselorSchedule as Schedule } from "../../data/mock/clientCounselors";
 
 function Photo({
   src,
@@ -102,7 +13,7 @@ function Photo({
 }) {
   return (
     <div className={`mx-auto w-full max-w-60 md:max-w-none ${className}`}>
-      <div className="aspect-square overflow-hidden rounded-xl bg-[#f7fcf9]">
+      <div className="aspect-square overflow-hidden rounded-xl bg-primary-tint">
         <img
           src={src}
           alt={alt}
@@ -304,7 +215,7 @@ function CounselorCard({ c, reverse }: { c: Counselor; reverse: boolean }) {
         )}
       </div>
 
-      <div className="grid gap-6 border-t border-gray-100 bg-[#f7fcf9] p-4 sm:p-6 md:grid-cols-2 md:gap-8 lg:p-8">
+      <div className="grid gap-6 border-t border-gray-100 bg-primary-tint p-4 sm:p-6 md:grid-cols-2 md:gap-8 lg:p-8">
         {reverse ? (
           <>
             <div>
@@ -352,13 +263,13 @@ export default function CounselorPage() {
     <div className="overflow-x-hidden bg-white">
       {/* Header halaman */}
       <section className="mx-auto w-[92%] pb-8 pt-20 sm:w-[88%] md:pt-28 lg:w-[86%]">
-        <h1 className="font-[Montserrat] text-2xl font-extrabold text-[#14553a] sm:text-3xl lg:text-4xl">
+        <h1 className="font-[Montserrat] text-2xl font-extrabold text-primary sm:text-3xl lg:text-4xl">
           Profil Konselor
         </h1>
         <p className="mt-2 text-sm text-gray-600 sm:text-base">
           Kenali lebih dekat konselor yang siap mendampingi kebutuhanmu.
         </p>
-        <div className="mt-4 h-1 w-24 rounded-full bg-[#14553a]" />
+        <div className="mt-4 h-1 w-24 rounded-full bg-primary" />
       </section>
 
       {/* Daftar konselor */}

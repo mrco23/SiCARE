@@ -1,96 +1,10 @@
-import { useMemo, useState } from "react";
+import { PageContainer, PageHeader } from "../../components/shared";
+import { COUNSELING_REQUEST_STATUS } from "../../constants/status";
+import { useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
+import { initialRequests, intakes, type CounselingRequest } from "../../data/mock/counselorRequests";
 
-const initialRequests = [
-  {
-    id: 1,
-    name: "Yusli Ngongano",
-    format: "Individu",
-    time: "15.00",
-    waitMin: 185,
-    status: "pending",
-    isNew: false,
-    pastSessions: 3,
-    topic: "Pengembangan Diri",
-  },
-  {
-    id: 2,
-    name: "Chelsea Ngongano",
-    format: "Kelompok",
-    time: "15.00",
-    waitMin: 42,
-    status: "pending",
-    isNew: true,
-    pastSessions: 0,
-    topic: "Motivasi",
-  },
-  {
-    id: 3,
-    name: "Chelsea Ngongano",
-    format: "Individu",
-    time: "15.00",
-    waitMin: 1440,
-    status: "pending",
-    isNew: true,
-    pastSessions: 0,
-    topic: "Stres",
-  },
-  {
-    id: 4,
-    name: "Bagas Hermawan",
-    format: "Individu",
-    time: "10.00",
-    waitMin: 300,
-    status: "pending",
-    isNew: false,
-    pastSessions: 1,
-    topic: "Stres kerja",
-  },
-];
-
-const intakeDefaults = {
-  date: "28 September 2026",
-  selfHarm: "Tidak",
-  distress: "Tidak",
-  abuse: "Tidak",
-  substance: "Tidak",
-  sleep: 3,
-  finance: 3,
-  topics: ["Motivasi"],
-  other: "",
-  complaint: "Klien merasa kewalahan dan sulit fokus.",
-  history: "Keluhan muncul sejak beberapa bulan terakhir.",
-  reason:
-    "Ingin memiliki strategi untuk mengelola kondisi yang sedang dialami.",
-  efforts: "Klien sudah mencoba beberapa cara secara mandiri.",
-  goal: "Klien berharap mendapat rencana yang realistis.",
-  strengths: "Klien mudah bergaul dan bertanggung jawab.",
-  weaknesses: "Klien cenderung menunda pekerjaan.",
-};
-
-const intakes = {
-  1: {
-    ...intakeDefaults,
-    distress: "Ya",
-    sleep: 2,
-    topics: ["Karir, pendidikan, dan pekerjaan", "Motivasi"],
-  },
-  2: { ...intakeDefaults, distress: "Mungkin", sleep: 4, finance: 4 },
-  3: {
-    ...intakeDefaults,
-    abuse: "Mungkin",
-    sleep: 3,
-    finance: 2,
-    topics: ["Stres atau tekanan kerja", "Emosi, mood, kepribadian"],
-  },
-  4: {
-    ...intakeDefaults,
-    topics: ["Karir, pendidikan, dan pekerjaan"],
-    date: "10 Oktober 2026",
-  },
-};
-
-const initials = (name) =>
+const initials = (name: string) =>
   name
     .split(" ")
     .map((word) => word[0])
@@ -98,13 +12,19 @@ const initials = (name) =>
     .join("")
     .toUpperCase();
 
-function waitLabel(minutes) {
+function waitLabel(minutes: number) {
   if (minutes < 60) return `${minutes} menit lalu`;
   if (minutes < 1440) return `${Math.floor(minutes / 60)} jam lalu`;
   return `${Math.floor(minutes / 1440)} hari lalu`;
 }
 
-function Badge({ children, className = "" }) {
+function Badge({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${className}`}
@@ -114,7 +34,15 @@ function Badge({ children, className = "" }) {
   );
 }
 
-function StatCard({ label, value, note }) {
+function StatCard({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: ReactNode;
+  note?: string;
+}) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5">
       <p className="text-sm text-gray-500">{label}</p>
@@ -124,8 +52,8 @@ function StatCard({ label, value, note }) {
   );
 }
 
-function ScaleView({ value }) {
-  const labels = {
+function ScaleView({ value }: { value: number }) {
+  const labels: Record<number, string> = {
     1: "Sangat buruk",
     2: "Buruk",
     3: "Cukup",
@@ -140,7 +68,7 @@ function ScaleView({ value }) {
             key={number}
             className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
               number === value
-                ? "bg-[#1e5b3a] text-white"
+                ? "bg-primary text-white"
                 : "bg-gray-100 text-gray-400"
             }`}
           >
@@ -151,20 +79,26 @@ function ScaleView({ value }) {
       <p className="mt-2 text-xs text-gray-500">
         Dipilih:{" "}
         <span className="font-semibold text-gray-800">
-          {value} · {labels[value]}
+          {value} · {labels[value] ?? "Tidak diketahui"}
         </span>
       </p>
     </div>
   );
 }
 
-function AnswerRow({ question, answer }) {
+function AnswerRow({
+  question,
+  answer,
+}: {
+  question: string;
+  answer: string;
+}) {
   const style =
     answer === "Ya"
       ? "bg-red-100 text-red-800"
       : answer === "Mungkin"
         ? "bg-amber-100 text-amber-800"
-        : "bg-[#e8f9f0] text-[#1e5b3a]";
+        : "bg-primary-soft text-primary";
 
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 py-3 last:border-0">
@@ -174,7 +108,13 @@ function AnswerRow({ question, answer }) {
   );
 }
 
-function EssayCard({ title, children }) {
+function EssayCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
       <p className="text-sm font-semibold text-gray-700">{title}</p>
@@ -185,13 +125,18 @@ function EssayCard({ title, children }) {
   );
 }
 
+type ConfirmDecision = {
+  id: number;
+  accept: boolean;
+};
+
 export default function KonselorPermintaanPage() {
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState<CounselingRequest[]>(initialRequests);
   const [formatFilter, setFormatFilter] = useState("Semua");
   const [sortMode, setSortMode] = useState("terlama");
   const [search, setSearch] = useState("");
-  const [currentId, setCurrentId] = useState(null);
-  const [confirm, setConfirm] = useState(null);
+  const [currentId, setCurrentId] = useState<number | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmDecision | null>(null);
   const [roomInput, setRoomInput] = useState("");
   const [confirmRoomSave, setConfirmRoomSave] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
@@ -199,7 +144,7 @@ export default function KonselorPermintaanPage() {
   const pendingRequests = useMemo(() => {
     const query = search.trim().toLowerCase();
     return requests
-      .filter((request) => request.status === "pending")
+      .filter((request) => request.status === COUNSELING_REQUEST_STATUS.PENDING)
       .filter(
         (request) =>
           formatFilter === "Semua" || request.format === formatFilter,
@@ -213,7 +158,7 @@ export default function KonselorPermintaanPage() {
   const currentRequest = requests.find((request) => request.id === currentId);
   const currentIntake = currentId ? intakes[currentId] : null;
   const totalPending = requests.filter(
-    (request) => request.status === "pending",
+    (request) => request.status === COUNSELING_REQUEST_STATUS.PENDING,
   );
   const individualCount = totalPending.filter(
     (request) => request.format === "Individu",
@@ -222,12 +167,12 @@ export default function KonselorPermintaanPage() {
     (request) => request.format === "Kelompok",
   ).length;
 
-  function notify(message) {
+  function notify(message: string) {
     setToastMsg(message);
     window.setTimeout(() => setToastMsg(""), 2600);
   }
 
-  function openDecision(id, accept) {
+  function openDecision(id: number, accept: boolean) {
     setRoomInput("");
     setConfirmRoomSave(false);
     setConfirm({ id, accept });
@@ -246,7 +191,9 @@ export default function KonselorPermintaanPage() {
         item.id === confirm.id
           ? {
               ...item,
-              status: confirm.accept ? "accepted" : "rejected",
+              status: confirm.accept
+                ? COUNSELING_REQUEST_STATUS.ACCEPTED
+                : COUNSELING_REQUEST_STATUS.REJECTED,
               room,
             }
           : item,
@@ -271,21 +218,17 @@ export default function KonselorPermintaanPage() {
           : null,
         currentIntake.abuse !== "Tidak" ? "riwayat pelecehan" : null,
         currentIntake.substance !== "Tidak" ? "penggunaan obat-obatan" : null,
-      ].filter(Boolean)
+      ].filter((flag): flag is string => Boolean(flag))
     : [];
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer role="counselor" spacing="none">
       {!currentRequest ? (
         <>
-          <header>
-            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-              Permintaan Konseling
-            </h1>
-            <p className="mt-1 text-sm text-gray-500 sm:text-base">
-              Tinjau permintaan klien sebelum menerima atau menolak.
-            </p>
-          </header>
+          <PageHeader
+            title="Permintaan Konseling"
+            description="Tinjau permintaan klien sebelum menerima atau menolak."
+          />
 
           <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             <StatCard
@@ -313,7 +256,7 @@ export default function KonselorPermintaanPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Cari nama klien ..."
-                className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:bg-white focus:ring-4 focus:ring-[#1e5b3a]/15"
+                className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm outline-none placeholder:text-gray-500 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15"
               />
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -337,7 +280,7 @@ export default function KonselorPermintaanPage() {
                 <select
                   value={sortMode}
                   onChange={(event) => setSortMode(event.target.value)}
-                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-4 pr-10 text-sm text-gray-700 outline-none focus:border-[#1e5b3a] focus:bg-white"
+                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-4 pr-10 text-sm text-gray-700 outline-none focus:border-primary focus:bg-white"
                 >
                   <option value="terlama">Terlama</option>
                   <option value="terbaru">Terbaru</option>
@@ -358,7 +301,7 @@ export default function KonselorPermintaanPage() {
                 className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
               >
                 <div className="flex flex-wrap items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] font-bold text-[#1e5b3a]">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">
                     {initials(request.name)}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -374,7 +317,7 @@ export default function KonselorPermintaanPage() {
                           Pertama kali
                         </Badge>
                       ) : (
-                        <Badge className="bg-[#e8f9f0] text-[#1e5b3a]">
+                        <Badge className="bg-primary-soft text-primary">
                           Sudah pernah · {request.pastSessions} sesi
                         </Badge>
                       )}
@@ -407,7 +350,7 @@ export default function KonselorPermintaanPage() {
                   <button
                     type="button"
                     onClick={() => setCurrentId(request.id)}
-                    className="text-sm font-semibold text-[#1e5b3a] underline underline-offset-4"
+                    className="text-sm font-semibold text-primary underline underline-offset-4"
                   >
                     Lihat Detail <span aria-hidden="true">→</span>
                   </button>
@@ -422,7 +365,7 @@ export default function KonselorPermintaanPage() {
                     <button
                       type="button"
                       onClick={() => openDecision(request.id, true)}
-                      className="rounded-xl bg-[#1e5b3a] px-4 py-2 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                      className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
                     >
                       Terima Permintaan{" "}
                       <Check className="ml-1 inline h-4 w-4" />
@@ -445,7 +388,7 @@ export default function KonselorPermintaanPage() {
             <button
               type="button"
               onClick={() => setCurrentId(null)}
-              className="inline-flex items-center gap-1 font-semibold text-[#1e5b3a] hover:underline"
+              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
             >
               <ArrowLeft className="h-4 w-4" /> Permintaan Konseling
             </button>
@@ -456,7 +399,7 @@ export default function KonselorPermintaanPage() {
           </nav>
 
           <section className="mt-5 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#1e5b3a] text-xl font-bold text-white">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-white">
               {initials(currentRequest.name)}
             </div>
             <div className="min-w-0 flex-1">
@@ -472,7 +415,7 @@ export default function KonselorPermintaanPage() {
                     Pertama kali
                   </Badge>
                 ) : (
-                  <Badge className="bg-[#e8f9f0] text-[#1e5b3a]">
+                  <Badge className="bg-primary-soft text-primary">
                     Sudah pernah · {currentRequest.pastSessions} sesi
                   </Badge>
                 )}
@@ -514,85 +457,89 @@ export default function KonselorPermintaanPage() {
             </section>
           )}
 
-          <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
-            <h3 className="text-base font-bold">Kondisi Saat Ini</h3>
-            <div className="mt-4">
-              <AnswerRow
-                question="Apakah Anda sedang merasa ingin bunuh diri?"
-                answer={currentIntake.selfHarm}
-              />
-              <AnswerRow
-                question="Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?"
-                answer={currentIntake.distress}
-              />
-              <AnswerRow
-                question="Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)"
-                answer={currentIntake.abuse}
-              />
-              <AnswerRow
-                question="Apakah saat ini Anda sedang menggunakan obat-obatan?"
-                answer={currentIntake.substance}
-              />
-            </div>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-sm font-semibold text-gray-700">
-                  Kualitas tidur
-                </p>
-                <div className="mt-2">
-                  <ScaleView value={currentIntake.sleep} />
+          {currentIntake && (
+            <>
+              <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+                <h3 className="text-base font-bold">Kondisi Saat Ini</h3>
+                <div className="mt-4">
+                  <AnswerRow
+                    question="Apakah Anda sedang merasa ingin bunuh diri?"
+                    answer={currentIntake.selfHarm}
+                  />
+                  <AnswerRow
+                    question="Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?"
+                    answer={currentIntake.distress}
+                  />
+                  <AnswerRow
+                    question="Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)"
+                    answer={currentIntake.abuse}
+                  />
+                  <AnswerRow
+                    question="Apakah saat ini Anda sedang menggunakan obat-obatan?"
+                    answer={currentIntake.substance}
+                  />
                 </div>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-700">
-                  Keadaan finansial
-                </p>
-                <div className="mt-2">
-                  <ScaleView value={currentIntake.finance} />
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">
+                      Kualitas tidur
+                    </p>
+                    <div className="mt-2">
+                      <ScaleView value={currentIntake.sleep} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">
+                      Keadaan finansial
+                    </p>
+                    <div className="mt-2">
+                      <ScaleView value={currentIntake.finance} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </section>
+              </section>
 
-          <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
-            <h3 className="text-base font-bold">Masalah yang ingin dibahas</h3>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {currentIntake.topics.map((topic) => (
-                <Badge key={topic} className="bg-blue-100 text-blue-800">
-                  {topic}
-                </Badge>
-              ))}
-              {currentIntake.other && (
-                <Badge className="bg-blue-100 text-blue-800">
-                  Lainnya: {currentIntake.other}
-                </Badge>
-              )}
-            </div>
-          </section>
+              <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+                <h3 className="text-base font-bold">Masalah yang ingin dibahas</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {currentIntake.topics.map((topic) => (
+                    <Badge key={topic} className="bg-blue-100 text-blue-800">
+                      {topic}
+                    </Badge>
+                  ))}
+                  {currentIntake.other && (
+                    <Badge className="bg-blue-100 text-blue-800">
+                      Lainnya: {currentIntake.other}
+                    </Badge>
+                  )}
+                </div>
+              </section>
 
-          <section className="mt-5 space-y-4">
-            <EssayCard title="Deskripsikan keluhan yang Anda rasakan">
-              {currentIntake.complaint}
-            </EssayCard>
-            <EssayCard title="Deskripsikan riwayat terjadinya keluhan secara jelas dan rinci">
-              {currentIntake.history}
-            </EssayCard>
-            <EssayCard title="Keluhan dan alasan ingin memulai konseling">
-              {currentIntake.reason}
-            </EssayCard>
-            <EssayCard title="Apa yang sudah dilakukan untuk menangani masalah ini?">
-              {currentIntake.efforts}
-            </EssayCard>
-            <EssayCard title="Solusi apa yang diinginkan dari bantuan yang diterima?">
-              {currentIntake.goal}
-            </EssayCard>
-            <EssayCard title="Apa kelebihan diri Anda?">
-              {currentIntake.strengths}
-            </EssayCard>
-            <EssayCard title="Apa kekurangan diri Anda?">
-              {currentIntake.weaknesses}
-            </EssayCard>
-          </section>
+              <section className="mt-5 space-y-4">
+                <EssayCard title="Deskripsikan keluhan yang Anda rasakan">
+                  {currentIntake.complaint}
+                </EssayCard>
+                <EssayCard title="Deskripsikan riwayat terjadinya keluhan secara jelas dan rinci">
+                  {currentIntake.history}
+                </EssayCard>
+                <EssayCard title="Keluhan dan alasan ingin memulai konseling">
+                  {currentIntake.reason}
+                </EssayCard>
+                <EssayCard title="Apa yang sudah dilakukan untuk menangani masalah ini?">
+                  {currentIntake.efforts}
+                </EssayCard>
+                <EssayCard title="Solusi apa yang diinginkan dari bantuan yang diterima?">
+                  {currentIntake.goal}
+                </EssayCard>
+                <EssayCard title="Apa kelebihan diri Anda?">
+                  {currentIntake.strengths}
+                </EssayCard>
+                <EssayCard title="Apa kekurangan diri Anda?">
+                  {currentIntake.weaknesses}
+                </EssayCard>
+              </section>
+            </>
+          )}
 
           <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
             <p className="text-sm text-gray-600">
@@ -614,7 +561,7 @@ export default function KonselorPermintaanPage() {
             <button
               type="button"
               onClick={() => openDecision(currentRequest.id, true)}
-              className="rounded-xl bg-[#1e5b3a] px-5 py-3 text-sm font-semibold text-white hover:bg-[#174a2f]"
+              className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
             >
               Terima Permintaan <Check className="ml-1 inline h-4 w-4" />
             </button>
@@ -707,7 +654,7 @@ export default function KonselorPermintaanPage() {
                     onChange={(event) => setRoomInput(event.target.value)}
                     placeholder="Contoh: Ruang B-203, lantai 2"
                     autoComplete="off"
-                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
                   />
                   <p className="text-xs leading-relaxed text-gray-500">
                     Masukkan nama atau lokasi ruangan secara manual. Informasi
@@ -726,7 +673,7 @@ export default function KonselorPermintaanPage() {
                     type="button"
                     onClick={() => setConfirmRoomSave(true)}
                     disabled={!roomInput.trim()}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Check className="h-4 w-4" />
                     Terima &amp; simpan ruangan
@@ -746,7 +693,7 @@ export default function KonselorPermintaanPage() {
             aria-labelledby="confirm-room-title"
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary">
               <MapPin className="h-6 w-6" />
             </div>
             <h2
@@ -766,7 +713,7 @@ export default function KonselorPermintaanPage() {
               <p className="text-xs font-medium text-gray-500">
                 Ruangan yang akan disimpan
               </p>
-              <p className="mt-1 flex items-start gap-2 font-semibold text-[#1e5b3a]">
+              <p className="mt-1 flex items-start gap-2 font-semibold text-primary">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
                 <span className="break-words">{roomInput.trim()}</span>
               </p>
@@ -789,7 +736,7 @@ export default function KonselorPermintaanPage() {
                   setConfirmRoomSave(false);
                   handleDecision();
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
               >
                 <Check className="h-4 w-4" />
                 Ya, terima permintaan
@@ -808,6 +755,6 @@ export default function KonselorPermintaanPage() {
       >
         {toastMsg}
       </div>
-    </div>
+    </PageContainer>
   );
 }

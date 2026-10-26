@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { PageContainer, PageHeader } from "../../components/shared";
 import {
   Search,
   SquarePen,
@@ -7,26 +8,11 @@ import {
   UserPlus,
   UserX,
 } from "lucide-react";
+import { INITIAL_ACCOUNTS, type Account, type Role } from "../../data/mock/adminAccounts";
 
 /* ========================= TIPE & DATA ========================= */
-type Role =
-  | "Konselor"
-  | "Mahasiswa"
-  | "Dosen"
-  | "Staff"
-  | "Kepala LMI"
-  | "Admin";
-type Tab = "Semua" | "Konselor" | "Klien" | "Kepala LMI" | "Admin";
 
-type Account = {
-  id: number;
-  name: string;
-  code: string; // NIM / NIP
-  email: string;
-  role: Role;
-  active: boolean;
-  created: string; // ISO (YYYY-MM-DD)
-};
+type Tab = "Semua" | "Konselor" | "Klien" | "Kepala LMI" | "Admin";
 
 type FormState = {
   name: string;
@@ -50,92 +36,8 @@ const ROLES: Role[] = [
 const CLIENT_ROLES: Role[] = ["Mahasiswa", "Dosen", "Staff"]; // termasuk dalam filter "Klien"
 const TABS: Tab[] = ["Semua", "Konselor", "Klien", "Kepala LMI", "Admin"];
 
-const INITIAL_ACCOUNTS: Account[] = [
-  {
-    id: 1,
-    name: "Giovanna Yudi, M.Psi",
-    code: "198705122014",
-    email: "giovanna@unikadelasalle.ac.id",
-    role: "Konselor",
-    active: true,
-    created: "2024-08-01",
-  },
-  {
-    id: 2,
-    name: "Rico Kornelius Wahani",
-    code: "198901042015",
-    email: "rico@unikadelasalle.ac.id",
-    role: "Konselor",
-    active: true,
-    created: "2024-08-01",
-  },
-  {
-    id: 3,
-    name: "Yusli Ngongano",
-    code: "2210011045",
-    email: "yusli@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    active: true,
-    created: "2025-08-20",
-  },
-  {
-    id: 4,
-    name: "Ayu Pratiwi",
-    code: "2110022018",
-    email: "ayu@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    active: true,
-    created: "2025-08-22",
-  },
-  {
-    id: 5,
-    name: "Bagas Hermawan",
-    code: "197612032005",
-    email: "bagas@unikadelasalle.ac.id",
-    role: "Dosen",
-    active: false,
-    created: "2025-09-02",
-  },
-  {
-    id: 6,
-    name: "Dr. Maria Kaunang",
-    code: "196804151993",
-    email: "maria@unikadelasalle.ac.id",
-    role: "Kepala LMI",
-    active: true,
-    created: "2024-07-15",
-  },
-  {
-    id: 7,
-    name: "Admin SiCARE",
-    code: "-",
-    email: "admin@unikadelasalle.ac.id",
-    role: "Admin",
-    active: true,
-    created: "2024-07-01",
-  },
-  {
-    id: 8,
-    name: "Chelsea Ngongano",
-    code: "2310033077",
-    email: "chelsea@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    active: true,
-    created: "2025-10-01",
-  },
-  {
-    id: 9,
-    name: "Stefanus Lumoindong",
-    code: "199203102019",
-    email: "stefanus@unikadelasalle.ac.id",
-    role: "Staff",
-    active: true,
-    created: "2025-03-11",
-  },
-];
-
 const ROLE_STYLE: Record<Role, string> = {
-  Konselor: "bg-[#e6fdee] text-[#14553a] border-emerald-100",
+  Konselor: "bg-primary-subtle text-primary border-emerald-100",
   Mahasiswa: "bg-sky-50 text-sky-700 border-sky-100",
   Dosen: "bg-indigo-50 text-indigo-700 border-indigo-100",
   Staff: "bg-teal-50 text-teal-700 border-teal-100",
@@ -181,7 +83,7 @@ const emptyForm = (tab: Tab): FormState => ({
 });
 
 const inputClass =
-  "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2a8f5a]/30";
+  "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-accent/30";
 
 /* ========================= HALAMAN ========================= */
 export default function AdminAkunPage() {
@@ -266,15 +168,11 @@ export default function AdminAkunPage() {
     );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
-      {/* Judul */}
-      <div>
-        <h2 className="text-2xl font-bold">Manajemen Akun</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Kelola akun konselor, klien (mahasiswa, dosen, staff), kepala LMI, dan
-          admin.
-        </p>
-      </div>
+    <PageContainer role="admin">
+      <PageHeader
+        title="Manajemen Akun"
+        description="Kelola akun konselor, klien (mahasiswa, dosen, staff), kepala LMI, dan admin."
+      />
 
       {/* Toolbar */}
       <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-center">
@@ -306,14 +204,14 @@ export default function AdminAkunPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cari nama, NIM, atau NIP..."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm focus:border-[#2a8f5a] focus:outline-none focus:ring-2 focus:ring-[#2a8f5a]/30"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/30"
           />
         </div>
 
         <button
           type="button"
           onClick={openAdd}
-          className="flex items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f4430]"
+          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-dark"
         >
           <UserPlus className="h-4 w-4" /> Tambah Akun
         </button>
@@ -370,12 +268,12 @@ export default function AdminAkunPage() {
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
-                          a.active ? "text-[#14553a]" : "text-slate-400"
+                          a.active ? "text-primary" : "text-slate-400"
                         }`}
                       >
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${
-                            a.active ? "bg-[#2a8f5a]" : "bg-slate-300"
+                            a.active ? "bg-brand-accent" : "bg-slate-300"
                           }`}
                         />
                         {a.active ? "Aktif" : "Nonaktif"}
@@ -390,7 +288,7 @@ export default function AdminAkunPage() {
                           type="button"
                           title="Ubah"
                           onClick={() => openEdit(a)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-[#14553a]"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary"
                         >
                           <SquarePen className="h-4 w-4" />
                         </button>
@@ -401,7 +299,7 @@ export default function AdminAkunPage() {
                           className={`flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 ${
                             a.active
                               ? "hover:text-red-600"
-                              : "hover:text-[#14553a]"
+                              : "hover:text-primary"
                           }`}
                         >
                           {a.active ? (
@@ -523,7 +421,7 @@ export default function AdminAkunPage() {
               <button
                 type="button"
                 onClick={save}
-                className="rounded-xl bg-[#14553a] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f4430]"
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
               >
                 Simpan
               </button>
@@ -531,6 +429,6 @@ export default function AdminAkunPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -41,7 +41,7 @@ export default function KlienLayout() {
       <header className="sticky top-0 z-50 px-3 pt-2 sm:px-5">
         <div className="relative mx-auto flex h-14 w-full max-w-7xl items-center justify-between rounded-full bg-white/90 px-4 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur sm:h-16 sm:px-5 lg:px-6">
           <NavLink to="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white sm:h-10 sm:w-10">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-brand-gold bg-white sm:h-10 sm:w-10">
               <img
                 src="/icon-512x512.png"
                 alt="Logo Unika De La Salle Manado"
@@ -50,7 +50,7 @@ export default function KlienLayout() {
             </div>
             <div className="min-w-0">
               <div className="text-lg font-semibold leading-none sm:text-xl">
-                <span className="text-[#2d6a1f]">Si</span>
+                <span className="text-brand-mark">Si</span>
                 <span className="text-blue-900">CARE</span>
               </div>
               <p className="mt-1 truncate text-[10px] font-semibold text-[#2b2b2b] sm:text-[11px]">
@@ -67,8 +67,8 @@ export default function KlienLayout() {
                 end={item.to === "/klien"}
                 className={({ isActive }) =>
                   isActive
-                    ? "border-b-2 border-[#1e5b3a] pb-1 font-semibold text-[#1e5b3a]"
-                    : "hover:text-[#1e5b3a]"
+                    ? "border-b-2 border-primary pb-1 font-semibold text-primary"
+                    : "hover:text-primary"
                 }
               >
                 {item.label}
@@ -80,7 +80,7 @@ export default function KlienLayout() {
             type="button"
             aria-label="Notifikasi"
             title="Notifikasi"
-            className="mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#333] transition-colors hover:bg-gray-100 hover:text-[#14553a] sm:mr-4 sm:h-10 sm:w-10"
+            className="mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#333] transition-colors hover:bg-gray-100 hover:text-primary sm:mr-4 sm:h-10 sm:w-10"
           >
             <Bell
               className="h-[19px] w-[19px]"
@@ -115,7 +115,7 @@ export default function KlienLayout() {
                 className={({ isActive }) =>
                   `flex flex-col items-center gap-0.5 py-2 text-[11px] ${
                     isActive
-                      ? "font-semibold text-[#1e5b3a]"
+                      ? "font-semibold text-primary"
                       : "font-medium text-gray-500"
                   }`
                 }

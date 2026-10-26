@@ -1,4 +1,6 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -8,24 +10,21 @@ import {
   HeartPulse,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { COUNSELING_SESSION_STATUS } from "../../constants/status";
+import { CANCEL_REASONS, buildDummySessions, getCounselorActivityIntake, type CounselingSession } from "../../data/mock/counselorActivity";
 
-const CANCEL_REASONS = [
-  { code: "KLIEN_SAKIT", label: "Klien sakit" },
-  { code: "KONSELOR_BERHALANGAN", label: "Konselor berhalangan" },
-  { code: "KLIEN_TIDAK_HADIR", label: "Klien tidak hadir tanpa kabar" },
-  { code: "JADWAL_BENTROK", label: "Jadwal bentrok" },
-  { code: "LAINNYA", label: "Lainnya" },
-];
+type DialogType = "start" | "finish";
 
-// Jam kerja konseling: sesi mulai 08.00 – 15.00 (selesai paling lambat 16.00)
-const WORK_START = 8 * 60;
-const WORK_LAST_START = 15 * 60;
+interface DialogState {
+  type: DialogType;
+  id: number;
+}
 
-const clamp = (value) =>
-  Math.min(WORK_LAST_START, Math.max(WORK_START, Math.round(value / 15) * 15));
-const formatMinutes = (minutes) =>
+
+const formatMinutes = (minutes: number): string =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}.${String(minutes % 60).padStart(2, "0")}`;
-const initials = (name) =>
+const initials = (name: string): string =>
   name
     .split(" ")
     .map((word) => word[0])
@@ -33,93 +32,19 @@ const initials = (name) =>
     .join("")
     .toUpperCase();
 
-function getCurrentMinutes() {
+function getCurrentMinutes(): number {
   const now = new Date();
   return now.getHours() * 60 + now.getMinutes();
 }
 
-const emptySession = {
-  cancel: null,
-  noteCounselor: "",
-  noteClient: "",
-  plan: "",
-};
 
-// Data dummy relatif terhadap jam sekarang. Hanya ada satu sesi yang berlangsung.
-function buildDummySessions(nowM) {
-  const scheduled = (id, client, topic, format, offset, minStart) => ({
-    id,
-    client,
-    topic,
-    format,
-    start: clamp(Math.max(nowM + offset, minStart)),
-    status: "scheduled",
-    startedAt: null,
-    ...emptySession,
-  });
-
-  return [
-    {
-      id: 1,
-      client: "Yusli Ngongano",
-      topic: "Pengembangan Diri",
-      format: "Individu",
-      start: clamp(nowM - 20),
-      status: "ongoing",
-      startedAt: clamp(nowM - 20),
-      ...emptySession,
-    },
-    scheduled(2, "Ayu Pratiwi", "Motivasi", "Kelompok", 60, 495),
-    scheduled(3, "Dimas Prasetyo", "Kecemasan", "Individu", 150, 510),
-    scheduled(6, "Nadia Putri", "Manajemen Emosi", "Individu", 210, 525),
-    scheduled(7, "Rizky Ramadhan", "Adaptasi Akademik", "Individu", 270, 540),
-    scheduled(8, "Siti Maharani", "Pengembangan Diri", "Kelompok", 330, 555),
-    scheduled(9, "Fajar Nugraha", "Stres Akademik", "Individu", 390, 570),
-    scheduled(10, "Intan Permata", "Kepercayaan Diri", "Individu", 450, 585),
-    scheduled(11, "Rafi Kurniawan", "Perencanaan Karier", "Individu", 510, 600),
-    scheduled(12, "Melati Safitri", "Relasi Sosial", "Kelompok", 570, 615),
-    scheduled(13, "Andi Saputra", "Pengelolaan Waktu", "Individu", 630, 630),
-    scheduled(14, "Putri Amelia", "Motivasi Belajar", "Individu", 690, 645),
-    scheduled(15, "Bima Prakoso", "Stres Kerja", "Individu", 750, 660),
-    scheduled(16, "Nabila Zahra", "Regulasi Emosi", "Kelompok", 810, 675),
-    scheduled(17, "Dewi Anggraini", "Persiapan Karier", "Individu", 870, 690),
-    scheduled(18, "Arga Pratama", "Komunikasi Asertif", "Individu", 930, 705),
-    {
-      id: 4,
-      client: "Bagas Hermawan",
-      topic: "Stres kerja",
-      format: "Individu",
-      start: clamp(nowM - 300),
-      status: "done",
-      startedAt: clamp(nowM - 300),
-      cancel: null,
-      noteCounselor:
-        "Klien menunjukkan tanda kelelahan tinggi. Perlu asesmen lanjutan terkait beban kerja.",
-      noteClient:
-        "Kamu sudah mulai mengenali pemicu stres. Latihan pernapasan yang kita pelajari bisa dilakukan setiap pagi.",
-      plan: "Sesi lanjutan dua minggu lagi.",
-    },
-    {
-      id: 5,
-      client: "Chelsea Ngongano",
-      topic: "Motivasi",
-      format: "Individu",
-      start: clamp(nowM - 150),
-      status: "cancelled",
-      startedAt: null,
-      cancel: {
-        code: "KLIEN_SAKIT",
-        label: "Klien sakit",
-        note: "Klien mendadak sakit dan meminta jadwal ulang.",
-      },
-      noteCounselor: "",
-      noteClient: "",
-      plan: "",
-    },
-  ];
-}
-
-function Badge({ children, className = "" }) {
+function Badge({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${className}`}
@@ -129,8 +54,8 @@ function Badge({ children, className = "" }) {
   );
 }
 
-function ScaleView({ value }) {
-  const labels = {
+function ScaleView({ value }: { value: number }) {
+  const labels: Record<number, string> = {
     1: "Sangat buruk",
     2: "Buruk",
     3: "Cukup",
@@ -145,7 +70,7 @@ function ScaleView({ value }) {
             key={number}
             className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
               number === value
-                ? "bg-[#064e3b] text-white"
+                ? "bg-primary text-white"
                 : "bg-gray-100 text-gray-400"
             }`}
           >
@@ -163,7 +88,13 @@ function ScaleView({ value }) {
   );
 }
 
-function AnswerRow({ question, answer }) {
+function AnswerRow({
+  question,
+  answer,
+}: {
+  question: string;
+  answer: string;
+}) {
   const style =
     answer === "Ya"
       ? "bg-red-100 text-red-800"
@@ -179,7 +110,13 @@ function AnswerRow({ question, answer }) {
   );
 }
 
-function EssayCard({ title, children }) {
+function EssayCard({
+  title,
+  children,
+}: {
+  title: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-gray-200 p-4">
       <p className="text-sm font-semibold text-gray-700">{title}</p>
@@ -190,8 +127,18 @@ function EssayCard({ title, children }) {
   );
 }
 
-function StatCard({ icon: Icon, label, value, tone = "slate" }) {
-  const tones = {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  tone = "slate",
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: ReactNode;
+  tone?: "slate" | "green" | "amber";
+}) {
+  const tones: Record<"slate" | "green" | "amber", string> = {
     slate: "text-slate-600 bg-slate-100",
     green: "text-gray-700 bg-gray-100",
     amber: "text-amber-600 bg-amber-50",
@@ -212,23 +159,25 @@ function StatCard({ icon: Icon, label, value, tone = "slate" }) {
 }
 
 const primaryBtn =
-  "rounded-xl bg-[#064e3b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#043d2e]";
+  "rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark";
 const inputFocus =
-  "outline-none focus:border-[#064e3b] focus:ring-4 focus:ring-[#064e3b]/10";
+  "outline-none focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 export default function KonselorAktivitasPage() {
   const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
-  const [sessions, setSessions] = useState(() =>
+  const [sessions, setSessions] = useState<CounselingSession[]>(() =>
     buildDummySessions(getCurrentMinutes()),
   );
   const [filter, setFilter] = useState("semua");
   const [visibleUpcomingCount, setVisibleUpcomingCount] = useState(10);
-  const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(
+    null,
+  );
   const [view, setView] = useState("list");
-  const [currentId, setCurrentId] = useState(null);
-  const [dialog, setDialog] = useState(null);
-  const [cancelId, setCancelId] = useState(null);
+  const [currentId, setCurrentId] = useState<number | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [cancelId, setCancelId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelOther, setCancelOther] = useState("");
   const [cancelNote, setCancelNote] = useState("");
@@ -248,12 +197,12 @@ export default function KonselorAktivitasPage() {
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const currentSession = sessions.find((session) => session.id === currentId);
   const ongoingSession = sessions.find(
-    (session) => session.status === "ongoing",
+    (session) => session.status === COUNSELING_SESSION_STATUS.ONGOING,
   );
 
-  const canStart = (session) =>
-    session.status === "scheduled" && nowMinutes >= session.start;
-  const isFilled = (session) =>
+  const canStart = (session: CounselingSession) =>
+    session.status === COUNSELING_SESSION_STATUS.SCHEDULED && nowMinutes >= session.start;
+  const isFilled = (session: CounselingSession) =>
     session.noteCounselor.trim().length >= 20 &&
     session.noteClient.trim().length >= 20;
 
@@ -262,82 +211,48 @@ export default function KonselorAktivitasPage() {
       sessions
         .filter(
           (session) =>
-            session.status === "scheduled" || session.status === "ongoing",
+            session.status === COUNSELING_SESSION_STATUS.SCHEDULED || session.status === COUNSELING_SESSION_STATUS.ONGOING,
         )
         .filter((session) => filter === "semua" || session.status === filter)
         .sort((a, b) => a.start - b.start),
-    [sessions, filter, now],
+    [sessions, filter],
   );
 
   // Satu sesi aktif ditampilkan pada area utama. Jika ada sesi berlangsung,
   // sesi terjadwal yang waktunya terlewat tetap berada di daftar sesi mendatang.
   const readySessions = activeSessions.some(
-    (session) => session.status === "ongoing",
+    (session) => session.status === COUNSELING_SESSION_STATUS.ONGOING,
   )
     ? activeSessions
-        .filter((session) => session.status === "ongoing")
+        .filter((session) => session.status === COUNSELING_SESSION_STATUS.ONGOING)
         .slice(0, 1)
     : activeSessions.filter((session) => canStart(session)).slice(0, 1);
   const upcomingSessions = activeSessions
-    .filter((session) => session.status === "scheduled" && !canStart(session))
+    .filter((session) => session.status === COUNSELING_SESSION_STATUS.SCHEDULED && !canStart(session))
     .sort((a, b) => a.start - b.start);
   const visibleUpcomingSessions = upcomingSessions.slice(
     0,
     visibleUpcomingCount,
   );
   const scheduledCount = sessions.filter(
-    (session) => session.status === "scheduled",
+    (session) => session.status === COUNSELING_SESSION_STATUS.SCHEDULED,
   ).length;
   const ongoingCount = sessions.filter(
-    (session) => session.status === "ongoing",
+    (session) => session.status === COUNSELING_SESSION_STATUS.ONGOING,
   ).length;
   const todayCount = sessions.filter(
-    (session) => session.status === "scheduled" || session.status === "ongoing",
+    (session) => session.status === COUNSELING_SESSION_STATUS.SCHEDULED || session.status === COUNSELING_SESSION_STATUS.ONGOING,
   ).length;
 
-  const intakeFor = (client) => {
-    const base = {
-      selfHarm: "Tidak",
-      distress: "Tidak",
-      abuse: "Tidak",
-      substance: "Tidak",
-      sleep: 3,
-      finance: 3,
-      topics: ["Motivasi"],
-      complaint: "Klien merasa kewalahan dan sulit fokus.",
-      history: "Keluhan muncul sejak beberapa bulan terakhir.",
-      reason:
-        "Ingin memiliki strategi untuk mengelola kondisi yang sedang dialami.",
-      efforts: "Klien sudah mencoba beberapa cara secara mandiri.",
-      goal: "Klien berharap mendapat rencana yang realistis.",
-      strengths: "Klien mudah bergaul dan bertanggung jawab.",
-      weaknesses: "Klien cenderung menunda pekerjaan.",
-    };
-    const overrides = {
-      "Yusli Ngongano": {
-        distress: "Ya",
-        sleep: 2,
-        topics: ["Karir, pendidikan, dan pekerjaan", "Motivasi"],
-      },
-      "Ayu Pratiwi": { distress: "Mungkin", sleep: 4, finance: 4 },
-      "Dimas Prasetyo": { topics: ["Kecemasan"], sleep: 2 },
-      "Chelsea Ngongano": {
-        abuse: "Mungkin",
-        finance: 2,
-        topics: ["Stres atau tekanan kerja"],
-      },
-      "Bagas Hermawan": { topics: ["Karir, pendidikan, dan pekerjaan"] },
-    };
-    return { ...base, ...(overrides[client] || {}) };
-  };
-
-  const statusInfo = (session) => {
-    if (session.status === "cancelled")
+  const statusInfo = (
+    session: CounselingSession,
+  ): { label: string; style: string } => {
+    if (session.status === COUNSELING_SESSION_STATUS.CANCELLED)
       return { label: "Dibatalkan", style: "bg-red-100 text-red-800" };
-    if (session.status === "done")
+    if (session.status === COUNSELING_SESSION_STATUS.COMPLETED)
       return { label: "Selesai", style: "bg-gray-100 text-gray-700" };
-    if (session.status === "ongoing")
-      return { label: "Berlangsung", style: "bg-[#064e3b] text-white" };
+    if (session.status === COUNSELING_SESSION_STATUS.ONGOING)
+      return { label: "Berlangsung", style: "bg-primary text-white" };
     if (canStart(session))
       return {
         label: "Siap dimulai",
@@ -346,11 +261,11 @@ export default function KonselorAktivitasPage() {
     return { label: "Terjadwal", style: "bg-slate-100 text-slate-600" };
   };
 
-  function notify(message) {
+  function notify(message: string) {
     setToastMsg(message);
   }
 
-  function openSession(id) {
+  function openSession(id: number) {
     setCurrentId(id);
     setView("session");
   }
@@ -375,7 +290,7 @@ export default function KonselorAktivitasPage() {
     setSessions((previous) =>
       previous.map((item) =>
         item.id === dialog.id
-          ? { ...item, status: "ongoing", startedAt: nowMinutes }
+          ? { ...item, status: COUNSELING_SESSION_STATUS.ONGOING, startedAt: nowMinutes }
           : item,
       ),
     );
@@ -391,7 +306,9 @@ export default function KonselorAktivitasPage() {
     if (!currentSession || !isFilled(currentSession)) return;
     setSessions((previous) =>
       previous.map((item) =>
-        item.id === currentSession.id ? { ...item, status: "done" } : item,
+        item.id === currentSession.id
+          ? { ...item, status: COUNSELING_SESSION_STATUS.COMPLETED }
+          : item,
       ),
     );
     setDialog(null);
@@ -399,8 +316,11 @@ export default function KonselorAktivitasPage() {
     notify("Sesi diselesaikan. Catatan tersimpan di Riwayat Konseling.");
   }
 
-  function updateNote(field, value) {
-    if (!currentSession || currentSession.status !== "ongoing") return;
+  function updateNote(
+    field: "noteCounselor" | "noteClient" | "plan",
+    value: string,
+  ) {
+    if (!currentSession || currentSession.status !== COUNSELING_SESSION_STATUS.ONGOING) return;
     setSessions((previous) =>
       previous.map((item) =>
         item.id === currentSession.id ? { ...item, [field]: value } : item,
@@ -408,7 +328,7 @@ export default function KonselorAktivitasPage() {
     );
   }
 
-  function openCancel(id) {
+  function openCancel(id: number) {
     setCancelId(id);
     setCancelReason("");
     setCancelOther("");
@@ -430,6 +350,7 @@ export default function KonselorAktivitasPage() {
   function confirmCancel() {
     if (!cancelId || !cancelValid) return;
     const reason = CANCEL_REASONS.find((item) => item.code === cancelReason);
+    if (!reason) return;
     const label =
       cancelReason === "LAINNYA"
         ? `Lainnya: ${cancelOther.trim()}`
@@ -439,7 +360,7 @@ export default function KonselorAktivitasPage() {
         item.id === cancelId
           ? {
               ...item,
-              status: "cancelled",
+              status: COUNSELING_SESSION_STATUS.CANCELLED,
               cancel: { code: reason.code, label, note: cancelNote.trim() },
             }
           : item,
@@ -451,12 +372,12 @@ export default function KonselorAktivitasPage() {
     );
   }
 
-  const intake = currentSession ? intakeFor(currentSession.client) : null;
+  const intake = currentSession ? getCounselorActivityIntake(currentSession.client) : null;
   const selectedBooking = sessions.find(
     (session) => session.id === selectedBookingId,
   );
   const selectedBookingIntake = selectedBooking
-    ? intakeFor(selectedBooking.client)
+    ? getCounselorActivityIntake(selectedBooking.client)
     : null;
   const safetyFlags = intake
     ? [
@@ -468,18 +389,13 @@ export default function KonselorAktivitasPage() {
     : [];
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer role="counselor" spacing="none">
       {view === "list" && (
         <>
-          <header>
-            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-              Aktivitas Saya
-            </h1>
-            <p className="mt-1 text-sm text-gray-500 sm:text-base">
-              Mulai sesi saat jam mulai tiba. Jika mendadak tidak bisa hadir,
-              batalkan dengan alasan.
-            </p>
-          </header>
+          <PageHeader
+            title="Aktivitas Saya"
+            description="Mulai sesi saat jam mulai tiba. Jika mendadak tidak bisa hadir, batalkan dengan alasan."
+          />
 
           <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             <StatCard
@@ -505,8 +421,8 @@ export default function KonselorAktivitasPage() {
           <section className="mt-6 inline-flex max-w-full items-center gap-1 rounded-2xl border border-gray-200 bg-gray-100/80 p-1">
             {[
               { value: "semua", label: "Semua" },
-              { value: "scheduled", label: "Terjadwal" },
-              { value: "ongoing", label: "Berlangsung" },
+              { value: COUNSELING_SESSION_STATUS.SCHEDULED, label: "Terjadwal" },
+              { value: COUNSELING_SESSION_STATUS.ONGOING, label: "Berlangsung" },
             ].map((item) => (
               <button
                 key={item.value}
@@ -533,8 +449,8 @@ export default function KonselorAktivitasPage() {
               <div className="mb-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5">
                   <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#0a7a5c] opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#064e3b]" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-light opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                   </span>
                   <h2 className="text-base font-bold text-gray-900">
                     {ongoingSession ? "Sedang berlangsung" : "Siap dimulai"}
@@ -546,7 +462,7 @@ export default function KonselorAktivitasPage() {
               </div>
               <ul className="space-y-3">
                 {readySessions.map((session) => {
-                  const ongoing = session.status === "ongoing";
+                  const ongoing = session.status === COUNSELING_SESSION_STATUS.ONGOING;
                   const status = statusInfo(session);
                   return (
                     <li
@@ -554,7 +470,7 @@ export default function KonselorAktivitasPage() {
                       className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
                     >
                       {ongoing && (
-                        <div className="absolute inset-y-0 left-0 w-1 bg-[#064e3b]" />
+                        <div className="absolute inset-y-0 left-0 w-1 bg-primary" />
                       )}
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -644,7 +560,7 @@ export default function KonselorAktivitasPage() {
                         setSelectedBookingId(session.id);
                       }
                     }}
-                    className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 transition-colors hover:border-[#0a7a5c]/40 hover:bg-[#dff5e8]/30 focus:outline-none focus:ring-2 focus:ring-[#064e3b]/20"
+                    className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 transition-colors hover:border-primary-light/40 hover:bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
@@ -689,7 +605,7 @@ export default function KonselorAktivitasPage() {
                         Math.min(count + 10, upcomingSessions.length),
                       )
                     }
-                    className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#0a7a5c]/40 hover:bg-[#dff5e8]/30"
+                    className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-primary-light/40 hover:bg-secondary/30"
                   >
                     Muat lebih banyak
                   </button>
@@ -738,7 +654,7 @@ export default function KonselorAktivitasPage() {
                 <Badge className={statusInfo(currentSession).style}>
                   {statusInfo(currentSession).label}
                 </Badge>
-                {currentSession.status === "ongoing" && (
+                {currentSession.status === COUNSELING_SESSION_STATUS.ONGOING && (
                   <span className="ml-2 text-xs text-gray-500">
                     Dimulai pukul{" "}
                     {formatMinutes(
@@ -876,13 +792,13 @@ export default function KonselorAktivitasPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-base font-bold">Catatan konseling</h3>
               <p className="text-xs text-gray-500">
-                {currentSession.status === "ongoing"
+                {currentSession.status === COUNSELING_SESSION_STATUS.ONGOING
                   ? "Draf tersimpan otomatis selama halaman terbuka"
                   : ""}
               </p>
             </div>
 
-            {currentSession.status === "ongoing" ? (
+            {currentSession.status === COUNSELING_SESSION_STATUS.ONGOING ? (
               <div className="mt-4 space-y-5">
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                   <label
@@ -963,7 +879,7 @@ export default function KonselorAktivitasPage() {
             )}
           </section>
 
-          {currentSession.status === "ongoing" && (
+          {currentSession.status === COUNSELING_SESSION_STATUS.ONGOING && (
             <div className="sticky bottom-0 mt-6 flex flex-col gap-3 border-t border-gray-200 bg-gray-50/95 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-end">
               <p className="text-xs text-gray-500 sm:mr-auto">
                 {isFilled(currentSession)
@@ -999,7 +915,7 @@ export default function KonselorAktivitasPage() {
           >
             <header className="flex items-start justify-between gap-4 border-b border-gray-100 p-5 sm:p-6">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#0a7a5c]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-light">
                   Detail booking klien
                 </p>
                 <h2
@@ -1024,7 +940,7 @@ export default function KonselorAktivitasPage() {
 
             <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
               <section className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl bg-[#dff5e8]/70 p-4">
+                <div className="rounded-xl bg-secondary/70 p-4">
                   <p className="text-xs font-medium text-gray-500">
                     Jenis layanan
                   </p>
@@ -1032,7 +948,7 @@ export default function KonselorAktivitasPage() {
                     {selectedBooking.format}
                   </p>
                 </div>
-                <div className="rounded-xl bg-[#dff5e8]/70 p-4">
+                <div className="rounded-xl bg-secondary/70 p-4">
                   <p className="text-xs font-medium text-gray-500">
                     Topik booking
                   </p>
@@ -1040,7 +956,7 @@ export default function KonselorAktivitasPage() {
                     {selectedBooking.topic}
                   </p>
                 </div>
-                <div className="rounded-xl bg-[#dff5e8]/70 p-4">
+                <div className="rounded-xl bg-secondary/70 p-4">
                   <p className="text-xs font-medium text-gray-500">Jadwal</p>
                   <p className="mt-1 font-semibold text-gray-900">
                     {formatMinutes(selectedBooking.start)} WITA
@@ -1096,7 +1012,7 @@ export default function KonselorAktivitasPage() {
                 </h3>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {selectedBookingIntake.topics.map((topic) => (
-                    <Badge key={topic} className="bg-[#dff5e8] text-[#064e3b]">
+                    <Badge key={topic} className="bg-secondary text-primary">
                       {topic}
                     </Badge>
                   ))}
@@ -1328,6 +1244,6 @@ export default function KonselorAktivitasPage() {
           Lihat Riwayat Konseling <ChevronDown className="h-4 w-4" />
         </button>
       )}
-    </div>
+    </PageContainer>
   );
 }

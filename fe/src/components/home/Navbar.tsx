@@ -56,7 +56,7 @@ export default function Navbar() {
           to="/"
           className="relative z-10 flex min-w-0 items-center gap-2 sm:gap-3"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white sm:h-13 sm:w-13">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-brand-gold bg-white sm:h-13 sm:w-13">
             <img
               src="/icon-512x512.png"
               alt="Logo Universitas Katolik De La Salle Manado"
@@ -103,7 +103,7 @@ export default function Navbar() {
         <div className="relative z-20 flex items-center gap-2">
           {/* Akun: hanya tampil di desktop */}
           <div className="group relative hidden h-9 w-9 lg:block">
-            <div className="absolute right-0 top-0 flex h-9 max-w-9 flex-row-reverse items-center overflow-hidden rounded-full bg-transparent transition-all duration-300 ease-out group-hover:max-w-28 group-hover:bg-[#185032] group-focus-within:max-w-28 group-focus-within:bg-[#185032]">
+            <div className="absolute right-0 top-0 flex h-9 max-w-9 flex-row-reverse items-center overflow-hidden rounded-full bg-transparent transition-all duration-300 ease-out group-hover:max-w-28 group-hover:bg-primary group-focus-within:max-w-28 group-focus-within:bg-primary">
               <Link
                 to="/login"
                 aria-label="Profil"
@@ -130,7 +130,7 @@ export default function Navbar() {
             onClick={() => setOpen((prev) => !prev)}
             aria-label={open ? "Tutup menu" : "Buka menu"}
             aria-expanded={open}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#185032] text-white lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white lg:hidden"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -159,7 +159,7 @@ export default function Navbar() {
           <Link
             to="/login"
             onClick={() => setOpen(false)}
-            className="mt-2 rounded-lg bg-[#185032] px-4 py-3 text-center text-sm font-semibold text-white"
+            className="mt-2 rounded-lg bg-primary px-4 py-3 text-center text-sm font-semibold text-white"
           >
             Masuk
           </Link>

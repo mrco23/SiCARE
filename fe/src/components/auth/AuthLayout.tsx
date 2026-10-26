@@ -26,7 +26,7 @@ export default function CenteredAuthLayout({
         <div className={`w-full ${wide ? "max-w-2xl" : "max-w-md"}`}>
           {/* Logo */}
           <Link to="/" className="mb-6 flex flex-col items-center gap-3">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-[#c9a54a] bg-white shadow-sm">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-brand-gold bg-white shadow-sm">
               <img
                 src="logo.png"
                 alt="Logo Universitas Katolik De La Salle Manado"

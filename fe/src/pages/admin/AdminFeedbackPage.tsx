@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  FEEDBACK_MODERATION_STATUS,
+  type FeedbackModerationStatus,
+} from "../../constants/status";
+import { formatIndonesianDate } from "../../lib/dateUtils";
 import {
   Check,
   CheckCircle2,
@@ -26,6 +32,7 @@ import {
   type AcademicPeriod,
   type PeriodStatus,
 } from "../../lib/academicPeriods";
+import { DATA, PSIKOLOG, type Feedback } from "../../data/mock/adminFeedback";
 
 /* ========================= TIPE & DATA ========================= */
 /*
@@ -39,23 +46,15 @@ import {
   - Feedback yang dinonaktifkan dapat diperiksa ulang atau ditampilkan.
   Hanya feedback berstatus "shown" yang boleh ditampilkan ke publik.
 */
-type FeedbackStatus = "pending" | "disabled" | "shown";
-
-type Feedback = {
-  id: number;
-  rating: number;
-  text: string;
-  psikolog: string;
-  date: string; // ISO datetime
-  status: FeedbackStatus;
-  disabledReason?: string;
-};
 
 type SortKey = "new" | "high" | "low";
-type StatusFilter = "all" | FeedbackStatus;
+type StatusFilter = "all" | FeedbackModerationStatus;
 
 const MODERATION_STORAGE_KEY = "sicare:admin:feedback-moderation";
-type FeedbackModeration = { status: FeedbackStatus; disabledReason?: string };
+type FeedbackModeration = {
+  status: FeedbackModerationStatus;
+  disabledReason?: string;
+};
 
 function loadModeration(): Record<string, FeedbackModeration> {
   try {
@@ -69,19 +68,23 @@ function loadModeration(): Record<string, FeedbackModeration> {
       if (!value || typeof value !== "object" || Array.isArray(value)) continue;
       const record = value as Record<string, unknown>;
       if (
-        record.status !== "pending" &&
-        record.status !== "disabled" &&
-        record.status !== "shown"
+        record.status !== FEEDBACK_MODERATION_STATUS.PENDING &&
+        record.status !== FEEDBACK_MODERATION_STATUS.DISABLED &&
+        record.status !== FEEDBACK_MODERATION_STATUS.SHOWN
       )
         continue;
       const reason =
         typeof record.disabledReason === "string"
           ? record.disabledReason.trim()
           : "";
-      if (record.status === "disabled" && !reason) continue;
+      if (record.status === FEEDBACK_MODERATION_STATUS.DISABLED && !reason)
+        continue;
       result[id] = {
         status: record.status,
-        disabledReason: record.status === "disabled" ? reason : undefined,
+        disabledReason:
+          record.status === FEEDBACK_MODERATION_STATUS.DISABLED
+            ? reason
+            : undefined,
       };
     }
     return result;
@@ -90,130 +93,13 @@ function loadModeration(): Record<string, FeedbackModeration> {
   }
 }
 
-const PSIKOLOG = ["Ma'am Giovanna Yudi, M.Psi", "Dr. Budi Santoso, Psikolog"];
-
-const DATA: Feedback[] = [
-  {
-    id: 1,
-    rating: 5,
-    text: "Sesinya membantu, saya merasa didengarkan.",
-    psikolog: PSIKOLOG[0],
-    date: "2025-08-27T10:15:00",
-    status: "shown",
-  },
-  {
-    id: 2,
-    rating: 4,
-    text: "Penjelasannya jelas dan mudah dipahami.",
-    psikolog: PSIKOLOG[1],
-    date: "2025-09-12T14:00:00",
-    status: "shown",
-  },
-  {
-    id: 3,
-    rating: 5,
-    text: "Psikolognya ramah dan tidak menghakimi.",
-    psikolog: PSIKOLOG[0],
-    date: "2025-10-03T09:30:00",
-    status: "shown",
-  },
-  {
-    id: 4,
-    rating: 3,
-    text: "Sesi lumayan, tapi sempat mulai terlambat.",
-    psikolog: PSIKOLOG[1],
-    date: "2025-11-18T13:00:00",
-    status: "shown",
-  },
-  {
-    id: 5,
-    rating: 2,
-    text: "Saran yang diberikan terasa terlalu umum.",
-    psikolog: PSIKOLOG[1],
-    date: "2025-12-09T11:20:00",
-    status: "shown",
-  },
-  {
-    id: 6,
-    rating: 5,
-    text: "Saya punya langkah konkret untuk kecemasan presentasi.",
-    psikolog: PSIKOLOG[0],
-    date: "2026-01-22T15:40:00",
-    status: "shown",
-  },
-  {
-    id: 7,
-    rating: 4,
-    text: "Nyaman dan aman untuk bercerita.",
-    psikolog: PSIKOLOG[0],
-    date: "2026-02-17T10:00:00",
-    status: "shown",
-  },
-  {
-    id: 8,
-    rating: 1,
-    text: "Link sesi online bermasalah, waktu terbuang.",
-    psikolog: PSIKOLOG[1],
-    date: "2026-03-05T16:10:00",
-    status: "shown",
-  },
-  {
-    id: 9,
-    rating: 5,
-    text: "Recommended! Sangat profesional.",
-    psikolog: PSIKOLOG[1],
-    date: "2026-04-14T09:00:00",
-    status: "shown",
-  },
-  {
-    id: 10,
-    rating: 4,
-    text: "Cukup puas, ingin lanjut sesi berikutnya.",
-    psikolog: PSIKOLOG[0],
-    date: "2026-05-27T13:30:00",
-    status: "shown",
-  },
-  {
-    id: 11,
-    rating: 3,
-    text: "Biasa saja, tapi suasana sesinya tenang.",
-    psikolog: PSIKOLOG[0],
-    date: "2026-06-22T10:45:00",
-    status: "shown",
-  },
-  {
-    id: 12,
-    rating: 5,
-    text: "Terbantu sekali, sesinya terstruktur dan hangat.",
-    psikolog: PSIKOLOG[1],
-    date: "2026-07-18T14:20:00",
-    status: "pending",
-  },
-  {
-    id: 13,
-    rating: 4,
-    text: "Sesi pertama yang menyenangkan.",
-    psikolog: PSIKOLOG[0],
-    date: "2026-08-26T10:00:00",
-    status: "pending",
-  },
-  {
-    id: 14,
-    rating: 5,
-    text: "Jadwalnya mudah dan konselornya responsif.",
-    psikolog: PSIKOLOG[1],
-    date: "2026-09-30T15:00:00",
-    status: "pending",
-  },
-];
-
 /* Label anonim konsisten per id, contoh: "Klien Anonim #A3F2" */
 const anon = (id: number) =>
   "Klien Anonim #" +
   ((id * 2654435761) >>> 0).toString(16).slice(-4).toUpperCase();
 
 const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("id-ID", {
+  formatIndonesianDate(new Date(iso), {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -224,7 +110,7 @@ const feedbackInPeriod = (items: Feedback[], p: AcademicPeriod | null) =>
   items.filter((f) => !p || isInPeriod(toISO(new Date(f.date)), p));
 
 const STATUS_STYLE: Record<PeriodStatus, string> = {
-  Aktif: "bg-emerald-50 text-[#14553a] border-emerald-200",
+  Aktif: "bg-emerald-50 text-primary border-emerald-200",
   Mendatang: "bg-sky-50 text-sky-700 border-sky-200",
   Selesai: "bg-slate-100 text-slate-500 border-slate-200",
 };
@@ -320,8 +206,8 @@ function PeriodDropdown({
         aria-expanded={open}
         className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition-colors sm:w-96 ${
           open
-            ? "border-[#2a8f5a] ring-4 ring-[#2a8f5a]/15"
-            : "border-slate-200 hover:border-[#2a8f5a]/50"
+            ? "border-brand-accent ring-4 ring-brand-accent/15"
+            : "border-slate-200 hover:border-brand-accent/50"
         }`}
       >
         <div className="min-w-0">
@@ -355,7 +241,7 @@ function PeriodDropdown({
               onClick={() => pick("all")}
               className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
                 selectedId === "all"
-                  ? "bg-[#f0fdf4] text-[#14553a]"
+                  ? "bg-[#f0fdf4] text-primary"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -377,13 +263,13 @@ function PeriodDropdown({
                   onClick={() => setTa(y)}
                   className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition-colors ${
                     activeYear === y
-                      ? "bg-white text-[#14553a] shadow-sm"
+                      ? "bg-white text-primary shadow-sm"
                       : "text-slate-600 hover:bg-white/70"
                   }`}
                 >
                   {y}
                   {selected?.ta === y && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#2a8f5a]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand-accent" />
                   )}
                 </button>
               ))}
@@ -420,8 +306,8 @@ function PeriodDropdown({
                     onClick={() => pick(p.id)}
                     className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
                       active
-                        ? "border-[#14553a] bg-[#14553a] text-white"
-                        : "border-slate-200 bg-white hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+                        ? "border-primary bg-primary text-white"
+                        : "border-slate-200 bg-white hover:border-brand-accent/50 hover:bg-[#f6fcf8]"
                     }`}
                   >
                     <div className="min-w-0">
@@ -490,7 +376,7 @@ export default function AdminFeedbackPage() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("new");
   // Default membuka antrean feedback yang belum diperiksa
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(FEEDBACK_MODERATION_STATUS.PENDING);
   const [toast, setToast] = useState("");
   const toastTimeout = useRef<ReturnType<typeof window.setTimeout> | null>(
     null,
@@ -511,7 +397,9 @@ export default function AdminFeedbackPage() {
         moderation[String(item.id)] = {
           status: item.status,
           disabledReason:
-            item.status === "disabled" ? item.disabledReason : undefined,
+            item.status === FEEDBACK_MODERATION_STATUS.DISABLED
+              ? item.disabledReason
+              : undefined,
         };
       }
       localStorage.setItem(MODERATION_STORAGE_KEY, JSON.stringify(moderation));
@@ -549,9 +437,15 @@ export default function AdminFeedbackPage() {
 
   const total = base.length;
   const avg = total ? base.reduce((sum, f) => sum + f.rating, 0) / total : 0;
-  const pendingCount = base.filter((f) => f.status === "pending").length;
-  const shownCount = base.filter((f) => f.status === "shown").length;
-  const disabledCount = base.filter((f) => f.status === "disabled").length;
+  const pendingCount = base.filter(
+    (f) => f.status === FEEDBACK_MODERATION_STATUS.PENDING,
+  ).length;
+  const shownCount = base.filter(
+    (f) => f.status === FEEDBACK_MODERATION_STATUS.SHOWN,
+  ).length;
+  const disabledCount = base.filter(
+    (f) => f.status === FEEDBACK_MODERATION_STATUS.DISABLED,
+  ).length;
 
   const rows = useMemo(() => {
     const q = query.toLowerCase();
@@ -577,9 +471,9 @@ export default function AdminFeedbackPage() {
   const toggleStar = (n: number) => setStar((prev) => (prev === n ? 0 : n));
 
   // Prototype: nantinya kirim PATCH /api/admin/feedback/:id melalui backend.
-  const setFeedbackStatus = (
+  const setFeedbackModerationStatus = (
     id: number,
-    status: FeedbackStatus,
+    status: FeedbackModerationStatus,
     reason = "",
   ) => {
     setItems((current) =>
@@ -588,15 +482,18 @@ export default function AdminFeedbackPage() {
           ? {
               ...item,
               status,
-              disabledReason: status === "disabled" ? reason : undefined,
+              disabledReason:
+                status === FEEDBACK_MODERATION_STATUS.DISABLED
+                  ? reason
+                  : undefined,
             }
           : item,
       ),
     );
     showToast(
-      status === "shown"
+      status === FEEDBACK_MODERATION_STATUS.SHOWN
         ? "Feedback ditampilkan."
-        : status === "disabled"
+        : status === FEEDBACK_MODERATION_STATUS.DISABLED
           ? "Feedback dinonaktifkan beserta alasannya."
           : "Feedback dikembalikan ke antrean pemeriksaan.",
     );
@@ -615,38 +512,51 @@ export default function AdminFeedbackPage() {
       setDisableError("Alasan penonaktifan wajib diisi.");
       return;
     }
-    setFeedbackStatus(disableId, "disabled", reason);
+    setFeedbackModerationStatus(
+      disableId,
+      FEEDBACK_MODERATION_STATUS.DISABLED,
+      reason,
+    );
     setDisableId(null);
     setDisableReason("");
     setDisableError("");
   };
 
   const STATUS_TABS: { key: StatusFilter; label: string; count: number }[] = [
-    { key: "pending", label: "Menunggu pemeriksaan", count: pendingCount },
-    { key: "disabled", label: "Dinonaktifkan", count: disabledCount },
-    { key: "shown", label: "Ditampilkan", count: shownCount },
+    {
+      key: FEEDBACK_MODERATION_STATUS.PENDING,
+      label: "Menunggu pemeriksaan",
+      count: pendingCount,
+    },
+    {
+      key: FEEDBACK_MODERATION_STATUS.DISABLED,
+      label: "Dinonaktifkan",
+      count: disabledCount,
+    },
+    {
+      key: FEEDBACK_MODERATION_STATUS.SHOWN,
+      label: "Ditampilkan",
+      count: shownCount,
+    },
     { key: "all", label: "Semua", count: total },
   ];
 
   const emptyMessage =
     total === 0
       ? "Belum ada feedback pada periode ini."
-      : statusFilter === "pending" && pendingCount === 0
+      : statusFilter === FEEDBACK_MODERATION_STATUS.PENDING && pendingCount === 0
         ? "Semua feedback sudah diperiksa. Tidak ada yang menunggu."
-        : statusFilter === "disabled" && disabledCount === 0
+        : statusFilter === FEEDBACK_MODERATION_STATUS.DISABLED && disabledCount === 0
           ? "Tidak ada feedback yang dinonaktifkan."
           : "Tidak ada feedback yang cocok.";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
+    <PageContainer role="admin">
       {/* Judul */}
-      <div>
-        <h2 className="text-xl font-bold">Feedback Klien</h2>
-        <p className="text-xs text-slate-500">
-          Penilaian anonim dari klien untuk psikolog setelah sesi konseling.
-          Periksa feedback baru, lalu tampilkan yang sesuai.
-        </p>
-      </div>
+      <PageHeader
+        title="Feedback Klien"
+        description="Penilaian anonim dari klien untuk psikolog setelah sesi konseling. Periksa feedback baru, lalu tampilkan yang sesuai."
+      />
 
       {/* Ringkasan */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -668,7 +578,7 @@ export default function AdminFeedbackPage() {
               <Clock className="h-3 w-3" />
               {pendingCount} menunggu
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-[#14553a]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-primary">
               <Eye className="h-3 w-3" />
               {shownCount} ditampilkan
             </span>
@@ -807,7 +717,7 @@ export default function AdminFeedbackPage() {
                 onClick={() => setStatusFilter(tab.key)}
                 className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors ${
                   active
-                    ? "border-[#14553a] bg-[#14553a] text-white"
+                    ? "border-primary bg-primary text-white"
                     : "border-slate-200 bg-white text-slate-600 hover:border-[#22c55e]"
                 }`}
               >
@@ -816,7 +726,7 @@ export default function AdminFeedbackPage() {
                   className={`rounded-full px-1.5 py-0.5 text-[10px] ${
                     active
                       ? "bg-white/20 text-white"
-                      : tab.key === "pending" && tab.count > 0
+                      : tab.key === FEEDBACK_MODERATION_STATUS.PENDING && tab.count > 0
                         ? "bg-amber-100 text-amber-800"
                         : "bg-slate-100 text-slate-500"
                   }`}
@@ -856,8 +766,8 @@ export default function AdminFeedbackPage() {
         {rows.length > 0 ? (
           <div className="divide-y divide-slate-100">
             {rows.map((f) => {
-              const isPending = f.status === "pending";
-              const isDisabled = f.status === "disabled";
+              const isPending = f.status === FEEDBACK_MODERATION_STATUS.PENDING;
+              const isDisabled = f.status === FEEDBACK_MODERATION_STATUS.DISABLED;
               return (
                 <div
                   key={f.id}
@@ -889,7 +799,7 @@ export default function AdminFeedbackPage() {
                             Dinonaktifkan
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-[#14553a]">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-primary">
                             <CheckCircle2 className="h-3 w-3" />
                             Ditampilkan
                           </span>
@@ -917,17 +827,17 @@ export default function AdminFeedbackPage() {
                       </span>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        {f.status !== "shown" && (
+                        {f.status !== FEEDBACK_MODERATION_STATUS.SHOWN && (
                           <button
                             type="button"
-                            onClick={() => setFeedbackStatus(f.id, "shown")}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-[#15803d] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-[#14553a]"
+                            onClick={() => setFeedbackModerationStatus(f.id, FEEDBACK_MODERATION_STATUS.SHOWN)}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-[#15803d] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-primary"
                           >
                             <Eye className="h-3.5 w-3.5" />
                             Tampilkan
                           </button>
                         )}
-                        {f.status !== "disabled" && (
+                        {f.status !== FEEDBACK_MODERATION_STATUS.DISABLED && (
                           <button
                             type="button"
                             onClick={() => openDisableModal(f)}
@@ -940,7 +850,7 @@ export default function AdminFeedbackPage() {
                         {isDisabled && (
                           <button
                             type="button"
-                            onClick={() => setFeedbackStatus(f.id, "pending")}
+                            onClick={() => setFeedbackModerationStatus(f.id, FEEDBACK_MODERATION_STATUS.PENDING)}
                             className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
@@ -1030,7 +940,7 @@ export default function AdminFeedbackPage() {
               <button
                 type="button"
                 onClick={confirmDisable}
-                className="rounded-xl bg-[#15803d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#14553a]"
+                className="rounded-xl bg-[#15803d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary"
               >
                 Simpan alasan & nonaktifkan
               </button>
@@ -1050,6 +960,6 @@ export default function AdminFeedbackPage() {
           </span>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -13,7 +13,7 @@ export default function CounselingPreview() {
       {/* Kartu percakapan */}
       <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
         <div className="mb-3 flex items-center gap-2 text-xs font-medium text-white/75">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c9a54a] text-[#064e3b]">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-gold text-primary">
             <MessageSquareText className="h-4 w-4" />
           </span>
           Percakapan dengan konselor
@@ -22,7 +22,7 @@ export default function CounselingPreview() {
           <div className="max-w-[80%] rounded-2xl rounded-tl-sm bg-white px-3 py-2 text-text-base">
             Saya ingin bercerita tentang kuliah minggu ini.
           </div>
-          <div className="ml-auto max-w-[80%] rounded-2xl rounded-tr-sm bg-[#c9a54a] px-3 py-2 text-[#064e3b]">
+          <div className="ml-auto max-w-[80%] rounded-2xl rounded-tr-sm bg-brand-gold px-3 py-2 text-primary">
             Tentu, saya siap mendengarkan.
           </div>
         </div>
@@ -46,7 +46,7 @@ export default function CounselingPreview() {
             <span
               key={i}
               className={`h-3 w-3 rounded-full ${
-                i === ACTIVE_MOOD ? "bg-[#c9a54a]" : "bg-white/25"
+                i === ACTIVE_MOOD ? "bg-brand-gold" : "bg-white/25"
               }`}
             />
           ))}

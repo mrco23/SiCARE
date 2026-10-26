@@ -1,6 +1,14 @@
+import { PageHeader } from "../../components/shared";
+import {
+  CLIENT_BOOKING_STATUS,
+  SESSION_OUTCOME_STATUS,
+  type ClientHistoryBookingStatus,
+  type SessionOutcomeStatus,
+} from "../../constants/status";
+import type { CounselingFormat, IntakeAnswer } from "../../types/counseling";
+import { formatIndonesianDate, parseLocalISODate as parseISO } from "../../lib/dateUtils";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   CalendarCheck,
   CalendarDays,
   Check,
@@ -18,62 +26,34 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
+import { CLIENT_HISTORY_COUNSELORS as COUNSELORS, type ClientCounselorKey as CounselorKey } from "../../data/mock/clientCounselors";
+import { SEMESTERS, SESSIONS, BOOKINGS, ESSAY_POOL, type Session } from "../../data/mock/clientHistory";
+import { INTAKE_TOPICS as TOPICS, INTAKE_YESNO_OPTIONS as YESNO, INTAKE_ESSAY_OPTIONS as ESSAYS } from "../../data/mock/intakeOptions";
 
 const CONSENT_PDF_URL = "/informed-consent.pdf";
 
-type CounselorKey = "GY" | "RW";
 type ViewKind = "hub" | "booking" | "konseling";
 type Period = "hari" | "minggu" | "bulan" | "semester";
-type SessionFormat = "Individu" | "Kelompok";
-type FormatFilter = "all" | SessionFormat;
-type BookingStatus = "pending" | "scheduled" | "rejected";
-type Answer = "Ya" | "Mungkin" | "Tidak";
-
-type Counselor = {
-  name: string;
-  initials: string;
-  degree: string;
-};
-
-type Session = {
-  id: number;
-  counselor: CounselorKey;
-  format: SessionFormat;
-  date: string;
-  time: string;
-  topic: string;
-  noteClient: string;
-  plan: string;
-};
-
-type Booking = {
-  id: string;
-  counselor: CounselorKey;
-  format: SessionFormat;
-  requestedAt: string;
-  date: string;
-  time: string;
-  status: BookingStatus;
-};
+type FormatFilter = "all" | CounselingFormat;
 
 type HistoryItem = {
   kind: "booking" | "konseling";
   id: string | number;
   counselor: CounselorKey;
-  format: SessionFormat;
+  format: CounselingFormat;
   date: string;
   time: string;
   title: string;
-  status: BookingStatus | "selesai";
+  status: ClientHistoryBookingStatus | SessionOutcomeStatus;
   requestedAt?: string;
   note: Session | null;
 };
 
 type Intake = {
-  selfHarm: Answer;
-  distress: Answer;
-  abuse: Answer;
-  substance: Answer;
+  selfHarm: IntakeAnswer;
+  distress: IntakeAnswer;
+  abuse: IntakeAnswer;
+  substance: IntakeAnswer;
   sleep: number;
   finance: number;
   topics: string[];
@@ -86,558 +66,23 @@ type Intake = {
   weaknesses: string;
 };
 
-const COUNSELORS: Record<CounselorKey, Counselor> = {
-  GY: {
-    name: "Giovanna Yudi, S.Psi., M.Psi.",
-    initials: "GY",
-    degree: "S2 Psikolog",
-  },
-  RW: {
-    name: "Rico Kornelius Wahani, S.Psi., M.Psi.",
-    initials: "RW",
-    degree: "S2 Psikolog",
-  },
-};
-
-const SEMESTERS = [
-  {
-    id: "2025-1",
-    ta: "2025/2026",
-    sem: "Ganjil",
-    start: "2025-08-01",
-    end: "2026-01-31",
-  },
-  {
-    id: "2025-2",
-    ta: "2025/2026",
-    sem: "Genap",
-    start: "2026-02-01",
-    end: "2026-07-31",
-  },
-  {
-    id: "2026-1",
-    ta: "2026/2027",
-    sem: "Ganjil",
-    start: "2026-08-01",
-    end: "2027-01-31",
-  },
-];
-
-const SESSIONS: Session[] = [
-  {
-    id: 1,
-    counselor: "GY",
-    format: "Individu",
-    date: "2026-09-02",
-    time: "15.00",
-    topic: "Pengembangan Diri",
-    noteClient:
-      "Kamu mulai berani menetapkan target kecil setiap minggu. Pertahankan ritme ini.",
-    plan: "",
-  },
-  {
-    id: 2,
-    counselor: "RW",
-    format: "Individu",
-    date: "2026-09-05",
-    time: "14.00",
-    topic: "Stres",
-    noteClient:
-      "Teknik jeda lima menit saat tekanan muncul sudah kamu coba. Bagus sekali.",
-    plan: "Catat situasi pemicu stres selama satu minggu.",
-  },
-  {
-    id: 3,
-    counselor: "GY",
-    format: "Kelompok",
-    date: "2026-09-09",
-    time: "10.00",
-    topic: "Motivasi belajar",
-    noteClient:
-      "Kamu aktif memberi dukungan kepada teman kelompok. Terima kasih.",
-    plan: "",
-  },
-  {
-    id: 4,
-    counselor: "GY",
-    format: "Individu",
-    date: "2026-09-12",
-    time: "15.00",
-    topic: "Kecemasan",
-    noteClient:
-      "Latihan pernapasan dalam membantu saat cemas mendadak. Lanjutkan.",
-    plan: "Sesi lanjutan dua minggu lagi.",
-  },
-  {
-    id: 5,
-    counselor: "RW",
-    format: "Kelompok",
-    date: "2026-09-16",
-    time: "09.00",
-    topic: "Manajemen emosi",
-    noteClient:
-      "Kamu jujur menceritakan pengalamanmu. Itu membantu kelompok belajar bersama.",
-    plan: "",
-  },
-  {
-    id: 6,
-    counselor: "GY",
-    format: "Individu",
-    date: "2026-09-19",
-    time: "15.00",
-    topic: "Evaluasi",
-    noteClient: "Perkembanganmu sudah terlihat. Teruskan jurnal harian.",
-    plan: "",
-  },
-  {
-    id: 7,
-    counselor: "RW",
-    format: "Individu",
-    date: "2026-09-23",
-    time: "14.00",
-    topic: "Hubungan keluarga",
-    noteClient:
-      "Membuka percakapan dengan keluarga adalah langkah besar. Kamu sudah melakukannya.",
-    plan: "Latihan komunikasi asertif di rumah.",
-  },
-  {
-    id: 8,
-    counselor: "GY",
-    format: "Kelompok",
-    date: "2026-09-26",
-    time: "10.00",
-    topic: "Kepercayaan diri",
-    noteClient: "Kamu mulai percaya pada pendapatmu sendiri di dalam kelompok.",
-    plan: "",
-  },
-  {
-    id: 9,
-    counselor: "GY",
-    format: "Individu",
-    date: "2026-09-28",
-    time: "15.00",
-    topic: "Pengembangan Diri",
-    noteClient:
-      "Kamu sudah mulai mengenali pola pikirmu sendiri. Coba tuliskan satu hal kecil yang berhasil setiap malam.",
-    plan: "Sesi lanjutan dua minggu lagi.",
-  },
-  {
-    id: 10,
-    counselor: "RW",
-    format: "Individu",
-    date: "2026-09-30",
-    time: "13.00",
-    topic: "Karir",
-    noteClient:
-      "Kamu sudah punya beberapa opsi karir yang ingin dieksplorasi. Langkah yang baik.",
-    plan: "",
-  },
-  {
-    id: 11,
-    counselor: "GY",
-    format: "Individu",
-    date: "2026-10-02",
-    time: "15.00",
-    topic: "Tidur",
-    noteClient: "",
-    plan: "",
-  },
-  {
-    id: 12,
-    counselor: "RW",
-    format: "Kelompok",
-    date: "2026-10-03",
-    time: "09.00",
-    topic: "Stres",
-    noteClient:
-      "Kamu membantu peserta lain merasa nyaman untuk berbagi cerita.",
-    plan: "",
-  },
-  {
-    id: 13,
-    counselor: "GY",
-    format: "Individu",
-    date: "2026-10-05",
-    time: "15.00",
-    topic: "Evaluasi",
-    noteClient:
-      "Kemajuanmu terlihat baik. Lanjutkan latihan pernapasan setiap pagi.",
-    plan: "",
-  },
-  {
-    id: 14,
-    counselor: "RW",
-    format: "Individu",
-    date: "2026-10-06",
-    time: "14.00",
-    topic: "Kecemasan",
-    noteClient: "Kamu sudah bisa mengenali tanda-tanda kecemasan lebih awal.",
-    plan: "",
-  },
-  {
-    id: 15,
-    counselor: "GY",
-    format: "Kelompok",
-    date: "2026-10-07",
-    time: "10.00",
-    topic: "Motivasi belajar",
-    noteClient:
-      "Terima kasih sudah aktif berdiskusi bersama kelompok. Saling mendukung adalah kekuatan.",
-    plan: "Jadwal lanjutan akan diinfokan.",
-  },
-  {
-    id: 16,
-    counselor: "RW",
-    format: "Individu",
-    date: "2026-10-08",
-    time: "14.00",
-    topic: "Stres",
-    noteClient:
-      "Kamu sudah berani membicarakan tekanan yang dirasakan. Itu langkah yang penting.",
-    plan: "",
-  },
-  {
-    id: 17,
-    counselor: "GY",
-    format: "Individu",
-    date: "2026-10-09",
-    time: "15.00",
-    topic: "Hubungan keluarga",
-    noteClient: "Kamu mulai menyampaikan kebutuhanmu dengan lebih tenang.",
-    plan: "",
-  },
-  {
-    id: 18,
-    counselor: "RW",
-    format: "Kelompok",
-    date: "2026-10-10",
-    time: "09.00",
-    topic: "Manajemen emosi",
-    noteClient:
-      "Kamu berhasil mengenali emosi saat diskusi kelompok berlangsung.",
-    plan: "",
-  },
-  {
-    id: 19,
-    counselor: "GY",
-    format: "Individu",
-    date: "2026-10-12",
-    time: "13.00",
-    topic: "Kepercayaan diri",
-    noteClient: "",
-    plan: "",
-  },
-  {
-    id: 20,
-    counselor: "RW",
-    format: "Individu",
-    date: "2026-10-14",
-    time: "14.00",
-    topic: "Karir",
-    noteClient: "Kamu sudah menyusun langkah konkret untuk rencana karirmu.",
-    plan: "Tinjau kembali rencana tersebut bulan depan.",
-  },
-];
-
-const BOOKINGS: Booking[] = [
-  {
-    id: "B-101",
-    counselor: "GY",
-    format: "Individu",
-    requestedAt: "2026-10-15",
-    date: "2026-10-20",
-    time: "10.00",
-    status: "pending",
-  },
-  {
-    id: "B-102",
-    counselor: "RW",
-    format: "Individu",
-    requestedAt: "2026-10-02",
-    date: "2026-10-09",
-    time: "14.00",
-    status: "rejected",
-  },
-  {
-    id: "B-103",
-    counselor: "GY",
-    format: "Kelompok",
-    requestedAt: "2026-10-12",
-    date: "2026-10-27",
-    time: "10.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-104",
-    counselor: "RW",
-    format: "Individu",
-    requestedAt: "2026-10-16",
-    date: "2026-10-23",
-    time: "14.00",
-    status: "pending",
-  },
-  {
-    id: "B-105",
-    counselor: "GY",
-    format: "Individu",
-    requestedAt: "2026-09-18",
-    date: "2026-09-25",
-    time: "15.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-106",
-    counselor: "RW",
-    format: "Kelompok",
-    requestedAt: "2026-10-17",
-    date: "2026-10-29",
-    time: "09.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-107",
-    counselor: "GY",
-    format: "Individu",
-    requestedAt: "2026-09-22",
-    date: "2026-09-30",
-    time: "15.00",
-    status: "rejected",
-  },
-  {
-    id: "B-108",
-    counselor: "RW",
-    format: "Individu",
-    requestedAt: "2026-09-25",
-    date: "2026-10-01",
-    time: "13.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-109",
-    counselor: "GY",
-    format: "Kelompok",
-    requestedAt: "2026-09-27",
-    date: "2026-10-07",
-    time: "10.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-110",
-    counselor: "RW",
-    format: "Kelompok",
-    requestedAt: "2026-10-05",
-    date: "2026-10-13",
-    time: "09.00",
-    status: "rejected",
-  },
-  {
-    id: "B-111",
-    counselor: "GY",
-    format: "Individu",
-    requestedAt: "2026-10-07",
-    date: "2026-10-12",
-    time: "13.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-112",
-    counselor: "RW",
-    format: "Individu",
-    requestedAt: "2026-10-09",
-    date: "2026-10-16",
-    time: "14.00",
-    status: "rejected",
-  },
-  {
-    id: "B-113",
-    counselor: "GY",
-    format: "Individu",
-    requestedAt: "2026-10-13",
-    date: "2026-11-02",
-    time: "15.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-114",
-    counselor: "RW",
-    format: "Individu",
-    requestedAt: "2026-10-14",
-    date: "2026-11-04",
-    time: "14.00",
-    status: "pending",
-  },
-  {
-    id: "B-115",
-    counselor: "GY",
-    format: "Kelompok",
-    requestedAt: "2026-10-15",
-    date: "2026-11-06",
-    time: "10.00",
-    status: "pending",
-  },
-  {
-    id: "B-116",
-    counselor: "RW",
-    format: "Individu",
-    requestedAt: "2026-10-03",
-    date: "2026-10-10",
-    time: "14.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-117",
-    counselor: "GY",
-    format: "Individu",
-    requestedAt: "2026-09-29",
-    date: "2026-10-05",
-    time: "15.00",
-    status: "rejected",
-  },
-  {
-    id: "B-118",
-    counselor: "RW",
-    format: "Kelompok",
-    requestedAt: "2026-10-08",
-    date: "2026-10-15",
-    time: "09.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-119",
-    counselor: "GY",
-    format: "Individu",
-    requestedAt: "2026-10-10",
-    date: "2026-11-10",
-    time: "13.00",
-    status: "scheduled",
-  },
-  {
-    id: "B-120",
-    counselor: "RW",
-    format: "Individu",
-    requestedAt: "2026-10-18",
-    date: "2026-11-12",
-    time: "15.00",
-    status: "scheduled",
-  },
-];
-
-const TOPICS = [
-  "Karir, pendidikan, dan pekerjaan",
-  "Motivasi",
-  "Stres atau tekanan kerja",
-  "Emosi, mood, kepribadian",
-  "Kecemasan",
-  "Hubungan dan keluarga",
-  "Pengembangan diri",
-  "Kesehatan dan kebiasaan sehari-hari",
-];
-
-const ESSAY_POOL = {
-  complaint: [
-    "Sering merasa cemas berlebihan menjelang tugas dan presentasi.",
-    "Sulit fokus dan mudah lelah saat bekerja, terutama di sore hari.",
-    "Merasa tertekan dengan banyaknya tanggung jawab sehingga sulit beristirahat.",
-  ],
-  history: [
-    "Keluhan muncul sejak beberapa bulan terakhir setelah perubahan rutinitas.",
-    "Awalnya ringan, lalu semakin sering terasa sejak awal semester.",
-    "Terjadi setiap kali ada tenggat waktu, dan membaik ketika beban berkurang.",
-  ],
-  reason: [
-    "Ingin memiliki strategi untuk mengelola kondisi yang sedang dialami.",
-    "Ingin belajar cara menenangkan diri saat tekanan datang.",
-    "Merasa butuh teman bicara yang netral untuk memahami diri sendiri.",
-  ],
-  efforts: [
-    "Sudah mencoba membuat jadwal harian dan beristirahat lebih teratur.",
-    "Berbicara dengan teman dekat, tetapi masih terasa belum cukup.",
-    "Mencoba olahraga ringan dan menulis jurnal beberapa kali.",
-  ],
-  goal: [
-    "Mendapat rencana yang realistis untuk mengelola stres.",
-    "Ingin lebih tenang dan percaya diri saat menghadapi tugas.",
-    "Ingin memahami pemicu emosi dan cara meresponsnya dengan baik.",
-  ],
-  strengths: [
-    "Mudah bergaul dan bertanggung jawab terhadap komitmen.",
-    "Teliti, mau belajar, dan terbuka menerima masukan.",
-    "Peduli pada orang lain dan pekerja keras.",
-  ],
-  weaknesses: [
-    "Cenderung menunda pekerjaan dan terlalu keras pada diri sendiri.",
-    "Sulit berkata tidak saat diminta bantuan.",
-    "Mudah khawatir berlebihan terhadap hal yang belum terjadi.",
-  ],
-};
-
-const YESNO: {
-  key: "selfHarm" | "distress" | "abuse" | "substance";
-  label: string;
-}[] = [
-  { key: "selfHarm", label: "Apakah Anda sedang merasa ingin bunuh diri?" },
-  {
-    key: "distress",
-    label:
-      "Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?",
-  },
-  {
-    key: "abuse",
-    label:
-      "Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)",
-  },
-  {
-    key: "substance",
-    label: "Apakah saat ini Anda sedang menggunakan obat-obatan?",
-  },
-];
-
-const ESSAYS: {
-  key:
-    | "complaint"
-    | "history"
-    | "reason"
-    | "efforts"
-    | "goal"
-    | "strengths"
-    | "weaknesses";
-  label: string;
-}[] = [
-  { key: "complaint", label: "Deskripsikan keluhan yang Anda rasakan" },
-  {
-    key: "history",
-    label: "Deskripsikan riwayat terjadinya keluhan secara jelas dan rinci",
-  },
-  { key: "reason", label: "Keluhan dan alasan ingin memulai konseling" },
-  {
-    key: "efforts",
-    label: "Apa yang sudah dilakukan untuk menangani masalah ini?",
-  },
-  {
-    key: "goal",
-    label: "Solusi apa yang diinginkan dari bantuan yang diterima?",
-  },
-  { key: "strengths", label: "Apa kelebihan diri Anda?" },
-  { key: "weaknesses", label: "Apa kekurangan diri Anda?" },
-];
-
 const BOOK_STATUS: Record<
-  BookingStatus,
+  ClientHistoryBookingStatus,
   { label: string; badge: string; iconWrap: string; icon: LucideIcon }
 > = {
-  pending: {
+  [CLIENT_BOOKING_STATUS.PENDING]: {
     label: "Menunggu Konfirmasi",
     badge: "bg-amber-50 text-amber-700",
     iconWrap: "bg-amber-50 text-amber-600",
     icon: Clock3,
   },
-  scheduled: {
+  [CLIENT_BOOKING_STATUS.SCHEDULED]: {
     label: "Terjadwal",
-    badge: "bg-[#e8f9f0] text-[#1e5b3a]",
-    iconWrap: "bg-[#e8f9f0] text-[#1e5b3a]",
+    badge: "bg-primary-soft text-primary",
+    iconWrap: "bg-primary-soft text-primary",
     icon: CalendarCheck,
   },
-  rejected: {
+  [CLIENT_BOOKING_STATUS.REJECTED]: {
     label: "Ditolak",
     badge: "bg-red-50 text-red-700",
     iconWrap: "bg-red-50 text-red-600",
@@ -645,7 +90,7 @@ const BOOK_STATUS: Record<
   },
 };
 
-const FORMAT_STYLE: Record<SessionFormat, { icon: LucideIcon; tone: string }> =
+const FORMAT_STYLE: Record<CounselingFormat, { icon: LucideIcon; tone: string }> =
   {
     Individu: { icon: UserRound, tone: "text-sky-600" },
     Kelompok: { icon: UsersRound, tone: "text-violet-600" },
@@ -675,7 +120,7 @@ const SESSION_ITEMS: HistoryItem[] = SESSIONS.map(
     date: session.date,
     time: session.time,
     title: session.topic,
-    status: "selesai",
+    status: SESSION_OUTCOME_STATUS.COMPLETED,
     note: session,
   }),
 ).sort(byNewest);
@@ -689,16 +134,12 @@ function byNewest(a: HistoryItem, b: HistoryItem) {
   );
 }
 
-function parseISO(iso: string) {
-  return new Date(`${iso}T00:00:00`);
-}
-
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function fmtDate(iso: string) {
-  return parseISO(iso).toLocaleDateString("id-ID", {
+  return formatIndonesianDate(parseISO(iso), {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -707,11 +148,11 @@ function fmtDate(iso: string) {
 }
 
 function fmtShort(date: Date) {
-  return date.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+  return formatIndonesianDate(date, { day: "numeric", month: "short" });
 }
 
 function fmtShortISO(iso: string) {
-  return parseISO(iso).toLocaleDateString("id-ID", {
+  return formatIndonesianDate(parseISO(iso), {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -722,8 +163,8 @@ function intakeFor(id: number): Intake {
   const pick = <T,>(items: T[], index: number) => items[index % items.length];
   return {
     selfHarm: "Tidak",
-    distress: pick<Answer>(["Tidak", "Mungkin", "Tidak", "Ya"], id),
-    abuse: pick<Answer>(["Tidak", "Mungkin", "Tidak"], id + 1),
+    distress: pick<IntakeAnswer>(["Tidak", "Mungkin", "Tidak", "Ya"], id),
+    abuse: pick<IntakeAnswer>(["Tidak", "Mungkin", "Tidak"], id + 1),
     substance: "Tidak",
     sleep: (id % 5) + 1,
     finance: ((id * 2) % 5) + 1,
@@ -738,10 +179,10 @@ function intakeFor(id: number): Intake {
   };
 }
 
-const ANSWER_STYLE: Record<Answer, string> = {
+const ANSWER_STYLE: Record<IntakeAnswer, string> = {
   Ya: "bg-red-100 text-red-800",
   Mungkin: "bg-amber-100 text-amber-800",
-  Tidak: "bg-[#e8f9f0] text-[#1e5b3a]",
+  Tidak: "bg-primary-soft text-primary",
 };
 
 const PERIOD_OPTIONS: { value: Period; label: string }[] = [
@@ -779,12 +220,15 @@ export default function KlienRiwayatPage() {
   const [detailSessionId, setDetailSessionId] = useState<number | null>(null);
   const [consentSessionId, setConsentSessionId] = useState<number | null>(null);
 
-  const items =
-    view === "booking"
-      ? BOOKING_ITEMS
-      : view === "konseling"
-        ? SESSION_ITEMS
-        : [];
+  const items = useMemo(
+    () =>
+      view === "booking"
+        ? BOOKING_ITEMS
+        : view === "konseling"
+          ? SESSION_ITEMS
+          : [],
+    [view],
+  );
 
   const range = useMemo(() => {
     const year = anchor.getFullYear();
@@ -849,22 +293,21 @@ export default function KlienRiwayatPage() {
     [items, range, format],
   );
 
+  // Jika konselor yang dipilih tidak ada di baseItems periode ini, fallback ke "all"
+  // tanpa mengubah state (menghindari cascading render).
+  const effectiveCounselor: "all" | CounselorKey =
+    counselor !== "all" &&
+    !baseItems.some((item) => item.counselor === counselor)
+      ? "all"
+      : counselor;
+
   const visibleItems = useMemo(
     () =>
-      counselor === "all"
+      effectiveCounselor === "all"
         ? baseItems
-        : baseItems.filter((item) => item.counselor === counselor),
-    [baseItems, counselor],
+        : baseItems.filter((item) => item.counselor === effectiveCounselor),
+    [baseItems, effectiveCounselor],
   );
-
-  useEffect(() => {
-    if (
-      counselor !== "all" &&
-      !baseItems.some((item) => item.counselor === counselor)
-    ) {
-      setCounselor("all");
-    }
-  }, [baseItems, counselor]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -879,7 +322,7 @@ export default function KlienRiwayatPage() {
   }, []);
 
   const pendingBookings = BOOKINGS.filter(
-    (booking) => booking.status === "pending",
+    (booking) => booking.status === CLIENT_BOOKING_STATUS.PENDING,
   ).length;
   const notesCount = SESSIONS.filter((session) =>
     Boolean(session.noteClient),
@@ -969,12 +412,10 @@ export default function KlienRiwayatPage() {
     <div className="space-y-6">
       {view === "hub" ? (
         <section>
-          <h1 className="font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-            Riwayat
-          </h1>
-          <p className="mt-2 text-sm text-gray-600 sm:text-base">
-            Pilih riwayat yang ingin kamu lihat.
-          </p>
+          <PageHeader
+            title="Riwayat"
+            description="Pilih riwayat yang ingin kamu lihat."
+          />
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             <button
@@ -991,13 +432,13 @@ export default function KlienRiwayatPage() {
               <p className="mt-1 text-sm text-gray-600">
                 Lihat janji temu yang pernah kamu ajukan beserta statusnya.
               </p>
-              <p className="mt-4 text-sm font-semibold text-[#1e5b3a]">
+              <p className="mt-4 text-sm font-semibold text-primary">
                 {BOOKINGS.length} booking
                 {pendingBookings
                   ? ` · ${pendingBookings} menunggu konfirmasi`
                   : ""}
               </p>
-              <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-[#1e5b3a]">
+              <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-primary">
                 Lihat booking{" "}
                 <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
               </span>
@@ -1008,7 +449,7 @@ export default function KlienRiwayatPage() {
               onClick={() => openList("konseling")}
               className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#36c08f] hover:shadow-md"
             >
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary">
                 <MessageSquare className="h-6 w-6" strokeWidth={1.8} />
               </span>
               <p className="mt-5 font-display text-xl font-bold text-gray-900">
@@ -1017,10 +458,10 @@ export default function KlienRiwayatPage() {
               <p className="mt-1 text-sm text-gray-600">
                 Lihat sesi yang sudah kamu jalani dan catatan dari konselormu.
               </p>
-              <p className="mt-4 text-sm font-semibold text-[#1e5b3a]">
+              <p className="mt-4 text-sm font-semibold text-primary">
                 {SESSIONS.length} sesi · {notesCount} catatan dari konselor
               </p>
-              <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-[#1e5b3a]">
+              <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-primary">
                 Lihat konseling{" "}
                 <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
               </span>
@@ -1029,20 +470,15 @@ export default function KlienRiwayatPage() {
         </section>
       ) : (
         <section>
-          <button
-            type="button"
-            onClick={backToHub}
-            className="inline-flex items-center gap-1 text-sm font-semibold text-[#1e5b3a] hover:underline"
-          >
-            <ArrowLeft className="h-4 w-4" /> Kembali ke riwayat
-          </button>
-
-          <h1 className="mt-3 font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-            {listMeta.title}
-          </h1>
-          <p className="mt-2 text-sm text-gray-600 sm:text-base">
-            {listMeta.desc}
-          </p>
+          <PageHeader
+            backAction={{
+              label: "Kembali ke riwayat",
+              onClick: backToHub,
+            }}
+            title={listMeta.title}
+            description={listMeta.desc}
+            className="mt-3"
+          />
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div
@@ -1059,7 +495,7 @@ export default function KlienRiwayatPage() {
                   onClick={() => changePeriod(option.value)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
                     period === option.value
-                      ? "bg-white text-[#1e5b3a] shadow-sm"
+                      ? "bg-white text-primary shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
@@ -1098,7 +534,7 @@ export default function KlienRiwayatPage() {
                     setSemesterIndex(Number(event.target.value));
                     setShown(PAGE_SIZE);
                   }}
-                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-[#1e5b3a]"
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-primary"
                 >
                   {SEMESTERS.map((semester, index) => (
                     <option key={semester.id} value={index}>
@@ -1134,7 +570,7 @@ export default function KlienRiwayatPage() {
                     }}
                     className={`flex-1 rounded-full px-4 py-1.5 text-sm font-semibold transition sm:flex-none ${
                       format === option.value
-                        ? "bg-white text-[#1e5b3a] shadow-sm"
+                        ? "bg-white text-primary shadow-sm"
                         : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
@@ -1147,7 +583,7 @@ export default function KlienRiwayatPage() {
                 aria-haspopup="dialog"
                 aria-expanded={counselorModalOpen}
                 onClick={() => setCounselorModalOpen(true)}
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#1e5b3a] sm:w-72"
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-primary sm:w-72"
               >
                 <span className="truncate">
                   {counselor === "all"
@@ -1166,16 +602,16 @@ export default function KlienRiwayatPage() {
               const formatStyle = FORMAT_STYLE[item.format];
               const FormatIcon = formatStyle.icon;
               const StatusIcon = isBooking
-                ? BOOK_STATUS[item.status as BookingStatus].icon
+                ? BOOK_STATUS[item.status as ClientHistoryBookingStatus].icon
                 : CheckCircle2;
               const statusWrap = isBooking
-                ? BOOK_STATUS[item.status as BookingStatus].iconWrap
-                : "bg-[#e8f9f0] text-[#1e5b3a]";
+                ? BOOK_STATUS[item.status as ClientHistoryBookingStatus].iconWrap
+                : "bg-primary-soft text-primary";
               const statusBadge = isBooking
-                ? BOOK_STATUS[item.status as BookingStatus].badge
+                ? BOOK_STATUS[item.status as ClientHistoryBookingStatus].badge
                 : "";
               const statusLabel = isBooking
-                ? BOOK_STATUS[item.status as BookingStatus].label
+                ? BOOK_STATUS[item.status as ClientHistoryBookingStatus].label
                 : "";
               const dateLine = isBooking
                 ? `Jadwal ${fmtShortISO(item.date)} · ${item.time} WITA`
@@ -1219,7 +655,7 @@ export default function KlienRiwayatPage() {
                     {isBooking ? (
                       <p className="mt-3 text-xs text-gray-500">
                         Dibooking {fmtShortISO(item.requestedAt ?? item.date)}
-                        {item.status === "pending"
+                        {item.status === CLIENT_BOOKING_STATUS.PENDING
                           ? ". Menunggu konfirmasi dari konselor."
                           : "."}
                       </p>
@@ -1228,7 +664,7 @@ export default function KlienRiwayatPage() {
                         <button
                           type="button"
                           onClick={() => setDetailSessionId(Number(item.id))}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[#1e5b3a] px-4 py-1.5 text-xs font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-primary px-4 py-1.5 text-xs font-semibold text-primary hover:bg-primary-soft"
                         >
                           <Eye className="h-3.5 w-3.5" />
                           Lihat detail
@@ -1236,7 +672,7 @@ export default function KlienRiwayatPage() {
                         <button
                           type="button"
                           onClick={() => setConsentSessionId(Number(item.id))}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[#1e5b3a] px-4 py-1.5 text-xs font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-primary px-4 py-1.5 text-xs font-semibold text-primary hover:bg-primary-soft"
                         >
                           <FileSignature className="h-3.5 w-3.5" />
                           Lihat informed consent
@@ -1269,7 +705,7 @@ export default function KlienRiwayatPage() {
               <button
                 type="button"
                 onClick={() => setShown((current) => current + PAGE_SIZE)}
-                className="rounded-full border border-[#1e5b3a] bg-white px-5 py-2 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0]"
+                className="rounded-full border border-primary bg-white px-5 py-2 text-sm font-semibold text-primary transition hover:bg-primary-soft"
               >
                 Muat lebih banyak
               </button>
@@ -1323,7 +759,7 @@ export default function KlienRiwayatPage() {
                     setShown(PAGE_SIZE);
                     setCounselorModalOpen(false);
                   }}
-                  className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-gray-50 ${counselor === "all" ? "bg-[#f7fcf9]" : ""}`}
+                  className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-gray-50 ${counselor === "all" ? "bg-primary-tint" : ""}`}
                 >
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
                     <UsersRound className="h-5 w-5" />
@@ -1337,7 +773,7 @@ export default function KlienRiwayatPage() {
                     </span>
                   </span>
                   {counselor === "all" && (
-                    <Check className="h-5 w-5 shrink-0 text-[#1e5b3a]" />
+                    <Check className="h-5 w-5 shrink-0 text-primary" />
                   )}
                 </button>
               </li>
@@ -1356,7 +792,7 @@ export default function KlienRiwayatPage() {
                         setShown(PAGE_SIZE);
                         setCounselorModalOpen(false);
                       }}
-                      className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-gray-50 ${counselor === key ? "bg-[#f7fcf9]" : ""}`}
+                      className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-gray-50 ${counselor === key ? "bg-primary-tint" : ""}`}
                     >
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-sm font-bold text-gray-700">
                         {info.initials}
@@ -1370,7 +806,7 @@ export default function KlienRiwayatPage() {
                         </span>
                       </span>
                       {counselor === key && (
-                        <Check className="h-5 w-5 shrink-0 text-[#1e5b3a]" />
+                        <Check className="h-5 w-5 shrink-0 text-primary" />
                       )}
                     </button>
                   </li>
@@ -1437,7 +873,7 @@ export default function KlienRiwayatPage() {
               <a
                 href={CONSENT_PDF_URL}
                 download="informed-consent.pdf"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
               >
                 <Download className="h-4 w-4" />
                 Unduh PDF
@@ -1483,7 +919,7 @@ function DetailModal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-gray-200 p-6 pb-4">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#1e5b3a]">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
               Detail konseling
             </p>
             <h2
@@ -1508,10 +944,10 @@ function DetailModal({
 
         <div className="space-y-8 overflow-y-auto p-6">
           <section>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#1e5b3a]">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">
               1 · Catatan dari konselor untukmu
             </p>
-            <div className="mt-3 rounded-2xl border border-[#36c08f]/40 bg-[#f7fcf9] p-5">
+            <div className="mt-3 rounded-2xl border border-[#36c08f]/40 bg-primary-tint p-5">
               {session.noteClient ? (
                 <p className="whitespace-pre-line text-sm leading-relaxed text-gray-800">
                   {session.noteClient}
@@ -1576,7 +1012,7 @@ function DetailModal({
                             key={number}
                             className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${
                               number === intake[item.key]
-                                ? "bg-[#1e5b3a] text-white"
+                                ? "bg-primary text-white"
                                 : "bg-gray-100 text-gray-400"
                             }`}
                           >

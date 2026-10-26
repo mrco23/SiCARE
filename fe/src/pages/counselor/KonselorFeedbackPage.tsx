@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useMemo, useState } from "react";
 import {
   ChevronLeft,
@@ -9,137 +10,11 @@ import {
   Star,
   UserRound,
 } from "lucide-react";
+import { COUNSELOR, feedbackData } from "../../data/mock/counselorFeedback";
+import { LEGACY_UI_SEMESTERS as semesters } from "../../data/mock/academicPeriods";
 
 type Period = "hari" | "minggu" | "bulan" | "semester";
-type Feedback = {
-  id: number;
-  konselorId: string;
-  rating: number;
-  text: string;
-  date: string;
-};
-type Semester = {
-  id: string;
-  ta: string;
-  sem: string;
-  start: string;
-  end: string;
-};
 
-const COUNSELOR = { id: "KNS-001", name: "Ma'am Giovanna Yudi, M.Psi" };
-const DAY_MS = 86_400_000;
-const daysAgo = (days: number) =>
-  new Date(Date.now() - days * DAY_MS).toISOString();
-const feedbackData: Feedback[] = [
-  {
-    id: 1,
-    konselorId: "KNS-001",
-    rating: 5,
-    text: "Sangat membantu, saya merasa didengarkan dan lebih tenang setelah sesi.",
-    date: daysAgo(0),
-  },
-  {
-    id: 2,
-    konselorId: "KNS-002",
-    rating: 4,
-    text: "Penjelasannya jelas dan mudah dipahami. Semoga durasi sesi bisa sedikit lebih panjang.",
-    date: daysAgo(1),
-  },
-  {
-    id: 3,
-    konselorId: "KNS-001",
-    rating: 5,
-    text: "Psikolognya ramah dan tidak menghakimi. Terima kasih banyak.",
-    date: daysAgo(2),
-  },
-  {
-    id: 4,
-    konselorId: "KNS-002",
-    rating: 3,
-    text: "Sesi lumayan, tapi sempat mulai terlambat dari jadwal.",
-    date: daysAgo(4),
-  },
-  {
-    id: 5,
-    konselorId: "KNS-001",
-    rating: 2,
-    text: "Kurang merasa nyambung, saran yang diberikan terasa terlalu umum.",
-    date: daysAgo(6),
-  },
-  {
-    id: 6,
-    konselorId: "KNS-001",
-    rating: 5,
-    text: "Saya jadi punya langkah konkret untuk mengatasi kecemasan saat presentasi.",
-    date: daysAgo(9),
-  },
-  {
-    id: 7,
-    konselorId: "KNS-001",
-    rating: 4,
-    text: "Nyaman dan aman untuk bercerita. Proses booking juga mudah.",
-    date: daysAgo(12),
-  },
-  {
-    id: 8,
-    konselorId: "KNS-002",
-    rating: 1,
-    text: "Link sesi online bermasalah dan waktu terbuang cukup banyak.",
-    date: daysAgo(15),
-  },
-  {
-    id: 9,
-    konselorId: "KNS-001",
-    rating: 4,
-    text: "Cukup puas, ingin lanjut sesi berikutnya.",
-    date: daysAgo(28),
-  },
-  {
-    id: 10,
-    konselorId: "KNS-001",
-    rating: 3,
-    text: "Biasa saja, tapi suasana sesinya tenang.",
-    date: daysAgo(40),
-  },
-  {
-    id: 11,
-    konselorId: "KNS-002",
-    rating: 5,
-    text: "Recommended! Sangat profesional.",
-    date: daysAgo(21),
-  },
-  {
-    id: 12,
-    konselorId: "KNS-001",
-    rating: 5,
-    text: "Terbantu sekali, sesinya terstruktur dan hangat.",
-    date: daysAgo(55),
-  },
-];
-
-const semesters: Semester[] = [
-  {
-    id: "2025-1",
-    ta: "2025/2026",
-    sem: "Ganjil",
-    start: "2025-08-01",
-    end: "2026-01-31",
-  },
-  {
-    id: "2025-2",
-    ta: "2025/2026",
-    sem: "Genap",
-    start: "2026-02-01",
-    end: "2026-07-31",
-  },
-  {
-    id: "2026-1",
-    ta: "2026/2027",
-    sem: "Ganjil",
-    start: "2026-08-01",
-    end: "2027-01-31",
-  },
-];
 const periodOptions: { value: Period; label: string }[] = [
   { value: "hari", label: "Hari" },
   { value: "minggu", label: "Minggu" },
@@ -316,16 +191,15 @@ export default function KonselorFeedbackPage() {
     period === "semester" && semesterIndex === semesters.length - 1;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <section>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-          Feedback <span className="text-[#1e5b3a]">Saya</span>
-        </h1>
-        <p className="mt-2 text-sm text-gray-600 sm:text-base">
-          Penilaian anonim dari klien setelah sesi konseling Anda. Identitas
-          klien dirahasiakan.
-        </p>
-      </section>
+    <PageContainer role="counselor" spacing="none">
+      <PageHeader
+        title={
+          <>
+            Feedback <span className="text-primary">Saya</span>
+          </>
+        }
+        description="Penilaian anonim dari klien setelah sesi konseling Anda. Identitas klien dirahasiakan."
+      />
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div
@@ -340,7 +214,7 @@ export default function KonselorFeedbackPage() {
               role="tab"
               aria-selected={period === option.value}
               onClick={() => setPeriod(option.value)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${period === option.value ? "bg-white text-[#1e5b3a] shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${period === option.value ? "bg-white text-primary shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
             >
               {option.label}
             </button>
@@ -374,7 +248,7 @@ export default function KonselorFeedbackPage() {
               aria-label="Pilih semester"
               value={semesterIndex}
               onChange={(event) => setSemesterIndex(Number(event.target.value))}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-[#1e5b3a]"
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-primary"
             >
               {semesters.map((semester, index) => (
                 <option key={semester.id} value={index}>
@@ -395,7 +269,7 @@ export default function KonselorFeedbackPage() {
               </p>
               <p className="mt-1 text-4xl font-bold text-gray-900">{total}</p>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-[#1e5b3a]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-primary">
               <MessageSquare className="h-5 w-5" />
             </div>
           </div>
@@ -434,7 +308,7 @@ export default function KonselorFeedbackPage() {
                       current === rating ? 0 : rating,
                     )
                   }
-                  className={`flex w-full items-center gap-3 rounded-lg px-2 py-1 text-xs transition ${active ? "bg-[#e8f9f0]" : "hover:bg-gray-50"}`}
+                  className={`flex w-full items-center gap-3 rounded-lg px-2 py-1 text-xs transition ${active ? "bg-primary-soft" : "hover:bg-gray-50"}`}
                 >
                   <span className="w-10 text-left font-bold text-gray-600">
                     {rating}{" "}
@@ -442,7 +316,7 @@ export default function KonselorFeedbackPage() {
                   </span>
                   <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
                     <span
-                      className="block h-full rounded-full bg-[#1e5b3a] transition-all"
+                      className="block h-full rounded-full bg-primary transition-all"
                       style={{ width: `${percentage}%` }}
                     />
                   </span>
@@ -498,7 +372,7 @@ export default function KonselorFeedbackPage() {
               type="button"
               aria-pressed={starFilter === rating}
               onClick={() => setStarFilter(rating)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${starFilter === rating ? "border-[#1e5b3a] bg-[#1e5b3a] text-white" : "border-gray-200 bg-white text-gray-600 hover:border-[#2e9a5f]"}`}
+              className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${starFilter === rating ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-[#2e9a5f]"}`}
             >
               {rating === 0 ? (
                 "Semua"
@@ -564,6 +438,6 @@ export default function KonselorFeedbackPage() {
         <LockKeyhole className="h-3.5 w-3.5" /> Anda hanya dapat melihat
         feedback untuk sesi Anda sendiri.
       </p>
-    </div>
+    </PageContainer>
   );
 }

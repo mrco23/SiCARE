@@ -11,6 +11,7 @@ import {
 import { motion } from "framer-motion";
 import type { ElementType } from "react";
 import { useEffect, useRef } from "react";
+import { HOME_PAGE_TESTIMONIALS as testimonials, HOME_PAGE_COUNSELORS as counselors } from "../../data/mock/publicShowcases";
 
 // Lebar konten: lebih sempit dari sebelumnya agar lebih terpusat
 const container = "mx-auto w-[84%] sm:w-[76%] md:w-[72%] lg:w-[66%] xl:w-[80%]";
@@ -60,32 +61,6 @@ const steps = [
   },
 ];
 
-function Polaroid({
-  src,
-  className,
-  rotate,
-}: {
-  src: string;
-  className: string;
-  rotate: number;
-}) {
-  return (
-    <div
-      className={`absolute bg-white p-1.5 pb-6 shadow-[0_10px_24px_rgba(0,0,0,0.18)] ${className}`}
-      style={{ transform: `rotate(${rotate}deg)` }}
-    >
-      <img
-        src={src}
-        alt=""
-        className="h-full w-full object-contain"
-        onError={(e) => {
-          e.currentTarget.style.display = "none";
-        }}
-      />
-    </div>
-  );
-}
-
 function ReasonCard({
   icon: Icon,
   title,
@@ -98,11 +73,11 @@ function ReasonCard({
   return (
     <div className="relative rounded-xl border border-gray-300 bg-white p-5 sm:p-6">
       {/* Garis aksen hijau di sisi kiri */}
-      <div className="absolute bottom-5 left-0 top-5 w-1 rounded-r-full bg-[#1e5b3a]" />
+      <div className="absolute bottom-5 left-0 top-5 w-1 rounded-r-full bg-primary" />
 
       <div className="flex items-center gap-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#eef8f3]">
-          <Icon className="h-5 w-5 text-[#1e5b3a]" strokeWidth={1.8} />
+          <Icon className="h-5 w-5 text-primary" strokeWidth={1.8} />
         </div>
         <h3 className="font-[Montserrat] text-base font-semibold leading-snug text-[#1b1b1b] sm:text-lg">
           {title}
@@ -123,29 +98,6 @@ function ReasonCard({
     </div>
   );
 }
-
-const testimonials = [
-  {
-    name: "G******",
-    text: "lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-  {
-    name: "G******",
-    text: "lorem banget ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-  {
-    name: "G******",
-    text: "lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-  {
-    name: "G******",
-    text: "lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-  {
-    name: "G******",
-    text: "lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id",
-  },
-];
 
 function TestimonialCard({ name, text }: { name: string; text: string }) {
   return (
@@ -287,29 +239,6 @@ function Testimonials() {
   );
 }
 
-const counselors = [
-  {
-    id: 1,
-    name: "Giovanna Yusi, S.Psi., M.Psi., Psikolog",
-    image: "/gio.jpeg",
-    topics: ["Konseling Akademik", "Manajemen Stres", "Pengembangan Diri"],
-    description:
-      "Mendampingi mahasiswa dalam menghadapi tantangan akademik, mengelola stres, dan mengembangkan potensi diri.",
-    experience: "3 tahun pengalaman konseling",
-    education: "S2 Psikologi",
-  },
-  {
-    id: 2,
-    name: "Rico Kornelius Wahani, S.Psi., M.Psi., Psikolog.",
-    image: "/rico.png",
-    topics: ["Kesehatan Mental", "Relasi Sosial", "Kecemasan"],
-    description:
-      "Membantu mahasiswa memahami emosi, membangun relasi yang sehat, dan menghadapi kecemasan.",
-    experience: "4 tahun pengalaman konseling",
-    education: "S2 Psikologi Profesi",
-  },
-];
-
 function Counselors() {
   return (
     <section className="bg-[#f5fdf9] py-12 md:py-16">
@@ -329,7 +258,7 @@ function Counselors() {
             <article
               key={counselor.id}
               tabIndex={0}
-              className={`group relative isolate w-full max-w-sm overflow-hidden rounded-2xl border border-[#dcebe2] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(0,0,0,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e5b3a] ${
+              className={`group relative isolate w-full max-w-sm overflow-hidden rounded-2xl border border-[#dcebe2] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(0,0,0,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 counselors.slice(0, 3).length === 2
                   ? "md:w-[calc(50%_-_0.625rem)]"
                   : counselors.slice(0, 3).length === 3
@@ -360,7 +289,7 @@ function Counselors() {
                   {counselor.topics.slice(0, 3).map((topic) => (
                     <span
                       key={topic}
-                      className="rounded-full bg-[#eef8f3] px-2.5 py-1 font-[Montserrat] text-[10px] font-medium text-[#1e5b3a] sm:text-xs"
+                      className="rounded-full bg-[#eef8f3] px-2.5 py-1 font-[Montserrat] text-[10px] font-medium text-primary sm:text-xs"
                     >
                       {topic}
                     </span>
@@ -450,7 +379,7 @@ export default function HomePage() {
                 occaecat et qui.
               </p>
 
-              <button className="mt-5 flex w-fit items-center gap-2 rounded-md bg-[#1e5b3a] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-[#174a2f] sm:px-5 sm:text-sm md:mt-6">
+              <button className="mt-5 flex w-fit items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-primary-dark sm:px-5 sm:text-sm md:mt-6">
                 <CalendarDays className="h-3.5 w-3.5" />
                 Mulai Konseling
               </button>

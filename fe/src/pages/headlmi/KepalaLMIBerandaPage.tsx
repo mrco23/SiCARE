@@ -1,3 +1,5 @@
+import { PageContainer, PageHeader } from "../../components/shared";
+import { COUNSELOR_WORKLOAD, DASHBOARD_COUNTS, WEEKLY_SESSIONS } from "../../data/mock/dashboardOverview";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -20,55 +22,45 @@ type Metric = {
 const metrics: Metric[] = [
   {
     label: "Total Permintaan",
-    value: 124,
+    value: DASHBOARD_COUNTS.totalRequests,
     note: "Permintaan konseling",
     icon: Inbox,
     iconClass: "bg-emerald-50 text-emerald-700",
   },
   {
     label: "Sesi Selesai",
-    value: 98,
+    value: DASHBOARD_COUNTS.completedSessions,
     note: "Sudah terlaksana",
     icon: CheckCircle2,
     iconClass: "bg-blue-50 text-blue-700",
   },
   {
     label: "Menunggu Konfirmasi",
-    value: 5,
+    value: DASHBOARD_COUNTS.pending,
     note: "Perlu ditindaklanjuti",
     icon: Clock3,
     iconClass: "bg-amber-50 text-amber-700",
   },
   {
     label: "Dibatalkan",
-    value: 8,
+    value: DASHBOARD_COUNTS.cancelled,
     note: "Permintaan dibatalkan",
     icon: Ban,
     iconClass: "bg-red-50 text-red-700",
   },
 ];
 
-const weeklySessions = [
-  { label: "Minggu 1", value: 14 },
-  { label: "Minggu 2", value: 30 },
-  { label: "Minggu 3", value: 20 },
-  { label: "Minggu 4", value: 16 },
-];
+const weeklySessions = WEEKLY_SESSIONS;
 
-const counselors = [
-  {
-    name: "Ma'am Giovanna Yudi, M.Psi",
-    sessions: 24,
-    status: "Tersedia",
-    statusClass: "bg-emerald-50 text-emerald-700",
-  },
-  {
-    name: "Dr. Budi Santoso, Psikolog",
-    sessions: 19,
-    status: "Jadwal penuh",
-    statusClass: "bg-amber-50 text-amber-700",
-  },
-];
+const counselors = COUNSELOR_WORKLOAD.map((counselor) => ({
+  name: counselor.name,
+  sessions: counselor.sessions,
+  status: counselor.availability === "available" ? "Tersedia" : "Jadwal penuh",
+  statusClass:
+    counselor.availability === "available"
+      ? "bg-emerald-50 text-emerald-700"
+      : "bg-amber-50 text-amber-700",
+}));
 
 function MetricCards() {
   return (
@@ -188,28 +180,22 @@ export default function AdminBerandaPage() {
   const navigate = useNavigate();
 
   return (
-    <main className="mx-auto max-w-7xl space-y-5 font-[Inter] text-slate-800">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#15803d]">
-            Beranda Kepala LMI
-          </p>
-          <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">
-            Ringkasan Konseling
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Pantau kondisi layanan dan tindak lanjut utama.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate("/admin/laporan")}
-          className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4430] sm:self-auto"
-        >
-          Lihat laporan lengkap
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </header>
+    <PageContainer role="headlmi" spacing="none" className="space-y-5 text-slate-800">
+      <PageHeader
+        eyebrow="Beranda Kepala LMI"
+        title="Ringkasan Konseling"
+        description="Pantau kondisi layanan dan tindak lanjut utama."
+        actions={
+          <button
+            type="button"
+            onClick={() => navigate("/admin/laporan")}
+            className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark sm:self-auto"
+          >
+            Lihat laporan lengkap
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        }
+      />
 
       <MetricCards />
 
@@ -227,6 +213,6 @@ export default function AdminBerandaPage() {
         Data yang ditampilkan merupakan data contoh dan dapat dihubungkan ke
         API.
       </p>
-    </main>
+    </PageContainer>
   );
 }

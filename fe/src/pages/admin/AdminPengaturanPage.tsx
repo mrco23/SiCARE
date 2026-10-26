@@ -3,9 +3,9 @@ import {
   useMemo,
   useRef,
   useState,
-  type FormEvent,
   type ReactNode,
 } from "react";
+import { PageContainer, PageHeader } from "../../components/shared";
 import {
   CheckCircle2,
   FileText,
@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   Trash2,
   UserRound,
-  X,
 } from "lucide-react";
 
 const ADMIN_PROFILE_KEY = "sicare_admin_profile_v1";
@@ -204,16 +203,11 @@ export default function AdminPengaturanPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 text-gray-800 sm:px-6 sm:py-8 lg:px-8">
-      <header>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-          Pengaturan
-        </h1>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-gray-500 sm:text-base">
-          Kelola informasi akun administrator dan kalimat yang tampil pada
-          bagian Hero di halaman utama SiCARE.
-        </p>
-      </header>
+    <PageContainer role="admin" spacing="none">
+      <PageHeader
+        title="Pengaturan"
+        description="Kelola informasi akun administrator dan kalimat yang tampil pada bagian Hero di halaman utama SiCARE."
+      />
 
       <section className="mt-6 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="flex min-w-0 items-center gap-4">
@@ -234,7 +228,7 @@ export default function AdminPengaturanPage() {
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <ShieldCheck className="h-4 w-4 shrink-0" />
           Akun administrator
-          <span className="ml-1 rounded-full bg-[#e8f9f0] px-2.5 py-1 font-semibold text-[#1e5b3a]">
+          <span className="ml-1 rounded-full bg-primary-soft px-2.5 py-1 font-semibold text-primary">
             Aktif
           </span>
         </div>
@@ -308,7 +302,7 @@ export default function AdminPengaturanPage() {
             <button
               type="button"
               onClick={addHeroCopy}
-              className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0]"
+              className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary-soft"
             >
               <Plus className="h-4 w-4" />
               Tambah
@@ -382,8 +376,8 @@ export default function AdminPengaturanPage() {
             {showErrors && errors.heroCopies && (
               <p className="text-xs text-red-600">{errors.heroCopies}</p>
             )}
-            <div className="rounded-xl bg-[#f7fcf9] p-3 text-xs leading-relaxed text-gray-600">
-              <p className="font-semibold text-[#1e5b3a]">Cara kerja</p>
+            <div className="rounded-xl bg-primary-tint p-3 text-xs leading-relaxed text-gray-600">
+              <p className="font-semibold text-primary">Cara kerja</p>
               Setiap entri adalah satu kalimat motivasi yang terdiri dari judul
               utama dan paragraf pendukung. HomePage perlu membaca daftar ini
               dan memilih salah satu entri secara acak setiap kali halaman
@@ -429,7 +423,7 @@ export default function AdminPengaturanPage() {
               <button
                 type="button"
                 onClick={saveChanges}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] sm:flex-none"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark sm:flex-none"
               >
                 <Save className="h-4 w-4" />
                 Simpan perubahan
@@ -442,7 +436,7 @@ export default function AdminPengaturanPage() {
       {toast && (
         <div
           role="status"
-          className="pointer-events-none fixed left-1/2 top-20 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-[#1e5b3a] px-4 py-2 text-sm font-semibold text-white shadow-lg"
+          className="pointer-events-none fixed left-1/2 top-20 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
         >
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{toast}</span>
@@ -453,12 +447,12 @@ export default function AdminPengaturanPage() {
         Rancangan frontend. Data disimpan lokal dan belum tersinkron dengan
         server.
       </p>
-    </div>
+    </PageContainer>
   );
 }
 
 const inputClass =
-  "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15";
+  "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15";
 
 function Panel({
   icon,
@@ -483,7 +477,7 @@ function Panel({
         className={`mb-5 flex items-start gap-3 ${action ? "justify-between" : ""}`}
       >
         <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8f9f0] text-[#1e5b3a]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
             {icon}
           </span>
           <div className="min-w-0">

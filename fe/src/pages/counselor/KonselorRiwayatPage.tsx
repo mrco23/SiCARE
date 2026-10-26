@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,8 +21,8 @@ import {
   toISO,
   type AcademicPeriod,
 } from "../../lib/academicPeriods";
-
-type Format = "Individu" | "Kelompok";
+import { clients, type Session } from "../../data/mock/counselorHistory";
+import type { CounselingFormat as Format } from "../../types/counseling";
 
 type PeriodKey = "hari" | "minggu" | "bulan" | "semester";
 const PERIOD_OPTIONS: [PeriodKey, string][] = [
@@ -31,12 +32,6 @@ const PERIOD_OPTIONS: [PeriodKey, string][] = [
   ["semester", "Semester"],
 ];
 const DAY_MS = 864e5;
-
-const relativeDate = (daysAgo: number) => {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  return toISO(date);
-};
 
 type DateRange = { start: Date; end: Date };
 const parseISODate = (iso: string) => {
@@ -91,25 +86,6 @@ const dateRangeLabel = (
 const inDateRange = (date: string, range: DateRange) => {
   const value = parseISODate(date).getTime();
   return value >= range.start.getTime() && value < range.end.getTime();
-};
-
-type Session = {
-  id: number;
-  topic: string;
-  format: Format;
-  date: string; // YYYY-MM-DD
-  time: string; // "HH.MM"
-  summary: string;
-  note: string;
-};
-
-type Client = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  password: string;
-  sessions: Session[];
 };
 
 const MAX_ATTEMPTS = 3;
@@ -181,356 +157,6 @@ async function verifyHistoryPassword(input: string): Promise<boolean> {
 }
 
 // Data contoh. Semua sesi sudah memiliki catatan.
-const clients: Client[] = [
-  {
-    id: "c1",
-    name: "Yusli Ngongano",
-    email: "yusli@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 1,
-        topic: "Pengembangan Diri",
-        format: "Individu",
-        date: "2026-09-28",
-        time: "15.00",
-        summary: "Klien membahas rencana pengembangan diri jangka pendek.",
-        note: "Klien aktif berdiskusi. Disepakati tugas refleksi mingguan.",
-      },
-      {
-        id: 2,
-        topic: "Pengembangan Diri",
-        format: "Individu",
-        date: "2026-10-02",
-        time: "15.00",
-        summary: "Lanjutan sesi sebelumnya.",
-        note: "Progres baik. Perlu evaluasi pada sesi berikutnya.",
-      },
-      {
-        id: 3,
-        topic: "Pengembangan Diri",
-        format: "Individu",
-        date: "2026-10-05",
-        time: "15.00",
-        summary: "Sesi evaluasi bulanan.",
-        note: "Klien menunjukkan kemajuan. Lanjutkan sesi rutin.",
-      },
-    ],
-  },
-  {
-    id: "c2",
-    name: "Ayu Pratiwi",
-    email: "ayu@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 4,
-        topic: "Motivasi",
-        format: "Kelompok",
-        date: "2026-10-07",
-        time: "10.00",
-        summary: "Sesi kelompok motivasi belajar.",
-        note: "Peserta aktif. Disepakati jadwal lanjutan.",
-      },
-    ],
-  },
-  {
-    id: "c3",
-    name: "Bagas Hermawan",
-    email: "bagas@staf.unikadelasalle.ac.id",
-    role: "Dosen / Staf",
-    password: "1234",
-    sessions: [
-      {
-        id: 5,
-        topic: "Stres",
-        format: "Individu",
-        date: "2026-10-08",
-        time: "14.00",
-        summary: "Diskusi pengelolaan stres kerja.",
-        note: "Teknik pernapasan diperkenalkan. Perlu tindak lanjut.",
-      },
-    ],
-  },
-
-  {
-    id: "c4",
-    name: "Nadia Putri",
-    email: "nadia@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 6,
-        topic: "Manajemen Stres",
-        format: "Individu",
-        date: relativeDate(0),
-        time: "09.00",
-        summary:
-          "Klien membahas pemicu stres akademik dan strategi pengelolaan waktu.",
-        note: "Disepakati jadwal harian yang realistis dan latihan pernapasan.",
-      },
-      {
-        id: 7,
-        topic: "Manajemen Stres",
-        format: "Individu",
-        date: relativeDate(5),
-        time: "09.00",
-        summary: "Tindak lanjut strategi pengelolaan stres.",
-        note: "Klien mulai menerapkan jadwal belajar. Evaluasi dilanjutkan pada sesi berikutnya.",
-      },
-    ],
-  },
-  {
-    id: "c5",
-    name: "Rizky Mahendra",
-    email: "rizky@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 8,
-        topic: "Motivasi Belajar",
-        format: "Kelompok",
-        date: relativeDate(1),
-        time: "10.00",
-        summary: "Diskusi kelompok mengenai motivasi dan kebiasaan belajar.",
-        note: "Peserta menyusun target belajar mingguan.",
-      },
-      {
-        id: 9,
-        topic: "Motivasi Belajar",
-        format: "Kelompok",
-        date: relativeDate(12),
-        time: "10.00",
-        summary: "Evaluasi target belajar kelompok.",
-        note: "Sebagian target tercapai. Kelompok menyepakati strategi tindak lanjut.",
-      },
-    ],
-  },
-  {
-    id: "c6",
-    name: "Clara Lumenta",
-    email: "clara@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 10,
-        topic: "Kepercayaan Diri",
-        format: "Individu",
-        date: relativeDate(2),
-        time: "13.00",
-        summary: "Klien membahas rasa gugup saat presentasi.",
-        note: "Latihan presentasi bertahap direkomendasikan.",
-      },
-      {
-        id: 11,
-        topic: "Kepercayaan Diri",
-        format: "Individu",
-        date: relativeDate(18),
-        time: "13.00",
-        summary: "Tindak lanjut latihan presentasi.",
-        note: "Klien melaporkan peningkatan kesiapan berbicara.",
-      },
-    ],
-  },
-  {
-    id: "c7",
-    name: "Fajar Saputra",
-    email: "fajar@staf.unikadelasalle.ac.id",
-    role: "Dosen / Staf",
-    password: "1234",
-    sessions: [
-      {
-        id: 12,
-        topic: "Keseimbangan Kerja",
-        format: "Individu",
-        date: relativeDate(3),
-        time: "14.00",
-        summary: "Diskusi keseimbangan antara pekerjaan dan kehidupan pribadi.",
-        note: "Klien akan mengevaluasi batas waktu kerja dan waktu istirahat.",
-      },
-      {
-        id: 13,
-        topic: "Keseimbangan Kerja",
-        format: "Individu",
-        date: relativeDate(25),
-        time: "14.00",
-        summary: "Evaluasi rutinitas kerja dan istirahat.",
-        note: "Perlu mempertahankan rutinitas yang sudah membantu.",
-      },
-    ],
-  },
-  {
-    id: "c8",
-    name: "Melisa Tumiwa",
-    email: "melisa@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 14,
-        topic: "Relasi Sosial",
-        format: "Individu",
-        date: relativeDate(4),
-        time: "11.00",
-        summary:
-          "Klien mengeksplorasi kesulitan membangun komunikasi dengan teman.",
-        note: "Latihan komunikasi asertif diberikan sebagai tugas refleksi.",
-      },
-      {
-        id: 15,
-        topic: "Relasi Sosial",
-        format: "Individu",
-        date: relativeDate(30),
-        time: "11.00",
-        summary: "Tinjauan pengalaman komunikasi asertif.",
-        note: "Klien mulai mencoba menyampaikan kebutuhan secara langsung.",
-      },
-    ],
-  },
-  {
-    id: "c9",
-    name: "Kevin Manopo",
-    email: "kevin@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 16,
-        topic: "Adaptasi Kampus",
-        format: "Kelompok",
-        date: relativeDate(6),
-        time: "15.00",
-        summary:
-          "Sesi kelompok untuk membahas adaptasi terhadap lingkungan kampus.",
-        note: "Peserta berbagi pengalaman dan menyusun rencana dukungan sebaya.",
-      },
-      {
-        id: 17,
-        topic: "Adaptasi Kampus",
-        format: "Kelompok",
-        date: relativeDate(35),
-        time: "15.00",
-        summary: "Tindak lanjut proses adaptasi kampus.",
-        note: "Peserta didorong untuk menjaga komunikasi dengan kelompok.",
-      },
-    ],
-  },
-  {
-    id: "c10",
-    name: "Anisa Rahmawati",
-    email: "anisa@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 18,
-        topic: "Pengembangan Diri",
-        format: "Individu",
-        date: relativeDate(8),
-        time: "08.30",
-        summary: "Klien menetapkan prioritas pengembangan diri.",
-        note: "Target mingguan dibuat dengan indikator sederhana.",
-      },
-      {
-        id: 19,
-        topic: "Pengembangan Diri",
-        format: "Individu",
-        date: relativeDate(42),
-        time: "08.30",
-        summary: "Evaluasi target pengembangan diri.",
-        note: "Target diperbarui sesuai perkembangan klien.",
-      },
-    ],
-  },
-  {
-    id: "c11",
-    name: "Dimas Prakoso",
-    email: "dimas@staf.unikadelasalle.ac.id",
-    role: "Dosen / Staf",
-    password: "1234",
-    sessions: [
-      {
-        id: 20,
-        topic: "Pengelolaan Emosi",
-        format: "Individu",
-        date: relativeDate(10),
-        time: "16.00",
-        summary:
-          "Klien membahas cara mengenali dan mengelola emosi saat bekerja.",
-        note: "Klien diminta mencatat situasi pemicu dan respons yang muncul.",
-      },
-      {
-        id: 21,
-        topic: "Pengelolaan Emosi",
-        format: "Individu",
-        date: relativeDate(50),
-        time: "16.00",
-        summary: "Tinjauan catatan situasi pemicu emosi.",
-        note: "Identifikasi pemicu membaik. Strategi regulasi emosi dilanjutkan.",
-      },
-    ],
-  },
-  {
-    id: "c12",
-    name: "Grace Kalalo",
-    email: "grace@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 22,
-        topic: "Kesiapan Karier",
-        format: "Kelompok",
-        date: relativeDate(14),
-        time: "13.30",
-        summary:
-          "Diskusi kelompok tentang kesiapan karier dan eksplorasi minat.",
-        note: "Peserta akan mencari informasi bidang karier yang diminati.",
-      },
-      {
-        id: 23,
-        topic: "Kesiapan Karier",
-        format: "Kelompok",
-        date: relativeDate(60),
-        time: "13.30",
-        summary: "Sesi awal eksplorasi minat karier.",
-        note: "Peserta mulai mengidentifikasi kekuatan dan bidang minat.",
-      },
-    ],
-  },
-  {
-    id: "c13",
-    name: "Andreas Wenas",
-    email: "andreas@mhs.unikadelasalle.ac.id",
-    role: "Mahasiswa",
-    password: "1234",
-    sessions: [
-      {
-        id: 24,
-        topic: "Kecemasan Akademik",
-        format: "Individu",
-        date: relativeDate(20),
-        time: "12.30",
-        summary: "Klien membahas kecemasan menjelang ujian.",
-        note: "Strategi persiapan ujian dan relaksasi dibahas.",
-      },
-      {
-        id: 25,
-        topic: "Kecemasan Akademik",
-        format: "Individu",
-        date: relativeDate(75),
-        time: "12.30",
-        summary: "Tindak lanjut kecemasan akademik.",
-        note: "Klien akan melanjutkan latihan relaksasi sebelum ujian.",
-      },
-    ],
-  },
-];
 
 const allSessions = clients.flatMap((c) => c.sessions);
 
@@ -615,7 +241,6 @@ export default function KonselorRiwayatPage() {
         setPwError("");
       }
     };
-    checkTime();
     const interval = window.setInterval(checkTime, 1000);
     const timeout =
       accessUntil > Date.now()
@@ -640,7 +265,7 @@ export default function KonselorRiwayatPage() {
     return () => clearTimeout(t);
   }, [toastMsg]);
 
-  const hasAccess = accessUntil > now && accessUntil > Date.now();
+  const hasAccess = accessUntil > now;
   const semester = periods.find((p) => p.id === semesterId) ?? null;
   const range = useMemo(
     () => getDateRange(period, anchor, semester),
@@ -720,9 +345,8 @@ export default function KonselorRiwayatPage() {
   const pwUsed = attemptState.count;
   const pwLocked = attemptState.lockedUntil > now;
 
-  function openClient(cid: string) {
-    if (!hasAccess || accessUntil <= Date.now()) {
-      setNow(Date.now());
+  function handleOpenClient(cid: string) {
+    if (!hasAccess) {
       return;
     }
     setSelectedId(cid);
@@ -783,17 +407,16 @@ export default function KonselorRiwayatPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function openConsent(id: number) {
-    if (!hasAccess || accessUntil <= Date.now() || !selectedId) {
-      setNow(Date.now());
+  function handleOpenConsent(id: number) {
+    if (!hasAccess || !selectedId) {
       setConsentSessionId(null);
       return;
     }
     setConsentSessionId(id);
   }
 
-  function openNote(id: number) {
-    if (!selectedId || !hasAccess || accessUntil <= Date.now()) {
+  function handleOpenNote(id: number) {
+    if (!selectedId || !hasAccess) {
       setToastMsg("Akses habis. Masukkan kata sandi kembali.");
       backToClients();
       return;
@@ -802,19 +425,15 @@ export default function KonselorRiwayatPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer role="counselor" spacing="none">
       {hasAccess &&
         (!selected ? (
           <>
             {/* ================= DAFTAR KLIEN ================= */}
-            <section>
-              <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-                Riwayat Konseling
-              </h1>
-              <p className="mt-1 text-sm text-gray-500 sm:text-base">
-                Pilih klien untuk membuka riwayat dan catatan konseling.
-              </p>
-            </section>
+            <PageHeader
+              title="Riwayat Konseling"
+              description="Pilih klien untuk membuka riwayat dan catatan konseling."
+            />
 
             {/* Filter nama, format, dan periode waktu */}
             <div className="mt-6 space-y-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
@@ -826,7 +445,7 @@ export default function KonselorRiwayatPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Cari nama klien ..."
-                    className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:bg-white focus:ring-4 focus:ring-[#1e5b3a]/15"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15"
                   />
                 </div>
 
@@ -903,7 +522,7 @@ export default function KonselorRiwayatPage() {
                       value={semesterId ?? ""}
                       onChange={(e) => setSemesterId(e.target.value)}
                       aria-label="Pilih semester akademik"
-                      className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#1e5b3a] focus:ring-2 focus:ring-[#1e5b3a]/20"
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
                       {periods.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -925,11 +544,11 @@ export default function KonselorRiwayatPage() {
                 <li key={client.id}>
                   <button
                     type="button"
-                    onClick={() => openClient(client.id)}
+                    onClick={() => handleOpenClient(client.id)}
                     className="flex w-full flex-col rounded-2xl border border-gray-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-[#36c08f]/60 hover:shadow-md"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] font-bold text-[#1e5b3a]">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">
                         {initials(client.name)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -945,7 +564,7 @@ export default function KonselorRiwayatPage() {
                       <span className="text-gray-600">
                         {count} sesi {format.toLowerCase()}
                       </span>
-                      <span className="rounded-full bg-[#e8f9f0] px-2.5 py-1 text-xs font-semibold text-[#1e5b3a]">
+                      <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary">
                         Selesai
                       </span>
                     </div>
@@ -970,7 +589,7 @@ export default function KonselorRiwayatPage() {
               <button
                 type="button"
                 onClick={backToClients}
-                className="inline-flex items-center gap-1.5 font-semibold text-[#1e5b3a] hover:underline"
+                className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Riwayat Konseling
@@ -980,7 +599,7 @@ export default function KonselorRiwayatPage() {
             </nav>
 
             <div className="mt-5 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#1e5b3a] to-[#36c08f] text-xl font-bold text-white">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#36c08f] text-xl font-bold text-white">
                 {initials(selected.name)}
               </div>
               <div className="min-w-0 flex-1">
@@ -1022,7 +641,7 @@ export default function KonselorRiwayatPage() {
                   onChange={(e) =>
                     setTimeSort(e.target.value as "terbaru" | "terlama")
                   }
-                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-100/70 py-2.5 pl-4 pr-10 text-sm text-gray-600 outline-none focus:border-[#1e5b3a] focus:bg-white sm:w-auto"
+                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-100/70 py-2.5 pl-4 pr-10 text-sm text-gray-600 outline-none focus:border-primary focus:bg-white sm:w-auto"
                 >
                   <option value="terbaru">Waktu terbaru</option>
                   <option value="terlama">Waktu terlama</option>
@@ -1061,22 +680,22 @@ export default function KonselorRiwayatPage() {
                         </span>
                       </div>
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
-                        <span className="rounded-full bg-[#e8f9f0] px-2.5 py-1 text-xs font-semibold text-[#1e5b3a]">
+                        <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary">
                           Selesai
                         </span>
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => openConsent(s.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e5b3a] px-3.5 py-2 text-sm font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                            onClick={() => handleOpenConsent(s.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-3.5 py-2 text-sm font-semibold text-primary hover:bg-primary-soft"
                           >
                             <FileSignature className="h-4 w-4" />
                             Lihat informed consent
                           </button>
                           <button
                             type="button"
-                            onClick={() => openNote(s.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1e5b3a] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                            onClick={() => handleOpenNote(s.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
                           >
                             <Eye className="h-4 w-4" />
                             Lihat catatan
@@ -1098,7 +717,7 @@ export default function KonselorRiwayatPage() {
             onSubmit={handleUnlock}
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
           >
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary">
               <Lock className="h-6 w-6" />
             </div>
             <h2 className="text-lg font-bold">Buka Riwayat Konseling</h2>
@@ -1125,12 +744,12 @@ export default function KonselorRiwayatPage() {
                 value={pwInput}
                 onChange={(e) => setPwInput(e.target.value)}
                 disabled={pwLocked || verifying}
-                className="w-full rounded-xl border border-gray-300 py-2.5 pl-4 pr-20 text-sm outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:bg-gray-100"
+                className="w-full rounded-xl border border-gray-300 py-2.5 pl-4 pr-20 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:bg-gray-100"
               />
               <button
                 type="button"
                 onClick={() => setPwVisible((v) => !v)}
-                className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-[#1e5b3a] hover:bg-[#e8f9f0]"
+                className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-primary hover:bg-primary-soft"
               >
                 {pwVisible ? (
                   <EyeOff className="h-3.5 w-3.5" />
@@ -1159,7 +778,7 @@ export default function KonselorRiwayatPage() {
               <button
                 type="submit"
                 disabled={pwLocked || verifying || pwInput.length === 0}
-                className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f] disabled:opacity-50"
+                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
               >
                 Buka
               </button>
@@ -1211,7 +830,7 @@ export default function KonselorRiwayatPage() {
                     href={CONSENT_PDF_URL}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-semibold text-[#1e5b3a] underline"
+                    className="font-semibold text-primary underline"
                   >
                     Buka dokumen di tab baru
                   </a>
@@ -1227,7 +846,7 @@ export default function KonselorRiwayatPage() {
               <a
                 href={CONSENT_PDF_URL}
                 download="informed-consent.pdf"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
               >
                 <Download className="h-4 w-4" />
                 Unduh PDF
@@ -1243,7 +862,7 @@ export default function KonselorRiwayatPage() {
           <div className="flex max-h-[88vh] w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-gray-200 p-5 sm:p-6">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#1e5b3a]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                   Catatan terbuka sementara
                 </p>
                 <h2 className="mt-1 text-lg font-bold">{noteSession.topic}</h2>
@@ -1290,6 +909,6 @@ export default function KonselorRiwayatPage() {
       >
         {toastMsg}
       </div>
-    </div>
+    </PageContainer>
   );
 }

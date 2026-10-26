@@ -1,3 +1,5 @@
+import { PageContainer, PageHeader } from "../../components/shared";
+import { COUNSELING_REQUEST_STATUS } from "../../constants/status";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -6,76 +8,9 @@ import {
   ClipboardList,
   MessageSquareText,
 } from "lucide-react";
-
-type Request = {
-  id: number;
-  name: string;
-  role: string;
-  topic: string;
-  format: "Individu" | "Kelompok";
-  waitMin: number;
-  status: "pending" | "accepted" | "rejected";
-};
-
-type Session = {
-  id: number;
-  client: string;
-  topic: string;
-  format: "Individu" | "Kelompok";
-  time: string; // "HH.MM", durasi 1 jam
-};
+import { initialRequests, initialSessions, SESSIONS_THIS_WEEK, RATINGS, type Request, type Session } from "../../data/mock/counselorDashboard";
 
 type SessionState = "done" | "live" | "upcoming";
-
-const initialRequests: Request[] = [
-  {
-    id: 1,
-    name: "Yusli Ngongano",
-    role: "Mahasiswa",
-    topic: "Masalah akademik & manajemen waktu",
-    format: "Individu",
-    waitMin: 185,
-    status: "pending",
-  },
-  {
-    id: 2,
-    name: "Ayu Pratiwi",
-    role: "Mahasiswa",
-    topic: "Kecemasan menghadapi ujian",
-    format: "Kelompok",
-    waitMin: 42,
-    status: "pending",
-  },
-  {
-    id: 3,
-    name: "Bagas Hermawan",
-    role: "Dosen / Staf",
-    topic: "Stres kerja",
-    format: "Individu",
-    waitMin: 1440,
-    status: "pending",
-  },
-];
-
-const initialSessions: Session[] = [
-  {
-    id: 101,
-    client: "Ayu Pratiwi",
-    topic: "Motivasi",
-    format: "Kelompok",
-    time: "10.00",
-  },
-  {
-    id: 102,
-    client: "Yusli Ngongano",
-    topic: "Pengembangan Diri",
-    format: "Individu",
-    time: "15.00",
-  },
-];
-
-const SESSIONS_THIS_WEEK = 4;
-const RATINGS = [5, 5, 4, 5, 3];
 
 const toMin = (t: string) => {
   const [h, m] = t.split(".").map(Number);
@@ -132,7 +67,7 @@ export default function CounselorDashboardPage() {
   const pendingRequests = useMemo(
     () =>
       requests
-        .filter((r) => r.status === "pending")
+        .filter((r) => r.status === COUNSELING_REQUEST_STATUS.PENDING)
         .sort((a, b) => b.waitMin - a.waitMin),
     [requests],
   );
@@ -173,7 +108,12 @@ export default function CounselorDashboardPage() {
     setRequests((prev) =>
       prev.map((r) =>
         r.id === req.id
-          ? { ...r, status: confirm.accept ? "accepted" : "rejected" }
+          ? {
+              ...r,
+              status: confirm.accept
+                ? COUNSELING_REQUEST_STATUS.ACCEPTED
+                : COUNSELING_REQUEST_STATUS.REJECTED,
+            }
           : r,
       ),
     );
@@ -200,15 +140,18 @@ export default function CounselorDashboardPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer role="counselor" spacing="none">
       {/* ================= SAPAAN ================= */}
-      <section>
-        <p className="text-sm font-medium text-gray-500">{todayLabel}</p>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight">
-          Selamat datang, Ma’am <span className="text-[#1e5b3a]">Giovanna</span>
-        </h1>
-        <p className="mt-2 text-sm text-gray-600 sm:text-base">{summary}</p>
-      </section>
+      <PageHeader
+        eyebrow={todayLabel}
+        title={
+          <>
+            Selamat datang, Ma’am{" "}
+            <span className="text-primary">Giovanna</span>
+          </>
+        }
+        description={summary}
+      />
 
       {/* ================= KARTU RINGKASAN ================= */}
       <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -242,14 +185,14 @@ export default function CounselorDashboardPage() {
 
       {/* ================= INFO SESI BERLANGSUNG ================= */}
       {liveSessions.length > 0 && (
-        <section className="mt-6 flex flex-col items-start justify-between gap-4 rounded-2xl border border-[#36c08f]/60 bg-[#f7fcf9] p-4 sm:flex-row sm:items-center sm:p-5">
+        <section className="mt-6 flex flex-col items-start justify-between gap-4 rounded-2xl border border-[#36c08f]/60 bg-primary-tint p-4 sm:flex-row sm:items-center sm:p-5">
           <div className="flex items-start gap-3">
             <span className="relative mt-1 flex h-3 w-3 shrink-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#36c08f] opacity-75" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-[#1e5b3a]" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-primary" />
             </span>
             <div>
-              <p className="font-semibold text-[#14553a]">
+              <p className="font-semibold text-primary">
                 Ada {liveSessions.length} sesi sedang berlangsung
               </p>
               <p className="mt-0.5 text-sm text-gray-600">
@@ -260,7 +203,7 @@ export default function CounselorDashboardPage() {
           </div>
           <Link
             to="/konselor/aktivitas"
-            className="shrink-0 rounded-xl bg-[#1e5b3a] px-4 py-2 text-sm font-semibold text-white hover:bg-[#174a2f]"
+            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
           >
             Isi catatan
           </Link>
@@ -280,7 +223,7 @@ export default function CounselorDashboardPage() {
             </div>
             <Link
               to="/konselor/permintaan"
-              className="shrink-0 text-sm font-semibold text-[#1e5b3a] hover:underline"
+              className="shrink-0 text-sm font-semibold text-primary hover:underline"
             >
               Lihat semua
             </Link>
@@ -293,7 +236,7 @@ export default function CounselorDashboardPage() {
                 className="rounded-xl border border-gray-200 p-4 transition hover:shadow-sm"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e8f9f0] text-sm font-bold text-[#1e5b3a]">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
                     {initials(r.name)}
                   </div>
                   <div className="min-w-0">
@@ -321,7 +264,7 @@ export default function CounselorDashboardPage() {
                     <button
                       type="button"
                       onClick={() => setConfirm({ id: r.id, accept: true })}
-                      className="rounded-lg bg-[#1e5b3a] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#174a2f]"
+                      className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-dark"
                     >
                       Terima
                     </button>
@@ -355,7 +298,7 @@ export default function CounselorDashboardPage() {
             </div>
             <Link
               to="/konselor/jadwal"
-              className="shrink-0 text-sm font-semibold text-[#1e5b3a] hover:underline"
+              className="shrink-0 text-sm font-semibold text-primary hover:underline"
             >
               Jadwal
             </Link>
@@ -370,7 +313,7 @@ export default function CounselorDashboardPage() {
 
                 const dot =
                   st === "live"
-                    ? "bg-[#1e5b3a] ring-4 ring-[#36c08f]/25"
+                    ? "bg-primary ring-4 ring-[#36c08f]/25"
                     : isNext
                       ? "bg-[#36c08f] ring-4 ring-[#36c08f]/20"
                       : "bg-gray-300";
@@ -379,11 +322,11 @@ export default function CounselorDashboardPage() {
                   st === "done" ? (
                     <Badge className="bg-gray-100 text-gray-600">Selesai</Badge>
                   ) : st === "live" ? (
-                    <Badge className="bg-[#1e5b3a] text-white">
+                    <Badge className="bg-primary text-white">
                       Berlangsung
                     </Badge>
                   ) : isNext ? (
-                    <Badge className="bg-[#e8f9f0] text-[#1e5b3a]">
+                    <Badge className="bg-primary-soft text-primary">
                       Berikutnya
                     </Badge>
                   ) : (
@@ -398,7 +341,7 @@ export default function CounselorDashboardPage() {
                       className={`absolute -left-[27px] top-4 h-3 w-3 rounded-full border-2 border-white ${dot}`}
                     />
                     <div
-                      className={`rounded-xl border p-3.5 ${highlight ? "border-[#36c08f]/60 bg-[#f7fcf9]" : "border-gray-200"}`}
+                      className={`rounded-xl border p-3.5 ${highlight ? "border-[#36c08f]/60 bg-primary-tint" : "border-gray-200"}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-bold text-gray-900">
@@ -481,7 +424,7 @@ export default function CounselorDashboardPage() {
                 onClick={handleDecide}
                 className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white ${
                   confirm.accept
-                    ? "bg-[#1e5b3a] hover:bg-[#174a2f]"
+                    ? "bg-primary hover:bg-primary-dark"
                     : "bg-red-600 hover:bg-red-700"
                 }`}
               >
@@ -500,7 +443,7 @@ export default function CounselorDashboardPage() {
       >
         {toastMsg}
       </div>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -567,7 +510,7 @@ function QuickAction({
       to={to}
       className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition hover:border-[#36c08f]/60 hover:shadow-md"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
         <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">

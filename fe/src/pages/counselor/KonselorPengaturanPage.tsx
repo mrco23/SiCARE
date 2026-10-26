@@ -1,6 +1,7 @@
-import React, {
-  ChangeEvent,
-  FormEvent,
+import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  type ChangeEvent,
+  type FormEvent,
   useEffect,
   useMemo,
   useRef,
@@ -398,20 +399,15 @@ export default function KonselorPengaturanPage() {
     Number(profile.experienceStartYear) <= currentYear;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <header>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-          Pengaturan
-        </h1>
-        <p className="mt-1 text-sm text-gray-500 sm:text-base">
-          Kelola profil publik, keahlian, dan preferensi layananmu. Perubahan
-          profil akan tampil di halaman konselor.
-        </p>
-      </header>
+    <PageContainer role="counselor" spacing="none">
+      <PageHeader
+        title="Pengaturan"
+        description="Kelola profil publik, keahlian, dan preferensi layananmu. Perubahan profil akan tampil di halaman konselor."
+      />
 
       <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6">
         <div className="flex items-center gap-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#1e5b3a] text-sm font-bold text-white">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
             GY
           </span>
           <div className="min-w-0">
@@ -424,7 +420,7 @@ export default function KonselorPengaturanPage() {
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <LockKeyhole className="h-4 w-4" />
           Data akun dikelola admin
-          <span className="ml-1 rounded-full bg-[#e8f9f0] px-2.5 py-1 font-semibold text-[#1e5b3a]">
+          <span className="ml-1 rounded-full bg-primary-soft px-2.5 py-1 font-semibold text-primary">
             Aktif
           </span>
         </div>
@@ -437,7 +433,7 @@ export default function KonselorPengaturanPage() {
           description="Foto ditampilkan dalam rasio 1:1 di halaman konselor."
         >
           <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-            <div className="aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-[#f7fcf9]">
+            <div className="aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-primary-tint">
               {profile.photo ? (
                 <img
                   src={profile.photo}
@@ -460,7 +456,7 @@ export default function KonselorPengaturanPage() {
               />
               <button
                 type="button"
-                className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={() => photoInput.current?.click()}
               >
                 Unggah foto
@@ -500,7 +496,7 @@ export default function KonselorPengaturanPage() {
               error={showErrors ? errors.displayName : ""}
             >
               <input
-                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
                 value={profile.displayName}
                 onChange={(e) => update("displayName", e.target.value)}
                 placeholder="Contoh: Giovanna Yudi, S.Psi., M.Psi., Psikolog"
@@ -512,7 +508,7 @@ export default function KonselorPengaturanPage() {
             >
               <textarea
                 rows={5}
-                className="w-full min-w-0 resize-none rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full min-w-0 resize-none rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
                 value={profile.bio}
                 onChange={(e) => update("bio", e.target.value)}
               />
@@ -526,7 +522,7 @@ export default function KonselorPengaturanPage() {
               error={showErrors ? errors.experience : ""}
             >
               <input
-                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
                 inputMode="numeric"
                 maxLength={4}
                 value={profile.experienceStartYear}
@@ -556,7 +552,7 @@ export default function KonselorPengaturanPage() {
           action={
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0]"
+              className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary-soft"
               onClick={() => openEducation()}
             >
               <Plus className="h-3.5 w-3.5" /> Tambah
@@ -583,7 +579,7 @@ export default function KonselorPengaturanPage() {
                     <button
                       type="button"
                       aria-label="Ubah pendidikan"
-                      className="rounded-lg p-2 text-gray-500 transition hover:bg-[#e8f9f0] hover:text-[#1e5b3a]"
+                      className="rounded-lg p-2 text-gray-500 transition hover:bg-primary-soft hover:text-primary"
                       onClick={() => openEducation(edu)}
                     >
                       <Pencil className="h-4 w-4" />
@@ -612,7 +608,7 @@ export default function KonselorPengaturanPage() {
           </ul>
           {eduDraft !== undefined && (
             <form
-              className="mt-4 rounded-xl border border-[#064E3B]/20 bg-[#f7fcf9] p-4"
+              className="mt-4 rounded-xl border border-primary/20 bg-primary-tint p-4"
               onSubmit={saveEducation}
             >
               <p className="mb-3 text-sm font-semibold">
@@ -623,7 +619,7 @@ export default function KonselorPengaturanPage() {
               <div className="grid gap-4">
                 <Field label="Institusi" required>
                   <input
-                    className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+                    className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
                     value={eduDraft.school}
                     onChange={(e) =>
                       setEduDraft({ ...eduDraft, school: e.target.value })
@@ -633,7 +629,7 @@ export default function KonselorPengaturanPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Tahun lulus" required>
                     <input
-                      className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+                      className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
                       inputMode="numeric"
                       maxLength={4}
                       value={eduDraft.year}
@@ -647,7 +643,7 @@ export default function KonselorPengaturanPage() {
                   </Field>
                   <Field label="Jurusan / gelar">
                     <input
-                      className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+                      className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
                       value={eduDraft.major}
                       onChange={(e) =>
                         setEduDraft({ ...eduDraft, major: e.target.value })
@@ -672,7 +668,7 @@ export default function KonselorPengaturanPage() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                  className="inline-flex items-center justify-center gap-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
                   Simpan
                 </button>
@@ -695,7 +691,7 @@ export default function KonselorPengaturanPage() {
             {profile.topics.map((topic, i) => (
               <span
                 key={`${topic}-${i}`}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[#1e5b3a] py-1 pl-3 pr-1.5 text-xs font-semibold text-white sm:text-sm"
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary py-1 pl-3 pr-1.5 text-xs font-semibold text-white sm:text-sm"
               >
                 {topic}
                 <button
@@ -722,7 +718,7 @@ export default function KonselorPengaturanPage() {
             }}
           >
             <input
-              className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100 min-w-0"
+              className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100 min-w-0"
               value={topicInput}
               maxLength={MAX_TOPIC_LEN}
               disabled={profile.topics.length >= MAX_TOPICS}
@@ -736,7 +732,7 @@ export default function KonselorPengaturanPage() {
             <button
               type="submit"
               disabled={profile.topics.length >= MAX_TOPICS}
-              className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0] shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary-soft shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-3.5 w-3.5" /> Tambah
             </button>
@@ -757,7 +753,7 @@ export default function KonselorPengaturanPage() {
             error={showErrors ? errors.phone : ""}
           >
             <input
-              className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+              className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
               type="tel"
               inputMode="tel"
               value={profile.phone}
@@ -810,7 +806,7 @@ export default function KonselorPengaturanPage() {
               role="tab"
               aria-selected={passwordKind === "akun"}
               onClick={() => selectPasswordKind("akun")}
-              className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${passwordKind === "akun" ? "bg-white text-[#1e5b3a] shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${passwordKind === "akun" ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
             >
               Kata Sandi Akun
             </button>
@@ -819,7 +815,7 @@ export default function KonselorPengaturanPage() {
               role="tab"
               aria-selected={passwordKind === "riwayat"}
               onClick={() => selectPasswordKind("riwayat")}
-              className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${passwordKind === "riwayat" ? "bg-white text-[#1e5b3a] shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${passwordKind === "riwayat" ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
             >
               Kata Sandi Riwayat
             </button>
@@ -834,7 +830,7 @@ export default function KonselorPengaturanPage() {
             <div className="sm:col-span-2">
               <Field label="Kata sandi saat ini" required>
                 <input
-                  className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
                   type="password"
                   autoComplete="current-password"
                   value={pwdCurrent}
@@ -844,7 +840,7 @@ export default function KonselorPengaturanPage() {
             </div>
             <Field label="Kata sandi baru" required>
               <input
-                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
                 type="password"
                 autoComplete="new-password"
                 value={pwdNext}
@@ -856,7 +852,7 @@ export default function KonselorPengaturanPage() {
             </Field>
             <Field label="Ulangi kata sandi baru" required>
               <input
-                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100"
                 type="password"
                 autoComplete="new-password"
                 value={pwdConfirm}
@@ -998,7 +994,7 @@ export default function KonselorPengaturanPage() {
                   step="0.1"
                   value={cropZoom}
                   onChange={(e) => setCropZoom(Number(e.target.value))}
-                  className="w-full accent-[#1e5b3a]"
+                  className="w-full accent-primary"
                 />
               </label>
             </div>
@@ -1013,7 +1009,7 @@ export default function KonselorPengaturanPage() {
               <button
                 type="button"
                 onClick={applyCrop}
-                className="inline-flex items-center justify-center rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f]"
+                className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
               >
                 Gunakan foto
               </button>
@@ -1038,7 +1034,7 @@ export default function KonselorPengaturanPage() {
               </button>
               <button
                 type="button"
-                className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-50 flex-1 sm:w-auto sm:flex-none"
+                className="inline-flex items-center justify-center gap-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50 flex-1 sm:w-auto sm:flex-none"
                 onClick={saveChanges}
               >
                 Simpan perubahan
@@ -1050,13 +1046,13 @@ export default function KonselorPengaturanPage() {
       {toast && (
         <div
           role="status"
-          className="pointer-events-none fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#1e5b3a] px-4 py-2 text-sm font-semibold text-white shadow-lg"
+          className="pointer-events-none fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
         >
           <CheckCircle2 className="h-4 w-4" />
           {toast}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -1083,7 +1079,7 @@ function Panel({
         className={`mb-5 flex items-start gap-3 ${action ? "justify-between" : ""}`}
       >
         <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8f9f0] text-[#1e5b3a]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
             {icon}
           </span>
           <div>
@@ -1142,7 +1138,7 @@ function SwitchRow({
         )}
       </span>
       <span
-        className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${checked ? "bg-[#1e5b3a]" : "bg-gray-300"}`}
+        className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${checked ? "bg-primary" : "bg-gray-300"}`}
       >
         <input
           type="checkbox"

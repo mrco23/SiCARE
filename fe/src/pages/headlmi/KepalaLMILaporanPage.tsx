@@ -1,3 +1,5 @@
+import { PageContainer, PageHeader } from "../../components/shared";
+import { SESSION_OUTCOME_LABEL } from "../../constants/status";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownRight,
@@ -8,7 +10,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  FileChartColumnIncreasing,
   Printer,
   Users,
   UsersRound,
@@ -24,65 +25,13 @@ import {
   type AcademicPeriod,
   type PeriodStatus,
 } from "../../lib/academicPeriods";
-
-type Session = {
-  id: string;
-  date: string;
-  format: "Individu" | "Kelompok";
-  status: "Selesai" | "Dibatalkan";
-  counselor: string;
-  cancellationReason: string;
-};
-
-const COUNSELORS = [
-  "Konselor A",
-  "Konselor B",
-  "Konselor C",
-  "Konselor D",
-  "Konselor E",
-];
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "Mei",
-  "Jun",
-  "Jul",
-  "Agu",
-  "Sep",
-  "Okt",
-  "Nov",
-  "Des",
-];
-
-const CANCELLATION_REASONS = [
-  "Klien berhalangan",
-  "Konselor berhalangan",
-  "Jadwal bentrok",
-  "Alasan administratif",
-];
+import { SESSIONS, CANCELLATION_REASONS } from "../../data/mock/headlmiReports";
+import { REPORT_COUNSELORS as COUNSELORS, REPORT_MONTHS as MONTHS } from "../../data/mock/reportCommon";
 
 /* Data sintetis untuk desain frontend. Ganti dengan data agregat dari backend. */
-const SESSIONS: Session[] = Array.from({ length: 240 }, (_, index) => {
-  const date = new Date(Date.UTC(2024, 7, 20) + index * 2.3 * 864e5);
-  const cancelled = index % 8 === 0 || index % 17 === 0;
-
-  return {
-    id: `S${String(index + 1).padStart(3, "0")}`,
-    date: date.toISOString().slice(0, 10),
-    format: index % 4 === 0 ? "Kelompok" : "Individu",
-    status: cancelled ? "Dibatalkan" : "Selesai",
-    counselor: COUNSELORS[index % COUNSELORS.length],
-    cancellationReason: cancelled
-      ? CANCELLATION_REASONS[index % CANCELLATION_REASONS.length]
-      : "",
-  };
-});
 
 const STATUS_STYLE: Record<PeriodStatus, string> = {
-  Aktif: "border-emerald-200 bg-emerald-50 text-[#14553a]",
+  Aktif: "border-emerald-200 bg-emerald-50 text-primary",
   Mendatang: "border-sky-200 bg-sky-50 text-sky-700",
   Selesai: "border-slate-200 bg-slate-100 text-slate-500",
 };
@@ -195,8 +144,8 @@ function PeriodDropdown({
         aria-expanded={open}
         className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition ${
           open
-            ? "border-[#2a8f5a] ring-4 ring-[#2a8f5a]/15"
-            : "border-slate-200 hover:border-[#2a8f5a]/50"
+            ? "border-brand-accent ring-4 ring-brand-accent/15"
+            : "border-slate-200 hover:border-brand-accent/50"
         }`}
       >
         <div className="min-w-0">
@@ -229,7 +178,7 @@ function PeriodDropdown({
               onClick={() => selectPeriod("all")}
               className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                 selectedId === "all"
-                  ? "bg-[#f0fdf4] text-[#14553a]"
+                  ? "bg-[#f0fdf4] text-primary"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -256,13 +205,13 @@ function PeriodDropdown({
                     onClick={() => setActiveYear(item)}
                     className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition ${
                       year === item
-                        ? "bg-white text-[#14553a] shadow-sm"
+                        ? "bg-white text-primary shadow-sm"
                         : "text-slate-600 hover:bg-white/70"
                     }`}
                   >
                     {item}
                     {selected?.ta === item && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#2a8f5a]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-brand-accent" />
                     )}
                   </button>
                 ))}
@@ -300,8 +249,8 @@ function PeriodDropdown({
                       onClick={() => selectPeriod(period.id)}
                       className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
                         active
-                          ? "border-[#14553a] bg-[#14553a] text-white"
-                          : "border-slate-200 bg-white hover:border-[#2a8f5a]/50 hover:bg-[#f6fcf8]"
+                          ? "border-primary bg-primary text-white"
+                          : "border-slate-200 bg-white hover:border-brand-accent/50 hover:bg-[#f6fcf8]"
                       }`}
                     >
                       <div className="min-w-0">
@@ -347,8 +296,8 @@ export default function KepalaLMILaporanPage() {
   const period = periods.find((item) => item.id === periodId) ?? null;
   const rows = useMemo(() => sessionsInPeriod(period), [period]);
 
-  const completed = rows.filter((session) => session.status === "Selesai");
-  const cancelled = rows.filter((session) => session.status === "Dibatalkan");
+  const completed = rows.filter((session) => session.status === SESSION_OUTCOME_LABEL.COMPLETED);
+  const cancelled = rows.filter((session) => session.status === SESSION_OUTCOME_LABEL.CANCELLED);
   const individualCompleted = completed.filter(
     (session) => session.format === "Individu",
   );
@@ -374,7 +323,7 @@ export default function KepalaLMILaporanPage() {
     [previousPeriod],
   );
   const previousCompleted = previousRows.filter(
-    (session) => session.status === "Selesai",
+    (session) => session.status === SESSION_OUTCOME_LABEL.COMPLETED,
   ).length;
   const completedChange = completed.length - previousCompleted;
   const completedChangePct =
@@ -387,7 +336,7 @@ export default function KepalaLMILaporanPage() {
     rows.forEach((session) => {
       const key = session.date.slice(0, 7);
       map[key] ??= { done: 0, cancelled: 0 };
-      if (session.status === "Selesai") map[key].done += 1;
+      if (session.status === SESSION_OUTCOME_LABEL.COMPLETED) map[key].done += 1;
       else map[key].cancelled += 1;
     });
     return Object.entries(map)
@@ -407,10 +356,10 @@ export default function KepalaLMILaporanPage() {
           (session) => session.counselor === counselor,
         );
         const done = counselorSessions.filter(
-          (session) => session.status === "Selesai",
+          (session) => session.status === SESSION_OUTCOME_LABEL.COMPLETED,
         );
         const canceled = counselorSessions.filter(
-          (session) => session.status === "Dibatalkan",
+          (session) => session.status === SESSION_OUTCOME_LABEL.CANCELLED,
         );
         return {
           counselor,
@@ -434,60 +383,48 @@ export default function KepalaLMILaporanPage() {
   );
 
   const cancellationRows = useMemo(
-    () =>
-      CANCELLATION_REASONS.map((reason) => ({
+    () => {
+      const cancelled = rows.filter(
+        (session) => session.status === SESSION_OUTCOME_LABEL.CANCELLED,
+      );
+      return CANCELLATION_REASONS.map((reason) => ({
         reason,
         count: cancelled.filter(
           (session) => session.cancellationReason === reason,
         ).length,
       }))
         .filter((item) => item.count > 0)
-        .sort((a, b) => b.count - a.count),
-    [cancelled],
+        .sort((a, b) => b.count - a.count);
+    },
+    [rows],
   );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 font-[Inter] text-slate-800">
-      <style>{`
-        @media print {
-          aside, header, nav, .no-print { display: none !important; }
-          main { margin-left: 0 !important; padding: 0 !important; }
-          body { background: #fff !important; }
-          .print-break-inside { break-inside: avoid; }
-          .print-shadow-none { box-shadow: none !important; }
-        }
-      `}</style>
+    <PageContainer role="headlmi" className="report-print-page text-slate-800">
 
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2a8f5a]">
-            Panel Pimpinan
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Laporan Layanan Konseling
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Rekapitulasi pelaksanaan layanan, pembatalan, dan distribusi sesi
-            per konselor untuk mendukung evaluasi LMI.
-          </p>
-        </div>
-        <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center">
-          <PeriodDropdown
-            periods={periods}
-            selectedId={periodId}
-            onSelect={setPeriodId}
-            today={today}
-          />
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f4430]"
-          >
-            <Printer className="h-4 w-4" />
-            Cetak / PDF
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Panel Pimpinan"
+        title="Laporan Layanan Konseling"
+        description="Rekapitulasi pelaksanaan layanan, pembatalan, dan distribusi sesi per konselor untuk mendukung evaluasi LMI."
+        actions={
+          <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center">
+            <PeriodDropdown
+              periods={periods}
+              selectedId={periodId}
+              onSelect={setPeriodId}
+              today={today}
+            />
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
+            >
+              <Printer className="h-4 w-4" />
+              Cetak / PDF
+            </button>
+          </div>
+        }
+      />
 
       <section className="rounded-2xl border border-[#d6eadc] bg-gradient-to-r from-[#f0faf3] to-white p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -508,7 +445,7 @@ export default function KepalaLMILaporanPage() {
           </div>
           <Link
             to="/kepala-lmi"
-            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-[#cce3d3] bg-white px-4 py-2.5 text-sm font-semibold text-[#14553a] transition hover:bg-[#f6fcf8] sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-[#cce3d3] bg-white px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-[#f6fcf8] sm:self-auto"
           >
             Kembali ke beranda <ArrowRight className="h-4 w-4" />
           </Link>
@@ -597,7 +534,7 @@ export default function KepalaLMILaporanPage() {
             </div>
             <div className="flex gap-3 text-[11px] font-medium text-slate-500">
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-[#2a8f5a]" />
+                <span className="h-2.5 w-2.5 rounded-sm bg-brand-accent" />
                 Selesai
               </span>
               <span className="inline-flex items-center gap-1.5">
@@ -632,7 +569,7 @@ export default function KepalaLMILaporanPage() {
                           style={{ height: `${100 - doneHeight}%` }}
                         />
                         <div
-                          className="bg-[#2a8f5a]"
+                          className="bg-brand-accent"
                           style={{ height: `${doneHeight}%` }}
                         />
                       </div>
@@ -692,7 +629,7 @@ export default function KepalaLMILaporanPage() {
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full bg-[#2a8f5a]"
+                  className="h-full rounded-full bg-brand-accent"
                   style={{
                     width: `${percent(completed.length, rows.length)}%`,
                   }}
@@ -766,7 +703,7 @@ export default function KepalaLMILaporanPage() {
                     <td className="px-4 py-3 text-right text-red-600">
                       {item.groupCancelled}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#14553a]">
+                    <td className="px-4 py-3 text-right font-semibold text-primary">
                       {item.done}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-red-600">
@@ -817,7 +754,7 @@ export default function KepalaLMILaporanPage() {
 
       <div className="no-print flex flex-col gap-4 rounded-2xl border border-[#d6eadc] bg-[#f5fbf6] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="flex items-start gap-3">
-          <span className="rounded-xl bg-white p-2.5 text-[#14553a]">
+          <span className="rounded-xl bg-white p-2.5 text-primary">
             <Printer className="h-5 w-5" />
           </span>
           <div>
@@ -833,7 +770,7 @@ export default function KepalaLMILaporanPage() {
         <button
           type="button"
           onClick={() => window.print()}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14553a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4430]"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
         >
           <Printer className="h-4 w-4" />
           Cetak / PDF
@@ -845,6 +782,6 @@ export default function KepalaLMILaporanPage() {
         berasal dari sumber backend yang sama dengan dashboard dan dibatasi pada
         informasi agregat yang diperlukan Kepala LMI.
       </p>
-    </div>
+    </PageContainer>
   );
 }

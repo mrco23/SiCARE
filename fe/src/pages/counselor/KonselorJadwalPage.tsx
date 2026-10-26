@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useEffect, useState, type MouseEvent } from "react";
 import {
   ArrowLeft,
@@ -288,50 +289,46 @@ export default function KonselorJadwalPage() {
 
     return (
       <>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-text-base sm:text-3xl">
-              Jadwal Ketersediaan
-            </h1>
-            <p className="mt-1 text-sm text-text-muted">
-              Klik tanggal untuk mengatur jam konseling pada hari itu.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Bulan sebelumnya"
-              onClick={() =>
-                setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))
-              }
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 bg-white hover:bg-gray-50"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="w-44 text-center text-base font-bold text-text-base">
-              {MONTHS[month.getMonth()]} {month.getFullYear()}
-            </span>
-            <button
-              type="button"
-              aria-label="Bulan berikutnya"
-              onClick={() =>
-                setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))
-              }
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 bg-white hover:bg-gray-50"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setMonth(new Date(today.getFullYear(), today.getMonth(), 1))
-              }
-              className="ml-2 rounded-xl border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-secondary"
-            >
-              Hari ini
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title="Jadwal Ketersediaan"
+          description="Klik tanggal untuk mengatur jam konseling pada hari itu."
+          actions={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Bulan sebelumnya"
+                onClick={() =>
+                  setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))
+                }
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 bg-white hover:bg-gray-50"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="w-44 text-center text-base font-bold text-text-base">
+                {MONTHS[month.getMonth()]} {month.getFullYear()}
+              </span>
+              <button
+                type="button"
+                aria-label="Bulan berikutnya"
+                onClick={() =>
+                  setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))
+                }
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 bg-white hover:bg-gray-50"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setMonth(new Date(today.getFullYear(), today.getMonth(), 1))
+                }
+                className="ml-2 rounded-xl border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-secondary"
+              >
+                Hari ini
+              </button>
+            </div>
+          }
+        />
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="min-w-[680px]">
@@ -449,34 +446,31 @@ export default function KonselorJadwalPage() {
           <ArrowLeft className="h-4 w-4" /> Kembali ke kalender
         </button>
 
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-primary">
-              {WEEKDAYS[d.getDay()]}
-            </p>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-text-base sm:text-3xl">
-              {pad(d.getDate())} {MONTHS[d.getMonth()]} {d.getFullYear()}
-            </h1>
-            <p className="mt-1 text-sm text-text-muted">
-              {list.length
-                ? `${nTersedia} jam tersedia · ${nSesi} sesi`
-                : "Belum ada jam tersedia"}
-            </p>
-          </div>
-          <button
-            type="button"
-            disabled={past}
-            onClick={() => {
-              const start = firstFree(dateKey);
-              if (start === null)
-                return setToastMsg("Tidak ada jam kosong di tanggal ini.");
-              openNew(dateKey, start);
-            }}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" /> Tambah jadwal
-          </button>
-        </div>
+        <PageHeader
+          className="mt-4"
+          eyebrow={WEEKDAYS[d.getDay()]}
+          title={`${pad(d.getDate())} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`}
+          description={
+            list.length
+              ? `${nTersedia} jam tersedia · ${nSesi} sesi`
+              : "Belum ada jam tersedia"
+          }
+          actions={
+            <button
+              type="button"
+              disabled={past}
+              onClick={() => {
+                const start = firstFree(dateKey);
+                if (start === null)
+                  return setToastMsg("Tidak ada jam kosong di tanggal ini.");
+                openNew(dateKey, start);
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Plus className="h-4 w-4" /> Tambah jadwal
+            </button>
+          }
+        />
 
         {past && (
           <p className="mt-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm text-text-muted">
@@ -598,7 +592,7 @@ export default function KonselorJadwalPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl pb-10">
+    <PageContainer role="counselor" spacing="none" className="pb-10">
       {view === "month" ? renderMonth() : renderDay()}
 
       {/* Popup tambah / ubah / detail sesi */}
@@ -640,7 +634,7 @@ export default function KonselorJadwalPage() {
       >
         {toastMsg}
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

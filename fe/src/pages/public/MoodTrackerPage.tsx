@@ -175,7 +175,7 @@ function MascotResult({
         >
           {mood.badge}
         </span>
-        <h2 className="mt-3 font-[Montserrat] text-2xl font-extrabold text-[#1e5b3a] md:text-3xl">
+        <h2 className="mt-3 font-[Montserrat] text-2xl font-extrabold text-primary md:text-3xl">
           {mood.title}
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-gray-600 sm:text-base">
@@ -225,7 +225,7 @@ export default function MoodTrackerPage() {
     <div className="overflow-x-clip bg-white">
       <div className="mx-auto w-[92%] pb-16 pt-20 sm:w-[88%] md:pt-28 lg:w-[86%]">
         <h1 className="font-[Montserrat] text-2xl font-extrabold leading-tight text-[#111] sm:text-3xl lg:text-4xl">
-          Refleksi Mood & <span className="text-[#1e5b3a]">Kepribadian</span>
+          Refleksi Mood & <span className="text-primary">Kepribadian</span>
         </h1>
         <p className="mt-2 text-sm text-[#333] sm:text-base">
           Lacak perasaan harian Anda untuk kesehatan mental Anda
@@ -235,7 +235,7 @@ export default function MoodTrackerPage() {
         <div className="sticky top-16 z-40 mt-6 bg-white py-3 md:top-20">
           <div className="mb-2 flex items-center justify-between text-xs text-gray-600 sm:text-sm">
             <span>
-              <strong className="text-[#1e5b3a]">{done}</strong> dari {total}{" "}
+              <strong className="text-primary">{done}</strong> dari {total}{" "}
               pertanyaan terjawab
             </span>
             <span>{pct}%</span>
@@ -261,7 +261,7 @@ export default function MoodTrackerPage() {
                     : "border-[#e2eee8]"
                 }`}
               >
-                <span className="inline-block rounded-full bg-[#e8f5ee] px-2.5 py-0.5 text-[11px] font-bold text-[#1e5b3a] sm:text-xs">
+                <span className="inline-block rounded-full bg-[#e8f5ee] px-2.5 py-0.5 text-[11px] font-bold text-primary sm:text-xs">
                   Pertanyaan {qi + 1}
                 </span>
                 <p className="mb-4 mt-2 text-base font-bold leading-snug text-[#111] sm:text-lg">
@@ -276,9 +276,9 @@ export default function MoodTrackerPage() {
                         key={oi}
                         type="button"
                         onClick={() => selectAnswer(qi, oi)}
-                        className={`flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl border-[1.5px] px-2.5 py-3 text-center text-xs leading-snug transition-all duration-200 hover:-translate-y-0.5 hover:border-[#36c08f] hover:bg-[#f3fdf7] sm:text-sm ${
+                        className={`flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl border-[1.5px] px-2.5 py-3 text-center text-xs leading-snug transition-all duration-200 hover:-translate-y-0.5 hover:border-[#36c08f] hover:bg-primary-surface sm:text-sm ${
                           selected
-                            ? "border-[#14553a] bg-[#e8f5ee] font-bold shadow-[0_4px_12px_rgba(20,85,58,0.12)]"
+                            ? "border-primary bg-[#e8f5ee] font-bold shadow-[0_4px_12px_rgba(20,85,58,0.12)]"
                             : "border-[#cfe4da] bg-white text-[#1b1b1b]"
                         }`}
                       >
@@ -306,7 +306,7 @@ export default function MoodTrackerPage() {
             type="button"
             disabled={!allDone}
             onClick={() => setShowResult(true)}
-            className="w-full rounded-xl bg-[#1e5b3a] px-8 py-3 text-sm font-bold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-35 sm:w-auto sm:text-base"
+            className="w-full rounded-xl bg-primary px-8 py-3 text-sm font-bold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-35 sm:w-auto sm:text-base"
           >
             Cek Mood Saya
           </button>
@@ -320,7 +320,7 @@ export default function MoodTrackerPage() {
               <button
                 type="button"
                 onClick={restart}
-                className="rounded-lg border-[1.5px] border-[#1e5b3a] px-5 py-2.5 text-xs font-semibold text-[#1e5b3a] transition hover:bg-[#e8f5ee] sm:text-sm"
+                className="rounded-lg border-[1.5px] border-primary px-5 py-2.5 text-xs font-semibold text-primary transition hover:bg-[#e8f5ee] sm:text-sm"
               >
                 Ulangi Test
               </button>
@@ -330,19 +330,6 @@ export default function MoodTrackerPage() {
       </div>
 
       {/* Animasi maskot: bergerak sendiri, tanpa transition */}
-      <style>{`
-        .mascot-happy {
-          animation: mascot-happy 1.6s ease-in-out infinite;
-        }
-        @keyframes mascot-happy {
-          0%   { transform: translateY(0) rotate(0deg) scale(1); }
-          15%  { transform: translateY(-14px) rotate(-4deg) scale(1.03); }
-          30%  { transform: translateY(0) rotate(3deg) scale(1); }
-          45%  { transform: translateY(-10px) rotate(-3deg) scale(1.02); }
-          60%  { transform: translateY(0) rotate(0deg) scale(1); }
-          100% { transform: translateY(0) rotate(0deg) scale(1); }
-        }
-      `}</style>
     </div>
   );
 }

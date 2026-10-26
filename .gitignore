@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+/AGENTS.md
+/docs/
+/SiCARE_Refactor_Plan_v1.1.md

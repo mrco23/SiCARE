@@ -32,7 +32,7 @@ export default function AuthBackdrop() {
           key={`bubble-${i}`}
           className={`auth-bubble absolute bottom-0 rounded-full ring-1 ${
             b.tone === "gold"
-              ? "bg-[#c9a54a]/15 ring-[#c9a54a]/25"
+              ? "bg-brand-gold/15 ring-brand-gold/25"
               : "bg-white/10 ring-white/15"
           }`}
           style={{

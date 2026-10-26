@@ -1,66 +1,7 @@
 import { useRef, useState } from 'react';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
 import { Quote, ChevronLeft, ChevronRight } from 'lucide-react';
-
-interface Testimonial {
-  id: string;
-  anonymous: string;
-  role: string;
-  rating: number;
-  text: string;
-  category: string;
-}
-
-const TESTIMONIALS: Testimonial[] = [
-  {
-    id: 't1',
-    anonymous: 'G*****a',
-    role: 'Mahasiswa Semester 6',
-    rating: 5,
-    text: 'Awalnya saya ragu untuk mencoba konseling. Tapi setelah sesi pertama, saya merasa jauh lebih lega. Konselor sangat sabar mendengarkan dan tidak menghakimi sama sekali. Terima kasih SiCARE!',
-    category: 'Kesehatan Mental',
-  },
-  {
-    id: 't2',
-    anonymous: 'R*****n',
-    role: 'Mahasiswa Baru',
-    rating: 5,
-    text: 'Saya mengalami culture shock saat pertama kuliah. Dengan bantuan konselor, saya belajar cara beradaptasi dan membangun rasa percaya diri. Prosesnya mudah dan tidak menyulitkan sama sekali.',
-    category: 'Adaptasi & Akademik',
-  },
-  {
-    id: 't3',
-    anonymous: 'F*****i',
-    role: 'Mahasiswa Tingkat Akhir',
-    rating: 5,
-    text: 'Tekanan skripsi hampir membuatku menyerah. Layanan konseling karir di SiCARE membantu saya menemukan kembali motivasi dan strategi yang tepat. Sangat direkomendasikan!',
-    category: 'Karir & Akademik',
-  },
-  {
-    id: 't4',
-    anonymous: 'A*****s',
-    role: 'Mahasiswa Semester 4',
-    rating: 4,
-    text: 'Sistem booking sangat mudah digunakan. Konselor saya sangat profesional dan selalu menepati waktu. Sesi konseling online juga nyaman dan terasa personal.',
-    category: 'Pengalaman Layanan',
-  },
-  {
-    id: 't5',
-    anonymous: 'D*****a',
-    role: 'Mahasiswi Semester 3',
-    rating: 5,
-    text: 'Masalah hubungan yang sudah lama saya pendam akhirnya bisa saya hadapi dengan lebih bijak berkat bimbingan konselor di sini. Privasi terjaga dan tidak perlu khawatir.',
-    category: 'Hubungan Sosial',
-  },
-  {
-    id: 't6',
-    anonymous: 'H*****o',
-    role: 'Mahasiswa Pasca Sarjana',
-    rating: 5,
-    text: 'Konseling manajemen stres benar-benar mengubah cara saya menghadapi deadline dan tekanan akademik. Kini saya lebih produktif dan bahagia. Platform ini luar biasa!',
-    category: 'Manajemen Stres',
-  },
-];
+import { TESTIMONIALS } from "../../data/mock/publicShowcases";
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -88,12 +29,12 @@ export default function TestimonialSection() {
   return (
     <section
       id="testimonials"
-      className="section-padding bg-[#064E3B] px-6 relative overflow-hidden"
+      className="section-padding bg-primary px-6 relative overflow-hidden"
       ref={ref}
     >
       {/* Decorative elements */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-[#0A7A5C] rounded-full blur-3xl opacity-30 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#043D2E] rounded-full blur-2xl opacity-50 pointer-events-none" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary-light rounded-full blur-3xl opacity-30 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary-dark rounded-full blur-2xl opacity-50 pointer-events-none" />
       <div
         className="absolute inset-0 opacity-[0.03]"
         style={{
@@ -110,12 +51,12 @@ export default function TestimonialSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-14"
         >
-          <span className="inline-block text-xs font-bold text-[#DFF5E8] bg-[#0A7A5C]/40 border border-[#DFF5E8]/20 px-4 py-1.5 rounded-full mb-4 tracking-wide uppercase">
+          <span className="inline-block text-xs font-bold text-secondary bg-primary-light/40 border border-secondary/20 px-4 py-1.5 rounded-full mb-4 tracking-wide uppercase">
             Testimoni
           </span>
           <h2 className="text-3xl md:text-4xl font-black text-white leading-tight mb-4">
             Suara dari Mereka yang{' '}
-            <span className="text-[#DFF5E8]">Telah Melangkah</span>
+            <span className="text-secondary">Telah Melangkah</span>
           </h2>
           <p className="text-green-200 text-base max-w-xl mx-auto leading-relaxed font-medium">
             Identitas pengguna dirahasiakan sepenuhnya untuk menjaga privasi.
@@ -142,12 +83,12 @@ export default function TestimonialSection() {
                 className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-3xl p-6 hover:bg-white/15 transition-all duration-300 cursor-default"
               >
                 {/* Quote icon */}
-                <div className="w-10 h-10 rounded-xl bg-[#DFF5E8]/20 flex items-center justify-center mb-4">
-                  <Quote size={18} className="text-[#DFF5E8]" />
+                <div className="w-10 h-10 rounded-xl bg-secondary/20 flex items-center justify-center mb-4">
+                  <Quote size={18} className="text-secondary" />
                 </div>
 
                 {/* Category badge */}
-                <span className="inline-block text-xs bg-[#0A7A5C]/50 text-green-200 border border-green-400/20 px-3 py-1 rounded-full font-semibold mb-3">
+                <span className="inline-block text-xs bg-primary-light/50 text-green-200 border border-green-400/20 px-3 py-1 rounded-full font-semibold mb-3">
                   {t.category}
                 </span>
 

@@ -1,7 +1,7 @@
+import { PageHeader } from "../../components/shared";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle2,
-  GraduationCap,
   IdCard,
   LockKeyhole,
   Mail,
@@ -153,20 +153,16 @@ export default function KlienPengaturanPage() {
     .toUpperCase();
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 pb-28 sm:px-6 sm:py-8 lg:px-8">
-      <header>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-          Pengaturan
-        </h1>
-        <p className="mt-1 text-sm text-gray-500 sm:text-base">
-          Kelola data pribadi, notifikasi, dan keamanan akunmu.
-        </p>
-      </header>
+    <div className="pb-28 text-gray-800">
+      <PageHeader
+        title="Pengaturan"
+        description="Kelola data pribadi, notifikasi, dan keamanan akunmu."
+      />
 
       {/* Ringkasan akun (read-only) */}
       <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6">
         <div className="flex items-center gap-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#1e5b3a] text-sm font-bold text-white">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
             {initials}
           </span>
           <div className="min-w-0">
@@ -182,7 +178,7 @@ export default function KlienPengaturanPage() {
           <span
             className={`ml-1 rounded-full px-2.5 py-1 font-semibold ${
               ACCOUNT.active
-                ? "bg-[#e8f9f0] text-[#1e5b3a]"
+                ? "bg-primary-soft text-primary"
                 : "bg-red-50 text-red-700"
             }`}
           >
@@ -364,7 +360,7 @@ export default function KlienPengaturanPage() {
               <button
                 type="button"
                 onClick={saveChanges}
-                className="inline-flex flex-1 items-center justify-center rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] sm:flex-none"
+                className="inline-flex flex-1 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark sm:flex-none"
               >
                 Simpan perubahan
               </button>
@@ -376,7 +372,7 @@ export default function KlienPengaturanPage() {
       {toast && (
         <div
           role="status"
-          className="pointer-events-none fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#1e5b3a] px-4 py-2 text-sm font-semibold text-white shadow-lg"
+          className="pointer-events-none fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
         >
           <CheckCircle2 className="h-4 w-4" />
           {toast}
@@ -389,7 +385,7 @@ export default function KlienPengaturanPage() {
 /* ========================= KOMPONEN PENDUKUNG ========================= */
 
 const inputClass =
-  "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15 disabled:cursor-not-allowed disabled:bg-gray-100";
+  "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100";
 
 function Panel({
   icon,
@@ -409,7 +405,7 @@ function Panel({
       className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 ${className}`}
     >
       <div className="mb-5 flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8f9f0] text-[#1e5b3a]">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
           {icon}
         </span>
         <div>

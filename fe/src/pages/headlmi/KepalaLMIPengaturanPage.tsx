@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import {
   useEffect,
   useMemo,
@@ -283,19 +284,15 @@ export default function KepalaLMIPengaturanPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 text-gray-800 sm:px-6 sm:py-8 lg:px-8">
-      <header>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-          Pengaturan
-        </h1>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-gray-500 sm:text-base">
-          Kelola foto profil, informasi akun, dan keamanan Kepala LMI.
-        </p>
-      </header>
+    <PageContainer role="headlmi" spacing="none" className="text-gray-800">
+      <PageHeader
+        title="Pengaturan"
+        description="Kelola foto profil, informasi akun, dan keamanan Kepala LMI."
+      />
 
       <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="flex min-w-0 items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-[#f3faf5] text-[#1e5b3a]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-[#f3faf5] text-primary">
             {profile.photo ? (
               <img
                 src={profile.photo}
@@ -319,7 +316,7 @@ export default function KepalaLMIPengaturanPage() {
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <LockKeyhole className="h-4 w-4 shrink-0" />
           Status akun
-          <span className="ml-1 shrink-0 rounded-full bg-[#e8f9f0] px-2.5 py-1 font-semibold text-[#1e5b3a]">
+          <span className="ml-1 shrink-0 rounded-full bg-primary-soft px-2.5 py-1 font-semibold text-primary">
             Aktif
           </span>
         </div>
@@ -332,7 +329,7 @@ export default function KepalaLMIPengaturanPage() {
           description="Foto ditampilkan dalam rasio 1:1. Geser bingkai untuk memilih bagian foto."
         >
           <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-            <div className="aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-[#f7fcf9]">
+            <div className="aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-primary-tint">
               {profile.photo ? (
                 <img
                   src={profile.photo}
@@ -355,7 +352,7 @@ export default function KepalaLMIPengaturanPage() {
               />
               <button
                 type="button"
-                className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f]"
+                className="inline-flex items-center justify-center gap-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
                 onClick={() => photoInput.current?.click()}
               >
                 <Camera className="h-4 w-4" />
@@ -500,7 +497,7 @@ export default function KepalaLMIPengaturanPage() {
             <div className="flex justify-end border-t border-gray-100 pt-4">
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark sm:w-auto"
               >
                 <KeyRound className="h-4 w-4" />
                 Ubah kata sandi
@@ -520,8 +517,8 @@ export default function KepalaLMIPengaturanPage() {
           title="Batas Akses"
           description="Ringkasan hak akses pada panel pimpinan."
         >
-          <div className="flex items-start gap-3 rounded-xl bg-[#f7fcf9] p-4">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#1e5b3a]" />
+          <div className="flex items-start gap-3 rounded-xl bg-primary-tint p-4">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <p className="text-sm leading-relaxed text-gray-600">
               Akun Kepala LMI digunakan untuk memantau ringkasan layanan,
               laporan organisasi, dan feedback. Halaman ini tidak menyediakan
@@ -660,7 +657,7 @@ export default function KepalaLMIPengaturanPage() {
                   step="0.1"
                   value={cropZoom}
                   onChange={(event) => setCropZoom(Number(event.target.value))}
-                  className="w-full accent-[#1e5b3a]"
+                  className="w-full accent-primary"
                 />
               </label>
             </div>
@@ -676,7 +673,7 @@ export default function KepalaLMIPengaturanPage() {
               <button
                 type="button"
                 onClick={applyCrop}
-                className="inline-flex items-center justify-center rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f]"
+                className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
               >
                 Gunakan foto
               </button>
@@ -702,7 +699,7 @@ export default function KepalaLMIPengaturanPage() {
               <button
                 type="button"
                 onClick={saveChanges}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] sm:flex-none"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark sm:flex-none"
               >
                 <Save className="h-4 w-4" />
                 Simpan perubahan
@@ -715,7 +712,7 @@ export default function KepalaLMIPengaturanPage() {
       {toast && (
         <div
           role="status"
-          className="pointer-events-none fixed left-1/2 top-20 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-[#1e5b3a] px-4 py-2 text-sm font-semibold text-white shadow-lg"
+          className="pointer-events-none fixed left-1/2 top-20 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
         >
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{toast}</span>
@@ -725,12 +722,12 @@ export default function KepalaLMIPengaturanPage() {
       <p className="mt-8 pb-3 text-center text-[11px] leading-relaxed text-gray-400">
         Rancangan frontend. Profil dan keamanan akun belum terhubung ke backend.
       </p>
-    </div>
+    </PageContainer>
   );
 }
 
 const inputClass =
-  "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15";
+  "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15";
 
 function Panel({
   icon,
@@ -750,7 +747,7 @@ function Panel({
       className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 ${className}`}
     >
       <div className="mb-5 flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8f9f0] text-[#1e5b3a]">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
           {icon}
         </span>
         <div className="min-w-0">
