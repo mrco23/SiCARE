@@ -1,7 +1,7 @@
 import { PageHeader } from "../../components/shared";
 import {
+  CLIENT_BOOKING_STATUS,
   CLIENT_SESSION_TIMELINE_STATUS,
-  type ClientSessionTimelineStatus,
 } from "../../constants/status";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
@@ -17,6 +17,30 @@ import {
   X,
 } from "lucide-react";
 import { COUNSELOR_SCHEDULE, RESCHEDULE_REASONS, createInitialSessions, type Session } from "../../data/mock/clientActivity";
+import { CLIENT_COUNSELOR_IDENTITIES } from "../../data/mock/clientCounselors";
+import { BookingRequestCard } from "../../components/client/activity/BookingRequestCard";
+import { useBookingStore } from "../../features/booking/store/bookingStore";
+import { selectClientBookings } from "../../features/booking/selectors/clientBookingSelectors";
+import { selectClientActivityFeedback } from "../../features/feedback/selectors/clientActivityFeedbackSelectors";
+import { useFeedbackStore } from "../../features/feedback/store/feedbackStore";
+import {
+  canReschedule,
+  countdown,
+  dayLabel,
+  formatTime,
+  needsFeedback,
+  RESCHEDULE_MAX,
+  RESCHEDULE_MIN_HOURS,
+  sameDay,
+  startOfDay,
+  statusOf,
+} from "../../features/client/activity/sessionRules";
+import { DEMO_NOTIFICATION_RECIPIENTS, useNotificationStore } from "../../features/notification/notificationStore";
+
+
+
+
+
 
 type RescheduleState = {
   sessionId: number;
@@ -33,68 +57,18 @@ type TimeSlot = {
   start: Date;
 };
 
-const RESCHEDULE_MIN_HOURS = 24;
-const RESCHEDULE_MAX = 1;
 const MAX_AHEAD_DAYS = 60;
 
 // Letakkan file PDF di folder public/
 const CONSENT_PDF_URL = "/informed-consent.pdf";
 
-const formatTime = (date: Date) =>
-  `${String(date.getHours()).padStart(2, "0")}.${String(date.getMinutes()).padStart(2, "0")}`;
 
-const startOfDay = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
-const dayLabel = (date: Date, now: number) => {
-  const today = startOfDay(new Date(now));
-  const target = startOfDay(date);
-  const difference = Math.round(
-    (target.getTime() - today.getTime()) / 86_400_000,
-  );
 
-  if (difference === 0) return "Hari ini";
-  if (difference === 1) return "Besok";
-  if (difference === -1) return "Kemarin";
 
-  return date.toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-};
 
-const countdown = (milliseconds: number) => {
-  const minutes = Math.max(0, Math.floor(milliseconds / 60_000));
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return hours > 0
-    ? `${hours} jam ${remainingMinutes} menit lagi`
-    : `${remainingMinutes} menit lagi`;
-};
 
-const statusOf = (session: Session, now: number): ClientSessionTimelineStatus => {
-  if (now >= session.start.getTime() && now < session.end.getTime()) {
-    return CLIENT_SESSION_TIMELINE_STATUS.ONGOING;
-  }
-  if (now >= session.end.getTime()) return CLIENT_SESSION_TIMELINE_STATUS.COMPLETED;
-  return CLIENT_SESSION_TIMELINE_STATUS.UPCOMING;
-};
-
-const canReschedule = (session: Session, now: number) => {
-  const hoursLeft = (session.start.getTime() - now) / 3_600_000;
-  return (
-    statusOf(session, now) === CLIENT_SESSION_TIMELINE_STATUS.UPCOMING &&
-    hoursLeft >= RESCHEDULE_MIN_HOURS &&
-    session.rescheduleCount < RESCHEDULE_MAX
-  );
-};
-
-const needsFeedback = (session: Session, now: number) =>
-  statusOf(session, now) === CLIENT_SESSION_TIMELINE_STATUS.COMPLETED &&
-  !session.feedbackGiven;
 
 /* ============================================================
  * Kolom tanda tangan digital (canvas, mendukung jari/stylus/mouse)
@@ -340,7 +314,29 @@ function ConsentDialog({
 }
 
 export default function KlienAktivitasPage() {
-  const [sessions, setSessions] = useState<Session[]>(createInitialSessions);
+  const addClientFeedback = useFeedbackStore((state) => state.addClientFeedback);
+  const feedbackItems = useFeedbackStore((state) => state.items);
+  const addNotification = useNotificationStore((state) => state.addNotification);
+  const sharedBookings = useBookingStore((state) => state.bookings);
+  const [localSessions, setLocalSessions] = useState<Session[]>(createInitialSessions);
+  const sessions = useMemo(
+    () =>
+      localSessions.map((session) => {
+        const feedback = selectClientActivityFeedback(
+          feedbackItems,
+          DEMO_NOTIFICATION_RECIPIENTS.client,
+          session.id,
+        );
+        return feedback
+          ? { ...session, feedbackGiven: true, rating: feedback.rating }
+          : session;
+      }),
+    [localSessions, feedbackItems],
+  );
+  const clientBookings = useMemo(
+    () => selectClientBookings(sharedBookings, DEMO_NOTIFICATION_RECIPIENTS.client),
+    [sharedBookings],
+  );
   const [now, setNow] = useState(() => Date.now());
   const [feedbackSessionId, setFeedbackSessionId] = useState<number | null>(
     null,
@@ -402,6 +398,9 @@ export default function KlienAktivitasPage() {
   const weekCount = upcoming.filter(
     (session) => session.start.getTime() - now <= 7 * 86_400_000,
   ).length;
+  const pendingBookingCount = clientBookings.filter(
+    (booking) => booking.clientStatus === CLIENT_BOOKING_STATUS.PENDING,
+  ).length;
 
   const summaryLine = [
     ongoing.length
@@ -411,11 +410,16 @@ export default function KlienAktivitasPage() {
       ? weekCount
         ? `Kamu punya ${weekCount} sesi dalam 7 hari ke depan.`
         : "Belum ada sesi dalam 7 hari ke depan."
-      : !ongoing.length && !upcoming.length
+      : !ongoing.length && !upcoming.length && pendingBookingCount === 0
         ? "Belum ada sesi yang dijadwalkan."
-        : "",
+        : !ongoing.length && !upcoming.length && pendingBookingCount > 0
+          ? `${pendingBookingCount} permintaan booking menunggu konfirmasi.`
+          : "",
     pendingFeedback.length
       ? `${pendingFeedback.length} sesi menunggu penilaianmu.`
+      : "",
+    pendingBookingCount > 0 && (ongoing.length > 0 || upcoming.length > 0)
+      ? `${pendingBookingCount} permintaan booking menunggu konfirmasi.`
       : "",
   ]
     .filter(Boolean)
@@ -479,14 +483,52 @@ export default function KlienAktivitasPage() {
 
   const submitFeedback = () => {
     if (feedbackSessionId === null || feedbackRating < 1) return;
+    const session = sessions.find((item) => item.id === feedbackSessionId);
+    if (!session) return;
+    if (
+      selectClientActivityFeedback(
+        useFeedbackStore.getState().items,
+        DEMO_NOTIFICATION_RECIPIENTS.client,
+        feedbackSessionId,
+      )
+    ) {
+      closeFeedback();
+      showToast("Penilaian untuk sesi ini sudah pernah dikirim.");
+      return;
+    }
 
-    setSessions((current) =>
-      current.map((session) =>
-        session.id === feedbackSessionId
-          ? { ...session, feedbackGiven: true, rating: feedbackRating }
-          : session,
-      ),
+    const counselor = Object.values(CLIENT_COUNSELOR_IDENTITIES).find(
+      (identity) => identity.historyName === session.counselor,
     );
+    const counselorId = counselor?.entityId ?? "counselor-unknown";
+    const format = session.service.toLowerCase().includes("kelompok")
+      ? "Kelompok"
+      : "Individu";
+    addClientFeedback({
+      clientId: DEMO_NOTIFICATION_RECIPIENTS.client,
+      clientActivitySessionId: session.id,
+      counselorId,
+      counselorName: session.counselor,
+      rating: feedbackRating,
+      text: feedbackNote,
+      format,
+    });
+
+    addNotification({
+      recipientId: counselorId,
+      recipientRole: "counselor",
+      title: "Feedback baru dari Klien",
+      message: `Klien memberikan penilaian ${feedbackRating}/5 untuk sesi bersama ${session.counselor}.`,
+      href: "/konselor/feedback",
+    });
+    addNotification({
+      recipientId: DEMO_NOTIFICATION_RECIPIENTS.admin,
+      recipientRole: "admin",
+      title: "Feedback baru menunggu moderasi",
+      message: "Feedback baru dari sesi konseling masuk ke antrean pemeriksaan.",
+      href: "/admin/feedback",
+    });
+
     closeFeedback();
     showToast("Terima kasih! Penilaianmu sudah kami terima.");
   };
@@ -494,7 +536,7 @@ export default function KlienAktivitasPage() {
   const submitConsent = (signature: string) => {
     if (consentSessionId === null) return;
 
-    setSessions((current) =>
+    setLocalSessions((current) =>
       current.map((session) =>
         session.id === consentSessionId
           ? {
@@ -578,7 +620,7 @@ export default function KlienAktivitasPage() {
       month: "long",
     })}, ${selectedSlot.label.replace("-", "–")} WITA`;
 
-    setSessions((current) =>
+    setLocalSessions((current) =>
       current.map((session) =>
         session.id === rescheduleSession.id
           ? {
@@ -1047,6 +1089,29 @@ export default function KlienAktivitasPage() {
         title="Aktivitasmu"
         description={summaryLine}
       />
+
+      {clientBookings.length > 0 && (
+        <section aria-labelledby="client-bookings-title">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 id="client-bookings-title" className="font-display text-lg font-bold text-gray-900">
+                Booking yang kamu ajukan
+              </h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Status permintaan dan jadwal dari proses booking.
+              </p>
+            </div>
+            <Link to="/klien/riwayat" className="shrink-0 text-xs font-semibold text-primary hover:underline">
+              Lihat riwayat
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {clientBookings.slice(0, 3).map((booking) => (
+              <BookingRequestCard key={booking.id} booking={booking} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {ongoing.length > 0 && (
         <section>

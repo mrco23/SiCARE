@@ -1,7 +1,8 @@
 import { NavLink, Outlet } from "react-router-dom";
+import NotificationBell from "../components/shared/NotificationBell";
+import { DEMO_NOTIFICATION_RECIPIENTS } from "../features/notification/notificationStore";
 import {
   Activity,
-  Bell,
   CalendarDays,
   History,
   Home,
@@ -76,18 +77,12 @@ export default function KlienLayout() {
             ))}
           </nav>
 
-          <button
-            type="button"
-            aria-label="Notifikasi"
-            title="Notifikasi"
-            className="mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#333] transition-colors hover:bg-gray-100 hover:text-primary sm:mr-4 sm:h-10 sm:w-10"
-          >
-            <Bell
-              className="h-[19px] w-[19px]"
-              fill="currentColor"
-              strokeWidth={1.5}
-            />
-          </button>
+          <NotificationBell
+            role="client"
+            recipientId={DEMO_NOTIFICATION_RECIPIENTS.client}
+            wrapperClassName="mr-3 shrink-0 sm:mr-4"
+            buttonClassName="h-9 w-9 sm:h-10 sm:w-10"
+          />
 
           <NavLink
             to="/klien/pengaturan"

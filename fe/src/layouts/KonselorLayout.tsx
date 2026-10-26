@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
+import NotificationBell from "../components/shared/NotificationBell";
+import { DEMO_NOTIFICATION_RECIPIENTS } from "../features/notification/notificationStore";
 
 import {
-  Bell,
   CalendarDays,
   Clock,
   Home,
@@ -109,7 +110,7 @@ export default function KonselorLayout() {
 function Navbar() {
   return (
     <header
-      className="layout-navbar fixed right-0 top-0 left-0 z-30 overflow-hidden border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
+      className="layout-navbar fixed right-0 top-0 left-0 z-30 overflow-visible border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
     >
       {/* logo mobile (di desktop logo sudah ada di sidebar) */}
       <Link
@@ -130,16 +131,12 @@ function Navbar() {
       </Link>
 
       {/* notification */}
-      <button
-        type="button"
-        className="absolute right-[168px] top-[26px] text-[#333] transition-colors hover:text-primary"
-      >
-        <Bell
-          className="h-[19px] w-[19px]"
-          fill="currentColor"
-          strokeWidth={1.5}
-        />
-      </button>
+      <NotificationBell
+        role="counselor"
+        recipientId={DEMO_NOTIFICATION_RECIPIENTS.counselor}
+        wrapperClassName="absolute right-[168px] top-[16px] z-50"
+        buttonClassName="h-10 w-10"
+      />
 
       {/* mountain */}
       <svg

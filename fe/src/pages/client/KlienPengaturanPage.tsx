@@ -9,19 +9,14 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { EDUCATION_LEVELS } from "../../constants/registerOptions";
+import {
+  MAX_ADDRESS,
+  validateClientProfile,
+  type ClientProfile,
+  type ClientProfileErrors as Errors,
+} from "../../features/client/profile/profileValidation";
 
 /* ========================= TIPE ========================= */
-
-type ClientProfile = {
-  phone: string;
-  address: string;
-  occupation: string;
-  education: string;
-};
-
-type Errors = Partial<
-  Record<"phone" | "address" | "occupation" | "education", string>
->;
 
 /* ========================= KONSTANTA ========================= */
 
@@ -52,9 +47,6 @@ const INITIAL: ClientProfile = {
 
 const clone = (v: ClientProfile): ClientProfile =>
   JSON.parse(JSON.stringify(v));
-const MAX_ADDRESS = 200;
-const MAX_OCCUPATION = 60;
-const PHONE_RE = /^(\+62|62|0)[0-9]{8,13}$/;
 const PASSWORD_MIN = 8;
 
 /* ========================= HALAMAN ========================= */
@@ -71,24 +63,7 @@ export default function KlienPengaturanPage() {
 
   const dirty = JSON.stringify(profile) !== JSON.stringify(saved);
 
-  const errors = useMemo<Errors>(() => {
-    const e: Errors = {};
-    const phone = profile.phone.replace(/[\s()-]/g, "");
-    if (!phone) e.phone = "Nomor telepon wajib diisi";
-    else if (!PHONE_RE.test(phone))
-      e.phone = "Format nomor telepon tidak valid";
-
-    if (!profile.address.trim()) e.address = "Alamat wajib diisi";
-    else if (profile.address.length > MAX_ADDRESS)
-      e.address = `Maksimal ${MAX_ADDRESS} karakter`;
-
-    if (profile.occupation.length > MAX_OCCUPATION)
-      e.occupation = `Maksimal ${MAX_OCCUPATION} karakter`;
-
-    if (!(EDUCATION_LEVELS as readonly string[]).includes(profile.education))
-      e.education = "Pilih pendidikan terakhir";
-    return e;
-  }, [profile]);
+  const errors = useMemo<Errors>(() => validateClientProfile(profile), [profile]);
 
   useEffect(() => {
     if (!toast) return;

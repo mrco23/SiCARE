@@ -11,3 +11,18 @@ export interface Booking {
   startTime: string;
   status: BookingStatus;
 }
+
+/** Runtime booking metadata shared by the client, counselor, and admin views. */
+export interface BookingRecord extends Booking {
+  clientName: string;
+  counselorName: string;
+  topic: string;
+  createdAt: string;
+  room?: string;
+}
+
+/** Input for creating a booking; intake answers are intentionally excluded. */
+export type CreateBookingInput = Omit<
+  BookingRecord,
+  "id" | "status" | "createdAt" | "room"
+>;

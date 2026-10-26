@@ -29,12 +29,23 @@ import {
 import { CLIENT_HISTORY_COUNSELORS as COUNSELORS, type ClientCounselorKey as CounselorKey } from "../../data/mock/clientCounselors";
 import { SEMESTERS, SESSIONS, BOOKINGS, ESSAY_POOL, type Session } from "../../data/mock/clientHistory";
 import { INTAKE_TOPICS as TOPICS, INTAKE_YESNO_OPTIONS as YESNO, INTAKE_ESSAY_OPTIONS as ESSAYS } from "../../data/mock/intakeOptions";
+import { useBookingStore } from "../../features/booking/store/bookingStore";
+import { selectClientBookings } from "../../features/booking/selectors/clientBookingSelectors";
+import { DEMO_NOTIFICATION_RECIPIENTS } from "../../features/notification/notificationStore";
+
 
 const CONSENT_PDF_URL = "/informed-consent.pdf";
+
 
 type ViewKind = "hub" | "booking" | "konseling";
 type Period = "hari" | "minggu" | "bulan" | "semester";
 type FormatFilter = "all" | CounselingFormat;
+
+
+
+
+
+
 
 type HistoryItem = {
   kind: "booking" | "konseling";
@@ -66,6 +77,22 @@ type Intake = {
   weaknesses: string;
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const BOOK_STATUS: Record<
   ClientHistoryBookingStatus,
   { label: string; badge: string; iconWrap: string; icon: LucideIcon }
@@ -87,6 +114,18 @@ const BOOK_STATUS: Record<
     badge: "bg-red-50 text-red-700",
     iconWrap: "bg-red-50 text-red-600",
     icon: XCircle,
+  },
+  [CLIENT_BOOKING_STATUS.CANCELLED]: {
+    label: "Dibatalkan",
+    badge: "bg-red-50 text-red-700",
+    iconWrap: "bg-red-50 text-red-600",
+    icon: XCircle,
+  },
+  [CLIENT_BOOKING_STATUS.COMPLETED]: {
+    label: "Selesai",
+    badge: "bg-gray-100 text-gray-700",
+    iconWrap: "bg-gray-100 text-gray-600",
+    icon: CheckCircle2,
   },
 };
 
@@ -199,6 +238,35 @@ const FORMAT_OPTIONS: { value: FormatFilter; label: string }[] = [
 ];
 
 export default function KlienRiwayatPage() {
+  const sharedBookings = useBookingStore((state) => state.bookings);
+  const bookingItems = useMemo(() => {
+    const newItems = selectClientBookings(
+      sharedBookings,
+      DEMO_NOTIFICATION_RECIPIENTS.client,
+    )
+      .map((booking): HistoryItem | null => {
+        if (!booking.counselorKey) return null;
+
+        const format: CounselingFormat =
+          booking.serviceType === "GROUP" ? "Kelompok" : "Individu";
+
+        return {
+          kind: "booking",
+          id: booking.id,
+          counselor: booking.counselorKey,
+          format,
+          date: booking.date,
+          time: booking.startTime,
+          requestedAt: booking.createdAt.slice(0, 10),
+          title: `Konseling ${format}`,
+          status: booking.clientStatus,
+          note: null,
+        };
+      })
+      .filter((item): item is HistoryItem => item !== null);
+
+    return [...BOOKING_ITEMS, ...newItems].sort(byNewest);
+  }, [sharedBookings]);
   const todayStart = useMemo(() => startOfDay(new Date()), []);
   const defaultSemesterIndex = useMemo(() => {
     const index = SEMESTERS.findIndex(
@@ -223,11 +291,11 @@ export default function KlienRiwayatPage() {
   const items = useMemo(
     () =>
       view === "booking"
-        ? BOOKING_ITEMS
+        ? bookingItems
         : view === "konseling"
           ? SESSION_ITEMS
           : [],
-    [view],
+    [bookingItems, view],
   );
 
   const range = useMemo(() => {
@@ -321,7 +389,7 @@ export default function KlienRiwayatPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const pendingBookings = BOOKINGS.filter(
+  const pendingBookings = bookingItems.filter(
     (booking) => booking.status === CLIENT_BOOKING_STATUS.PENDING,
   ).length;
   const notesCount = SESSIONS.filter((session) =>
@@ -433,7 +501,7 @@ export default function KlienRiwayatPage() {
                 Lihat janji temu yang pernah kamu ajukan beserta statusnya.
               </p>
               <p className="mt-4 text-sm font-semibold text-primary">
-                {BOOKINGS.length} booking
+                {bookingItems.length} booking
                 {pendingBookings
                   ? ` · ${pendingBookings} menunggu konfirmasi`
                   : ""}

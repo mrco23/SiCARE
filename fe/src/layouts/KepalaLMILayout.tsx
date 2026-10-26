@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
 import {
-  Bell,
   FileChartColumnIncreasing,
   LayoutDashboard,
   MessageSquareHeart,
@@ -10,6 +9,8 @@ import {
   X,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import NotificationBell from "../components/shared/NotificationBell";
+import { DEMO_NOTIFICATION_RECIPIENTS } from "../features/notification/notificationStore";
 
 
 type MenuItem = {
@@ -161,7 +162,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 function Navbar() {
   return (
     <header
-      className="layout-navbar fixed left-0 right-0 top-0 z-30 overflow-hidden border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
+      className="layout-navbar fixed left-0 right-0 top-0 z-30 overflow-visible border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
     >
       <Link
         to="/kepala-lmi"
@@ -181,17 +182,12 @@ function Navbar() {
         </span>
       </Link>
 
-      <button
-        type="button"
-        aria-label="Notifikasi"
-        className="absolute right-[168px] top-[26px] text-[#333] transition-colors hover:text-primary"
-      >
-        <Bell
-          className="h-[19px] w-[19px]"
-          fill="currentColor"
-          strokeWidth={1.5}
-        />
-      </button>
+      <NotificationBell
+        role="headlmi"
+        recipientId={DEMO_NOTIFICATION_RECIPIENTS.headlmi}
+        wrapperClassName="absolute right-[168px] top-[16px] z-50"
+        buttonClassName="h-10 w-10"
+      />
 
       <svg
         className="pointer-events-none absolute right-0 top-0"

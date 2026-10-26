@@ -1,53 +1,52 @@
 import { PageHeader } from "../../components/shared";
-import type { CounselingFormat, IntakeAnswer } from "../../types/counseling";
 import {
-  formatIndonesianDate,
-  parseLocalISODate as fromISO,
-  toISODate as toISO,
-} from "../../lib/dateUtils";
-import { useMemo, useState, type ReactNode } from "react";
+  BackButton,
+  CheckRow,
+  ErrorText,
+  Field,
+  Kv,
+  LayananCard,
+  ArtIndividu,
+  ArtKelompok,
+  NavButton,
+  Pill,
+  ScalePill,
+  Stepper,
+} from "../../components/client/booking/BookingFormControls";
+import type { CounselingFormat, IntakeAnswer } from "../../types/counseling";
+import { CalendarPicker, TimePanel } from "../../components/client/booking/BookingCalendar";
+import {
+  firstOfMonth,
+  formatBookingDate as fmtLong,
+  formatBookingSlot as fmtSlot,
+  minBookingDate as minDate,
+  MAX_AHEAD_DAYS,
+  type BookingSlot as Slot,
+} from "../../features/booking/utils/clientBookingCalendar";
+import { useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
   GraduationCap,
   Lock,
   MapPin,
   Search,
 } from "lucide-react";
-import { CLIENT_BOOKING_COUNSELORS as COUNSELORS, type BookingCounselor as Counselor } from "../../data/mock/clientCounselors";
+import { CLIENT_BOOKING_COUNSELORS as COUNSELORS } from "../../data/mock/clientCounselors";
 import { INTAKE_TOPICS as TOPICS, INTAKE_YESNO_OPTIONS as YESNO, INTAKE_SCALE_OPTIONS as SCALES, INTAKE_ESSAY_OPTIONS as ESSAYS } from "../../data/mock/intakeOptions";
+import { useBookingStore } from "../../features/booking/store/bookingStore";
+import {
+  createEmptyClientIntakeForm,
+  validateClientIntakeForm,
+  type ClientIntakeForm as IntakeForm,
+} from "../../features/booking/utils/clientIntakeForm";
+import { DEMO_NOTIFICATION_RECIPIENTS, useNotificationStore } from "../../features/notification/notificationStore";
+
 
 /* ========================= TIPE ========================= */
 type Step = 1 | 2 | 3 | 4 | 5 | 6; // 6 = selesai
 
-type Slot = { date: string; time: string }; // date: YYYY-MM-DD
 
-type IntakeForm = {
-  selfHarm: IntakeAnswer | null;
-  distress: IntakeAnswer | null;
-  abuse: IntakeAnswer | null;
-  substance: IntakeAnswer | null;
-  sleep: number | null;
-  finance: number | null;
-  topics: string[];
-  otherOn: boolean;
-  other: string;
-  complaint: string;
-  history: string;
-  reason: string;
-  efforts: string;
-  goal: string;
-  strengths: string;
-  weaknesses: string;
-  groupName: string;
-  groupSize: string;
-  groupMembers: string;
-  declared: boolean;
-  consent: boolean;
-};
 
 /* ========================= DATA (contoh) ========================= */
 // Di produksi, ambil dari API. Jadwal dan keahlian berasal dari profil konselor.
@@ -58,9 +57,6 @@ const STEPS = [
   "Form Awal",
   "Persetujuan",
 ];
-const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
-const MIN_LEAD_DAYS = 1; // paling cepat besok
-const MAX_AHEAD_DAYS = 60; // paling jauh 60 hari ke depan
 const SPESIALIS = [
   "Kecemasan",
   "Stres",
@@ -68,71 +64,27 @@ const SPESIALIS = [
   "Pengembangan Diri",
 ];
 
+
+
+
+
+
+
+
+
+
+
 const ANSWER_STYLE: Record<IntakeAnswer, string> = {
   Ya: "bg-red-100 text-red-800",
   Mungkin: "bg-amber-100 text-amber-800",
   Tidak: "bg-primary-soft text-primary",
 };
 
-const newForm = (): IntakeForm => ({
-  selfHarm: null,
-  distress: null,
-  abuse: null,
-  substance: null,
-  sleep: null,
-  finance: null,
-  topics: [],
-  otherOn: false,
-  other: "",
-  complaint: "",
-  history: "",
-  reason: "",
-  efforts: "",
-  goal: "",
-  strengths: "",
-  weaknesses: "",
-  groupName: "",
-  groupSize: "",
-  groupMembers: "",
-  declared: false,
-  consent: false,
-});
-
-/* ========================= HELPER TANGGAL ========================= */
-const startOfToday = () => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-const addDays = (d: Date, n: number) => {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-};
-const minDate = () => addDays(startOfToday(), MIN_LEAD_DAYS);
-const firstOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
-const fmtLong = (iso: string) =>
-  formatIndonesianDate(fromISO(iso), {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-const fmtSlot = (s: Slot) => `${fmtLong(s.date)}, ${s.time} WITA`;
-
-// Jam yang tersedia pada tanggal tertentu (weekend & di luar rentang: kosong)
-function slotsFor(c: Counselor, iso: string): string[] {
-  const d = fromISO(iso);
-  const today = startOfToday();
-  if (d < addDays(today, MIN_LEAD_DAYS) || d > addDays(today, MAX_AHEAD_DAYS))
-    return [];
-  const dow = d.getDay(); // 0 = Minggu, 6 = Sabtu
-  if (dow === 0 || dow === 6) return [];
-  return c.schedule[DAYS[dow - 1]] ?? [];
-}
-
 /* ========================= HALAMAN ========================= */
 export default function KlienPesananPage() {
+  const createBooking = useBookingStore((state) => state.createBooking);
+  const addNotification = useNotificationStore((state) => state.addNotification);
+  const submissionLock = useRef(false);
   const [step, setStep] = useState<Step>(1);
   const [layanan, setLayanan] = useState<CounselingFormat | null>(null);
   const [konselorId, setKonselorId] = useState<number | null>(null);
@@ -142,7 +94,7 @@ export default function KlienPesananPage() {
   const [calMonth, setCalMonth] = useState<Date>(() => firstOfMonth(minDate()));
   const [selDate, setSelDate] = useState<string | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
-  const [form, setForm] = useState<IntakeForm>(newForm);
+  const [form, setForm] = useState<IntakeForm>(createEmptyClientIntakeForm);
   const [missing, setMissing] = useState<string[]>([]);
   const [formError, setFormError] = useState(false);
 
@@ -186,29 +138,8 @@ export default function KlienPesananPage() {
         : [...prev.topics, t],
     }));
 
-  // Validasi form awal; mengembalikan daftar field yang belum lengkap
-  const validate = (): string[] => {
-    const miss: string[] = [];
-    YESNO.forEach(({ key }) => {
-      if (!form[key]) miss.push(key);
-    });
-    SCALES.forEach(({ key }) => {
-      if (!form[key]) miss.push(key);
-    });
-    const hasOther = form.otherOn && form.other.trim();
-    if (!form.topics.length && !hasOther) miss.push("topics");
-    ESSAYS.forEach(({ key }) => {
-      if (!form[key].trim()) miss.push(key);
-    });
-    if (layanan === "Kelompok") {
-      const size = Number(form.groupSize);
-      if (!form.groupName.trim()) miss.push("groupName");
-      if (!Number.isInteger(size) || size < 2 || size > 10)
-        miss.push("groupSize");
-      if (!form.groupMembers.trim()) miss.push("groupMembers");
-    }
-    return miss;
-  };
+  // Jawaban intake tetap lokal; helper hanya memvalidasi dan tidak menyimpan datanya.
+  const validate = (): string[] => validateClientIntakeForm(form, layanan);
 
   const handleNextFromForm = () => {
     const miss = validate();
@@ -218,19 +149,56 @@ export default function KlienPesananPage() {
   };
 
   const handleSubmit = () => {
-    if (!counselor || !slot || !layanan) return;
-    // Di produksi: kirim { layanan, konselorId, slot, form } ke API di sini.
+    if (!counselor || !slot || !layanan || submissionLock.current) return;
+    submissionLock.current = true;
+
+    // Simpan hanya metadata booking. Jawaban intake tidak dimasukkan ke store.
+    const booking = createBooking({
+      clientId: DEMO_NOTIFICATION_RECIPIENTS.client,
+      clientName: "Klien Demo",
+      counselorId: counselor.entityId,
+      counselorName: counselor.name,
+      serviceType: layanan === "Kelompok" ? "GROUP" : "INDIVIDUAL",
+      date: slot.date,
+      startTime: slot.time,
+      // Jangan menyalin jawaban/topik intake ke state global; detail intake tetap lokal.
+      topic: "Konseling",
+    });
+
+    const formattedDate = fmtLong(slot.date);
+    addNotification({
+      recipientId: DEMO_NOTIFICATION_RECIPIENTS.client,
+      recipientRole: "client",
+      title: "Permintaan booking berhasil dikirim",
+      message: `Permintaan konseling dengan ${counselor.name} pada ${formattedDate}, ${slot.time} telah dikirim dan menunggu konfirmasi.`,
+      href: "/klien/riwayat",
+    });
+    addNotification({
+      recipientId: booking.counselorId,
+      recipientRole: "counselor",
+      title: "Permintaan booking baru",
+      message: `${booking.clientName} mengajukan konseling ${layanan.toLowerCase()} pada ${formattedDate}, ${slot.time}.`,
+      href: "/konselor/permintaan",
+    });
+    addNotification({
+      recipientId: DEMO_NOTIFICATION_RECIPIENTS.admin,
+      recipientRole: "admin",
+      title: "Booking baru dari klien",
+      message: `${booking.clientName} mengajukan konseling dengan ${counselor.name}.`,
+      href: "/admin",
+    });
     goTo(6);
   };
 
   const handleRestart = () => {
+    submissionLock.current = false;
     setStep(1);
     setLayanan(null);
     setKonselorId(null);
     setSlot(null);
     setSelDate(null);
     setCalMonth(firstOfMonth(minDate()));
-    setForm(newForm());
+    setForm(createEmptyClientIntakeForm());
     setMissing([]);
     setFormError(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -243,7 +211,7 @@ export default function KlienPesananPage() {
         description="Langkah mudah untuk mendapatkan dukungan yang kamu butuhkan."
       />
 
-      {step <= 5 && <Stepper step={step} />}
+      {step <= 5 && <Stepper step={step} steps={STEPS} />}
 
       {/* ===== 1. JENIS LAYANAN ===== */}
       {step === 1 && (
@@ -928,463 +896,3 @@ export default function KlienPesananPage() {
 const CARD = "rounded-2xl border border-gray-200 bg-white p-4 sm:p-5";
 const INPUT =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
-const PILL_BASE =
-  "inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-sm font-semibold transition";
-const PILL_ON = "border-primary bg-primary text-white";
-const PILL_OFF =
-  "border-gray-300 bg-white text-gray-700 hover:border-primary";
-
-/* ========================= KOMPONEN KECIL ========================= */
-function Stepper({ step }: { step: Step }) {
-  return (
-    <ol className="mt-6 flex items-start overflow-x-auto pb-2">
-      {STEPS.map((label, i) => {
-        const n = i + 1;
-        const done = n < step;
-        const active = n === step;
-        const last = i === STEPS.length - 1;
-        return (
-          <li
-            key={label}
-            className={`flex min-w-[88px] flex-col items-center ${i === 0 ? "items-start" : ""} ${last ? "flex-none" : "flex-1"}`}
-          >
-            <div className="flex w-full items-center">
-              <span
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                  active || done
-                    ? "bg-primary text-white"
-                    : "bg-gray-200 text-gray-500"
-                }`}
-              >
-                {done ? "✓" : n}
-              </span>
-              {!last && (
-                <span
-                  className={`mt-0 h-0.5 flex-1 ${done ? "bg-primary" : "bg-gray-200"}`}
-                />
-              )}
-            </div>
-            <span
-              className={`mt-2 text-center text-[11px] font-semibold sm:text-xs ${active ? "text-primary" : "text-gray-500"}`}
-            >
-              {label}
-            </span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function LayananCard({
-  selected,
-  onClick,
-  title,
-  desc,
-  art,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  title: string;
-  desc: string;
-  art: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group flex flex-col rounded-2xl border-2 bg-white p-4 text-left transition hover:shadow-md ${
-        selected ? "border-primary" : "border-gray-200"
-      }`}
-    >
-      <div className="flex h-32 items-center justify-center rounded-xl bg-primary-tint">
-        {art}
-      </div>
-      <div className="mt-4 flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-gray-900">{title}</p>
-          <p className="mt-1 text-sm text-gray-600">{desc}</p>
-        </div>
-        <span
-          className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-            selected ? "border-primary bg-primary" : "border-gray-300"
-          }`}
-        >
-          {selected && <span className="h-2 w-2 rounded-full bg-white" />}
-        </span>
-      </div>
-      <span className="mt-4 inline-flex w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-        <Clock className="h-3.5 w-3.5" strokeWidth={2} /> 60 menit
-      </span>
-    </button>
-  );
-}
-
-function ArtIndividu() {
-  return (
-    <svg
-      viewBox="0 0 120 80"
-      className="h-24 w-auto"
-      fill="none"
-      strokeWidth={2}
-    >
-      <rect
-        x="12"
-        y="46"
-        width="34"
-        height="18"
-        rx="6"
-        fill="#a7e3c7"
-        stroke="#2e9a5f"
-      />
-      <rect
-        x="74"
-        y="46"
-        width="34"
-        height="18"
-        rx="6"
-        fill="#a7e3c7"
-        stroke="#2e9a5f"
-      />
-      <circle cx="38" cy="26" r="9" fill="#fde2c4" stroke="#1e5b3a" />
-      <circle cx="86" cy="26" r="9" fill="#dbeafe" stroke="#1d4ed8" />
-      <path d="M28 44c0-8 4-12 10-12s10 4 10 12" stroke="#1e5b3a" />
-      <path d="M76 44c0-8 4-12 10-12s10 4 10 12" stroke="#1d4ed8" />
-    </svg>
-  );
-}
-
-function ArtKelompok() {
-  return (
-    <svg
-      viewBox="0 0 120 80"
-      className="h-24 w-auto"
-      fill="none"
-      strokeWidth={2}
-    >
-      <circle cx="40" cy="28" r="8" fill="#fde2c4" stroke="#1e5b3a" />
-      <circle cx="60" cy="24" r="8" fill="#dbeafe" stroke="#1d4ed8" />
-      <circle cx="80" cy="28" r="8" fill="#fde2c4" stroke="#1e5b3a" />
-      <path
-        d="M28 52c0-8 5-12 12-12s12 4 12 12M48 52c0-8 5-12 12-12s12 4 12 12M68 52c0-8 5-12 12-12s12 4 12 12"
-        stroke="#2e9a5f"
-      />
-    </svg>
-  );
-}
-
-function CalendarPicker({
-  counselor,
-  calMonth,
-  setCalMonth,
-  selDate,
-  onSelectDate,
-}: {
-  counselor: Counselor;
-  calMonth: Date;
-  setCalMonth: (d: Date) => void;
-  selDate: string | null;
-  onSelectDate: (iso: string) => void;
-}) {
-  const first = firstOfMonth(calMonth);
-  const daysInMonth = new Date(
-    calMonth.getFullYear(),
-    calMonth.getMonth() + 1,
-    0,
-  ).getDate();
-  const offset = (first.getDay() + 6) % 7; // minggu dimulai Senin
-  const minFirst = firstOfMonth(minDate());
-  const maxDate = addDays(startOfToday(), MAX_AHEAD_DAYS);
-  const canPrev = first.getTime() > minFirst.getTime();
-  const canNext =
-    new Date(first.getFullYear(), first.getMonth() + 1, 1) <= maxDate;
-  const todayISO = toISO(startOfToday());
-  const monthLabel = first.toLocaleDateString("id-ID", {
-    month: "long",
-    year: "numeric",
-  });
-
-  return (
-    <div className="rounded-2xl border border-gray-200 p-4">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() =>
-            setCalMonth(new Date(first.getFullYear(), first.getMonth() - 1, 1))
-          }
-          disabled={!canPrev}
-          aria-label="Bulan sebelumnya"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-        </button>
-        <p className="font-display text-sm font-bold capitalize text-gray-900">
-          {monthLabel}
-        </p>
-        <button
-          type="button"
-          onClick={() =>
-            setCalMonth(new Date(first.getFullYear(), first.getMonth() + 1, 1))
-          }
-          disabled={!canNext}
-          aria-label="Bulan berikutnya"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          <ChevronRight className="h-4 w-4" strokeWidth={2} />
-        </button>
-      </div>
-
-      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-gray-500">
-        {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((h) => (
-          <span key={h}>{h}</span>
-        ))}
-      </div>
-
-      <div className="mt-1 grid grid-cols-7 gap-1">
-        {Array.from({ length: offset }).map((_, i) => (
-          <span key={`e${i}`} />
-        ))}
-        {Array.from({ length: daysInMonth }).map((_, i) => {
-          const day = i + 1;
-          const iso = toISO(
-            new Date(first.getFullYear(), first.getMonth(), day),
-          );
-          const has = slotsFor(counselor, iso).length > 0;
-          const sel = selDate === iso;
-          const isToday = iso === todayISO;
-          return (
-            <button
-              key={iso}
-              type="button"
-              disabled={!has}
-              onClick={() => onSelectDate(iso)}
-              aria-label={`${fmtLong(iso)}${has ? "" : " (tidak tersedia)"}`}
-              className={`relative flex h-9 items-center justify-center rounded-xl border text-sm font-semibold transition sm:h-10 ${
-                sel
-                  ? "border-primary bg-primary text-white"
-                  : has
-                    ? "border-primary/30 bg-primary-soft text-primary hover:border-primary"
-                    : "cursor-not-allowed border-transparent text-gray-300"
-              }`}
-            >
-              {day}
-              {isToday && (
-                <span
-                  className={`absolute bottom-1 h-1 w-1 rounded-full ${sel ? "bg-white" : "bg-primary"}`}
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-gray-500">
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded border border-primary/30 bg-primary-soft" />
-          Tersedia
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded bg-primary" />
-          Dipilih
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-1 w-1 rounded-full bg-primary" />
-          Hari ini
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function TimePanel({
-  counselor,
-  selDate,
-  slot,
-  onSelectSlot,
-}: {
-  counselor: Counselor;
-  selDate: string | null;
-  slot: Slot | null;
-  onSelectSlot: (time: string) => void;
-}) {
-  if (!selDate) {
-    return (
-      <div className="rounded-2xl border border-gray-200 p-4 md:p-5">
-        <p className="text-sm text-gray-500">
-          Pilih tanggal pada kalender terlebih dahulu.
-        </p>
-      </div>
-    );
-  }
-  const slots = slotsFor(counselor, selDate);
-  return (
-    <div className="rounded-2xl border border-gray-200 p-4 md:p-5">
-      <p className="text-sm font-semibold text-gray-900">{fmtLong(selDate)}</p>
-      <p className="mt-1 text-xs text-gray-500">
-        Pilih salah satu jam yang tersedia.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {slots.length === 0 && (
-          <p className="text-sm text-gray-500">Tidak ada jam tersedia.</p>
-        )}
-        {slots.map((t) => {
-          const on = slot?.date === selDate && slot?.time === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onSelectSlot(t)}
-              className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
-                on
-                  ? "border-primary bg-primary text-white"
-                  : "border-primary/40 bg-primary-soft text-primary hover:border-primary"
-              }`}
-            >
-              {t}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function Pill({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${PILL_BASE} px-4 py-1.5 ${selected ? PILL_ON : PILL_OFF}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ScalePill({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition ${
-        selected ? PILL_ON : PILL_OFF
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Field({
-  label,
-  error,
-  errorText,
-  children,
-}: {
-  label: string;
-  error: boolean;
-  errorText: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="mt-4">
-      <label className="text-sm font-semibold text-gray-700">{label}</label>
-      {children}
-      {error && <ErrorText>{errorText}</ErrorText>}
-    </div>
-  );
-}
-
-function ErrorText({ children }: { children: ReactNode }) {
-  return <p className="mt-2 text-xs font-semibold text-red-600">{children}</p>;
-}
-
-function Kv({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs text-gray-500">{label}</dt>
-      <dd className="mt-0.5 text-sm font-semibold text-gray-900">{value}</dd>
-    </div>
-  );
-}
-
-function CheckRow({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-}) {
-  return (
-    <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm text-gray-800">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-      />
-      <span>{label}</span>
-    </label>
-  );
-}
-
-function BackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-    >
-      <ChevronLeft className="h-4 w-4" strokeWidth={2} /> Kembali
-    </button>
-  );
-}
-
-function NavButton({
-  onClick,
-  disabled,
-  children,
-  variant = "outline",
-  className = "",
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  children: ReactNode;
-  variant?: "outline" | "solid";
-  className?: string;
-}) {
-  const base =
-    "inline-flex items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40";
-  const style =
-    variant === "solid"
-      ? "bg-primary px-5 py-2.5 text-white shadow-md hover:bg-primary-dark"
-      : "border border-primary text-primary hover:bg-primary-soft";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`${base} ${style} ${className}`}
-    >
-      {children}
-    </button>
-  );
-}
