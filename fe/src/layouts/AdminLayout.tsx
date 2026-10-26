@@ -1,13 +1,14 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import {
-  Bell,
   CalendarDays,
   MessageSquareText,
   MoreHorizontal,
   X,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import NotificationBell from "../components/shared/NotificationBell";
+import { DEMO_NOTIFICATION_RECIPIENTS } from "../features/notification/notificationStore";
 
 
 /* ========================= IKON ========================= */
@@ -271,7 +272,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 function Navbar() {
   return (
     <header
-      className="layout-navbar fixed right-0 top-0 left-0 z-30 overflow-hidden border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
+      className="layout-navbar fixed right-0 top-0 left-0 z-30 overflow-visible border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
     >
       {/* Logo mobile (di desktop logo sudah ada di sidebar) */}
       <Link
@@ -292,17 +293,12 @@ function Navbar() {
       </Link>
 
       {/* Lonceng */}
-      <button
-        type="button"
-        aria-label="Notifikasi"
-        className="absolute right-[168px] top-[26px] text-[#333] transition-colors hover:text-primary"
-      >
-        <Bell
-          className="h-[19px] w-[19px]"
-          fill="currentColor"
-          strokeWidth={1.5}
-        />
-      </button>
+      <NotificationBell
+        role="admin"
+        recipientId={DEMO_NOTIFICATION_RECIPIENTS.admin}
+        wrapperClassName="absolute right-[168px] top-[16px] z-50"
+        buttonClassName="h-10 w-10"
+      />
 
       {/* Dekorasi gunung hijau */}
       <svg

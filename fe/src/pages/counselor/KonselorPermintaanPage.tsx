@@ -1,8 +1,22 @@
 import { PageContainer, PageHeader } from "../../components/shared";
-import { COUNSELING_REQUEST_STATUS } from "../../constants/status";
+import { BOOKING_STATUS, COUNSELING_REQUEST_STATUS } from "../../constants/status";
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
-import { initialRequests, intakes, type CounselingRequest } from "../../data/mock/counselorRequests";
+import { intakes } from "../../data/mock/counselorRequests";
+import { useBookingStore } from "../../features/booking/store/bookingStore";
+import { DEMO_NOTIFICATION_RECIPIENTS, useNotificationStore } from "../../features/notification/notificationStore";
+import { formatIndonesianDate, parseLocalISODate } from "../../lib/dateUtils";
+
+
+
+
+
+
+
+
+
+
+
 
 const initials = (name: string) =>
   name
@@ -126,12 +140,21 @@ function EssayCard({
 }
 
 type ConfirmDecision = {
-  id: number;
+  id?: number;
+  bookingId?: string;
   accept: boolean;
 };
 
 export default function KonselorPermintaanPage() {
-  const [requests, setRequests] = useState<CounselingRequest[]>(initialRequests);
+  const bookings = useBookingStore((state) => state.bookings);
+  const requests = useBookingStore((state) => state.legacyRequests);
+  const updateLegacyRequest = useBookingStore((state) => state.updateLegacyRequest);
+  const updateBookingStatus = useBookingStore((state) => state.updateBookingStatus);
+  const addNotification = useNotificationStore((state) => state.addNotification);
+  const pendingClientBookings = useMemo(
+    () => bookings.filter((booking) => booking.counselorId === DEMO_NOTIFICATION_RECIPIENTS.counselor && booking.status === BOOKING_STATUS.WAITING_CONFIRMATION),
+    [bookings],
+  );
   const [formatFilter, setFormatFilter] = useState("Semua");
   const [sortMode, setSortMode] = useState("terlama");
   const [search, setSearch] = useState("");
@@ -160,12 +183,13 @@ export default function KonselorPermintaanPage() {
   const totalPending = requests.filter(
     (request) => request.status === COUNSELING_REQUEST_STATUS.PENDING,
   );
-  const individualCount = totalPending.filter(
-    (request) => request.format === "Individu",
-  ).length;
-  const groupCount = totalPending.filter(
-    (request) => request.format === "Kelompok",
-  ).length;
+  const totalPendingCount = totalPending.length + pendingClientBookings.length;
+  const individualCount =
+    totalPending.filter((request) => request.format === "Individu").length +
+    pendingClientBookings.filter((booking) => booking.serviceType === "INDIVIDUAL").length;
+  const groupCount =
+    totalPending.filter((request) => request.format === "Kelompok").length +
+    pendingClientBookings.filter((booking) => booking.serviceType === "GROUP").length;
 
   function notify(message: string) {
     setToastMsg(message);
@@ -180,24 +204,54 @@ export default function KonselorPermintaanPage() {
 
   function handleDecision() {
     if (!confirm) return;
-    const request = requests.find((item) => item.id === confirm.id);
-    if (!request) return;
-
     if (confirm.accept && !roomInput.trim()) return;
     const room = confirm.accept ? roomInput.trim() : "";
 
-    setRequests((previous) =>
-      previous.map((item) =>
-        item.id === confirm.id
-          ? {
-              ...item,
-              status: confirm.accept
-                ? COUNSELING_REQUEST_STATUS.ACCEPTED
-                : COUNSELING_REQUEST_STATUS.REJECTED,
-              room,
-            }
-          : item,
-      ),
+    if (confirm.bookingId) {
+      const booking = bookings.find((item) => item.id === confirm.bookingId);
+      if (!booking) return;
+      updateBookingStatus(
+        booking.id,
+        confirm.accept ? BOOKING_STATUS.CONFIRMED : BOOKING_STATUS.REJECTED,
+        room || undefined,
+      );
+      addNotification({
+        recipientId: booking.clientId,
+        recipientRole: "client",
+        title: confirm.accept ? "Booking dikonfirmasi" : "Booking ditolak",
+        message: confirm.accept
+          ? `Booking dengan ${booking.counselorName} telah dikonfirmasi. Ruangan: ${room}.`
+          : `Permintaan booking dengan ${booking.counselorName} belum dapat diterima.`,
+        href: "/klien/aktivitas",
+      });
+      addNotification({
+        recipientId: DEMO_NOTIFICATION_RECIPIENTS.admin,
+        recipientRole: "admin",
+        title: confirm.accept ? "Booking dikonfirmasi" : "Booking ditolak",
+        message: `${booking.clientName}: booking dengan ${booking.counselorName} ${confirm.accept ? "dikonfirmasi" : "ditolak"}.`,
+        href: "/admin",
+      });
+      setConfirm(null);
+      setRoomInput("");
+      setConfirmRoomSave(false);
+      notify(
+        confirm.accept
+          ? `Booking diterima. Ruangan ditetapkan: ${room}.`
+          : "Booking ditolak.",
+      );
+      return;
+    }
+
+    if (confirm.id === undefined) return;
+    const request = requests.find((item) => item.id === confirm.id);
+    if (!request) return;
+
+    updateLegacyRequest(
+      confirm.id,
+      confirm.accept
+        ? COUNSELING_REQUEST_STATUS.ACCEPTED
+        : COUNSELING_REQUEST_STATUS.REJECTED,
+      room,
     );
 
     setConfirm(null);
@@ -221,6 +275,21 @@ export default function KonselorPermintaanPage() {
       ].filter((flag): flag is string => Boolean(flag))
     : [];
 
+  const selectedDecisionBooking = confirm?.bookingId
+    ? bookings.find((booking) => booking.id === confirm.bookingId)
+    : undefined;
+  const selectedDecisionRequest = confirm?.id !== undefined
+    ? requests.find((request) => request.id === confirm.id)
+    : undefined;
+  const decisionName = selectedDecisionBooking?.clientName ?? selectedDecisionRequest?.name ?? "klien";
+  const decisionFormat = selectedDecisionBooking
+    ? selectedDecisionBooking.serviceType === "GROUP" ? "Kelompok" : "Individu"
+    : selectedDecisionRequest?.format;
+  const decisionTime = selectedDecisionBooking?.startTime ?? selectedDecisionRequest?.time;
+  const decisionDate = selectedDecisionBooking
+    ? formatIndonesianDate(parseLocalISODate(selectedDecisionBooking.date), { day: "numeric", month: "long", year: "numeric" })
+    : intakes[selectedDecisionRequest?.id ?? -1]?.date ?? "28 September 2026";
+
   return (
     <PageContainer role="counselor" spacing="none">
       {!currentRequest ? (
@@ -230,10 +299,39 @@ export default function KonselorPermintaanPage() {
             description="Tinjau permintaan klien sebelum menerima atau menolak."
           />
 
+          {pendingClientBookings.length > 0 && (
+            <section className="mt-5 rounded-2xl border border-primary/20 bg-primary/[0.035] p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">Booking baru dari Klien</h2>
+                  <p className="mt-1 text-xs text-gray-600">Booking yang dikirim melalui formulir pesanan tampil di sini secara langsung.</p>
+                </div>
+                <Badge className="bg-primary-soft text-primary">{pendingClientBookings.length} baru</Badge>
+              </div>
+              <ul className="mt-4 space-y-3">
+                {pendingClientBookings.map((booking) => (
+                  <li key={booking.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900">{booking.clientName}</p>
+                        <p className="mt-1 text-xs text-gray-600">{booking.serviceType === "GROUP" ? "Kelompok" : "Individu"} · {booking.topic}</p>
+                        <p className="mt-1 text-xs text-gray-500">{formatIndonesianDate(parseLocalISODate(booking.date), { weekday: "long", day: "numeric", month: "long", year: "numeric" })} · {booking.startTime} WITA</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => { setRoomInput(""); setConfirmRoomSave(false); setConfirm({ bookingId: booking.id, accept: false }); }} className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">Tolak</button>
+                        <button type="button" onClick={() => { setRoomInput(""); setConfirmRoomSave(false); setConfirm({ bookingId: booking.id, accept: true }); }} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-dark">Terima</button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             <StatCard
               label="Total Permintaan"
-              value={totalPending.length}
+              value={totalPendingCount}
               note="Menunggu persetujuan"
             />
             <StatCard
@@ -578,7 +676,7 @@ export default function KonselorPermintaanPage() {
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="text-lg font-bold">
                       Tolak permintaan{" "}
-                      {requests.find((item) => item.id === confirm.id)?.name}?
+                      {decisionName}?
                     </h2>
                     <button
                       type="button"
@@ -619,15 +717,12 @@ export default function KonselorPermintaanPage() {
                         Tentukan ruangan konseling
                       </h2>
                       <p className="mt-1 text-sm text-gray-500">
-                        {requests.find((item) => item.id === confirm.id)?.name}{" "}
+                        {decisionName}{" "}
                         ·{" "}
                         {
-                          requests.find((item) => item.id === confirm.id)
-                            ?.format
+                          decisionFormat
                         }{" "}
-                        · 28 September,{" "}
-                        {requests.find((item) => item.id === confirm.id)?.time}{" "}
-                        WITA
+                        · {decisionDate}, {decisionTime} WITA
                       </p>
                     </div>
                     <button
@@ -705,7 +800,7 @@ export default function KonselorPermintaanPage() {
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
               Apakah Anda yakin ingin menerima permintaan konseling dari{" "}
               <span className="font-semibold text-gray-900">
-                {requests.find((item) => item.id === confirm.id)?.name}
+                {decisionName}
               </span>{" "}
               dengan lokasi pelaksanaan berikut?
             </p>

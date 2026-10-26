@@ -53,15 +53,9 @@ export const CLIENT_BOOKING_STATUS = {
 export type ClientBookingStatus =
   (typeof CLIENT_BOOKING_STATUS)[keyof typeof CLIENT_BOOKING_STATUS];
 
-export type ClientDashboardBookingStatus = Exclude<
-  ClientBookingStatus,
-  typeof CLIENT_BOOKING_STATUS.REJECTED
->;
+export type ClientDashboardBookingStatus = ClientBookingStatus;
 
-export type ClientHistoryBookingStatus =
-  | typeof CLIENT_BOOKING_STATUS.PENDING
-  | typeof CLIENT_BOOKING_STATUS.SCHEDULED
-  | typeof CLIENT_BOOKING_STATUS.REJECTED;
+export type ClientHistoryBookingStatus = ClientBookingStatus;
 
 /** Shared outcome values used by the administrative session list. */
 export const SESSION_OUTCOME_STATUS = {

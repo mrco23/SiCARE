@@ -1,6 +1,6 @@
 /** Public-facing anonymous review fixture. Kept separate until an approved ID mapping to moderated feedback exists. */
 
-export type Role = "Mahasiswa" | "Dosen atau Staf";
+export type Role = "Mahasiswa" | "Dosen atau Staf" | "Klien";
 
 export type Format = "Individu" | "Kelompok";
 

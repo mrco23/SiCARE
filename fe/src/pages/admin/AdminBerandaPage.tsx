@@ -2,6 +2,9 @@ import { useState, type ElementType } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageContainer, PageHeader } from "../../components/shared";
 import { COUNSELOR_WORKLOAD, DASHBOARD_COUNTS, WEEKLY_SESSIONS } from "../../data/mock/dashboardOverview";
+import { BOOKING_STATUS } from "../../constants/status";
+import { useBookingStore, type BookingRecord } from "../../features/booking/store/bookingStore";
+import { formatIndonesianDate, parseLocalISODate } from "../../lib/dateUtils";
 
 import {
   ArrowRight,
@@ -64,16 +67,15 @@ const metrics: Metric[] = [
 
 const weeklySessions = WEEKLY_SESSIONS;
 
-const serviceDistribution = {
-  individu: 78,
-  kelompok: 22,
-  total: DASHBOARD_COUNTS.totalRequests,
-};
+const serviceDistribution = { individu: 78, kelompok: 22, total: 124 };
 
 const counselors = COUNSELOR_WORKLOAD.map((counselor) => ({
   name: counselor.name,
   sessions: counselor.sessions,
-  avatar: counselor.avatar,
+  avatar:
+    counselor.availability === "available"
+      ? "https://ui-avatars.com/api/?name=Giovanna+Yudi&background=15803d&color=fff"
+      : "https://ui-avatars.com/api/?name=Budi+Santoso&background=475569&color=fff",
   status: counselor.availability === "available" ? "AVAILABLE" : "FULLY BOOKED",
   statusClass:
     counselor.availability === "available"
@@ -82,7 +84,13 @@ const counselors = COUNSELOR_WORKLOAD.map((counselor) => ({
 }));
 
 /* ========================= KARTU METRIK ========================= */
-function MetricCards() {
+function MetricCards({
+  additionalRequests,
+  additionalPending,
+}: {
+  additionalRequests: number;
+  additionalPending: number;
+}) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {metrics.map(
@@ -103,7 +111,13 @@ function MetricCards() {
               <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
                 {label}
               </p>
-              <h3 className="text-3xl font-bold text-slate-800">{value}</h3>
+              <h3 className="text-3xl font-bold text-slate-800">
+                {label === "Total Permintaan"
+                  ? value + additionalRequests
+                  : label === "Menunggu Konfirmasi"
+                    ? value + additionalPending
+                    : value}
+              </h3>
               <p
                 className={`mt-1 flex items-center gap-0.5 text-xs font-semibold ${noteClass}`}
               >
@@ -318,10 +332,67 @@ function CounselorWorkload() {
   );
 }
 
+function RecentClientBookings({ bookings }: { bookings: BookingRecord[] }) {
+  if (bookings.length === 0) return null;
+
+  const statusLabel: Record<BookingRecord["status"], string> = {
+    [BOOKING_STATUS.WAITING_CONFIRMATION]: "Menunggu konfirmasi",
+    [BOOKING_STATUS.CONFIRMED]: "Dikonfirmasi",
+    [BOOKING_STATUS.REJECTED]: "Ditolak",
+    [BOOKING_STATUS.RESCHEDULE_REQUESTED]: "Perubahan jadwal",
+    [BOOKING_STATUS.CANCELLED]: "Dibatalkan",
+    [BOOKING_STATUS.COMPLETED]: "Selesai",
+  };
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold text-slate-800">Booking terbaru dari Klien</h2>
+          <p className="mt-1 text-xs text-slate-500">Data booking yang dibuat selama sesi demo browser ini.</p>
+        </div>
+        <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
+          {bookings.length} booking
+        </span>
+      </div>
+      <ul className="mt-4 divide-y divide-slate-100">
+        {bookings.slice(0, 4).map((booking) => (
+          <li key={booking.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-800">{booking.clientName}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {booking.counselorName} · {booking.serviceType === "GROUP" ? "Kelompok" : "Individu"}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {formatIndonesianDate(parseLocalISODate(booking.date), { day: "numeric", month: "short", year: "numeric" })} · {booking.startTime} WITA
+              </p>
+            </div>
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+              booking.status === BOOKING_STATUS.WAITING_CONFIRMATION
+                ? "bg-amber-50 text-amber-700"
+                : booking.status === BOOKING_STATUS.CONFIRMED
+                  ? "bg-emerald-50 text-emerald-700"
+                  : booking.status === BOOKING_STATUS.REJECTED
+                    ? "bg-red-50 text-red-700"
+                    : "bg-slate-100 text-slate-600"
+            }`}>
+              {statusLabel[booking.status]}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /* ========================= PAGE ========================= */
 export default function AdminBerandaPage() {
   const [period, setPeriod] =
     useState<(typeof periodFilters)[number]>("Hari Ini");
+  const bookings = useBookingStore((state) => state.bookings);
+  const pendingBookings = bookings.filter(
+    (booking) => booking.status === BOOKING_STATUS.WAITING_CONFIRMATION,
+  ).length;
 
   return (
     <PageContainer role="admin">
@@ -348,7 +419,12 @@ export default function AdminBerandaPage() {
         }
       />
 
-      <MetricCards />
+      <MetricCards
+        additionalRequests={bookings.length}
+        additionalPending={pendingBookings}
+      />
+
+      <RecentClientBookings bookings={bookings} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <SessionTrend />

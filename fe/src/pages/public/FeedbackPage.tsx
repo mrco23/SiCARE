@@ -1,16 +1,24 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, Star, Users, User } from "lucide-react";
-import { reviews, type Role, type Format, type Review } from "../../data/mock/publicFeedback";
+import { type Role, type Format, type Review } from "../../data/mock/publicFeedback";
+import { useFeedbackStore } from "../../features/feedback/store/feedbackStore";
+
+
+
 
 type SortMode = "terbaru" | "tertinggi" | "terendah";
 
+
+
 // Data contoh. Saat terhubung ke API, ganti dengan hasil fetch.
+
 
 const PAGE_SIZE = 4;
 const ROLE_FILTERS: { value: Role | "semua"; label: string }[] = [
   { value: "semua", label: "Semua" },
   { value: "Mahasiswa", label: "Mahasiswa" },
   { value: "Dosen atau Staf", label: "Dosen atau Staf" },
+  { value: "Klien", label: "Klien" },
 ];
 
 function timeAgo(days: number) {
@@ -81,12 +89,13 @@ function ReviewCard({ r }: { r: Review }) {
 }
 
 export default function FeedbackPage() {
+  const publicReviews = useFeedbackStore((state) => state.publicReviews);
   const [roleFilter, setRoleFilter] = useState<Role | "semua">("semua");
   const [sortMode, setSortMode] = useState<SortMode>("terbaru");
   const [visible, setVisible] = useState(PAGE_SIZE);
 
   const list = useMemo(() => {
-    const filtered = reviews.filter(
+    const filtered = publicReviews.filter(
       (r) => roleFilter === "semua" || r.role === roleFilter,
     );
     const sorted = [...filtered];
@@ -96,7 +105,7 @@ export default function FeedbackPage() {
     if (sortMode === "terendah")
       sorted.sort((a, b) => a.rating - b.rating || a.days - b.days);
     return sorted;
-  }, [roleFilter, sortMode]);
+  }, [publicReviews, roleFilter, sortMode]);
 
   const shown = list.slice(0, visible);
 

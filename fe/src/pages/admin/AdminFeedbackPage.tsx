@@ -32,7 +32,10 @@ import {
   type AcademicPeriod,
   type PeriodStatus,
 } from "../../lib/academicPeriods";
-import { DATA, PSIKOLOG, type Feedback } from "../../data/mock/adminFeedback";
+import { PSIKOLOG, type Feedback } from "../../data/mock/adminFeedback";
+import { useFeedbackStore } from "../../features/feedback/store/feedbackStore";
+import { useNotificationStore } from "../../features/notification/notificationStore";
+
 
 /* ========================= TIPE & DATA ========================= */
 /*
@@ -47,51 +50,10 @@ import { DATA, PSIKOLOG, type Feedback } from "../../data/mock/adminFeedback";
   Hanya feedback berstatus "shown" yang boleh ditampilkan ke publik.
 */
 
+
+
 type SortKey = "new" | "high" | "low";
 type StatusFilter = "all" | FeedbackModerationStatus;
-
-const MODERATION_STORAGE_KEY = "sicare:admin:feedback-moderation";
-type FeedbackModeration = {
-  status: FeedbackModerationStatus;
-  disabledReason?: string;
-};
-
-function loadModeration(): Record<string, FeedbackModeration> {
-  try {
-    const raw = localStorage.getItem(MODERATION_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-      return {};
-    const result: Record<string, FeedbackModeration> = {};
-    for (const [id, value] of Object.entries(parsed)) {
-      if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-      const record = value as Record<string, unknown>;
-      if (
-        record.status !== FEEDBACK_MODERATION_STATUS.PENDING &&
-        record.status !== FEEDBACK_MODERATION_STATUS.DISABLED &&
-        record.status !== FEEDBACK_MODERATION_STATUS.SHOWN
-      )
-        continue;
-      const reason =
-        typeof record.disabledReason === "string"
-          ? record.disabledReason.trim()
-          : "";
-      if (record.status === FEEDBACK_MODERATION_STATUS.DISABLED && !reason)
-        continue;
-      result[id] = {
-        status: record.status,
-        disabledReason:
-          record.status === FEEDBACK_MODERATION_STATUS.DISABLED
-            ? reason
-            : undefined,
-      };
-    }
-    return result;
-  } catch {
-    return {};
-  }
-}
 
 /* Label anonim konsisten per id, contoh: "Klien Anonim #A3F2" */
 const anon = (id: number) =>
@@ -358,10 +320,9 @@ export default function AdminFeedbackPage() {
   const today = useMemo(() => toISO(new Date()), []);
   const periods = useMemo(() => sortPeriods(loadPeriods()), []);
 
-  const [items, setItems] = useState<Feedback[]>(() => {
-    const saved = loadModeration();
-    return DATA.map((item) => ({ ...item, ...(saved[String(item.id)] ?? {}) }));
-  });
+  const items = useFeedbackStore((state) => state.items);
+  const setModerationStatus = useFeedbackStore((state) => state.setModerationStatus);
+  const addNotification = useNotificationStore((state) => state.addNotification);
   const [disableId, setDisableId] = useState<number | null>(null);
   const [disableReason, setDisableReason] = useState("");
   const [disableError, setDisableError] = useState("");
@@ -390,23 +351,6 @@ export default function AdminFeedbackPage() {
     [],
   );
 
-  useEffect(() => {
-    try {
-      const moderation: Record<string, FeedbackModeration> = {};
-      for (const item of items) {
-        moderation[String(item.id)] = {
-          status: item.status,
-          disabledReason:
-            item.status === FEEDBACK_MODERATION_STATUS.DISABLED
-              ? item.disabledReason
-              : undefined,
-        };
-      }
-      localStorage.setItem(MODERATION_STORAGE_KEY, JSON.stringify(moderation));
-    } catch {
-      // Penyimpanan browser tidak tersedia, moderasi tetap berjalan dalam state React.
-    }
-  }, [items]);
 
   useEffect(() => {
     if (disableId === null) return;
@@ -476,20 +420,27 @@ export default function AdminFeedbackPage() {
     status: FeedbackModerationStatus,
     reason = "",
   ) => {
-    setItems((current) =>
-      current.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              status,
-              disabledReason:
-                status === FEEDBACK_MODERATION_STATUS.DISABLED
-                  ? reason
-                  : undefined,
-            }
-          : item,
-      ),
-    );
+    const item = items.find((feedback) => feedback.id === id);
+    setModerationStatus(id, status, reason);
+    if (item?.clientId) {
+      addNotification({
+        recipientId: item.clientId,
+        recipientRole: "client",
+        title:
+          status === FEEDBACK_MODERATION_STATUS.SHOWN
+            ? "Feedback ditampilkan"
+            : status === FEEDBACK_MODERATION_STATUS.DISABLED
+              ? "Feedback dinonaktifkan"
+              : "Feedback dikembalikan ke antrean",
+        message:
+          status === FEEDBACK_MODERATION_STATUS.SHOWN
+            ? "Feedback kamu telah disetujui untuk ditampilkan secara publik."
+            : status === FEEDBACK_MODERATION_STATUS.DISABLED
+              ? `Feedback kamu dinonaktifkan. Alasan: ${reason.trim()}`
+              : "Feedback kamu sedang menunggu pemeriksaan kembali.",
+        href: "/klien/aktivitas",
+      });
+    }
     showToast(
       status === FEEDBACK_MODERATION_STATUS.SHOWN
         ? "Feedback ditampilkan."

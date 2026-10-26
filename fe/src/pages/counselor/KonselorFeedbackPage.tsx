@@ -11,9 +11,20 @@ import {
   UserRound,
 } from "lucide-react";
 import { COUNSELOR, feedbackData } from "../../data/mock/counselorFeedback";
+import { CLIENT_COUNSELOR_IDENTITIES } from "../../data/mock/clientCounselors";
+import { useFeedbackStore } from "../../features/feedback/store/feedbackStore";
 import { LEGACY_UI_SEMESTERS as semesters } from "../../data/mock/academicPeriods";
 
+
 type Period = "hari" | "minggu" | "bulan" | "semester";
+
+
+
+
+
+
+
+
 
 const periodOptions: { value: Period; label: string }[] = [
   { value: "hari", label: "Hari" },
@@ -21,7 +32,7 @@ const periodOptions: { value: Period; label: string }[] = [
   { value: "bulan", label: "Bulan" },
   { value: "semester", label: "Semester" },
 ];
-const mine = feedbackData.filter(
+const seedMine = feedbackData.filter(
   (feedback) => feedback.konselorId === COUNSELOR.id,
 );
 const startOfDay = (date: Date) =>
@@ -59,6 +70,22 @@ function Stars({
 }
 
 export default function KonselorFeedbackPage() {
+  const sharedFeedback = useFeedbackStore((state) => state.items);
+  const mine = useMemo(
+    () => [
+      ...seedMine,
+      ...sharedFeedback
+        .filter((feedback) => feedback.counselorId === CLIENT_COUNSELOR_IDENTITIES.GY.entityId)
+        .map((feedback) => ({
+          id: feedback.id,
+          konselorId: COUNSELOR.id,
+          rating: feedback.rating,
+          text: feedback.text,
+          date: feedback.date,
+        })),
+    ],
+    [sharedFeedback],
+  );
   const today = startOfDay(new Date());
   const defaultSemesterIndex = Math.max(
     0,
@@ -133,7 +160,7 @@ export default function KonselorFeedbackPage() {
         const date = new Date(feedback.date);
         return date >= range.start && date < range.end;
       }),
-    [range],
+    [mine, range],
   );
   const total = periodFeedback.length;
   const average = total

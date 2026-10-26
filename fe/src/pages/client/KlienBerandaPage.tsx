@@ -5,6 +5,11 @@ import {
 } from "../../constants/status";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useBookingStore } from "../../features/booking/store/bookingStore";
+import { selectLatestClientBooking } from "../../features/booking/selectors/clientBookingSelectors";
+import { DEMO_NOTIFICATION_RECIPIENTS } from "../../features/notification/notificationStore";
+import { parseLocalISODate } from "../../lib/dateUtils";
+import { DetailRow } from "../../components/client/dashboard/DetailRow";
 import {
   AlarmClock,
   ArrowRight,
@@ -60,6 +65,10 @@ const STATUS_STYLE: Record<
   [CLIENT_BOOKING_STATUS.CANCELLED]: {
     cls: "bg-red-50 text-red-700",
     label: "Dibatalkan",
+  },
+  [CLIENT_BOOKING_STATUS.REJECTED]: {
+    cls: "bg-red-50 text-red-700",
+    label: "Ditolak",
   },
 };
 
@@ -117,6 +126,19 @@ const fmtDateLong = (d: Date) =>
 
 /* ========================= HALAMAN ========================= */
 export default function BerandaKlienPage() {
+  const sharedBookings = useBookingStore((state) => state.bookings);
+  const latestSharedBooking = useMemo(
+    () => selectLatestClientBooking(sharedBookings, DEMO_NOTIFICATION_RECIPIENTS.client),
+    [sharedBookings],
+  );
+  const lastBooking: LastBooking | null = latestSharedBooking
+    ? {
+        service: latestSharedBooking.serviceLabel,
+        counselor: latestSharedBooking.counselorName,
+        status: latestSharedBooking.clientStatus,
+        requestedDate: parseLocalISODate(latestSharedBooking.date),
+      }
+    : LAST_BOOKING;
   const today = useMemo(() => new Date(), []);
   const tomorrow = useMemo(() => addDays(today, 1), [today]);
 
@@ -252,7 +274,7 @@ export default function BerandaKlienPage() {
             </h2>
           </div>
 
-          {!LAST_BOOKING ? (
+          {!lastBooking ? (
             <div className="mt-5 rounded-2xl border border-dashed border-gray-300 p-5 text-center text-sm text-gray-500">
               Belum ada booking.
             </div>
@@ -264,24 +286,24 @@ export default function BerandaKlienPage() {
                 </span>
                 <div>
                   <p className="font-semibold text-gray-700">
-                    {LAST_BOOKING.service}
+                    {lastBooking.service}
                   </p>
                   <p className="text-sm font-semibold text-gray-900">
-                    {LAST_BOOKING.counselor}
+                    {lastBooking.counselor}
                   </p>
                 </div>
               </div>
 
               <span
-                className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${STATUS_STYLE[LAST_BOOKING.status].cls}`}
+                className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${STATUS_STYLE[lastBooking.status].cls}`}
               >
-                {STATUS_STYLE[LAST_BOOKING.status].label}
+                {STATUS_STYLE[lastBooking.status].label}
               </span>
 
               <div className="mt-4">
                 <p className="text-sm text-gray-500">Tanggal diminta</p>
                 <p className="mt-0.5 font-semibold text-gray-900">
-                  {fmtDateLong(LAST_BOOKING.requestedDate)}
+                  {fmtDateLong(lastBooking.requestedDate)}
                 </p>
               </div>
 
@@ -364,25 +386,3 @@ export default function BerandaKlienPage() {
   );
 }
 
-/* ========================= KOMPONEN KECIL ========================= */
-function DetailRow({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
-        <Icon className="h-5 w-5" strokeWidth={1.8} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className="font-semibold text-gray-900">{value}</p>
-      </div>
-    </div>
-  );
-}

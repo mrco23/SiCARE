@@ -15,7 +15,12 @@ export type Feedback = {
   disabledReason?: string;
 };
 
-export const PSIKOLOG = ["Ma'am Giovanna Yudi, M.Psi", "Dr. Budi Santoso, Psikolog"];
+export const PSIKOLOG = [
+  "Ma'am Giovanna Yudi, M.Psi",
+  "Dr. Budi Santoso, Psikolog",
+  "Giovanna Yudi, S.Psi., M.Psi.",
+  "Rico Kornelius Wahani, S.Psi., M.Psi.",
+];
 
 export const DATA: Feedback[] = [
   {
