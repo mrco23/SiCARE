@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { ChevronDown, Star, Users, User } from "lucide-react";
 import { type Role, type Format, type Review } from "../../data/mock/publicFeedback";
 import { useFeedbackStore } from "../../features/feedback/store/feedbackStore";
+import { selectPublicReviews, type PublicReviewSortMode } from "../../features/public/feedback/selectors";
 
 
 
 
-type SortMode = "terbaru" | "tertinggi" | "terendah";
+type SortMode = PublicReviewSortMode;
 
 
 
@@ -94,18 +95,10 @@ export default function FeedbackPage() {
   const [sortMode, setSortMode] = useState<SortMode>("terbaru");
   const [visible, setVisible] = useState(PAGE_SIZE);
 
-  const list = useMemo(() => {
-    const filtered = publicReviews.filter(
-      (r) => roleFilter === "semua" || r.role === roleFilter,
-    );
-    const sorted = [...filtered];
-    if (sortMode === "terbaru") sorted.sort((a, b) => a.days - b.days);
-    if (sortMode === "tertinggi")
-      sorted.sort((a, b) => b.rating - a.rating || a.days - b.days);
-    if (sortMode === "terendah")
-      sorted.sort((a, b) => a.rating - b.rating || a.days - b.days);
-    return sorted;
-  }, [publicReviews, roleFilter, sortMode]);
+  const list = useMemo(
+    () => selectPublicReviews(publicReviews, roleFilter, sortMode),
+    [publicReviews, roleFilter, sortMode],
+  );
 
   const shown = list.slice(0, visible);
 

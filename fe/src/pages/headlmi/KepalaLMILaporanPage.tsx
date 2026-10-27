@@ -1,4 +1,5 @@
 import { PageContainer, PageHeader } from "../../components/shared";
+import { MetricCard } from "../../components/headlmi/MetricCard";
 import { SESSION_OUTCOME_LABEL } from "../../constants/status";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -26,6 +27,7 @@ import {
   type PeriodStatus,
 } from "../../lib/academicPeriods";
 import { SESSIONS, CANCELLATION_REASONS } from "../../data/mock/headlmiReports";
+import { countHeadLmiCancellationReasons, countSessionOutcomes, groupHeadLmiSessionsByMonth, selectHeadLmiSessionsInPeriod, summarizeHeadLmiSessionsByCounselor } from "../../features/headlmi/reports/selectors";
 import { REPORT_COUNSELORS as COUNSELORS, REPORT_MONTHS as MONTHS } from "../../data/mock/reportCommon";
 
 /* Data sintetis untuk desain frontend. Ganti dengan data agregat dari backend. */
@@ -39,50 +41,6 @@ const STATUS_STYLE: Record<PeriodStatus, string> = {
 const percent = (value: number, total: number) =>
   total > 0 ? Math.round((value / total) * 100) : 0;
 
-const sessionsInPeriod = (period: AcademicPeriod | null) =>
-  SESSIONS.filter(
-    (session) =>
-      !period ||
-      isInPeriod(toISO(new Date(`${session.date}T00:00:00`)), period),
-  );
-
-function MetricCard({
-  label,
-  value,
-  note,
-  icon: Icon,
-  tone = "green",
-}: {
-  label: string;
-  value: number | string;
-  note: string;
-  icon: typeof CheckCircle2;
-  tone?: "green" | "red" | "blue" | "gold";
-}) {
-  const tones = {
-    green: "bg-emerald-50 text-emerald-700",
-    red: "bg-red-50 text-red-600",
-    blue: "bg-blue-50 text-blue-700",
-    gold: "bg-amber-50 text-amber-700",
-  };
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-semibold leading-5 text-slate-500">
-          {label}
-        </p>
-        <span className={`rounded-xl p-2 ${tones[tone]}`}>
-          <Icon className="h-5 w-5" />
-        </span>
-      </div>
-      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
-        {value}
-      </p>
-      <p className="mt-1 text-xs text-slate-500">{note}</p>
-    </div>
-  );
-}
 
 function PeriodDropdown({
   periods,
@@ -240,7 +198,7 @@ function PeriodDropdown({
 
                   const active = selectedId === period.id;
                   const status = periodStatus(period, today);
-                  const sessionCount = sessionsInPeriod(period).length;
+                  const sessionCount = selectHeadLmiSessionsInPeriod(SESSIONS, period).length;
 
                   return (
                     <button
@@ -294,22 +252,16 @@ export default function KepalaLMILaporanPage() {
   });
 
   const period = periods.find((item) => item.id === periodId) ?? null;
-  const rows = useMemo(() => sessionsInPeriod(period), [period]);
+  const rows = useMemo(() => selectHeadLmiSessionsInPeriod(SESSIONS, period), [period]);
 
-  const completed = rows.filter((session) => session.status === SESSION_OUTCOME_LABEL.COMPLETED);
-  const cancelled = rows.filter((session) => session.status === SESSION_OUTCOME_LABEL.CANCELLED);
-  const individualCompleted = completed.filter(
-    (session) => session.format === "Individu",
-  );
-  const groupCompleted = completed.filter(
-    (session) => session.format === "Kelompok",
-  );
-  const individualCancelled = cancelled.filter(
-    (session) => session.format === "Individu",
-  );
-  const groupCancelled = cancelled.filter(
-    (session) => session.format === "Kelompok",
-  );
+  const {
+    completed,
+    cancelled,
+    individualCompleted,
+    groupCompleted,
+    individualCancelled,
+    groupCancelled,
+  } = countSessionOutcomes(rows);
 
   const previousPeriod = useMemo(() => {
     if (!period) return null;
@@ -319,7 +271,7 @@ export default function KepalaLMILaporanPage() {
   }, [period, periods]);
 
   const previousRows = useMemo(
-    () => (previousPeriod ? sessionsInPeriod(previousPeriod) : []),
+    () => (previousPeriod ? selectHeadLmiSessionsInPeriod(SESSIONS, previousPeriod) : []),
     [previousPeriod],
   );
   const previousCompleted = previousRows.filter(
@@ -331,18 +283,7 @@ export default function KepalaLMILaporanPage() {
       ? Math.round((completedChange / previousCompleted) * 100)
       : null;
 
-  const monthly = useMemo(() => {
-    const map: Record<string, { done: number; cancelled: number }> = {};
-    rows.forEach((session) => {
-      const key = session.date.slice(0, 7);
-      map[key] ??= { done: 0, cancelled: 0 };
-      if (session.status === SESSION_OUTCOME_LABEL.COMPLETED) map[key].done += 1;
-      else map[key].cancelled += 1;
-    });
-    return Object.entries(map)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => ({ key, ...value }));
-  }, [rows]);
+  const monthly = useMemo(() => groupHeadLmiSessionsByMonth(rows), [rows]);
 
   const maxMonth = Math.max(
     1,
@@ -350,52 +291,12 @@ export default function KepalaLMILaporanPage() {
   );
 
   const counselorRows = useMemo(
-    () =>
-      COUNSELORS.map((counselor) => {
-        const counselorSessions = rows.filter(
-          (session) => session.counselor === counselor,
-        );
-        const done = counselorSessions.filter(
-          (session) => session.status === SESSION_OUTCOME_LABEL.COMPLETED,
-        );
-        const canceled = counselorSessions.filter(
-          (session) => session.status === SESSION_OUTCOME_LABEL.CANCELLED,
-        );
-        return {
-          counselor,
-          individualDone: done.filter(
-            (session) => session.format === "Individu",
-          ).length,
-          groupDone: done.filter((session) => session.format === "Kelompok")
-            .length,
-          individualCancelled: canceled.filter(
-            (session) => session.format === "Individu",
-          ).length,
-          groupCancelled: canceled.filter(
-            (session) => session.format === "Kelompok",
-          ).length,
-          done: done.length,
-          cancelled: canceled.length,
-          total: counselorSessions.length,
-        };
-      }).filter((item) => item.total > 0),
+    () => summarizeHeadLmiSessionsByCounselor(rows, COUNSELORS),
     [rows],
   );
 
   const cancellationRows = useMemo(
-    () => {
-      const cancelled = rows.filter(
-        (session) => session.status === SESSION_OUTCOME_LABEL.CANCELLED,
-      );
-      return CANCELLATION_REASONS.map((reason) => ({
-        reason,
-        count: cancelled.filter(
-          (session) => session.cancellationReason === reason,
-        ).length,
-      }))
-        .filter((item) => item.count > 0)
-        .sort((a, b) => b.count - a.count);
-    },
+    () => countHeadLmiCancellationReasons(rows, CANCELLATION_REASONS),
     [rows],
   );
 

@@ -1,0 +1,376 @@
+import type { ElementType } from "react";
+import { useNavigate } from "react-router-dom";
+import { COUNSELOR_WORKLOAD, DASHBOARD_COUNTS, WEEKLY_SESSIONS } from "../../../data/mock/dashboardOverview";
+import { BOOKING_STATUS } from "../../../constants/status";
+import type { BookingRecord } from "../../../features/booking/store/bookingStore";
+import { formatIndonesianDate, parseLocalISODate } from "../../../lib/dateUtils";
+import { ArrowRight, ArrowUp, Ban, CircleCheck, Circle, Clock, Inbox } from "lucide-react";
+
+/* ========================= DATA (ganti dengan data dari API) ========================= */
+
+type Metric = {
+  label: string;
+  value: number;
+  note: string;
+  icon: ElementType;
+  noteClass: string;
+  iconClass: string;
+  showArrow?: boolean;
+};
+
+const metrics: Metric[] = [
+  {
+    label: "Total Permintaan",
+    value: DASHBOARD_COUNTS.totalRequests,
+    note: "Keseluruhan booking",
+    icon: Inbox,
+    noteClass: "text-emerald-600",
+    iconClass: "bg-emerald-50 text-[#15803d] border-emerald-100",
+    showArrow: true,
+  },
+  {
+    label: "Sesi Selesai",
+    value: DASHBOARD_COUNTS.completedSessions,
+    note: "Status: Completed",
+    icon: CircleCheck,
+    noteClass: "text-slate-500",
+    iconClass: "bg-blue-50 text-blue-600 border-blue-100",
+  },
+  {
+    label: "Dibatalkan",
+    value: DASHBOARD_COUNTS.cancelled,
+    note: "Status: Cancelled",
+    icon: Ban,
+    noteClass: "text-red-600",
+    iconClass: "bg-red-50 text-red-600 border-red-100",
+  },
+  {
+    label: "Menunggu Konfirmasi",
+    value: DASHBOARD_COUNTS.pending,
+    note: "Status: Waiting",
+    icon: Clock,
+    noteClass: "text-amber-600",
+    iconClass: "bg-amber-50 text-amber-600 border-amber-100",
+  },
+];
+
+const weeklySessions = WEEKLY_SESSIONS;
+
+const serviceDistribution = { individu: 78, kelompok: 22, total: 124 };
+
+const counselors = COUNSELOR_WORKLOAD.map((counselor) => ({
+  name: counselor.name,
+  sessions: counselor.sessions,
+  avatar:
+    counselor.availability === "available"
+      ? "https://ui-avatars.com/api/?name=Giovanna+Yudi&background=15803d&color=fff"
+      : "https://ui-avatars.com/api/?name=Budi+Santoso&background=475569&color=fff",
+  status: counselor.availability === "available" ? "AVAILABLE" : "FULLY BOOKED",
+  statusClass:
+    counselor.availability === "available"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : "bg-amber-50 text-amber-700 border-amber-200",
+}));
+
+/* ========================= KARTU METRIK ========================= */
+export function MetricCards({
+  additionalRequests,
+  additionalPending,
+}: {
+  additionalRequests: number;
+  additionalPending: number;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {metrics.map(
+        ({
+          label,
+          value,
+          note,
+          icon: Icon,
+          noteClass,
+          iconClass,
+          showArrow,
+        }) => (
+          <div
+            key={label}
+            className="flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                {label}
+              </p>
+              <h3 className="text-3xl font-bold text-slate-800">
+                {label === "Total Permintaan"
+                  ? value + additionalRequests
+                  : label === "Menunggu Konfirmasi"
+                    ? value + additionalPending
+                    : value}
+              </h3>
+              <p
+                className={`mt-1 flex items-center gap-0.5 text-xs font-semibold ${noteClass}`}
+              >
+                {showArrow && <ArrowUp className="h-3 w-3" />}
+                {note}
+              </p>
+            </div>
+            <div
+              className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${iconClass}`}
+            >
+              <Icon className="h-5 w-5" />
+            </div>
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
+/* ========================= TREN AKTIVITAS (BAR CHART) ========================= */
+export function SessionTrend() {
+  const maxValue = Math.max(...weeklySessions.map((w) => w.value));
+  const total = weeklySessions.reduce((sum, w) => sum + w.value, 0);
+  // Skala sedikit di atas nilai tertinggi supaya bar tertinggi tidak penuh
+  const scale = maxValue * 1.18;
+
+  return (
+    <div className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-bold text-slate-800">
+            Tren Aktivitas Konseling
+          </h3>
+          <p className="text-xs text-slate-400">
+            Volume sesi berdasarkan akumulasi mingguan bulan ini.
+          </p>
+        </div>
+        <span className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
+          Bulan Oktober
+        </span>
+      </div>
+
+      <div className="flex h-64 items-end justify-between gap-4 border-b border-slate-100 px-4 pb-2 pt-8">
+        {weeklySessions.map((week) => {
+          const isTop = week.value === maxValue;
+          return (
+            <div
+              key={week.label}
+              style={{ height: `${(week.value / scale) * 100}%` }}
+              className={`group relative w-full rounded-t-xl transition-all ${
+                isTop
+                  ? "bg-[#15803d] shadow-sm"
+                  : "bg-slate-100 hover:bg-[#22c55e]"
+              }`}
+            >
+              <span className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                {week.value} Sesi
+              </span>
+              <p
+                className={`absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold ${
+                  isTop ? "text-slate-800" : "text-slate-400"
+                }`}
+              >
+                {week.label}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-6 flex items-center justify-between text-xs font-medium text-slate-400">
+        <p className="flex items-center gap-1">
+          <Circle className="h-2.5 w-2.5 fill-[#15803d] text-[#15803d]" />
+          Dihitung otomatis dari data transaksi sistem.
+        </p>
+        <p>Total Bulan Ini: {total} Sesi</p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================= DISTRIBUSI LAYANAN (DONUT) ========================= */
+export function ServiceDistribution() {
+  const { individu, kelompok, total } = serviceDistribution;
+
+  return (
+    <div className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div>
+        <h3 className="mb-1 text-base font-bold text-slate-800">
+          Distribusi Layanan
+        </h3>
+        <p className="mb-4 text-xs text-slate-400">
+          Perbandingan jenis konseling.
+        </p>
+      </div>
+
+      <div className="my-auto flex flex-col items-center justify-center py-2">
+        <div
+          className="relative flex h-36 w-36 items-center justify-center rounded-full shadow-inner"
+          style={{
+            background: `conic-gradient(#2563eb 0% ${individu}%, #9333ea ${individu}% 100%)`,
+          }}
+        >
+          <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white shadow-sm">
+            <span className="text-[10px] font-bold uppercase text-slate-400">
+              Total
+            </span>
+            <span className="text-base font-extrabold text-slate-800">
+              {total} Sesi
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center gap-6 text-xs font-bold text-slate-600">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full bg-blue-600" />
+            <span>Individu ({individu}%)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full bg-purple-600" />
+            <span>Kelompok ({kelompok}%)</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-slate-100 pt-3">
+        <p className="text-center text-[11px] font-medium text-slate-400">
+          Data menyesuaikan filter waktu di atas.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================= BEBAN KERJA KONSELOR ========================= */
+export function CounselorWorkload() {
+  const navigate = useNavigate();
+
+  // Buka halaman konseling langsung di tampilan Detail Konselor untuk konselor ini
+  const openDetail = (konselor: string) =>
+    navigate("/admin/konseling", {
+      state: { view: "detail", konselor },
+    });
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col items-start justify-between gap-4 border-b border-slate-100 p-6 sm:flex-row sm:items-center">
+        <div>
+          <h3 className="text-base font-bold text-slate-800">
+            Status &amp; Beban Kerja Konselor
+          </h3>
+          <p className="text-xs text-slate-400">
+            Monitor ketersediaan dan jumlah penanganan sesi aktif.
+          </p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <th className="px-6 py-4">Nama Konselor</th>
+              <th className="px-6 py-4 text-center">
+                Sesi Selesai (Bulan Ini)
+              </th>
+              <th className="px-6 py-4 text-center">Status Jadwal</th>
+              <th className="px-6 py-4 text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+            {counselors.map((c) => (
+              <tr
+                key={c.name}
+                className="transition-colors hover:bg-slate-50/50"
+              >
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3 font-bold text-slate-800">
+                    <img
+                      src={c.avatar}
+                      alt={c.name}
+                      className="h-8 w-8 rounded-full"
+                    />
+                    {c.name}
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-center font-bold text-slate-800">
+                  {c.sessions} Sesi
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${c.statusClass}`}
+                  >
+                    {c.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() => openDetail(c.name)}
+                    className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#15803d] transition-colors hover:bg-[#f0fdf4]"
+                  >
+                    Lihat detail
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function RecentClientBookings({ bookings }: { bookings: BookingRecord[] }) {
+  if (bookings.length === 0) return null;
+
+  const statusLabel: Record<BookingRecord["status"], string> = {
+    [BOOKING_STATUS.WAITING_CONFIRMATION]: "Menunggu konfirmasi",
+    [BOOKING_STATUS.CONFIRMED]: "Dikonfirmasi",
+    [BOOKING_STATUS.REJECTED]: "Ditolak",
+    [BOOKING_STATUS.RESCHEDULE_REQUESTED]: "Perubahan jadwal",
+    [BOOKING_STATUS.CANCELLED]: "Dibatalkan",
+    [BOOKING_STATUS.COMPLETED]: "Selesai",
+  };
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold text-slate-800">Booking terbaru dari Klien</h2>
+          <p className="mt-1 text-xs text-slate-500">Data booking yang dibuat selama sesi demo browser ini.</p>
+        </div>
+        <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
+          {bookings.length} booking
+        </span>
+      </div>
+      <ul className="mt-4 divide-y divide-slate-100">
+        {bookings.slice(0, 4).map((booking) => (
+          <li key={booking.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-800">{booking.clientName}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {booking.counselorName} · {booking.serviceType === "GROUP" ? "Kelompok" : "Individu"}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {formatIndonesianDate(parseLocalISODate(booking.date), { day: "numeric", month: "short", year: "numeric" })} · {booking.startTime} WITA
+              </p>
+            </div>
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+              booking.status === BOOKING_STATUS.WAITING_CONFIRMATION
+                ? "bg-amber-50 text-amber-700"
+                : booking.status === BOOKING_STATUS.CONFIRMED
+                  ? "bg-emerald-50 text-emerald-700"
+                  : booking.status === BOOKING_STATUS.REJECTED
+                    ? "bg-red-50 text-red-700"
+                    : "bg-slate-100 text-slate-600"
+            }`}>
+              {statusLabel[booking.status]}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+

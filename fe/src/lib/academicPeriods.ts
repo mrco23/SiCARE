@@ -36,6 +36,15 @@ export function loadPeriods(): AcademicPeriod[] {
   return DEFAULT_PERIODS.map((period) => ({ ...period }));
 }
 
+/** Persist the editable demo period list using the shared versioned key. */
+export function savePeriods(periods: readonly AcademicPeriod[]): void {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(periods));
+  } catch {
+    /* Storage may be unavailable in private/restricted browser contexts. */
+  }
+}
+
 export const sortPeriods = (list: AcademicPeriod[]) =>
   [...list].sort((a, b) => a.start.localeCompare(b.start));
 

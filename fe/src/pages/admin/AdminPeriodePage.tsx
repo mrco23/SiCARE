@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_ACADEMIC_PERIODS } from "../../data/mock/academicPeriods";
 import { PageContainer, PageHeader } from "../../components/shared";
 import {
-  STORE_KEY,
   fmtDate,
+  loadPeriods,
   makePeriod,
   periodStatus,
+  savePeriods,
   sortPeriods,
   toISO,
   type AcademicPeriod,
@@ -29,29 +30,7 @@ import {
 /* ========================= TIPE & DATA ========================= */
 type PeriodDraft = { ta: string; sem: Semester; start: string; end: string };
 
-/* ===== DATA CONTOH =====
-   Ganti dengan backend, mis. GET/POST/PUT/DELETE /api/admin/periode.
-   Pada prototipe ini data disimpan di localStorage ("sicare.periods") supaya halaman
-   Laporan & Ekspor bisa membaca periode yang sama. Di produksi, simpan di database. */
-const DEFAULT_PERIODS: AcademicPeriod[] = DEFAULT_ACADEMIC_PERIODS;
-function loadPeriods(): AcademicPeriod[] {
-  try {
-    const a = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-    if (Array.isArray(a)) return a;
-  } catch {
-    /* abaikan */
-  }
-  return DEFAULT_PERIODS.map((p) => ({ ...p }));
-}
-
-function savePeriods(list: AcademicPeriod[]) {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(list));
-  } catch {
-    /* abaikan */
-  }
-}
-
+/* Periode demo disimpan melalui helper bersama agar seluruh laporan membaca sumber yang sama. */
 /* ========================= HELPER TANGGAL ========================= */
 const fmtLong = (iso: string) =>
   formatIndonesianDate(parseLocalISODate(iso), {
@@ -264,7 +243,7 @@ export default function AdminPeriodePage() {
   };
 
   const resetSample = () => {
-    setPeriods(DEFAULT_PERIODS.map((p) => ({ ...p })));
+    setPeriods(DEFAULT_ACADEMIC_PERIODS.map((p) => ({ ...p })));
     toast("Data contoh dikembalikan.");
   };
 
