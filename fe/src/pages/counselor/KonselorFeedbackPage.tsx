@@ -14,6 +14,15 @@ import { COUNSELOR, feedbackData } from "../../data/mock/counselorFeedback";
 import { CLIENT_COUNSELOR_IDENTITIES } from "../../data/mock/clientCounselors";
 import { useFeedbackStore } from "../../features/feedback/store/feedbackStore";
 import { LEGACY_UI_SEMESTERS as semesters } from "../../data/mock/academicPeriods";
+import {
+  anonymousFeedbackName as anonymousName,
+  averageCounselorFeedbackRating,
+  formatFeedbackShortDate as formatShortDate,
+  parseFeedbackDate as parseDate,
+  selectCounselorFeedbackForPeriod,
+  selectVisibleCounselorFeedback,
+  startOfFeedbackDay as startOfDay,
+} from "../../features/counselor/feedback/feedbackSelectors";
 
 
 type Period = "hari" | "minggu" | "bulan" | "semester";
@@ -35,17 +44,6 @@ const periodOptions: { value: Period; label: string }[] = [
 const seedMine = feedbackData.filter(
   (feedback) => feedback.konselorId === COUNSELOR.id,
 );
-const startOfDay = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate());
-const parseDate = (value: string) => {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-const formatShortDate = (date: Date) =>
-  date.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-const anonymousName = (id: number) =>
-  `Klien Anonim #${((id * 2654435761) >>> 0).toString(16).slice(-4).toUpperCase()}`;
-
 function Stars({
   rating,
   size = "sm",
@@ -155,39 +153,15 @@ export default function KonselorFeedbackPage() {
   }, [period, range, semesterIndex]);
 
   const periodFeedback = useMemo(
-    () =>
-      mine.filter((feedback) => {
-        const date = new Date(feedback.date);
-        return date >= range.start && date < range.end;
-      }),
+    () => selectCounselorFeedbackForPeriod(mine, range),
     [mine, range],
   );
   const total = periodFeedback.length;
-  const average = total
-    ? periodFeedback.reduce((sum, feedback) => sum + feedback.rating, 0) / total
-    : 0;
-  const visibleFeedback = useMemo(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase("id-ID");
-    const rows = periodFeedback.filter(
-      (feedback) =>
-        (!starFilter || feedback.rating === starFilter) &&
-        feedback.text.toLocaleLowerCase("id-ID").includes(normalizedSearch),
-    );
-    rows.sort((a, b) => {
-      if (sort === "high")
-        return (
-          b.rating - a.rating ||
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-      if (sort === "low")
-        return (
-          a.rating - b.rating ||
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
-    });
-    return rows;
-  }, [periodFeedback, search, sort, starFilter]);
+  const average = averageCounselorFeedbackRating(periodFeedback);
+  const visibleFeedback = useMemo(
+    () => selectVisibleCounselorFeedback(periodFeedback, { search, sort, starFilter }),
+    [periodFeedback, search, sort, starFilter],
+  );
 
   function stepPeriod(direction: -1 | 1) {
     if (period === "semester") {

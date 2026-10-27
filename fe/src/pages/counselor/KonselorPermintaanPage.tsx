@@ -1,11 +1,15 @@
 import { PageContainer, PageHeader } from "../../components/shared";
-import { BOOKING_STATUS, COUNSELING_REQUEST_STATUS } from "../../constants/status";
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
 import { intakes } from "../../data/mock/counselorRequests";
 import { useBookingStore } from "../../features/booking/store/bookingStore";
-import { DEMO_NOTIFICATION_RECIPIENTS, useNotificationStore } from "../../features/notification/notificationStore";
+import { DEMO_NOTIFICATION_RECIPIENTS } from "../../features/notification/notificationStore";
 import { formatIndonesianDate, parseLocalISODate } from "../../lib/dateUtils";
+import { CounselorAnswerRow, CounselorBadge as Badge, CounselorEssayCard, CounselorScaleView } from "../../components/counselor/shared/CounselorIntakeFields";
+import { decideCounselorRequest } from "../../features/counselor/requests/decideCounselorRequest";
+import { countPendingCounselorRequests, selectPendingCounselorBookings, selectPendingCounselorRequests } from "../../features/counselor/requests/requestSelectors";
+import { getCounselorInitials as initials } from "../../features/counselor/shared/presentation";
+import { getCounselorIntakeSafetyFlags } from "../../features/counselor/activity/sessionSelectors";
 
 
 
@@ -17,35 +21,11 @@ import { formatIndonesianDate, parseLocalISODate } from "../../lib/dateUtils";
 
 
 
-
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .map((word) => word[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 
 function waitLabel(minutes: number) {
   if (minutes < 60) return `${minutes} menit lalu`;
   if (minutes < 1440) return `${Math.floor(minutes / 60)} jam lalu`;
   return `${Math.floor(minutes / 1440)} hari lalu`;
-}
-
-function Badge({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${className}`}
-    >
-      {children}
-    </span>
-  );
 }
 
 function StatCard({
@@ -66,79 +46,6 @@ function StatCard({
   );
 }
 
-function ScaleView({ value }: { value: number }) {
-  const labels: Record<number, string> = {
-    1: "Sangat buruk",
-    2: "Buruk",
-    3: "Cukup",
-    4: "Baik",
-    5: "Sangat baik",
-  };
-  return (
-    <div>
-      <div className="flex items-center gap-2">
-        {[1, 2, 3, 4, 5].map((number) => (
-          <span
-            key={number}
-            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
-              number === value
-                ? "bg-primary text-white"
-                : "bg-gray-100 text-gray-400"
-            }`}
-          >
-            {number}
-          </span>
-        ))}
-      </div>
-      <p className="mt-2 text-xs text-gray-500">
-        Dipilih:{" "}
-        <span className="font-semibold text-gray-800">
-          {value} · {labels[value] ?? "Tidak diketahui"}
-        </span>
-      </p>
-    </div>
-  );
-}
-
-function AnswerRow({
-  question,
-  answer,
-}: {
-  question: string;
-  answer: string;
-}) {
-  const style =
-    answer === "Ya"
-      ? "bg-red-100 text-red-800"
-      : answer === "Mungkin"
-        ? "bg-amber-100 text-amber-800"
-        : "bg-primary-soft text-primary";
-
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 py-3 last:border-0">
-      <p className="text-sm text-gray-700">{question}</p>
-      <Badge className={style}>{answer}</Badge>
-    </div>
-  );
-}
-
-function EssayCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
-      <p className="text-sm font-semibold text-gray-700">{title}</p>
-      <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-800">
-        {children || "-"}
-      </p>
-    </section>
-  );
-}
-
 type ConfirmDecision = {
   id?: number;
   bookingId?: string;
@@ -148,11 +55,8 @@ type ConfirmDecision = {
 export default function KonselorPermintaanPage() {
   const bookings = useBookingStore((state) => state.bookings);
   const requests = useBookingStore((state) => state.legacyRequests);
-  const updateLegacyRequest = useBookingStore((state) => state.updateLegacyRequest);
-  const updateBookingStatus = useBookingStore((state) => state.updateBookingStatus);
-  const addNotification = useNotificationStore((state) => state.addNotification);
   const pendingClientBookings = useMemo(
-    () => bookings.filter((booking) => booking.counselorId === DEMO_NOTIFICATION_RECIPIENTS.counselor && booking.status === BOOKING_STATUS.WAITING_CONFIRMATION),
+    () => selectPendingCounselorBookings(bookings, DEMO_NOTIFICATION_RECIPIENTS.counselor),
     [bookings],
   );
   const [formatFilter, setFormatFilter] = useState("Semua");
@@ -163,33 +67,21 @@ export default function KonselorPermintaanPage() {
   const [roomInput, setRoomInput] = useState("");
   const [confirmRoomSave, setConfirmRoomSave] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
-
-  const pendingRequests = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return requests
-      .filter((request) => request.status === COUNSELING_REQUEST_STATUS.PENDING)
-      .filter(
-        (request) =>
-          formatFilter === "Semua" || request.format === formatFilter,
-      )
-      .filter((request) => !query || request.name.toLowerCase().includes(query))
-      .sort((a, b) =>
-        sortMode === "terlama" ? b.waitMin - a.waitMin : a.waitMin - b.waitMin,
-      );
-  }, [requests, formatFilter, sortMode, search]);
-
   const currentRequest = requests.find((request) => request.id === currentId);
   const currentIntake = currentId ? intakes[currentId] : null;
-  const totalPending = requests.filter(
-    (request) => request.status === COUNSELING_REQUEST_STATUS.PENDING,
+
+  const pendingRequests = useMemo(
+    () => selectPendingCounselorRequests(requests, { formatFilter, sortMode, search }),
+    [requests, formatFilter, sortMode, search],
   );
-  const totalPendingCount = totalPending.length + pendingClientBookings.length;
-  const individualCount =
-    totalPending.filter((request) => request.format === "Individu").length +
-    pendingClientBookings.filter((booking) => booking.serviceType === "INDIVIDUAL").length;
-  const groupCount =
-    totalPending.filter((request) => request.format === "Kelompok").length +
-    pendingClientBookings.filter((booking) => booking.serviceType === "GROUP").length;
+  const pendingCounts = useMemo(
+    () => countPendingCounselorRequests(requests, bookings, DEMO_NOTIFICATION_RECIPIENTS.counselor),
+    [requests, bookings],
+  );
+  const totalPendingCount = pendingCounts.total;
+  const individualCount = pendingCounts.individual;
+  const groupCount = pendingCounts.group;
+
 
   function notify(message: string) {
     setToastMsg(message);
@@ -205,74 +97,29 @@ export default function KonselorPermintaanPage() {
   function handleDecision() {
     if (!confirm) return;
     if (confirm.accept && !roomInput.trim()) return;
-    const room = confirm.accept ? roomInput.trim() : "";
 
-    if (confirm.bookingId) {
-      const booking = bookings.find((item) => item.id === confirm.bookingId);
-      if (!booking) return;
-      updateBookingStatus(
-        booking.id,
-        confirm.accept ? BOOKING_STATUS.CONFIRMED : BOOKING_STATUS.REJECTED,
-        room || undefined,
-      );
-      addNotification({
-        recipientId: booking.clientId,
-        recipientRole: "client",
-        title: confirm.accept ? "Booking dikonfirmasi" : "Booking ditolak",
-        message: confirm.accept
-          ? `Booking dengan ${booking.counselorName} telah dikonfirmasi. Ruangan: ${room}.`
-          : `Permintaan booking dengan ${booking.counselorName} belum dapat diterima.`,
-        href: "/klien/aktivitas",
-      });
-      addNotification({
-        recipientId: DEMO_NOTIFICATION_RECIPIENTS.admin,
-        recipientRole: "admin",
-        title: confirm.accept ? "Booking dikonfirmasi" : "Booking ditolak",
-        message: `${booking.clientName}: booking dengan ${booking.counselorName} ${confirm.accept ? "dikonfirmasi" : "ditolak"}.`,
-        href: "/admin",
-      });
-      setConfirm(null);
-      setRoomInput("");
-      setConfirmRoomSave(false);
-      notify(
-        confirm.accept
-          ? `Booking diterima. Ruangan ditetapkan: ${room}.`
-          : "Booking ditolak.",
-      );
-      return;
-    }
+    const target = confirm.bookingId
+      ? { kind: "booking" as const, bookingId: confirm.bookingId }
+      : confirm.id !== undefined
+        ? { kind: "legacy-request" as const, requestId: confirm.id }
+        : null;
+    if (!target) return;
 
-    if (confirm.id === undefined) return;
-    const request = requests.find((item) => item.id === confirm.id);
-    if (!request) return;
-
-    updateLegacyRequest(
-      confirm.id,
-      confirm.accept
-        ? COUNSELING_REQUEST_STATUS.ACCEPTED
-        : COUNSELING_REQUEST_STATUS.REJECTED,
-      room,
-    );
+    const result = decideCounselorRequest(target, confirm.accept, roomInput);
+    if (!result.ok) return;
 
     setConfirm(null);
     setRoomInput("");
-    if (currentId === confirm.id) setCurrentId(null);
-    notify(
-      confirm.accept
-        ? `Permintaan diterima. Ruangan ditetapkan: ${room}.`
-        : "Permintaan ditolak.",
-    );
+    if (target.kind === "booking") {
+      setConfirmRoomSave(false);
+    } else if (currentId === target.requestId) {
+      setCurrentId(null);
+    }
+    notify(result.message);
   }
 
   const safetyFlags = currentIntake
-    ? [
-        currentIntake.selfHarm !== "Tidak" ? "keinginan menyakiti diri" : null,
-        currentIntake.distress !== "Tidak"
-          ? "kesedihan atau depresi berat"
-          : null,
-        currentIntake.abuse !== "Tidak" ? "riwayat pelecehan" : null,
-        currentIntake.substance !== "Tidak" ? "penggunaan obat-obatan" : null,
-      ].filter((flag): flag is string => Boolean(flag))
+    ? getCounselorIntakeSafetyFlags(currentIntake)
     : [];
 
   const selectedDecisionBooking = confirm?.bookingId
@@ -560,19 +407,19 @@ export default function KonselorPermintaanPage() {
               <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
                 <h3 className="text-base font-bold">Kondisi Saat Ini</h3>
                 <div className="mt-4">
-                  <AnswerRow
+                  <CounselorAnswerRow variant="request"
                     question="Apakah Anda sedang merasa ingin bunuh diri?"
                     answer={currentIntake.selfHarm}
                   />
-                  <AnswerRow
+                  <CounselorAnswerRow variant="request"
                     question="Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?"
                     answer={currentIntake.distress}
                   />
-                  <AnswerRow
+                  <CounselorAnswerRow variant="request"
                     question="Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)"
                     answer={currentIntake.abuse}
                   />
-                  <AnswerRow
+                  <CounselorAnswerRow variant="request"
                     question="Apakah saat ini Anda sedang menggunakan obat-obatan?"
                     answer={currentIntake.substance}
                   />
@@ -583,7 +430,7 @@ export default function KonselorPermintaanPage() {
                       Kualitas tidur
                     </p>
                     <div className="mt-2">
-                      <ScaleView value={currentIntake.sleep} />
+                      <CounselorScaleView fallbackLabel="Tidak diketahui" value={currentIntake.sleep} />
                     </div>
                   </div>
                   <div>
@@ -591,7 +438,7 @@ export default function KonselorPermintaanPage() {
                       Keadaan finansial
                     </p>
                     <div className="mt-2">
-                      <ScaleView value={currentIntake.finance} />
+                      <CounselorScaleView fallbackLabel="Tidak diketahui" value={currentIntake.finance} />
                     </div>
                   </div>
                 </div>
@@ -614,27 +461,27 @@ export default function KonselorPermintaanPage() {
               </section>
 
               <section className="mt-5 space-y-4">
-                <EssayCard title="Deskripsikan keluhan yang Anda rasakan">
+                <CounselorEssayCard variant="request" title="Deskripsikan keluhan yang Anda rasakan">
                   {currentIntake.complaint}
-                </EssayCard>
-                <EssayCard title="Deskripsikan riwayat terjadinya keluhan secara jelas dan rinci">
+                </CounselorEssayCard>
+                <CounselorEssayCard variant="request" title="Deskripsikan riwayat terjadinya keluhan secara jelas dan rinci">
                   {currentIntake.history}
-                </EssayCard>
-                <EssayCard title="Keluhan dan alasan ingin memulai konseling">
+                </CounselorEssayCard>
+                <CounselorEssayCard variant="request" title="Keluhan dan alasan ingin memulai konseling">
                   {currentIntake.reason}
-                </EssayCard>
-                <EssayCard title="Apa yang sudah dilakukan untuk menangani masalah ini?">
+                </CounselorEssayCard>
+                <CounselorEssayCard variant="request" title="Apa yang sudah dilakukan untuk menangani masalah ini?">
                   {currentIntake.efforts}
-                </EssayCard>
-                <EssayCard title="Solusi apa yang diinginkan dari bantuan yang diterima?">
+                </CounselorEssayCard>
+                <CounselorEssayCard variant="request" title="Solusi apa yang diinginkan dari bantuan yang diterima?">
                   {currentIntake.goal}
-                </EssayCard>
-                <EssayCard title="Apa kelebihan diri Anda?">
+                </CounselorEssayCard>
+                <CounselorEssayCard variant="request" title="Apa kelebihan diri Anda?">
                   {currentIntake.strengths}
-                </EssayCard>
-                <EssayCard title="Apa kekurangan diri Anda?">
+                </CounselorEssayCard>
+                <CounselorEssayCard variant="request" title="Apa kekurangan diri Anda?">
                   {currentIntake.weaknesses}
-                </EssayCard>
+                </CounselorEssayCard>
               </section>
             </>
           )}
