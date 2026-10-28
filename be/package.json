@@ -1,0 +1,24 @@
+{
+  "name": "sicare-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend API SiCARE berbasis Express dan Supabase.",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "test": "node --test",
+    "check": "node --check app.js && node --check server.js && node --check src/config/env.js && node --check src/config/supabase.js && node --check src/middleware/auth.js && node --check src/middleware/errorHandler.js && node --check src/lib/http.js && node --check src/lib/audit.js && node --check src/routes/health.routes.js && node --check src/routes/auth.routes.js && node --check src/routes/domain.routes.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "zod": "^4.1.12"
+  }
+}
