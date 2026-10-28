@@ -34,6 +34,7 @@ import {
 } from "../../lib/academicPeriods";
 import { PSIKOLOG, type Feedback } from "../../data/mock/adminFeedback";
 import { useFeedbackStore } from "../../features/feedback/store/feedbackStore";
+import { countModerationStatuses, selectFeedbackInPeriod, selectModerationRows, type FeedbackSortKey, type FeedbackStatusFilter } from "../../features/admin/feedback/feedbackSelectors";
 import { useNotificationStore } from "../../features/notification/notificationStore";
 
 
@@ -52,8 +53,8 @@ import { useNotificationStore } from "../../features/notification/notificationSt
 
 
 
-type SortKey = "new" | "high" | "low";
-type StatusFilter = "all" | FeedbackModerationStatus;
+type SortKey = FeedbackSortKey;
+type StatusFilter = FeedbackStatusFilter;
 
 /* Label anonim konsisten per id, contoh: "Klien Anonim #A3F2" */
 const anon = (id: number) =>
@@ -67,9 +68,6 @@ const formatDate = (iso: string) =>
     year: "numeric",
   });
 
-/* Feedback dalam satu periode (null = semua periode) */
-const feedbackInPeriod = (items: Feedback[], p: AcademicPeriod | null) =>
-  items.filter((f) => !p || isInPeriod(toISO(new Date(f.date)), p));
 
 const STATUS_STYLE: Record<PeriodStatus, string> = {
   Aktif: "bg-emerald-50 text-primary border-emerald-200",
@@ -290,7 +288,7 @@ function PeriodDropdown({
                             : "bg-slate-100 text-slate-600"
                         }`}
                       >
-                        {feedbackInPeriod(items, p).length} feedback
+                        {selectFeedbackInPeriod(items, p).length} feedback
                       </span>
                       <span
                         className={`text-[10px] font-bold ${
@@ -373,44 +371,20 @@ export default function AdminFeedbackPage() {
   // Data setelah filter periode dan psikolog
   const base = useMemo(
     () =>
-      feedbackInPeriod(items, selected).filter(
+      selectFeedbackInPeriod(items, selected).filter(
         (f) => !psikolog || f.psikolog === psikolog,
       ),
     [items, selected, psikolog],
   );
 
-  const total = base.length;
+  const { total, pending: pendingCount, shown: shownCount, disabled: disabledCount } =
+    countModerationStatuses(base);
   const avg = total ? base.reduce((sum, f) => sum + f.rating, 0) / total : 0;
-  const pendingCount = base.filter(
-    (f) => f.status === FEEDBACK_MODERATION_STATUS.PENDING,
-  ).length;
-  const shownCount = base.filter(
-    (f) => f.status === FEEDBACK_MODERATION_STATUS.SHOWN,
-  ).length;
-  const disabledCount = base.filter(
-    (f) => f.status === FEEDBACK_MODERATION_STATUS.DISABLED,
-  ).length;
 
-  const rows = useMemo(() => {
-    const q = query.toLowerCase();
-    const byDate = (a: Feedback, b: Feedback) =>
-      new Date(b.date).getTime() - new Date(a.date).getTime();
-
-    return base
-      .filter(
-        (f) =>
-          (statusFilter === "all" || f.status === statusFilter) &&
-          (!star || f.rating === star) &&
-          f.text.toLowerCase().includes(q),
-      )
-      .sort((a, b) =>
-        sort === "high"
-          ? b.rating - a.rating || byDate(a, b)
-          : sort === "low"
-            ? a.rating - b.rating || byDate(a, b)
-            : byDate(a, b),
-      );
-  }, [base, star, query, sort, statusFilter]);
+  const rows = useMemo(
+    () => selectModerationRows(base, { status: statusFilter, rating: star, query, sort }),
+    [base, star, query, sort, statusFilter],
+  );
 
   const toggleStar = (n: number) => setStar((prev) => (prev === n ? 0 : n));
 

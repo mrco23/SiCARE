@@ -12,120 +12,11 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { COUNSELING_SESSION_STATUS } from "../../constants/status";
+import { CancelActivitySessionDialog, SessionConfirmationDialog, type DialogState } from "../../components/counselor/activity/ActivityDialogs";
+import { CounselorAnswerRow as AnswerRow, CounselorBadge as Badge, CounselorEssayCard as EssayCard, CounselorScaleView as ScaleView } from "../../components/counselor/shared/CounselorIntakeFields";
+import { formatCounselorTime as formatMinutes, getCounselorInitials as initials, getCurrentLocalMinutes } from "../../features/counselor/shared/presentation";
+import { getCounselorIntakeSafetyFlags, getCounselorSessionCounts, getCounselorSessionStatusInfo, isCounselorSessionFilled, selectActiveCounselorSessions, selectReadyCounselorSessions, selectUpcomingCounselorSessions } from "../../features/counselor/activity/sessionSelectors";
 import { CANCEL_REASONS, buildDummySessions, getCounselorActivityIntake, type CounselingSession } from "../../data/mock/counselorActivity";
-
-type DialogType = "start" | "finish";
-
-interface DialogState {
-  type: DialogType;
-  id: number;
-}
-
-
-const formatMinutes = (minutes: number): string =>
-  `${String(Math.floor(minutes / 60)).padStart(2, "0")}.${String(minutes % 60).padStart(2, "0")}`;
-const initials = (name: string): string =>
-  name
-    .split(" ")
-    .map((word) => word[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-function getCurrentMinutes(): number {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
-}
-
-
-function Badge({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${className}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function ScaleView({ value }: { value: number }) {
-  const labels: Record<number, string> = {
-    1: "Sangat buruk",
-    2: "Buruk",
-    3: "Cukup",
-    4: "Baik",
-    5: "Sangat baik",
-  };
-  return (
-    <div>
-      <div className="flex items-center gap-2">
-        {[1, 2, 3, 4, 5].map((number) => (
-          <span
-            key={number}
-            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
-              number === value
-                ? "bg-primary text-white"
-                : "bg-gray-100 text-gray-400"
-            }`}
-          >
-            {number}
-          </span>
-        ))}
-      </div>
-      <p className="mt-2 text-xs text-gray-500">
-        Dipilih:{" "}
-        <span className="font-semibold text-gray-800">
-          {value} · {labels[value]}
-        </span>
-      </p>
-    </div>
-  );
-}
-
-function AnswerRow({
-  question,
-  answer,
-}: {
-  question: string;
-  answer: string;
-}) {
-  const style =
-    answer === "Ya"
-      ? "bg-red-100 text-red-800"
-      : answer === "Mungkin"
-        ? "bg-amber-100 text-amber-800"
-        : "bg-gray-100 text-gray-700";
-
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 py-3 last:border-0">
-      <p className="text-sm text-gray-700">{question}</p>
-      <Badge className={style}>{answer}</Badge>
-    </div>
-  );
-}
-
-function EssayCard({
-  title,
-  children,
-}: {
-  title: string;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 p-4">
-      <p className="text-sm font-semibold text-gray-700">{title}</p>
-      <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-gray-800">
-        {children || "-"}
-      </p>
-    </div>
-  );
-}
 
 function StatCard({
   icon: Icon,
@@ -167,7 +58,7 @@ export default function KonselorAktivitasPage() {
   const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
   const [sessions, setSessions] = useState<CounselingSession[]>(() =>
-    buildDummySessions(getCurrentMinutes()),
+    buildDummySessions(getCurrentLocalMinutes()),
   );
   const [filter, setFilter] = useState("semua");
   const [visibleUpcomingCount, setVisibleUpcomingCount] = useState(10);
@@ -200,66 +91,19 @@ export default function KonselorAktivitasPage() {
     (session) => session.status === COUNSELING_SESSION_STATUS.ONGOING,
   );
 
-  const canStart = (session: CounselingSession) =>
-    session.status === COUNSELING_SESSION_STATUS.SCHEDULED && nowMinutes >= session.start;
-  const isFilled = (session: CounselingSession) =>
-    session.noteCounselor.trim().length >= 20 &&
-    session.noteClient.trim().length >= 20;
+  const isFilled = isCounselorSessionFilled;
 
   const activeSessions = useMemo(
-    () =>
-      sessions
-        .filter(
-          (session) =>
-            session.status === COUNSELING_SESSION_STATUS.SCHEDULED || session.status === COUNSELING_SESSION_STATUS.ONGOING,
-        )
-        .filter((session) => filter === "semua" || session.status === filter)
-        .sort((a, b) => a.start - b.start),
+    () => selectActiveCounselorSessions(sessions, filter),
     [sessions, filter],
   );
-
-  // Satu sesi aktif ditampilkan pada area utama. Jika ada sesi berlangsung,
-  // sesi terjadwal yang waktunya terlewat tetap berada di daftar sesi mendatang.
-  const readySessions = activeSessions.some(
-    (session) => session.status === COUNSELING_SESSION_STATUS.ONGOING,
-  )
-    ? activeSessions
-        .filter((session) => session.status === COUNSELING_SESSION_STATUS.ONGOING)
-        .slice(0, 1)
-    : activeSessions.filter((session) => canStart(session)).slice(0, 1);
-  const upcomingSessions = activeSessions
-    .filter((session) => session.status === COUNSELING_SESSION_STATUS.SCHEDULED && !canStart(session))
-    .sort((a, b) => a.start - b.start);
-  const visibleUpcomingSessions = upcomingSessions.slice(
-    0,
-    visibleUpcomingCount,
-  );
-  const scheduledCount = sessions.filter(
-    (session) => session.status === COUNSELING_SESSION_STATUS.SCHEDULED,
-  ).length;
-  const ongoingCount = sessions.filter(
-    (session) => session.status === COUNSELING_SESSION_STATUS.ONGOING,
-  ).length;
-  const todayCount = sessions.filter(
-    (session) => session.status === COUNSELING_SESSION_STATUS.SCHEDULED || session.status === COUNSELING_SESSION_STATUS.ONGOING,
-  ).length;
-
-  const statusInfo = (
-    session: CounselingSession,
-  ): { label: string; style: string } => {
-    if (session.status === COUNSELING_SESSION_STATUS.CANCELLED)
-      return { label: "Dibatalkan", style: "bg-red-100 text-red-800" };
-    if (session.status === COUNSELING_SESSION_STATUS.COMPLETED)
-      return { label: "Selesai", style: "bg-gray-100 text-gray-700" };
-    if (session.status === COUNSELING_SESSION_STATUS.ONGOING)
-      return { label: "Berlangsung", style: "bg-primary text-white" };
-    if (canStart(session))
-      return {
-        label: "Siap dimulai",
-        style: "bg-gray-100 text-gray-700 ring-1 ring-gray-200",
-      };
-    return { label: "Terjadwal", style: "bg-slate-100 text-slate-600" };
-  };
+  const readySessions = selectReadyCounselorSessions(activeSessions, nowMinutes);
+  const upcomingSessions = selectUpcomingCounselorSessions(activeSessions, nowMinutes);
+  const visibleUpcomingSessions = upcomingSessions.slice(0, visibleUpcomingCount);
+  const { scheduled: scheduledCount, ongoing: ongoingCount, today: todayCount } =
+    getCounselorSessionCounts(sessions);
+  const statusInfo = (session: CounselingSession) =>
+    getCounselorSessionStatusInfo(session, nowMinutes);
 
   function notify(message: string) {
     setToastMsg(message);
@@ -379,14 +223,7 @@ export default function KonselorAktivitasPage() {
   const selectedBookingIntake = selectedBooking
     ? getCounselorActivityIntake(selectedBooking.client)
     : null;
-  const safetyFlags = intake
-    ? [
-        intake.selfHarm !== "Tidak" ? "keinginan menyakiti diri" : null,
-        intake.distress !== "Tidak" ? "kesedihan atau depresi berat" : null,
-        intake.abuse !== "Tidak" ? "riwayat pelecehan" : null,
-        intake.substance !== "Tidak" ? "penggunaan obat-obatan" : null,
-      ].filter(Boolean)
-    : [];
+  const safetyFlags = intake ? getCounselorIntakeSafetyFlags(intake) : [];
 
   return (
     <PageContainer role="counselor" spacing="none">
@@ -1069,161 +906,28 @@ export default function KonselorAktivitasPage() {
         </div>
       )}
 
-      {dialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <h2 className="text-lg font-bold">
-                {dialog.type === "start"
-                  ? `Mulai sesi dengan ${sessions.find((item) => item.id === dialog.id)?.client}?`
-                  : "Selesaikan sesi ini?"}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setDialog(null)}
-                aria-label="Tutup"
-                className="rounded-lg p-1 text-gray-500 hover:bg-gray-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-gray-600">
-              {dialog.type === "start"
-                ? "Sesi akan dimulai sekarang. Anda akan diarahkan ke halaman sesi untuk mengisi catatan."
-                : "Setelah diselesaikan, kedua catatan disimpan dan tidak dapat diubah lagi. Catatan konselor hanya dapat dilihat Anda, catatan untuk klien dapat dilihat klien."}
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDialog(null)}
-                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Kembali
-              </button>
-              <button
-                type="button"
-                onClick={dialog.type === "start" ? startSession : finishSession}
-                className={primaryBtn}
-              >
-                {dialog.type === "start" ? "Ya, mulai sesi" : "Ya, selesaikan"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SessionConfirmationDialog
+        dialog={dialog}
+        sessions={sessions}
+        setDialog={setDialog}
+        startSession={startSession}
+        finishSession={finishSession}
+        primaryBtn={primaryBtn}
+      />
 
-      {cancelId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="border-b border-gray-200 p-6 pb-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold">Batalkan sesi</h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Sesi dengan{" "}
-                    {sessions.find((item) => item.id === cancelId)?.client}.
-                    Alasan akan tercatat di laporan.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeCancel}
-                  aria-label="Tutup"
-                  className="rounded-lg p-1 text-gray-500 hover:bg-gray-100"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-            <div className="space-y-5 overflow-y-auto p-6">
-              <fieldset>
-                <legend className="text-sm font-semibold text-gray-800">
-                  Alasan pembatalan <span className="text-red-600">*</span>
-                </legend>
-                <div className="mt-2 space-y-2">
-                  {CANCEL_REASONS.map((reason) => (
-                    <label
-                      key={reason.code}
-                      className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-3.5 transition hover:border-red-300 has-[:checked]:border-red-500 has-[:checked]:bg-red-50/60"
-                    >
-                      <input
-                        type="radio"
-                        name="cancelReason"
-                        value={reason.code}
-                        checked={cancelReason === reason.code}
-                        onChange={() => setCancelReason(reason.code)}
-                        className="h-4 w-4 accent-red-600"
-                      />
-                      <span className="text-sm font-medium text-gray-800">
-                        {reason.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              {cancelReason === "LAINNYA" && (
-                <div>
-                  <label
-                    htmlFor="cancelOther"
-                    className="text-sm font-semibold text-gray-800"
-                  >
-                    Sebutkan alasan lainnya{" "}
-                    <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    id="cancelOther"
-                    type="text"
-                    maxLength={80}
-                    value={cancelOther}
-                    onChange={(event) => setCancelOther(event.target.value)}
-                    placeholder="Misalnya: ruangan rusak mendadak"
-                    className="mt-1.5 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/15"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label
-                  htmlFor="cancelNote"
-                  className="text-sm font-semibold text-gray-800"
-                >
-                  Penjelasan tambahan <span className="text-red-600">*</span>
-                </label>
-                <textarea
-                  id="cancelNote"
-                  rows={3}
-                  value={cancelNote}
-                  onChange={(event) => setCancelNote(event.target.value)}
-                  placeholder="Jelaskan kondisi secara singkat (minimal 10 karakter)"
-                  className="mt-1.5 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/15"
-                />
-                <p className="mt-1 text-xs text-gray-400">
-                  Catatan ini hanya dapat dilihat konselor. Laporan admin
-                  menampilkan alasan pilihan saja.
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-gray-200 p-6 pt-4">
-              <button
-                type="button"
-                onClick={closeCancel}
-                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Kembali
-              </button>
-              <button
-                type="button"
-                onClick={confirmCancel}
-                disabled={!cancelValid}
-                className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Ya, batalkan sesi
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CancelActivitySessionDialog
+        cancelId={cancelId}
+        sessions={sessions}
+        closeCancel={closeCancel}
+        cancelReason={cancelReason}
+        setCancelReason={setCancelReason}
+        cancelOther={cancelOther}
+        setCancelOther={setCancelOther}
+        cancelNote={cancelNote}
+        setCancelNote={setCancelNote}
+        cancelValid={cancelValid}
+        confirmCancel={confirmCancel}
+      />
 
       <div
         role="status"

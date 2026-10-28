@@ -104,6 +104,8 @@ export const useFeedbackStore = create<FeedbackStore>((set, get) => ({
 
   setModerationStatus: (id, status, reason = "") =>
     set((state) => {
+      // Keep the domain invariant even if a future UI calls the store directly.
+      if (status === FEEDBACK_MODERATION_STATUS.DISABLED && !reason.trim()) return state;
       const target = state.items.find((item) => item.id === id);
       if (!target) return state;
 

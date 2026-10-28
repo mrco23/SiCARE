@@ -1,142 +1,41 @@
 import { PageContainer, PageHeader } from "../../components/shared";
-import { COUNSELING_REQUEST_STATUS } from "../../constants/status";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowUpRight,
-  CalendarDays,
-  ClipboardList,
-  MessageSquareText,
-} from "lucide-react";
-import { initialRequests, initialSessions, SESSIONS_THIS_WEEK, RATINGS, type Request, type Session } from "../../data/mock/counselorDashboard";
-
-type SessionState = "done" | "live" | "upcoming";
-
-const toMin = (t: string) => {
-  const [h, m] = t.split(".").map(Number);
-  return h * 60 + m;
-};
-
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-function waitLabel(min: number) {
-  if (min < 60) return `Menunggu ${min} menit`;
-  if (min < 1440) return `Menunggu ${Math.floor(min / 60)} jam`;
-  return `Menunggu ${Math.floor(min / 1440)} hari`;
-}
-
-function sessionState(s: Session, nowMin: number): SessionState {
-  const start = toMin(s.time);
-  const end = start + 60;
-  if (nowMin >= end) return "done";
-  if (nowMin >= start) return "live";
-  return "upcoming";
-}
+import { ArrowUpRight, CalendarDays, ClipboardList, MessageSquareText } from "lucide-react";
+import { RATINGS, SESSIONS_THIS_WEEK } from "../../data/mock/counselorDashboard";
+import { getCounselorInitials as initials } from "../../features/counselor/shared/presentation";
+import { dashboardWaitLabel as waitLabel, getDashboardSessionState as sessionState, useCounselorDashboard } from "../../features/counselor/dashboard/useCounselorDashboard";
 
 export default function CounselorDashboardPage() {
-  const [now, setNow] = useState(() => new Date());
-  const [requests, setRequests] = useState<Request[]>(initialRequests);
-  const [sessions, setSessions] = useState<Session[]>(initialSessions);
-  const [confirm, setConfirm] = useState<{
-    id: number;
-    accept: boolean;
-  } | null>(null);
+  const {
+    now,
+    nowMin,
+    requests,
+    sessions,
+    pendingRequests,
+    sortedSessions,
+    nextId,
+    liveSessions,
+    avgRating,
+    todayLabel,
+    summary,
+    decideRequest,
+  } = useCounselorDashboard();
+  const [confirm, setConfirm] = useState<{ id: number; accept: boolean } | null>(null);
   const [toastMsg, setToastMsg] = useState("");
 
-  // Perbarui status sesi setiap menit
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Sembunyikan toast otomatis
   useEffect(() => {
     if (!toastMsg) return;
-    const t = setTimeout(() => setToastMsg(""), 2600);
-    return () => clearTimeout(t);
+    const timer = window.setTimeout(() => setToastMsg(""), 2600);
+    return () => window.clearTimeout(timer);
   }, [toastMsg]);
-
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-
-  const pendingRequests = useMemo(
-    () =>
-      requests
-        .filter((r) => r.status === COUNSELING_REQUEST_STATUS.PENDING)
-        .sort((a, b) => b.waitMin - a.waitMin),
-    [requests],
-  );
-
-  const sortedSessions = useMemo(
-    () => [...sessions].sort((a, b) => toMin(a.time) - toMin(b.time)),
-    [sessions],
-  );
-
-  const nextId = sortedSessions.find(
-    (s) => sessionState(s, nowMin) === "upcoming",
-  )?.id;
-  const liveSessions = sortedSessions.filter(
-    (s) => sessionState(s, nowMin) === "live",
-  );
-  const upcomingCount = sortedSessions.filter(
-    (s) => sessionState(s, nowMin) === "upcoming",
-  ).length;
-  const avgRating = RATINGS.reduce((a, b) => a + b, 0) / RATINGS.length;
-
-  const todayLabel = now.toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
-  const summary =
-    pendingRequests.length > 0
-      ? `Anda punya ${pendingRequests.length} permintaan menunggu dan ${upcomingCount} sesi lagi hari ini.`
-      : `Tidak ada permintaan menunggu. ${upcomingCount} sesi lagi hari ini.`;
 
   function handleDecide() {
     if (!confirm) return;
-    const req = requests.find((r) => r.id === confirm.id);
-    if (!req) return;
-
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === req.id
-          ? {
-              ...r,
-              status: confirm.accept
-                ? COUNSELING_REQUEST_STATUS.ACCEPTED
-                : COUNSELING_REQUEST_STATUS.REJECTED,
-            }
-          : r,
-      ),
-    );
-
-    if (confirm.accept) {
-      setSessions((prev) => [
-        ...prev,
-        {
-          id: 200 + req.id,
-          client: req.name,
-          topic: req.topic,
-          format: req.format,
-          time: "16.00",
-        },
-      ]);
-    }
-
+    const message = decideRequest(confirm.id, confirm.accept);
+    if (!message) return;
     setConfirm(null);
-    setToastMsg(
-      confirm.accept
-        ? "Permintaan diterima. Sesi ditambahkan ke jadwal."
-        : "Permintaan ditolak.",
-    );
+    setToastMsg(message);
   }
 
   return (

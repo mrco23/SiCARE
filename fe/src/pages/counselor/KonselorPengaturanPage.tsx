@@ -1,4 +1,22 @@
 import { PageContainer, PageHeader } from "../../components/shared";
+import { SettingsField as Field, SettingsPanel as Panel, SettingsSwitchRow as SwitchRow } from "../../components/counselor/settings/SettingsPrimitives";
+import { INITIAL_COUNSELOR_PROFILE as INITIAL } from "../../data/mock/counselorProfile";
+import {
+  cloneCounselorProfile as clone,
+  COUNSELOR_PHOTO_TYPES as PHOTO_TYPES,
+  MAX_COUNSELOR_BIO_LENGTH as MAX_BIO,
+  MAX_COUNSELOR_PHOTO_BYTES as MAX_PHOTO_BYTES,
+  MAX_COUNSELOR_TOPIC_LENGTH as MAX_TOPIC_LEN,
+  MAX_COUNSELOR_TOPICS as MAX_TOPICS,
+  MIN_ACCOUNT_PASSWORD_LENGTH as PASSWORD_MIN,
+  validateCounselorProfile,
+} from "../../features/counselor/profile/profileValidation";
+import { changeCounselorHistoryPassword } from "../../features/history/counselorHistoryAccess";
+import type {
+  CounselorEducation as Education,
+  CounselorProfile as Profile,
+  CounselorProfileErrors as Errors,
+} from "../../types/counselorProfile";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -23,70 +41,6 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-
-type Education = { id: number; school: string; year: string; major: string };
-type Profile = {
-  photo: string | null;
-  displayName: string;
-  bio: string;
-  experienceStartYear: string;
-  educations: Education[];
-  topics: string[];
-  phone: string;
-  services: { individual: boolean; group: boolean };
-};
-type Errors = Record<string, string>;
-
-const INITIAL: Profile = {
-  photo: "/gio.jpeg",
-  displayName: "Giovanna Yudi, S.Psi., M.Psi., Psikolog",
-  bio: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-  experienceStartYear: "2021",
-  educations: [
-    {
-      id: 1,
-      school: "Universitas Surabaya",
-      year: "2018",
-      major: "Sarjana Psikologi",
-    },
-    {
-      id: 2,
-      school: "Universitas Surabaya",
-      year: "2021",
-      major: "Magister Psikologi Profesi",
-    },
-  ],
-  topics: [
-    "Karir",
-    "Pengembangan Diri",
-    "Motivasi",
-    "Stres",
-    "Relasi",
-    "Keluarga",
-  ],
-  phone: "081234567890",
-  services: { individual: true, group: true },
-};
-const clone = (v: Profile): Profile => JSON.parse(JSON.stringify(v));
-const MAX_TOPICS = 6;
-const MAX_TOPIC_LEN = 40;
-const MAX_BIO = 500;
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
-const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const PHONE_RE = /^(\+62|62|0)[0-9]{8,13}$/;
-const PASSWORD_MIN = 8;
-const HISTORY_PASSWORD_KEY = "sicare:konselor:riwayat-password-digest";
-const HISTORY_ACCESS_KEY = "sicare:konselor:riwayat-access";
-const HISTORY_ATTEMPTS_KEY = "sicare:konselor:riwayat-attempts";
-
-// Hanya untuk prototipe frontend. Verifikasi sebenarnya harus dilakukan server.
-async function passwordDigest(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const hash = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(hash), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-}
 
 export default function KonselorPengaturanPage() {
   const currentYear = new Date().getFullYear();
@@ -120,22 +74,10 @@ export default function KonselorPengaturanPage() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = JSON.stringify(profile) !== JSON.stringify(saved);
 
-  const errors = useMemo<Errors>(() => {
-    const e: Errors = {};
-    if (!profile.displayName.trim()) e.displayName = "Nama tampil wajib diisi";
-    if (profile.bio.length > MAX_BIO) e.bio = `Maksimal ${MAX_BIO} karakter`;
-    const y = profile.experienceStartYear.trim();
-    if (!/^\d{4}$/.test(y) || Number(y) < 1950 || Number(y) > currentYear)
-      e.experience = `Isi tahun mulai berpraktik (1950–${currentYear})`;
-    if (!profile.topics.length) e.topics = "Pilih minimal satu topik";
-    const phone = profile.phone.replace(/[\s()-]/g, "");
-    if (!phone) e.phone = "Nomor telepon wajib diisi";
-    else if (!PHONE_RE.test(phone))
-      e.phone = "Format nomor telepon tidak valid";
-    if (!profile.services.individual && !profile.services.group)
-      e.services = "Pilih minimal satu jenis layanan";
-    return e;
-  }, [profile, currentYear]);
+  const errors = useMemo<Errors>(
+    () => validateCounselorProfile(profile, currentYear),
+    [profile, currentYear],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -364,20 +306,11 @@ export default function KonselorPengaturanPage() {
 
     setPwdSaving(true);
     try {
-      const currentDigest = await passwordDigest(pwdCurrent);
-      const savedDigest = sessionStorage.getItem(HISTORY_PASSWORD_KEY);
-      const defaultDigest = await passwordDigest("1234");
-      if (currentDigest !== (savedDigest ?? defaultDigest)) {
+      const changed = await changeCounselorHistoryPassword(pwdCurrent, pwdNext);
+      if (!changed) {
         setToast("Kata sandi riwayat saat ini salah.");
         return;
       }
-      sessionStorage.setItem(
-        HISTORY_PASSWORD_KEY,
-        await passwordDigest(pwdNext),
-      );
-      // Paksa verifikasi ulang agar sesi yang memakai password lama tidak berlaku.
-      sessionStorage.removeItem(HISTORY_ACCESS_KEY);
-      sessionStorage.removeItem(HISTORY_ATTEMPTS_KEY);
       setPwdCurrent("");
       setPwdNext("");
       setPwdConfirm("");
@@ -1053,103 +986,5 @@ export default function KonselorPengaturanPage() {
         </div>
       )}
     </PageContainer>
-  );
-}
-
-function Panel({
-  icon,
-  title,
-  description,
-  action,
-  className = "",
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section
-      className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 ${className}`}
-    >
-      <div
-        className={`mb-5 flex items-start gap-3 ${action ? "justify-between" : ""}`}
-      >
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
-            {icon}
-          </span>
-          <div>
-            <h2 className="text-base font-bold">{title}</h2>
-            <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
-              {description}
-            </p>
-          </div>
-        </div>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-function Field({
-  label,
-  required = false,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      {children}
-      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
-function SwitchRow({
-  title,
-  description,
-  checked,
-  onChange,
-}: {
-  title: string;
-  description?: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 py-3">
-      <span>
-        <span className="block text-sm font-semibold">{title}</span>
-        {description && (
-          <span className="mt-0.5 block text-xs leading-relaxed text-gray-500">
-            {description}
-          </span>
-        )}
-      </span>
-      <span
-        className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${checked ? "bg-primary" : "bg-gray-300"}`}
-      >
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          className="peer sr-only"
-        />
-        <span
-          className={`pointer-events-none absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`}
-        />
-      </span>
-    </label>
   );
 }

@@ -116,3 +116,5 @@ export {
   COUNSELOR_SECTION_SHOWCASE,
   type Testimonial as HomeTestimonial,
 } from "./publicShowcases";
+export { INITIAL_COUNSELOR_PROFILE } from "./counselorProfile";
+export { createCounselorScheduleSeed } from "./counselorSchedule";

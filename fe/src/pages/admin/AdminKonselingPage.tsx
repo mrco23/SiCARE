@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { PageContainer, PageHeader } from "../../components/shared";
+import type { AcademicPeriod } from "../../types/academicPeriod";
 import { SESSION_OUTCOME_STATUS } from "../../constants/status";
 import {
   Ban,
@@ -24,9 +25,9 @@ import {
   loadPeriods,
   sortPeriods,
   toISO,
-  type AcademicPeriod,
 } from "../../lib/academicPeriods";
 import { COUNSELORS, RATING, SESI, NOW, type Session } from "../../data/mock/adminCounseling";
+import { createCounselingChartBuckets, getCounselingDateRange, type CounselingDateRange, type CounselingPeriodKey } from "../../features/admin/counseling/timeSelectors";
 
 /* ========================= DATA CONTOH ========================= */
 /* Ganti dengan fetch('/api/admin/konseling?start=...&end=...') */
@@ -34,7 +35,7 @@ import { COUNSELORS, RATING, SESI, NOW, type Session } from "../../data/mock/adm
  // dari halaman Feedback
 
 /* ========================= UTIL ========================= */
-type PeriodKey = "hari" | "minggu" | "bulan" | "semester";
+type PeriodKey = CounselingPeriodKey;
 type TblKey = "semua" | "individu" | "kelompok" | "dibatalkan";
 type ViewKey = "daftar" | "detail";
 
@@ -75,41 +76,10 @@ const fmtDT = (d: Date) =>
 const fmtShort = (d: Date) =>
   d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
 
-const parseISO = (iso: string) => {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
-};
-
-type Range = { s: Date; e: Date };
+type Range = CounselingDateRange;
 const inR = (t: number, r: Range) => t >= r.s.getTime() && t < r.e.getTime();
 
-/* Rentang waktu sesuai mode tampilan */
-function getRange(
-  period: PeriodKey,
-  anchor: Date,
-  sem: AcademicPeriod | null,
-): Range {
-  const y = anchor.getFullYear();
-  const m = anchor.getMonth();
-  const d = anchor.getDate();
-  if (period === "hari")
-    return { s: new Date(y, m, d), e: new Date(y, m, d + 1) };
-  if (period === "minggu")
-    return { s: new Date(y, m, d - 6), e: new Date(y, m, d + 1) };
-  if (period === "bulan")
-    return { s: new Date(y, m, 1), e: new Date(y, m + 1, 1) };
-  if (!sem) return { s: new Date(0), e: new Date(0) };
-  return {
-    s: parseISO(sem.start),
-    e: new Date(parseISO(sem.end).getTime() + DAY),
-  };
-}
-
-function rangeLabel(
-  period: PeriodKey,
-  range: Range,
-  sem: AcademicPeriod | null,
-) {
+function rangeLabel(period: PeriodKey, range: Range, sem: AcademicPeriod | null) {
   if (period === "hari")
     return range.s.toLocaleDateString("id-ID", {
       weekday: "long",
@@ -120,39 +90,8 @@ function rangeLabel(
   if (period === "minggu")
     return `${fmtShort(range.s)} – ${fmtShort(new Date(range.e.getTime() - DAY))}`;
   if (period === "bulan")
-    return range.s.toLocaleDateString("id-ID", {
-      month: "long",
-      year: "numeric",
-    });
+    return range.s.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
   return sem ? `TA ${sem.ta} · ${sem.sem}` : "Belum ada periode";
-}
-
-/* Bucket untuk grafik batang per konselor */
-function buckets(period: PeriodKey, range: Range) {
-  const y = range.s.getFullYear();
-  const m = range.s.getMonth();
-  const d = range.s.getDate();
-  if (period === "hari") {
-    return Array.from({ length: 9 }, (_, i) => ({
-      label: `${8 + i}:00`,
-      s: new Date(y, m, d, 8 + i),
-      e: new Date(y, m, d, 9 + i),
-    }));
-  }
-  if (period === "semester") {
-    return Array.from({ length: 6 }, (_, i) => ({
-      label: new Date(y, m + i, 1).toLocaleDateString("id-ID", {
-        month: "short",
-      }),
-      s: i === 0 ? range.s : new Date(y, m + i, 1),
-      e: new Date(y, m + i + 1, 1),
-    }));
-  }
-  const days = Math.round((range.e.getTime() - range.s.getTime()) / DAY);
-  return Array.from({ length: days }, (_, i) => {
-    const s = new Date(y, m, d + i);
-    return { label: String(s.getDate()), s, e: new Date(y, m, d + i + 1) };
-  });
 }
 
 /* ========================= KOMPONEN KECIL ========================= */
@@ -392,7 +331,7 @@ function CounselorPanel({
   const KInd = KSelesai.filter((s) => s.type === "individu").length;
   const KBatal = KP.filter((s) => s.status === SESSION_OUTCOME_STATUS.CANCELLED).length;
 
-  const bk = buckets(period, range);
+  const bk = createCounselingChartBuckets(period, range);
   const counts = bk.map(
     (b) =>
       KSelesai.filter((s) => inR(s.start.getTime(), { s: b.s, e: b.e })).length,
@@ -616,7 +555,7 @@ export default function AdminKonselingPage() {
 
   const semester = periods.find((p) => p.id === semId) ?? null;
   const range = useMemo(
-    () => getRange(period, anchor, semester),
+    () => getCounselingDateRange(period, anchor, semester),
     [period, anchor, semester],
   );
   const label = rangeLabel(period, range, semester);

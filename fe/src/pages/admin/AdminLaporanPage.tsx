@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   ClipboardList,
 } from "lucide-react";
-import { SESSIONS, TOPICS, REASONS, type Session } from "../../data/mock/adminReports";
+import { SESSIONS, TOPICS, REASONS } from "../../data/mock/adminReports";
+import { calculateAdminReportAverage, countAdminCancellationReasons, groupAdminReportByMonth, isAdminReportDateInPeriod, selectAdminReportRows, summarizeAdminReportByCounselor, summarizeAdminReportSessions, summarizeAdminReportTopics } from "../../features/admin/reports/selectors";
 import { REPORT_COUNSELORS as COUNSELORS, REPORT_MONTHS as MONTHS } from "../../data/mock/reportCommon";
 
 /* ========================= TIPE & DATA ========================= */
@@ -50,18 +51,8 @@ const ALL_PERIOD: Period = {
 };
 
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
-const inRange = (date: string, period: Period) =>
-  date >= period.start && date <= period.end;
-
-const average = (rows: Session[]) => {
-  const rated = rows.filter((row) => row.rating !== null);
-  return {
-    n: rated.length,
-    value: rated.length
-      ? rated.reduce((sum, row) => sum + (row.rating ?? 0), 0) / rated.length
-      : 0,
-  };
-};
+const inRange = isAdminReportDateInPeriod;
+const average = calculateAdminReportAverage;
 
 function KpiCard({
   label,
@@ -378,40 +369,19 @@ export default function AdminLaporanPage() {
   );
   const periodLabel = formatRangeLabel("semester", range, selectedSemester);
 
-  const periodRows = useMemo(
-    () =>
-      SESSIONS.filter((session) =>
-        periodKey === "semester"
-          ? inRange(session.date, selectedSemester)
-          : (() => {
-              const date = parseISODate(session.date).getTime();
-              return (
-                date >= range.start.getTime() && date < range.end.getTime()
-              );
-            })(),
-      ),
-    [periodKey, selectedSemester, range],
-  );
-
   const rows = useMemo(
-    () =>
-      periodRows.filter(
-        (session) =>
-          (format === "Semua" || session.format === format) &&
-          (counselorFilter === "Semua" ||
-            session.counselor === counselorFilter),
-      ),
-    [periodRows, format, counselorFilter],
+    () => selectAdminReportRows(SESSIONS, selectedSemester, format, counselorFilter),
+    [selectedSemester, format, counselorFilter],
   );
 
-  const done = rows.filter((row) => row.status === SESSION_OUTCOME_LABEL.COMPLETED);
-  const cancelled = rows.filter((row) => row.status === SESSION_OUTCOME_LABEL.CANCELLED);
-  const doneIndividual = done.filter((row) => row.format === "Individu");
-  const doneGroup = done.filter((row) => row.format === "Kelompok");
-  const cancelledIndividual = cancelled.filter(
-    (row) => row.format === "Individu",
-  );
-  const cancelledGroup = cancelled.filter((row) => row.format === "Kelompok");
+  const {
+    completed: done,
+    cancelled,
+    completedIndividual: doneIndividual,
+    completedGroup: doneGroup,
+    cancelledIndividual,
+    cancelledGroup,
+  } = summarizeAdminReportSessions(rows);
   const rating = average(done);
 
   const orphanCount = useMemo(
@@ -422,20 +392,7 @@ export default function AdminLaporanPage() {
     [],
   );
 
-  const monthly = useMemo(() => {
-    const map: Record<string, { done: number; cancelled: number }> = {};
-
-    rows.forEach((row) => {
-      const key = row.date.slice(0, 7);
-      map[key] ??= { done: 0, cancelled: 0 };
-      if (row.status === SESSION_OUTCOME_LABEL.COMPLETED) map[key].done += 1;
-      else map[key].cancelled += 1;
-    });
-
-    return Object.keys(map)
-      .sort()
-      .map((key) => ({ key, ...map[key] }));
-  }, [rows]);
+  const monthly = useMemo(() => groupAdminReportByMonth(rows), [rows]);
 
   const maxMonth = Math.max(
     1,
@@ -443,65 +400,12 @@ export default function AdminLaporanPage() {
   );
 
   const counselorRows = useMemo(
-    () =>
-      COUNSELORS.map((counselor) => {
-        const counselorSessions = rows.filter(
-          (row) => row.counselor === counselor,
-        );
-        const completed = counselorSessions.filter(
-          (row) => row.status === SESSION_OUTCOME_LABEL.COMPLETED,
-        );
-        const canceled = counselorSessions.filter(
-          (row) => row.status === SESSION_OUTCOME_LABEL.CANCELLED,
-        );
-        return {
-          counselor,
-          individualDone: completed.filter((row) => row.format === "Individu")
-            .length,
-          groupDone: completed.filter((row) => row.format === "Kelompok")
-            .length,
-          individualCancelled: canceled.filter(
-            (row) => row.format === "Individu",
-          ).length,
-          groupCancelled: canceled.filter((row) => row.format === "Kelompok")
-            .length,
-          totalDone: completed.length,
-          totalCancelled: canceled.length,
-        };
-      }).filter((row) => row.totalDone + row.totalCancelled > 0),
+    () => summarizeAdminReportByCounselor(rows, COUNSELORS),
     [rows],
   );
 
-  const reasonCount = useMemo(
-    () => {
-      const cancelledRows = rows.filter((row) => row.status === SESSION_OUTCOME_LABEL.CANCELLED);
-      return REASONS.map((reason) => ({
-        reason,
-        count: cancelledRows.filter((row) => row.reason === reason).length,
-      })).sort((a, b) => b.count - a.count);
-    },
-    [rows],
-  );
-
-  const topicRows = useMemo(
-    () =>
-      TOPICS.map((topic) => {
-        const topicSessions = rows.filter((row) => row.topic === topic);
-        const completed = topicSessions.filter(
-          (row) => row.status === SESSION_OUTCOME_LABEL.COMPLETED,
-        );
-        const avg = average(completed);
-        return {
-          topic,
-          total: topicSessions.length,
-          completed: completed.length,
-          cancelled: topicSessions.filter((row) => row.status === SESSION_OUTCOME_LABEL.CANCELLED)
-            .length,
-          rating: avg.n ? avg.value.toFixed(1) : "-",
-        };
-      }),
-    [rows],
-  );
+  const reasonCount = useMemo(() => countAdminCancellationReasons(rows, REASONS), [rows]);
+  const topicRows = useMemo(() => summarizeAdminReportTopics(rows, TOPICS), [rows]);
 
   const selectClass =
     "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20 sm:w-auto";

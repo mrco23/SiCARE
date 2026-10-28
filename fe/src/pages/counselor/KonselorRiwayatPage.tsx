@@ -1,5 +1,5 @@
 import { PageContainer, PageHeader } from "../../components/shared";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,167 +19,29 @@ import {
   loadPeriods,
   sortPeriods,
   toISO,
-  type AcademicPeriod,
 } from "../../lib/academicPeriods";
-import { clients, type Session } from "../../data/mock/counselorHistory";
+import { clients } from "../../data/mock/counselorHistory";
 import type { CounselingFormat as Format } from "../../types/counseling";
+import { getCounselorInitials as initials } from "../../features/counselor/shared/presentation";
+import { useCounselorHistoryAccess } from "../../features/history/hooks/useCounselorHistoryAccess";
+import {
+  counselorHistorySessionKey as sessionKey,
+  formatCounselorHistoryDate as fmtDate,
+  getCounselorHistoryDateRange as getDateRange,
+  getCounselorHistoryDateRangeLabel as dateRangeLabel,
+  matchesCounselorHistoryFilter as matches,
+  type CounselorHistoryPeriod as PeriodKey,
+} from "../../features/counselor/history/historySelectors";
 
-type PeriodKey = "hari" | "minggu" | "bulan" | "semester";
 const PERIOD_OPTIONS: [PeriodKey, string][] = [
   ["hari", "Hari"],
   ["minggu", "Minggu"],
   ["bulan", "Bulan"],
   ["semester", "Semester"],
 ];
-const DAY_MS = 864e5;
-
-type DateRange = { start: Date; end: Date };
-const parseISODate = (iso: string) => {
-  const [year, month, day] = iso.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-const getDateRange = (
-  period: PeriodKey,
-  anchor: Date,
-  semester: AcademicPeriod | null,
-): DateRange => {
-  const y = anchor.getFullYear();
-  const m = anchor.getMonth();
-  const d = anchor.getDate();
-  if (period === "hari")
-    return { start: new Date(y, m, d), end: new Date(y, m, d + 1) };
-  if (period === "minggu")
-    return { start: new Date(y, m, d - 6), end: new Date(y, m, d + 1) };
-  if (period === "bulan")
-    return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
-  if (!semester) return { start: new Date(0), end: new Date(0) };
-  return {
-    start: parseISODate(semester.start),
-    end: new Date(parseISODate(semester.end).getTime() + DAY_MS),
-  };
-};
-const dateRangeLabel = (
-  period: PeriodKey,
-  range: DateRange,
-  semester: AcademicPeriod | null,
-) => {
-  if (period === "hari") {
-    return range.start.toLocaleDateString("id-ID", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  }
-  if (period === "minggu") {
-    const end = new Date(range.end.getTime() - DAY_MS);
-    return `${range.start.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} – ${end.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
-  }
-  if (period === "bulan") {
-    return range.start.toLocaleDateString("id-ID", {
-      month: "long",
-      year: "numeric",
-    });
-  }
-  return semester ? `TA ${semester.ta} · ${semester.sem}` : "Belum ada periode";
-};
-const inDateRange = (date: string, range: DateRange) => {
-  const value = parseISODate(date).getTime();
-  return value >= range.start.getTime() && value < range.end.getTime();
-};
-
-const MAX_ATTEMPTS = 3;
-const ACCESS_DURATION_MS = 30 * 60 * 1000;
-const LOCK_DURATION_MS = 5 * 60 * 1000;
-const HISTORY_PASSWORD = "1234"; // Khusus prototipe. Ganti dengan verifikasi backend.
-const ACCESS_STORAGE_KEY = "sicare:konselor:riwayat-access";
-const ATTEMPT_STORAGE_KEY = "sicare:konselor:riwayat-attempts";
 const CONSENT_PDF_URL = "/informed-consent.pdf";
 
-type AttemptState = { count: number; lockedUntil: number };
-
-// Hanya timestamp akses yang disimpan. Password tidak pernah masuk storage.
-function loadAccess(): number {
-  try {
-    const raw = sessionStorage.getItem(ACCESS_STORAGE_KEY);
-    const expiry = raw === null ? 0 : Number(raw);
-    const currentTime = Date.now();
-    if (
-      Number.isFinite(expiry) &&
-      expiry > currentTime &&
-      expiry <= currentTime + ACCESS_DURATION_MS
-    )
-      return expiry;
-    sessionStorage.removeItem(ACCESS_STORAGE_KEY);
-  } catch {
-    /* Penyimpanan mungkin tidak tersedia. */
-  }
-  return 0;
-}
-
-function loadAttempts(): AttemptState {
-  try {
-    const raw = sessionStorage.getItem(ATTEMPT_STORAGE_KEY);
-    if (!raw) return { count: 0, lockedUntil: 0 };
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      const entry = parsed as Partial<AttemptState>;
-      if (
-        typeof entry.count === "number" &&
-        Number.isInteger(entry.count) &&
-        entry.count >= 0 &&
-        entry.count <= MAX_ATTEMPTS &&
-        typeof entry.lockedUntil === "number" &&
-        Number.isFinite(entry.lockedUntil)
-      ) {
-        if (entry.lockedUntil > Date.now())
-          return {
-            count: MAX_ATTEMPTS,
-            lockedUntil: entry.lockedUntil,
-          };
-        if (entry.count < MAX_ATTEMPTS)
-          return {
-            count: entry.count,
-            lockedUntil: 0,
-          };
-      }
-    }
-    sessionStorage.removeItem(ATTEMPT_STORAGE_KEY);
-  } catch {
-    /* Penyimpanan mungkin tidak tersedia. */
-  }
-  return { count: 0, lockedUntil: 0 };
-}
-
-// Fungsi terpisah sehingga nantinya dapat diganti API verifikasi backend.
-async function verifyHistoryPassword(input: string): Promise<boolean> {
-  return input === HISTORY_PASSWORD;
-}
-
-// Data contoh. Semua sesi sudah memiliki catatan.
-
 const allSessions = clients.flatMap((c) => c.sessions);
-
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-const fmtDate = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
-const sessionKey = (s: Session) => `${s.date} ${s.time}`;
-
-const matches = (s: Session, format: Format, range: DateRange) =>
-  s.format === format && inDateRange(s.date, range);
-
 export default function KonselorRiwayatPage() {
   const navigate = useNavigate();
   const today = useMemo(() => toISO(new Date()), []);
@@ -209,54 +71,29 @@ export default function KonselorRiwayatPage() {
   const [noteId, setNoteId] = useState<number | null>(null);
   const [consentSessionId, setConsentSessionId] = useState<number | null>(null);
 
-  const [accessUntil, setAccessUntil] = useState<number>(loadAccess);
-  const [attemptState, setAttemptState] = useState<AttemptState>(loadAttempts);
-  const [now, setNow] = useState(() => Date.now());
   const [pwInput, setPwInput] = useState("");
   const [pwVisible, setPwVisible] = useState(false);
   const [pwError, setPwError] = useState("");
   const [verifying, setVerifying] = useState(false);
 
   const [toastMsg, setToastMsg] = useState("");
+  const handleAccessExpired = useCallback(() => {
+    setSelectedId(null);
+    setNoteId(null);
+    setConsentSessionId(null);
+    setToastMsg("Akses riwayat terkunci kembali.");
+  }, []);
+  const handleCooldownExpired = useCallback(() => setPwError(""), []);
+  const {
+    attemptState,
+    hasAccess,
+    timerText,
+    isPasswordLocked: pwLocked,
+    maxAttempts: MAX_ATTEMPTS,
+    unlock: unlockHistory,
+  } = useCounselorHistoryAccess(handleAccessExpired, handleCooldownExpired);
 
-  // Timestamp absolut tidak diperpanjang ketika pindah route atau refresh.
-  useEffect(() => {
-    const checkTime = () => {
-      const currentTime = Date.now();
-      setNow(currentTime);
-      if (accessUntil > 0 && currentTime >= accessUntil) {
-        sessionStorage.removeItem(ACCESS_STORAGE_KEY);
-        setAccessUntil(0);
-        setSelectedId(null);
-        setNoteId(null);
-        setConsentSessionId(null);
-        setToastMsg("Akses riwayat terkunci kembali.");
-      }
-      if (
-        attemptState.lockedUntil > 0 &&
-        currentTime >= attemptState.lockedUntil
-      ) {
-        sessionStorage.removeItem(ATTEMPT_STORAGE_KEY);
-        setAttemptState({ count: 0, lockedUntil: 0 });
-        setPwError("");
-      }
-    };
-    const interval = window.setInterval(checkTime, 1000);
-    const timeout =
-      accessUntil > Date.now()
-        ? window.setTimeout(checkTime, accessUntil - Date.now())
-        : undefined;
-    window.addEventListener("focus", checkTime);
-    window.addEventListener("pageshow", checkTime);
-    document.addEventListener("visibilitychange", checkTime);
-    return () => {
-      window.clearInterval(interval);
-      if (timeout !== undefined) window.clearTimeout(timeout);
-      window.removeEventListener("focus", checkTime);
-      window.removeEventListener("pageshow", checkTime);
-      document.removeEventListener("visibilitychange", checkTime);
-    };
-  }, [accessUntil, attemptState.lockedUntil]);
+  // Masa akses dan cooldown dikelola oleh useCounselorHistoryAccess.
 
   // Sembunyikan toast otomatis.
   useEffect(() => {
@@ -265,7 +102,6 @@ export default function KonselorRiwayatPage() {
     return () => clearTimeout(t);
   }, [toastMsg]);
 
-  const hasAccess = accessUntil > now;
   const semester = periods.find((p) => p.id === semesterId) ?? null;
   const range = useMemo(
     () => getDateRange(period, anchor, semester),
@@ -337,13 +173,7 @@ export default function KonselorRiwayatPage() {
       ? (detailSessions.find((s) => s.id === consentSessionId) ?? null)
       : null;
 
-  const timeLeft = Math.max(0, accessUntil - now);
-  const timerText = `${Math.floor(timeLeft / 60000)}:${String(
-    Math.floor((timeLeft % 60000) / 1000),
-  ).padStart(2, "0")}`;
-
   const pwUsed = attemptState.count;
-  const pwLocked = attemptState.lockedUntil > now;
 
   function handleOpenClient(cid: string) {
     if (!hasAccess) {
@@ -361,40 +191,26 @@ export default function KonselorRiwayatPage() {
   async function handleUnlock(e: FormEvent) {
     e.preventDefault();
     if (verifying) return;
-    const latestAttempts = loadAttempts();
-    if (latestAttempts.lockedUntil > Date.now()) {
-      setAttemptState(latestAttempts);
-      return;
-    }
     setVerifying(true);
     try {
-      if (await verifyHistoryPassword(pwInput)) {
-        const expiry = Date.now() + ACCESS_DURATION_MS;
-        sessionStorage.setItem(ACCESS_STORAGE_KEY, String(expiry));
-        sessionStorage.removeItem(ATTEMPT_STORAGE_KEY);
-        setAccessUntil(expiry);
-        setNow(Date.now());
-        setAttemptState({ count: 0, lockedUntil: 0 });
+      const result = await unlockHistory(pwInput);
+      if (result.status === "success") {
         setPwInput("");
         setPwError("");
-        setToastMsg(
-          "Riwayat konseling dibuka. Terkunci otomatis dalam 30 menit.",
-        );
+        setToastMsg("Riwayat konseling dibuka. Terkunci otomatis dalam 30 menit.");
         return;
       }
-      const used = latestAttempts.count + 1;
-      const lockedUntil =
-        used >= MAX_ATTEMPTS ? Date.now() + LOCK_DURATION_MS : 0;
-      const next = { count: used, lockedUntil };
-      sessionStorage.setItem(ATTEMPT_STORAGE_KEY, JSON.stringify(next));
-      setAttemptState(next);
-      const left = MAX_ATTEMPTS - used;
-      setPwError(
-        left > 0
-          ? `Kata sandi salah. Sisa percobaan: ${left}`
-          : "Terlalu banyak percobaan. Coba lagi dalam 5 menit.",
-      );
-      setPwInput("");
+      if (result.status === "locked") {
+        setPwInput("");
+        setPwError("Terlalu banyak percobaan. Coba lagi dalam 5 menit.");
+        return;
+      }
+      if (result.status === "invalid") {
+        setPwInput("");
+        setPwError(`Kata sandi salah. Sisa percobaan: ${result.remainingAttempts}`);
+        return;
+      }
+      setPwError("Penyimpanan browser tidak tersedia. Periksa pengaturan browser lalu coba lagi.");
     } finally {
       setVerifying(false);
     }

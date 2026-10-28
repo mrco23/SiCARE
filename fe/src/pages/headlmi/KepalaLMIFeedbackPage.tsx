@@ -1,4 +1,5 @@
 import { PageContainer, PageHeader } from "../../components/shared";
+import { MetricCard } from "../../components/headlmi/MetricCard";
 import { FEEDBACK_REVIEW_STATUS } from "../../constants/status";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -25,6 +26,7 @@ import {
   type PeriodStatus,
 } from "../../lib/academicPeriods";
 import { FEEDBACKS, type Feedback } from "../../data/mock/headlmiFeedback";
+import { groupHeadLmiFeedbackByMonth, selectHeadLmiFeedback, selectHeadLmiFeedbackInPeriod, summarizeFeedbackByCounselor, summarizeHeadLmiFeedback } from "../../features/headlmi/feedback/selectors";
 import { REPORT_COUNSELORS as COUNSELORS, REPORT_MONTHS as MONTHS } from "../../data/mock/reportCommon";
 
 /* Data sintetis untuk desain frontend. Ganti dengan data dari backend saat integrasi. */
@@ -44,50 +46,6 @@ const REVIEW_STYLE: Record<Feedback["status"], string> = {
 const percent = (value: number, total: number) =>
   total > 0 ? Math.round((value / total) * 100) : 0;
 
-const feedbackInPeriod = (period: AcademicPeriod | null) =>
-  FEEDBACKS.filter(
-    (feedback) =>
-      !period ||
-      isInPeriod(toISO(new Date(`${feedback.date}T00:00:00`)), period),
-  );
-
-function MetricCard({
-  label,
-  value,
-  note,
-  icon: Icon,
-  tone = "green",
-}: {
-  label: string;
-  value: string | number;
-  note: string;
-  icon: typeof Star;
-  tone?: "green" | "red" | "blue" | "gold";
-}) {
-  const tones = {
-    green: "bg-emerald-50 text-emerald-700",
-    red: "bg-red-50 text-red-600",
-    blue: "bg-blue-50 text-blue-700",
-    gold: "bg-amber-50 text-amber-700",
-  };
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-semibold leading-5 text-slate-500">
-          {label}
-        </p>
-        <span className={`rounded-xl p-2 ${tones[tone]}`}>
-          <Icon className="h-5 w-5" />
-        </span>
-      </div>
-      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
-        {value}
-      </p>
-      <p className="mt-1 text-xs text-slate-500">{note}</p>
-    </div>
-  );
-}
 
 function PeriodDropdown({
   periods,
@@ -346,85 +304,19 @@ export default function KepalaLMIFeedbackPage() {
   const [search, setSearch] = useState("");
 
   const period = periods.find((item) => item.id === periodId) ?? null;
-  const periodRows = useMemo(() => feedbackInPeriod(period), [period]);
+  const periodRows = useMemo(() => selectHeadLmiFeedbackInPeriod(FEEDBACKS, period), [period]);
 
   const rows = useMemo(
-    () =>
-      periodRows.filter((feedback) => {
-        const matchesRating =
-          ratingFilter === "Semua" ||
-          (ratingFilter === "Positif" && feedback.rating >= 4) ||
-          (ratingFilter === "Netral" && feedback.rating === 3) ||
-          (ratingFilter === "Negatif" && feedback.rating <= 2);
-        const matchesCategory =
-          categoryFilter === "Semua" || feedback.category === categoryFilter;
-        const matchesSearch =
-          search.trim() === "" ||
-          feedback.id.toLowerCase().includes(search.toLowerCase()) ||
-          feedback.counselor.toLowerCase().includes(search.toLowerCase()) ||
-          feedback.comment.toLowerCase().includes(search.toLowerCase());
-        return matchesRating && matchesCategory && matchesSearch;
-      }),
+    () => selectHeadLmiFeedback(periodRows, { rating: ratingFilter, category: categoryFilter, search }),
     [periodRows, ratingFilter, categoryFilter, search],
   );
 
-  const averageRating = rows.length
-    ? rows.reduce((sum, feedback) => sum + feedback.rating, 0) / rows.length
-    : 0;
-  const positive = rows.filter((feedback) => feedback.rating >= 4).length;
-  const neutral = rows.filter((feedback) => feedback.rating === 3).length;
-  const negative = rows.filter((feedback) => feedback.rating <= 2).length;
-  const pendingReview = rows.filter(
-    (feedback) => feedback.status !== FEEDBACK_REVIEW_STATUS.COMPLETED,
-  ).length;
-
-  const distribution = [5, 4, 3, 2, 1].map((rating) => ({
-    rating,
-    count: rows.filter((feedback) => feedback.rating === rating).length,
-  }));
+  const summary = useMemo(() => summarizeHeadLmiFeedback(rows), [rows]);
+  const { averageRating, positive, neutral, negative, pendingReview, distribution } = summary;
   const maxRatingCount = Math.max(1, ...distribution.map((item) => item.count));
-
-  const monthly = useMemo(() => {
-    const map: Record<string, { total: number; ratingSum: number }> = {};
-    rows.forEach((feedback) => {
-      const month = feedback.date.slice(0, 7);
-      map[month] ??= { total: 0, ratingSum: 0 };
-      map[month].total += 1;
-      map[month].ratingSum += feedback.rating;
-    });
-    return Object.entries(map)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => ({
-        key,
-        total: value.total,
-        average: value.total ? value.ratingSum / value.total : 0,
-      }));
-  }, [rows]);
-
+  const monthly = useMemo(() => groupHeadLmiFeedbackByMonth(rows), [rows]);
   const counselorRows = useMemo(
-    () =>
-      COUNSELORS.map((counselor) => {
-        const feedbacks = rows.filter(
-          (feedback) => feedback.counselor === counselor,
-        );
-        const avg = feedbacks.length
-          ? feedbacks.reduce((sum, feedback) => sum + feedback.rating, 0) /
-            feedbacks.length
-          : 0;
-        const positiveCount = feedbacks.filter(
-          (feedback) => feedback.rating >= 4,
-        ).length;
-        const negativeCount = feedbacks.filter(
-          (feedback) => feedback.rating <= 2,
-        ).length;
-        return {
-          counselor,
-          count: feedbacks.length,
-          average: avg,
-          positive: positiveCount,
-          negative: negativeCount,
-        };
-      }).filter((item) => item.count > 0),
+    () => summarizeFeedbackByCounselor(rows, COUNSELORS),
     [rows],
   );
 
@@ -492,7 +384,7 @@ export default function KepalaLMIFeedbackPage() {
               selectedId={periodId}
               onSelect={setPeriodId}
               today={today}
-              feedbackCount={(item) => feedbackInPeriod(item).length}
+              feedbackCount={(item) => selectHeadLmiFeedbackInPeriod(FEEDBACKS, item).length}
             />
             <button
               type="button"

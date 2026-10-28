@@ -9,10 +9,11 @@ import {
   UserX,
 } from "lucide-react";
 import { INITIAL_ACCOUNTS, type Account, type Role } from "../../data/mock/adminAccounts";
+import { accountMatchesTab, defaultAccountRoleForTab, selectAccounts, type AdminAccountTab } from "../../features/admin/accounts/accountSelectors";
 
 /* ========================= TIPE & DATA ========================= */
 
-type Tab = "Semua" | "Konselor" | "Klien" | "Kepala LMI" | "Admin";
+type Tab = AdminAccountTab;
 
 type FormState = {
   name: string;
@@ -33,7 +34,6 @@ const ROLES: Role[] = [
   "Kepala LMI",
   "Admin",
 ];
-const CLIENT_ROLES: Role[] = ["Mahasiswa", "Dosen", "Staff"]; // termasuk dalam filter "Klien"
 const TABS: Tab[] = ["Semua", "Konselor", "Klien", "Kepala LMI", "Admin"];
 
 const ROLE_STYLE: Record<Role, string> = {
@@ -62,23 +62,11 @@ const fmtDate = (iso: string) =>
     year: "numeric",
   });
 
-// Apakah akun masuk ke tab tertentu
-const inTab = (a: Account, tab: Tab) =>
-  tab === "Semua"
-    ? true
-    : tab === "Klien"
-      ? CLIENT_ROLES.includes(a.role)
-      : a.role === tab;
-
-// Peran default saat membuka modal "Tambah Akun", mengikuti tab yang sedang aktif
-const defaultRoleForTab = (tab: Tab): Role =>
-  tab === "Semua" || tab === "Klien" ? "Mahasiswa" : (tab as Role);
-
 const emptyForm = (tab: Tab): FormState => ({
   name: "",
   code: "",
   email: "",
-  role: defaultRoleForTab(tab),
+  role: defaultAccountRoleForTab(tab),
   active: true,
 });
 
@@ -97,18 +85,10 @@ export default function AdminAkunPage() {
   const [form, setForm] = useState<FormState>(emptyForm("Semua"));
   const [showError, setShowError] = useState(false);
 
-  const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return accounts
-      .filter((a) => inTab(a, tab))
-      .filter(
-        (a) =>
-          !q ||
-          a.name.toLowerCase().includes(q) ||
-          a.code.toLowerCase().includes(q),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [accounts, tab, query]);
+  const rows = useMemo(
+    () => selectAccounts(accounts, tab, query).sort((a, b) => a.name.localeCompare(b.name)),
+    [accounts, tab, query],
+  );
 
   /* ===== MODAL ===== */
   const openAdd = () => {
@@ -178,7 +158,7 @@ export default function AdminAkunPage() {
       <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-center">
         <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 text-xs font-semibold text-slate-600">
           {TABS.map((t) => {
-            const n = accounts.filter((a) => inTab(a, t)).length;
+            const n = accounts.filter((a) => accountMatchesTab(a, t)).length;
             const on = tab === t;
             return (
               <button
