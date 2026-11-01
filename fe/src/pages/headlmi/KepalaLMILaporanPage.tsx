@@ -1,324 +1,240 @@
-import { PageContainer, PageHeader } from "../../components/shared";
-import { MetricCard } from "../../components/headlmi/MetricCard";
-import { SESSION_OUTCOME_LABEL } from "../../constants/status";
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowDownRight,
-  ArrowRight,
-  ArrowUpRight,
-  CalendarDays,
-  CalendarX,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Printer,
-  Users,
-  UsersRound,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  fmtDate,
-  isInPeriod,
-  loadPeriods,
-  periodStatus,
-  sortPeriods,
-  toISO,
-  type AcademicPeriod,
-  type PeriodStatus,
-} from "../../lib/academicPeriods";
-import { SESSIONS, CANCELLATION_REASONS } from "../../data/mock/headlmiReports";
-import { countHeadLmiCancellationReasons, countSessionOutcomes, groupHeadLmiSessionsByMonth, selectHeadLmiSessionsInPeriod, summarizeHeadLmiSessionsByCounselor } from "../../features/headlmi/reports/selectors";
-import { REPORT_COUNSELORS as COUNSELORS, REPORT_MONTHS as MONTHS } from "../../data/mock/reportCommon";
+  AlertTriangle,
+  ArrowRight,
+  CalendarCheck2,
+  CalendarDays,
+  CalendarX,
+  CheckCircle2,
+  FileSpreadsheet,
+  Loader2,
+  MessageSquareHeart,
+  Printer,
+  RefreshCw,
+  ShieldCheck,
+  Star,
+  Users,
+} from "lucide-react";
+import { PageContainer, PageHeader } from "../../components/shared";
+import { MetricCard } from "../../components/headlmi/MetricCard";
+import { reportingApi } from "../../lib/reportingApi";
+import type { AdminReportDto } from "../../types/api";
+import {
+  describeApiError,
+  fillMonthlyRange,
+  formatIsoDate,
+  formatIsoDateTime,
+  formatMonthKey,
+  formatRating,
+  percent,
+} from "../../features/headlmi/shared/presentation";
 
-/* Data sintetis untuk desain frontend. Ganti dengan data agregat dari backend. */
-
-const STATUS_STYLE: Record<PeriodStatus, string> = {
-  Aktif: "border-emerald-200 bg-emerald-50 text-primary",
-  Mendatang: "border-sky-200 bg-sky-50 text-sky-700",
-  Selesai: "border-slate-200 bg-slate-100 text-slate-500",
-};
-
-const percent = (value: number, total: number) =>
-  total > 0 ? Math.round((value / total) * 100) : 0;
-
-
-function PeriodDropdown({
-  periods,
-  selectedId,
-  onSelect,
-  today,
-}: {
-  periods: AcademicPeriod[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-  today: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [activeYear, setActiveYear] = useState<string | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const selected = periods.find((period) => period.id === selectedId) ?? null;
-
-  const years = useMemo(
-    () => [...new Set(periods.map((period) => period.ta))].sort().reverse(),
-    [periods],
-  );
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  const toggle = () => {
-    if (!open) setActiveYear(selected?.ta ?? years[0] ?? null);
-    setOpen((value) => !value);
-  };
-
-  const selectPeriod = (id: string) => {
-    onSelect(id);
-    setOpen(false);
-  };
-
-  const year = activeYear ?? years[0] ?? null;
-  const selectedStatus = selected ? periodStatus(selected, today) : null;
-
+function Stars({ rating, size = "h-3.5 w-3.5" }: { rating: number; size?: string }) {
   return (
-    <div ref={rootRef} className="relative w-full sm:w-[390px]">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition ${
-          open
-            ? "border-brand-accent ring-4 ring-brand-accent/15"
-            : "border-slate-200 hover:border-brand-accent/50"
-        }`}
-      >
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Periode laporan
-          </p>
-          <p className="truncate text-sm font-bold text-slate-800">
-            {selected ? `TA ${selected.ta} · ${selected.sem}` : "Semua periode"}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {selectedStatus && (
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLE[selectedStatus]}`}
-            >
-              {selectedStatus}
-            </span>
-          )}
-          <ChevronDown
-            className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
-          />
-        </div>
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-          <div className="border-b border-slate-100 p-3">
-            <button
-              type="button"
-              onClick={() => selectPeriod("all")}
-              className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
-                selectedId === "all"
-                  ? "bg-[#f0fdf4] text-primary"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Semua periode
-              {selectedId === "all" && <Check className="h-4 w-4" />}
-            </button>
-          </div>
-
-          {periods.length === 0 ? (
-            <div className="p-5 text-sm text-slate-500">
-              Belum ada periode akademik. Tambahkan periode melalui menu
-              Periode.
-            </div>
-          ) : (
-            <div className="grid grid-cols-[9rem_1fr]">
-              <div className="max-h-72 space-y-1 overflow-y-auto border-r border-slate-100 bg-slate-50/60 p-2">
-                <p className="px-2 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Tahun akademik
-                </p>
-                {years.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setActiveYear(item)}
-                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition ${
-                      year === item
-                        ? "bg-white text-primary shadow-sm"
-                        : "text-slate-600 hover:bg-white/70"
-                    }`}
-                  >
-                    {item}
-                    {selected?.ta === item && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-brand-accent" />
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-2 p-3">
-                <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Semester · TA {year}
-                </p>
-                {(["Ganjil", "Genap"] as const).map((semester) => {
-                  const period = periods
-                    .filter((item) => item.ta === year)
-                    .find((item) => item.sem === semester);
-
-                  if (!period) {
-                    return (
-                      <div
-                        key={semester}
-                        className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-400"
-                      >
-                        <span className="font-semibold">{semester}</span> ·
-                        belum tersedia
-                      </div>
-                    );
-                  }
-
-                  const active = selectedId === period.id;
-                  const status = periodStatus(period, today);
-                  const sessionCount = selectHeadLmiSessionsInPeriod(SESSIONS, period).length;
-
-                  return (
-                    <button
-                      key={semester}
-                      type="button"
-                      onClick={() => selectPeriod(period.id)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
-                        active
-                          ? "border-primary bg-primary text-white"
-                          : "border-slate-200 bg-white hover:border-brand-accent/50 hover:bg-[#f6fcf8]"
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold">{semester}</p>
-                        <p
-                          className={`truncate text-[11px] ${active ? "text-emerald-100" : "text-slate-400"}`}
-                        >
-                          {fmtDate(period.start)} – {fmtDate(period.end)}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${active ? "bg-white/15 text-white" : "bg-slate-100 text-slate-600"}`}
-                        >
-                          {sessionCount} sesi
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold ${active ? "text-emerald-100" : status === "Aktif" ? "text-[#15803d]" : "text-slate-400"}`}
-                        >
-                          {status}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    <span className="inline-flex items-center gap-0.5" aria-label={`Rating ${rating} dari 5`}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`${size} ${star <= rating ? "fill-amber-400 text-amber-400" : "text-slate-200"}`}
+        />
+      ))}
+    </span>
   );
 }
 
+function downloadCSV(filename: string, data: (string | number)[][]) {
+  const csv = data
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function KepalaLMILaporanPage() {
-  const today = useMemo(() => toISO(new Date()), []);
-  const periods = useMemo(() => sortPeriods(loadPeriods()), []);
-  const [periodId, setPeriodId] = useState<string>(() => {
-    const active = periods.find((period) => isInPeriod(today, period));
-    return active?.id ?? periods[periods.length - 1]?.id ?? "all";
-  });
+  const [report, setReport] = useState<AdminReportDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadedAt, setLoadedAt] = useState<string | null>(null);
 
-  const period = periods.find((item) => item.id === periodId) ?? null;
-  const rows = useMemo(() => selectHeadLmiSessionsInPeriod(SESSIONS, period), [period]);
+  const fetchReport = useCallback(async () => {
+    return reportingApi.getHeadLmiReport();
+  }, []);
 
-  const {
-    completed,
-    cancelled,
-    individualCompleted,
-    groupCompleted,
-    individualCancelled,
-    groupCancelled,
-  } = countSessionOutcomes(rows);
+  useEffect(() => {
+    let active = true;
+    void fetchReport()
+      .then((data) => {
+        if (!active) return;
+        setReport(data);
+        setError(null);
+        setLoadedAt(new Date().toISOString());
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setError(describeApiError(err, "Gagal memuat laporan layanan konseling dari server."));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-  const previousPeriod = useMemo(() => {
-    if (!period) return null;
-    const sorted = sortPeriods(periods);
-    const index = sorted.findIndex((item) => item.id === period.id);
-    return index > 0 ? sorted[index - 1] : null;
-  }, [period, periods]);
+    return () => {
+      active = false;
+    };
+  }, [fetchReport]);
 
-  const previousRows = useMemo(
-    () => (previousPeriod ? selectHeadLmiSessionsInPeriod(SESSIONS, previousPeriod) : []),
-    [previousPeriod],
-  );
-  const previousCompleted = previousRows.filter(
-    (session) => session.status === SESSION_OUTCOME_LABEL.COMPLETED,
-  ).length;
-  const completedChange = completed.length - previousCompleted;
-  const completedChangePct =
-    previousCompleted > 0
-      ? Math.round((completedChange / previousCompleted) * 100)
-      : null;
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const data = await fetchReport();
+      setReport(data);
+      setLoadedAt(new Date().toISOString());
+    } catch (err: unknown) {
+      setError(describeApiError(err, "Gagal memuat laporan layanan konseling dari server."));
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
-  const monthly = useMemo(() => groupHeadLmiSessionsByMonth(rows), [rows]);
+  const monthly = useMemo(() => (report ? fillMonthlyRange(report) : []), [report]);
 
-  const maxMonth = Math.max(
-    1,
-    ...monthly.map((month) => month.done + month.cancelled),
-  );
+  const maxMonthValue = useMemo(() => {
+    if (!monthly.length) return 1;
+    return Math.max(
+      1,
+      ...monthly.map((m) => Math.max(m.completed_sessions, m.bookings, m.feedback_count)),
+    );
+  }, [monthly]);
 
-  const counselorRows = useMemo(
-    () => summarizeHeadLmiSessionsByCounselor(rows, COUNSELORS),
-    [rows],
-  );
+  const completionRate = useMemo(() => {
+    if (!report) return 0;
+    const totalSessions = report.totals.completed_sessions + report.totals.cancelled_sessions;
+    return percent(report.totals.completed_sessions, totalSessions);
+  }, [report]);
 
-  const cancellationRows = useMemo(
-    () => countHeadLmiCancellationReasons(rows, CANCELLATION_REASONS),
-    [rows],
-  );
+  const cancellationRate = useMemo(() => {
+    if (!report) return 0;
+    const totalSessions = report.totals.completed_sessions + report.totals.cancelled_sessions;
+    return percent(report.totals.cancelled_sessions, totalSessions);
+  }, [report]);
+
+  const handleExportCsv = () => {
+    if (!report) return;
+    const data: (string | number)[][] = [
+      ["Laporan Layanan Konseling SiCARE - Panel Kepala LMI"],
+      ["Rentang Laporan", `${formatIsoDate(report.period.from)} s/d ${formatIsoDate(report.period.to)}`],
+      ["Waktu Ekspor", new Date().toLocaleString("id-ID")],
+      ["Status Pemotongan Data (1000 max)", report.truncated ? "Ya (mencapai batas)" : "Tidak (lengkap)"],
+      [],
+      ["Indikator Agregat", "Nilai"],
+      ["Total Booking", report.totals.bookings],
+      ["Sesi Selesai", report.totals.completed_sessions],
+      ["Sesi Dibatalkan", report.totals.cancelled_sessions],
+      ["Tingkat Penyelesaian Sesi", `${completionRate}%`],
+      ["Tingkat Pembatalan Sesi", `${cancellationRate}%`],
+      ["Total Feedback", report.totals.feedback],
+      ["Feedback Ditampilkan Publik", report.totals.shown_feedback],
+      ["Rata-rata Rating", report.totals.average_rating ? report.totals.average_rating.toFixed(2) : "-"],
+      ["Konselor Aktif Tercatat", report.counselors.length],
+      [],
+      ["Tren Bulanan", "Booking", "Sesi Selesai", "Feedback"],
+      ...monthly.map((m) => [m.month, m.bookings, m.completed_sessions, m.feedback_count]),
+      [],
+      ["Konselor", "Total Booking", "Sesi Selesai", "Jumlah Feedback", "Rata-rata Rating"],
+      ...report.counselors.map((c) => [
+        c.counselor_name,
+        c.bookings,
+        c.completed_sessions,
+        c.feedback_count,
+        c.average_rating ? c.average_rating.toFixed(2) : "-",
+      ]),
+    ];
+    downloadCSV(`laporan-kepala-lmi-${new Date().toISOString().slice(0, 10)}.csv`, data);
+  };
+
+  if (loading) {
+    return (
+      <PageContainer role="headlmi" className="space-y-6 text-slate-800">
+        <PageHeader
+          eyebrow="Panel Pimpinan"
+          title="Laporan Layanan Konseling"
+          description="Rekapitulasi pelaksanaan layanan, pembatalan, dan distribusi sesi per konselor untuk mendukung evaluasi LMI."
+        />
+        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm font-medium text-slate-600">Memuat laporan dari server…</p>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (error || !report) {
+    return (
+      <PageContainer role="headlmi" className="space-y-6 text-slate-800">
+        <PageHeader
+          eyebrow="Panel Pimpinan"
+          title="Laporan Layanan Konseling"
+          description="Rekapitulasi pelaksanaan layanan, pembatalan, dan distribusi sesi per konselor untuk mendukung evaluasi LMI."
+        />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-red-200 bg-white p-8 text-center shadow-sm">
+          <div className="rounded-full bg-red-50 p-3 text-red-600">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Gagal Memuat Laporan</h3>
+            <p className="mt-1 text-sm text-slate-600">{error ?? "Data laporan tidak ditemukan."}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Coba Lagi
+          </button>
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
-    <PageContainer role="headlmi" className="report-print-page text-slate-800">
-
+    <PageContainer role="headlmi" className="report-print-page space-y-6 text-slate-800">
       <PageHeader
         eyebrow="Panel Pimpinan"
         title="Laporan Layanan Konseling"
         description="Rekapitulasi pelaksanaan layanan, pembatalan, dan distribusi sesi per konselor untuk mendukung evaluasi LMI."
         actions={
           <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center">
-            <PeriodDropdown
-              periods={periods}
-              selectedId={periodId}
-              onSelect={setPeriodId}
-              today={today}
-            />
+            <button
+              type="button"
+              onClick={() => void handleRefresh()}
+              disabled={refreshing}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Segarkan
+            </button>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+              Ekspor CSV
+            </button>
             <button
               type="button"
               onClick={() => window.print()}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
             >
               <Printer className="h-4 w-4" />
               Cetak / PDF
@@ -327,151 +243,161 @@ export default function KepalaLMILaporanPage() {
         }
       />
 
+      {/* Truncated Data Warning Banner */}
+      {report.truncated && (
+        <div className="flex items-start gap-2.5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 shadow-xs">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <span>
+            <strong>Perhatian Batas Data:</strong> Sebagian sumber data query mencapai batas maksimal 1.000 baris.
+            Laporan ini merefleksikan 1.000 record teratas dalam rentang 12 bulan terakhir dan mungkin belum mencakup
+            seluruh riwayat database.
+          </span>
+        </div>
+      )}
+
+      {/* Period Banner */}
       <section className="rounded-2xl border border-[#d6eadc] bg-gradient-to-r from-[#f0faf3] to-white p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#32734f]">
-              Periode laporan
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#32734f]">
+              Periode Rentang Laporan Aktual
             </p>
             <h2 className="mt-1 text-lg font-bold text-slate-900">
-              {period
-                ? `TA ${period.ta} · Semester ${period.sem}`
-                : "Semua periode akademik"}
+              {formatIsoDate(report.period.from)} – {formatIsoDate(report.period.to)}
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              {period
-                ? `${fmtDate(period.start)} – ${fmtDate(period.end)}`
-                : "Seluruh rentang data yang tersedia"}
+              Agregasi backend mencakup data sekitar 12 bulan terakhir.
+              {loadedAt && ` Terakhir diperbarui ${formatIsoDateTime(loadedAt)}.`}
             </p>
           </div>
           <Link
             to="/kepala-lmi"
-            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-[#cce3d3] bg-white px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-[#f6fcf8] sm:self-auto"
+            className="no-print inline-flex items-center justify-center gap-2 self-start rounded-xl border border-[#cce3d3] bg-white px-4 py-2 text-sm font-semibold text-primary transition hover:bg-[#f6fcf8] sm:self-auto"
           >
             Kembali ke beranda <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </section>
 
+      {/* Ringkasan Eksekutif */}
       <section className="space-y-3">
         <div>
-          <h2 className="text-base font-bold text-slate-900">
-            Ringkasan eksekutif
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Angka agregat untuk melihat volume layanan dan pola pembatalan pada
-            periode terpilih.
+          <h2 className="text-base font-bold text-slate-900">Ringkasan Eksekutif Layanan</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Angka agregat volume layanan konseling, pelaksanaan, dan kepuasan mahasiswa.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            label="Total sesi"
-            value={rows.length}
-            note="Sesi selesai dan dibatalkan"
+            label="Total Booking Masuk"
+            value={report.totals.bookings}
+            note="Seluruh permohonan booking dalam rentang laporan"
             icon={CalendarDays}
             tone="blue"
           />
           <MetricCard
-            label="Sesi selesai"
-            value={completed.length}
-            note={`${percent(completed.length, rows.length)}% dari total sesi`}
+            label="Sesi Selesai Terlaksana"
+            value={report.totals.completed_sessions}
+            note={`${completionRate}% dari total sesi yang tercatat`}
             icon={CheckCircle2}
+            tone="green"
           />
           <MetricCard
-            label="Sesi dibatalkan"
-            value={cancelled.length}
-            note={`${percent(cancelled.length, rows.length)}% dari total sesi`}
+            label="Sesi Dibatalkan"
+            value={report.totals.cancelled_sessions}
+            note={`${cancellationRate}% dari total sesi yang tercatat`}
             icon={CalendarX}
             tone="red"
           />
           <MetricCard
-            label="Konselor dengan aktivitas"
-            value={counselorRows.length}
-            note="Memiliki sesi pada periode terpilih"
+            label="Konselor Aktif"
+            value={report.counselors.length}
+            note="Konselor yang tercatat aktif dalam sistem"
             icon={Users}
             tone="gold"
           />
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <MetricCard
-            label="Individu selesai"
-            value={individualCompleted.length}
-            note="Sesi individu terlaksana"
-            icon={Users}
+            label="Total Feedback Pengguna"
+            value={report.totals.feedback}
+            note="Ulasan kepuasan yang dikirim klien"
+            icon={MessageSquareHeart}
+            tone="blue"
           />
           <MetricCard
-            label="Kelompok selesai"
-            value={groupCompleted.length}
-            note="Sesi kelompok terlaksana"
-            icon={UsersRound}
+            label="Feedback Ditampilkan Publik"
+            value={report.totals.shown_feedback}
+            note="Ulasan yang disetujui Admin untuk publik"
+            icon={CalendarCheck2}
+            tone="green"
           />
           <MetricCard
-            label="Individu dibatalkan"
-            value={individualCancelled.length}
-            note="Sesi individu dibatalkan"
-            icon={Users}
-            tone="red"
-          />
-          <MetricCard
-            label="Kelompok dibatalkan"
-            value={groupCancelled.length}
-            note="Sesi kelompok dibatalkan"
-            icon={UsersRound}
-            tone="red"
+            label="Rata-rata Rating Layanan"
+            value={formatRating(report.totals.average_rating)}
+            note="Skala kepuasan 1 sampai 5"
+            icon={Star}
+            tone="gold"
           />
         </div>
       </section>
 
+      {/* Visualisasi Tren Bulanan & Evaluasi */}
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:col-span-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:col-span-2 print-break-inside">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="font-bold text-slate-900">
-                Tren layanan per bulan
-              </h2>
+              <h2 className="font-bold text-slate-900">Tren Layanan per Bulan</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Jumlah sesi selesai dibandingkan dengan sesi dibatalkan.
+                Perbandingan jumlah sesi selesai, booking masuk, dan feedback klien.
               </p>
             </div>
-            <div className="flex gap-3 text-[11px] font-medium text-slate-500">
+            <div className="flex flex-wrap gap-3 text-[11px] font-medium text-slate-600">
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-brand-accent" />
-                Selesai
+                <span className="h-2.5 w-2.5 rounded-xs bg-[#15803d]" />
+                Sesi Selesai
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-red-400" />
-                Dibatalkan
+                <span className="h-2.5 w-2.5 rounded-xs bg-sky-400" />
+                Booking
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-xs bg-amber-400" />
+                Feedback
               </span>
             </div>
           </div>
+
           {monthly.length === 0 ? (
-            <div className="flex h-48 items-center justify-center text-sm text-slate-400">
-              Belum ada data pada periode ini.
+            <div className="flex h-52 items-center justify-center text-sm text-slate-400">
+              Belum ada riwayat aktivitas pada rentang laporan ini.
             </div>
           ) : (
             <>
-              <div className="mt-6 flex h-48 items-end gap-2 border-b border-slate-100 pb-1 sm:gap-3">
+              <div className="mt-6 flex h-52 items-end gap-2 border-b border-slate-100 pb-2 sm:gap-3">
                 {monthly.map((month) => {
-                  const total = month.done + month.cancelled;
-                  const height = (total / maxMonth) * 100;
-                  const doneHeight = total ? (month.done / total) * 100 : 0;
+                  const sHeight = month.completed_sessions > 0 ? (month.completed_sessions / maxMonthValue) * 100 : 4;
+                  const bHeight = month.bookings > 0 ? (month.bookings / maxMonthValue) * 100 : 4;
+                  const fHeight = month.feedback_count > 0 ? (month.feedback_count / maxMonthValue) * 100 : 4;
+
                   return (
                     <div
-                      key={month.key}
-                      className="flex h-full min-w-0 flex-1 flex-col justify-end"
-                      title={`${month.key}: ${month.done} selesai, ${month.cancelled} dibatalkan`}
+                      key={month.month}
+                      className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+                      title={`${formatMonthKey(month.month)}: ${month.completed_sessions} sesi selesai, ${month.bookings} booking, ${month.feedback_count} feedback`}
                     >
-                      <div
-                        className="flex w-full flex-col overflow-hidden rounded-t-md"
-                        style={{ height: `${height}%` }}
-                      >
+                      <div className="flex w-full items-end justify-center gap-0.5 sm:gap-1">
                         <div
-                          className="bg-red-400"
-                          style={{ height: `${100 - doneHeight}%` }}
+                          className="w-full max-w-[14px] rounded-t-xs bg-[#15803d] transition-all"
+                          style={{ height: `${sHeight}%` }}
                         />
                         <div
-                          className="bg-brand-accent"
-                          style={{ height: `${doneHeight}%` }}
+                          className="w-full max-w-[14px] rounded-t-xs bg-sky-400 transition-all"
+                          style={{ height: `${bHeight}%` }}
+                        />
+                        <div
+                          className="w-full max-w-[14px] rounded-t-xs bg-amber-400 transition-all"
+                          style={{ height: `${fHeight}%` }}
                         />
                       </div>
                     </div>
@@ -481,10 +407,10 @@ export default function KepalaLMILaporanPage() {
               <div className="mt-2 flex gap-2 sm:gap-3">
                 {monthly.map((month) => (
                   <div
-                    key={month.key}
-                    className="min-w-0 flex-1 text-center text-[10px] font-semibold text-slate-500"
+                    key={month.month}
+                    className="min-w-0 flex-1 truncate text-center text-[10px] font-semibold text-slate-500"
                   >
-                    {MONTHS[Number(month.key.slice(5, 7)) - 1]}
+                    {formatMonthKey(month.month, false)}
                   </div>
                 ))}
               </div>
@@ -492,179 +418,143 @@ export default function KepalaLMILaporanPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="font-bold text-slate-900">Perbandingan semester</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Perubahan jumlah sesi selesai dibandingkan periode sebelumnya.
-          </p>
-          <div className="mt-5 rounded-xl bg-slate-50 p-4">
-            <p className="text-xs font-semibold text-slate-500">
-              Sesi selesai periode ini
-            </p>
-            <p className="mt-1 text-3xl font-bold text-slate-900">
-              {completed.length}
-            </p>
-            <div
-              className={`mt-2 inline-flex items-center gap-1 text-sm font-bold ${completedChange > 0 ? "text-emerald-700" : completedChange < 0 ? "text-red-600" : "text-slate-500"}`}
-            >
-              {completedChange > 0 ? (
-                <ArrowUpRight className="h-4 w-4" />
-              ) : completedChange < 0 ? (
-                <ArrowDownRight className="h-4 w-4" />
-              ) : null}
-              {previousPeriod
-                ? `${completedChange > 0 ? "+" : ""}${completedChange} sesi${completedChangePct !== null ? ` (${completedChangePct > 0 ? "+" : ""}${completedChangePct}%)` : ""}`
-                : "Belum ada periode pembanding"}
-            </div>
+        {/* Panel Evaluasi Layanan */}
+        <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print-break-inside">
+          <div>
+            <h2 className="font-bold text-slate-900">Kinerja Pelaksanaan Layanan</h2>
             <p className="mt-1 text-xs text-slate-500">
-              {previousPeriod
-                ? `Dibandingkan TA ${previousPeriod.ta} · ${previousPeriod.sem} (${previousCompleted} sesi selesai)`
-                : "Pilih periode yang memiliki semester sebelumnya untuk perbandingan."}
+              Rasio efektivitas penyelesaian sesi terhadap pembatalan dalam rentang laporan.
             </p>
+
+            <div className="mt-5 space-y-4">
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-semibold text-slate-500">Total Sesi Tercatat</p>
+                <p className="mt-1 text-3xl font-extrabold text-slate-900">
+                  {report.totals.completed_sessions + report.totals.cancelled_sessions}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {report.totals.completed_sessions} sesi selesai · {report.totals.cancelled_sessions} dibatalkan
+                </p>
+              </div>
+
+              <div>
+                <div className="mb-1 flex justify-between text-xs font-semibold text-slate-700">
+                  <span>Tingkat Penyelesaian Sesi</span>
+                  <span className="text-[#15803d]">{completionRate}%</span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-[#15803d]" style={{ width: `${completionRate}%` }} />
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 flex justify-between text-xs font-semibold text-slate-700">
+                  <span>Tingkat Pembatalan Sesi</span>
+                  <span className="text-rose-600">{cancellationRate}%</span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-rose-500" style={{ width: `${cancellationRate}%` }} />
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="mt-4 space-y-3">
-            <div>
-              <div className="mb-1 flex justify-between text-xs text-slate-600">
-                <span>Tingkat penyelesaian</span>
-                <strong>{percent(completed.length, rows.length)}%</strong>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-brand-accent"
-                  style={{
-                    width: `${percent(completed.length, rows.length)}%`,
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="mb-1 flex justify-between text-xs text-slate-600">
-                <span>Tingkat pembatalan</span>
-                <strong>{percent(cancelled.length, rows.length)}%</strong>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-red-400"
-                  style={{
-                    width: `${percent(cancelled.length, rows.length)}%`,
-                  }}
-                />
-              </div>
-            </div>
+
+          <div className="mt-6 border-t border-slate-100 pt-3">
+            <p className="text-[11px] leading-relaxed text-slate-400">
+              Perbandingan semester membutuhkan kueri filter periode akademik spesifik di backend, yang dapat dijadwalkan pada pengembangan lanjutan.
+            </p>
           </div>
         </div>
       </section>
 
+      {/* Tabel Distribusi Layanan per Konselor */}
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print-break-inside">
         <div className="border-b border-slate-100 p-4 sm:p-5">
-          <h2 className="font-bold text-slate-900">
-            Distribusi layanan per konselor
-          </h2>
+          <h2 className="font-bold text-slate-900">Distribusi Beban & Aktivitas per Konselor</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Ringkasan sesi berdasarkan jenis dan status. Angka ini menunjukkan
-            distribusi aktivitas, bukan penilaian kualitas individual.
+            Ringkasan sesi dan ulasan berdasarkan konselor aktif. Angka ini mencerminkan persebaran aktivitas layanan,
+            bukan penilaian tunggal atas mutu konseling.
           </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Konselor</th>
-                <th className="px-4 py-3 text-right">Individu selesai</th>
-                <th className="px-4 py-3 text-right">Kelompok selesai</th>
-                <th className="px-4 py-3 text-right">Individu batal</th>
-                <th className="px-4 py-3 text-right">Kelompok batal</th>
-                <th className="px-4 py-3 text-right">Total selesai</th>
-                <th className="px-4 py-3 text-right">Total batal</th>
+                <th className="px-4 py-3">Nama Konselor</th>
+                <th className="px-4 py-3 text-right">Total Booking</th>
+                <th className="px-4 py-3 text-right">Sesi Selesai</th>
+                <th className="px-4 py-3 text-right">Feedback</th>
+                <th className="px-4 py-3">Rata-rata Rating</th>
+                <th className="px-4 py-3 text-right">Rasio Selesai / Booking</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {counselorRows.length === 0 ? (
+              {report.counselors.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="px-5 py-8 text-center text-sm text-slate-400"
-                  >
-                    Belum ada data konselor pada periode ini.
+                  <td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-400">
+                    Belum ada data konselor aktif dalam rentang laporan ini.
                   </td>
                 </tr>
               ) : (
-                counselorRows.map((item) => (
-                  <tr key={item.counselor} className="hover:bg-slate-50/70">
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold">
-                      {item.counselor}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {item.individualDone}
-                    </td>
-                    <td className="px-4 py-3 text-right">{item.groupDone}</td>
-                    <td className="px-4 py-3 text-right text-red-600">
-                      {item.individualCancelled}
-                    </td>
-                    <td className="px-4 py-3 text-right text-red-600">
-                      {item.groupCancelled}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-primary">
-                      {item.done}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-red-600">
-                      {item.cancelled}
-                    </td>
-                  </tr>
-                ))
+                report.counselors.map((counselor) => {
+                  const ratio = percent(counselor.completed_sessions, counselor.bookings);
+                  return (
+                    <tr key={counselor.counselor_id} className="hover:bg-slate-50/70">
+                      <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">
+                        {counselor.counselor_name}
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-700">{counselor.bookings}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-primary">
+                        {counselor.completed_sessions}
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-700">{counselor.feedback_count}</td>
+                      <td className="px-4 py-3">
+                        {counselor.average_rating !== null ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Stars rating={Math.round(counselor.average_rating)} />
+                            <strong className="text-slate-800">{formatRating(counselor.average_rating)}</strong>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">–</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-slate-600">{ratio}%</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print-break-inside">
-          <h2 className="font-bold text-slate-900">Ringkasan pembatalan</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Alasan administratif yang tercatat pada data contoh.
-          </p>
-          {cancellationRows.length === 0 ? (
-            <p className="mt-5 text-sm text-slate-400">
-              Tidak ada pembatalan pada periode ini.
+      {/* Informasi Privasi & Keamanan Data */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print-break-inside">
+        <div className="flex items-start gap-3">
+          <span className="rounded-xl bg-slate-100 p-2.5 text-slate-700">
+            <ShieldCheck className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="font-bold text-slate-900">Perlindungan Kerahasiaan Mahasiswa</h2>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">
+              Laporan eksekutif Kepala LMI menyajikan data dalam bentuk agregat organisasi. Detail rekam medis,
+              catatan konseling klinis pribadi, dan identitas mahasiswa dilindungi secara ketat sesuai kode etik
+              layanan bimbingan dan konseling.
             </p>
-          ) : (
-            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-              {cancellationRows.map((item) => (
-                <div key={item.reason}>
-                  <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
-                    <span>{item.reason}</span>
-                    <span>
-                      {item.count} ({percent(item.count, cancelled.length)}%)
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full bg-red-400"
-                      style={{
-                        width: `${percent(item.count, cancelled.length)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
       </section>
 
+      {/* Cetak Footer */}
       <div className="no-print flex flex-col gap-4 rounded-2xl border border-[#d6eadc] bg-[#f5fbf6] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="flex items-start gap-3">
-          <span className="rounded-xl bg-white p-2.5 text-primary">
+          <span className="rounded-xl bg-white p-2.5 text-primary shadow-sm">
             <Printer className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="font-bold text-slate-900">
-              Cetak atau simpan laporan PDF
-            </h2>
+            <h2 className="font-bold text-slate-900">Cetak atau Simpan Laporan PDF</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Gunakan fitur cetak browser, lalu pilih “Simpan sebagai PDF” untuk
-              menyimpan laporan periode terpilih.
+              Gunakan fitur cetak browser lalu pilih &ldquo;Simpan sebagai PDF&rdquo; untuk mengarsipkan laporan pimpinan.
             </p>
           </div>
         </div>
@@ -678,10 +568,8 @@ export default function KepalaLMILaporanPage() {
         </button>
       </div>
 
-      <p className="pb-3 text-center text-[11px] text-slate-400">
-        Laporan ini menggunakan data simulasi frontend. Data produksi perlu
-        berasal dari sumber backend yang sama dengan dashboard dan dibatasi pada
-        informasi agregat yang diperlukan Kepala LMI.
+      <p className="pb-3 text-center text-[11px] text-slate-400 print:text-[10px]">
+        Dokumen laporan resmi SiCARE. Dibuat otomatis dari data backend pada {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}.
       </p>
     </PageContainer>
   );
