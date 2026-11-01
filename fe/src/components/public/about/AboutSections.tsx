@@ -526,4 +526,3 @@ export function CtaSection() {
     </section>
   );
 }
-
