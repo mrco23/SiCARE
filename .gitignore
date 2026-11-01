@@ -7,7 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-.fe/node_modules
+node_modules/
 dist
 dist-ssr
 *.local
@@ -23,6 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-/AGENTS.md
-/docs/
 /SiCARE_Refactor_Plan_v1.1.md
+supabase/.temp/
+# Environment secrets (keep .env.example files versioned)
+**/.env
+**/.env.*
+!**/.env.example
