@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { User, Users } from "lucide-react";
-import { steps, LOREM_LONG, type GuideStep } from "../../../data/mock/guideContent";
+import { steps, type GuideStep } from "../../../data/mock/guideContent";
 
 // Hook: true saat elemen masuk viewport (hanya sekali)
 function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.3) {
@@ -79,7 +79,7 @@ function StepItem({ s }: { s: GuideStep }) {
             {s.title}
           </h3>
           <p className="mt-3 text-[13px] leading-relaxed text-[#3b4a44] md:text-[14px]">
-            {s.desc ?? LOREM_LONG}
+            {s.desc}
           </p>
         </div>
       </div>

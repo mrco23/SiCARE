@@ -63,14 +63,14 @@ font-bold
 text-black
 "
           >
-            Lorem ipsum dolor sit
+            Mendampingi Langkah,
             <br />
             <span
               className="
 text-[#006B45]
 "
             >
-              amet, consectetur
+              Tumbuh Bersama
             </span>
             <br />
             <span
@@ -78,7 +78,7 @@ text-[#006B45]
 text-[#006B45]
 "
             >
-              adipiscing elit.
+              Meraih Masa Depan.
             </span>
           </h1>
 
@@ -90,9 +90,9 @@ text-sm
 leading-relaxed
 "
           >
-            Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse
-            temporibus ut sit non possimus facilis aliquid libero officia
-            occaecat et quae non atque adipiscing excepturi deserunt ipsum qui.
+            Layanan bimbingan dan konseling Lembaga Misi &amp; Identitas (LMI)
+            Unika De La Salle Manado mendampingi Anda mengatasi kendala perkuliahan,
+            mengelola stres, dan mengembangkan potensi diri dalam lingkungan yang aman.
           </p>
 
           <button

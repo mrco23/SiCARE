@@ -106,7 +106,7 @@ text-gray-400
 mt-3
 "
                 >
-                  Topik keahlian: Lorem ipsum dolor sit amet
+                  Topik keahlian: Konseling Akademik & Pengembangan Diri
                 </p>
               </div>
             </div>

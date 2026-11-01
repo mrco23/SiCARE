@@ -8,8 +8,8 @@ type Step = {
   desc?: string;
 };
 
-const LOREM_LONG =
-  "lorem ipsum dolor sit amet consectetur adipiscing elit culpa qui occaecat molestias fugiat provident non cupiditate est dignissimos dolor iusto officia ut cumque ipsum laborum possimus sunt dolor id cillum reprehenderit adipiscing minim similique";
+const DEFAULT_DESC =
+  "Informasi tahapan prosedur bimbingan konseling di SiCARE untuk kenyamanan dan kejelasan proses konseli.";
 
 const steps: Step[] = [
   {
@@ -17,30 +17,35 @@ const steps: Step[] = [
     title: "Pengunjung Masuk ke Portal",
     side: "right",
     numClass: "right-0 -top-10 md:-right-6",
+    desc: "Kunjungi portal SiCARE untuk melihat informasi layanan bimbingan konseling, profil konselor, dan jadwal yang tersedia pada periode aktif.",
   },
   {
     no: "02",
     title: "Log In dengan Akun Kampus",
     side: "left",
     numClass: "left-0 -top-4 md:-left-24",
+    desc: "Masuk menggunakan kredensial akun kampus Anda untuk mengakses formulir reservasi dan riwayat aktivitas konseling.",
   },
   {
     no: "03",
     title: "Booking Sesi Konseling",
     side: "right",
     numClass: "right-0 -bottom-14 md:-right-6",
+    desc: "Tentukan konselor yang sesuai, pilih slot waktu yang tersedia, dan ajukan permohonan sesi individu maupun kelompok.",
   },
   {
     no: "04",
     title: "Pelaksanaan Konseling",
     side: "left",
     numClass: "left-0 -bottom-12 md:-left-28",
+    desc: "Lengkapi lembar Informed Consent secara digital, lalu ikuti sesi konseling bersama konselor sesuai jadwal yang dikonfirmasi.",
   },
   {
     no: "05",
     title: "Pemberian Feedback Anonim",
     side: "right",
     numClass: "right-0 -bottom-12 md:-right-6",
+    desc: "Setelah sesi selesai, sampaikan evaluasi dan umpan balik secara aman dan anonim untuk peningkatan kualitas layanan berkelanjutan.",
   },
 ];
 
@@ -127,7 +132,7 @@ function StepItem({ s }: { s: Step }) {
             {s.title}
           </h3>
           <p className="mt-3 text-[13px] leading-relaxed text-[#3b4a44] md:text-[14px]">
-            {s.desc ?? LOREM_LONG}
+            {s.desc ?? DEFAULT_DESC}
           </p>
         </div>
       </div>
