@@ -1,444 +1,617 @@
-import { PageContainer, PageHeader } from "../../components/shared";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
   ChevronLeft,
   ChevronRight,
-  Frown,
-  LockKeyhole,
-  MessageSquare,
+  Loader2,
+  MessageSquareQuote,
+  RefreshCw,
   Search,
   Star,
-  UserRound,
+  X,
 } from "lucide-react";
-import { COUNSELOR, feedbackData } from "../../data/mock/counselorFeedback";
-import { CLIENT_COUNSELOR_IDENTITIES } from "../../data/mock/clientCounselors";
-import { useFeedbackStore } from "../../features/feedback/store/feedbackStore";
-import { LEGACY_UI_SEMESTERS as semesters } from "../../data/mock/academicPeriods";
+import { PageContainer, PageHeader, AcademicPeriodFilter } from "../../components/shared";
 import {
-  anonymousFeedbackName as anonymousName,
-  averageCounselorFeedbackRating,
-  formatFeedbackShortDate as formatShortDate,
-  parseFeedbackDate as parseDate,
-  selectCounselorFeedbackForPeriod,
-  selectVisibleCounselorFeedback,
-  startOfFeedbackDay as startOfDay,
-} from "../../features/counselor/feedback/feedbackSelectors";
+  formatAcademicPeriodLabel,
+  formatIsoShortDateId,
+  getCounselorInitials,
+  toLocalDateKey,
+} from "../../features/counselor/shared/presentation";
+import { useAuth } from "../../features/auth/useAuth";
+import { ApiError } from "../../lib/api";
+import { counselorApi } from "../../lib/counselorApi";
+import {
+  getPublicAcademicPeriods,
+  type PublicAcademicPeriod,
+} from "../../lib/publicApi";
+import type {
+  CounselorFeedbackDto,
+  CounselorProfileDto,
+} from "../../types/api";
 
+type PeriodFilter = "semua" | "hari" | "minggu" | "bulan" | "semester";
+type SortOrder = "new" | "high" | "low";
 
-type Period = "hari" | "minggu" | "bulan" | "semester";
+const DAY_MS = 86_400_000;
 
+function parseDateOnly(isoDate: string): Date {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
+function getDateRange(
+  period: PeriodFilter,
+  anchor: Date,
+  semester: PublicAcademicPeriod | null,
+): { start: Date; end: Date } | null {
+  if (period === "semua") return null;
+  const y = anchor.getFullYear();
+  const m = anchor.getMonth();
+  const d = anchor.getDate();
 
+  if (period === "hari") {
+    return { start: new Date(y, m, d), end: new Date(y, m, d + 1) };
+  }
+  if (period === "minggu") {
+    return { start: new Date(y, m, d - 6), end: new Date(y, m, d + 1) };
+  }
+  if (period === "bulan") {
+    return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
+  }
+  if (!semester) return null;
+  return {
+    start: parseDateOnly(semester.starts_on),
+    end: new Date(parseDateOnly(semester.ends_on).getTime() + DAY_MS),
+  };
+}
 
+function formatRangeLabel(
+  period: PeriodFilter,
+  range: { start: Date; end: Date } | null,
+  semester: PublicAcademicPeriod | null,
+): string {
+  if (period === "semua") return "Semua Waktu";
+  if (period === "semester") {
+    return semester
+      ? formatAcademicPeriodLabel(semester)
+      : "Belum ada periode akademik";
+  }
+  if (!range) return "Semua Waktu";
+  if (period === "hari") {
+    return range.start.toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+  if (period === "minggu") {
+    const endInclusive = new Date(range.end.getTime() - DAY_MS);
+    return `${range.start.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+    })} – ${endInclusive.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })}`;
+  }
+  return range.start.toLocaleDateString("id-ID", {
+    month: "long",
+    year: "numeric",
+  });
+}
 
-
-
-
-
-const periodOptions: { value: Period; label: string }[] = [
-  { value: "hari", label: "Hari" },
-  { value: "minggu", label: "Minggu" },
-  { value: "bulan", label: "Bulan" },
-  { value: "semester", label: "Semester" },
-];
-const seedMine = feedbackData.filter(
-  (feedback) => feedback.konselorId === COUNSELOR.id,
-);
-function Stars({
-  rating,
-  size = "sm",
-}: {
-  rating: number;
-  size?: "sm" | "lg";
-}) {
+function StarsRow({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) {
+  const dim = size === "md" ? "h-4 w-4" : "h-3.5 w-3.5";
   return (
-    <span
-      className={`inline-flex items-center gap-0.5 ${size === "lg" ? "text-lg" : "text-xs"}`}
-      aria-label={`Rating ${rating} dari 5`}
-    >
-      {Array.from({ length: 5 }, (_, index) => (
+    <div className="inline-flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
         <Star
-          key={index}
-          aria-hidden="true"
-          className={`h-[1em] w-[1em] ${index < Math.round(rating) ? "fill-amber-400 text-amber-400" : "fill-gray-200 text-gray-200"}`}
+          key={star}
+          className={`${dim} ${
+            star <= rating
+              ? "fill-amber-400 text-amber-400"
+              : "fill-gray-200 text-gray-200"
+          }`}
         />
       ))}
-    </span>
+    </div>
   );
 }
 
 export default function KonselorFeedbackPage() {
-  const sharedFeedback = useFeedbackStore((state) => state.items);
-  const mine = useMemo(
-    () => [
-      ...seedMine,
-      ...sharedFeedback
-        .filter((feedback) => feedback.counselorId === CLIENT_COUNSELOR_IDENTITIES.GY.entityId)
-        .map((feedback) => ({
-          id: feedback.id,
-          konselorId: COUNSELOR.id,
-          rating: feedback.rating,
-          text: feedback.text,
-          date: feedback.date,
-        })),
-    ],
-    [sharedFeedback],
-  );
-  const today = startOfDay(new Date());
-  const defaultSemesterIndex = Math.max(
-    0,
-    semesters.findIndex(
-      (semester) =>
-        today >= parseDate(semester.start) && today <= parseDate(semester.end),
-    ),
-  );
-  const [period, setPeriod] = useState<Period>("bulan");
-  const [anchor, setAnchor] = useState<Date>(today);
-  const [semesterIndex, setSemesterIndex] = useState(defaultSemesterIndex);
-  const [starFilter, setStarFilter] = useState(0);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<"new" | "high" | "low">("new");
+  const { profile: authProfile } = useAuth();
 
-  const range = useMemo(() => {
-    const year = anchor.getFullYear();
-    const month = anchor.getMonth();
-    const day = anchor.getDate();
-    if (period === "hari")
-      return {
-        start: new Date(year, month, day),
-        end: new Date(year, month, day + 1),
-      };
-    if (period === "minggu")
-      return {
-        start: new Date(year, month, day - 6),
-        end: new Date(year, month, day + 1),
-      };
-    if (period === "bulan")
-      return {
-        start: new Date(year, month, 1),
-        end: new Date(year, month + 1, 1),
-      };
-    const semester = semesters[semesterIndex];
-    const end = parseDate(semester.end);
+  const [counselorProfile, setCounselorProfile] =
+    useState<CounselorProfileDto | null>(null);
+  const [feedbackList, setFeedbackList] = useState<CounselorFeedbackDto[]>([]);
+  const [periods, setPeriods] = useState<PublicAcademicPeriod[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("semua");
+  const [anchorDate, setAnchorDate] = useState(() => new Date());
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
+
+  const [starFilter, setStarFilter] = useState<number | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("new");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const fetchFeedbackData = useCallback(async () => {
+    const [feedbackRes, periodsRes, cpRes] = await Promise.all([
+      counselorApi.getFeedback({ limit: 100 }),
+      getPublicAcademicPeriods().catch(() => [] as PublicAcademicPeriod[]),
+      counselorApi.getProfile().catch(() => null),
+    ]);
+
     return {
-      start: parseDate(semester.start),
-      end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
+      feedback: feedbackRes,
+      periods: periodsRes,
+      counselorProfile: cpRes,
     };
-  }, [anchor, period, semesterIndex]);
+  }, []);
 
-  const currentPeriodLabel = useMemo(() => {
-    if (period === "hari") {
-      return range.start.toLocaleDateString("id-ID", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-    }
-    if (period === "minggu") {
-      const lastDay = new Date(
-        range.end.getFullYear(),
-        range.end.getMonth(),
-        range.end.getDate() - 1,
-      );
-      return `${formatShortDate(range.start)} – ${formatShortDate(lastDay)}`;
-    }
-    if (period === "bulan")
-      return range.start.toLocaleDateString("id-ID", {
-        month: "long",
-        year: "numeric",
-      });
-    const semester = semesters[semesterIndex];
-    return `TA ${semester.ta} · ${semester.sem}`;
-  }, [period, range, semesterIndex]);
-
-  const periodFeedback = useMemo(
-    () => selectCounselorFeedbackForPeriod(mine, range),
-    [mine, range],
-  );
-  const total = periodFeedback.length;
-  const average = averageCounselorFeedbackRating(periodFeedback);
-  const visibleFeedback = useMemo(
-    () => selectVisibleCounselorFeedback(periodFeedback, { search, sort, starFilter }),
-    [periodFeedback, search, sort, starFilter],
-  );
-
-  function stepPeriod(direction: -1 | 1) {
-    if (period === "semester") {
-      setSemesterIndex((current) =>
-        Math.min(semesters.length - 1, Math.max(0, current + direction)),
-      );
-      return;
-    }
-    setAnchor((current) => {
-      if (period === "hari")
-        return new Date(
-          current.getFullYear(),
-          current.getMonth(),
-          current.getDate() + direction,
+  useEffect(() => {
+    let active = true;
+    fetchFeedbackData()
+      .then((data) => {
+        if (!active) return;
+        setFeedbackList(data.feedback);
+        setPeriods(data.periods);
+        setCounselorProfile(data.counselorProfile);
+        if (data.periods.length > 0) {
+          const todayKey = toLocalDateKey(new Date());
+          const current =
+            data.periods.find(
+              (p) => todayKey >= p.starts_on && todayKey <= p.ends_on,
+            ) ?? data.periods[0];
+          setSelectedPeriodId(current.id);
+        }
+        setErrorMessage(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setErrorMessage(
+          err instanceof ApiError
+            ? err.message
+            : "Gagal memuat daftar ulasan klien dari server.",
         );
-      if (period === "minggu")
-        return new Date(
-          current.getFullYear(),
-          current.getMonth(),
-          current.getDate() + 7 * direction,
-        );
-      return new Date(current.getFullYear(), current.getMonth() + direction, 1);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchFeedbackData]);
+
+  const handleManualRefresh = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const data = await fetchFeedbackData();
+      setFeedbackList(data.feedback);
+      setPeriods(data.periods);
+      setCounselorProfile(data.counselorProfile);
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof ApiError
+          ? err.message
+          : "Gagal memuat ulang daftar ulasan klien.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const counselorName =
+    counselorProfile?.public_name?.trim() ||
+    authProfile?.full_name?.trim() ||
+    "Konselor SiCARE";
+
+  const counselorRole =
+    counselorProfile?.headline?.trim() || "Konselor Layanan Mahasiswa & Staf LMI";
+
+  const activeSemester = useMemo(
+    () =>
+      periods.find((p) => p.id === selectedPeriodId) ?? periods[0] ?? null,
+    [periods, selectedPeriodId],
+  );
+
+  const dateRange = useMemo(
+    () => getDateRange(periodFilter, anchorDate, activeSemester),
+    [activeSemester, anchorDate, periodFilter],
+  );
+
+  // Filter by period first so star distribution reflects the selected period
+  const periodFilteredFeedback = useMemo(() => {
+    if (!dateRange) return feedbackList;
+    return feedbackList.filter((item) => {
+      const t = new Date(item.created_at).getTime();
+      return t >= dateRange.start.getTime() && t < dateRange.end.getTime();
     });
-  }
+  }, [dateRange, feedbackList]);
 
-  const previousDisabled = period === "semester" && semesterIndex === 0;
-  const nextDisabled =
-    period === "semester" && semesterIndex === semesters.length - 1;
+  const ratingStats = useMemo(() => {
+    const counts: Record<1 | 2 | 3 | 4 | 5, number> = {
+      5: 0,
+      4: 0,
+      3: 0,
+      2: 0,
+      1: 0,
+    };
+    let sum = 0;
+    for (const item of periodFilteredFeedback) {
+      const r = Math.min(5, Math.max(1, Math.round(item.rating))) as
+        | 1
+        | 2
+        | 3
+        | 4
+        | 5;
+      counts[r] += 1;
+      sum += item.rating;
+    }
+    const total = periodFilteredFeedback.length;
+    const avg = total > 0 ? (sum / total).toFixed(1) : "0.0";
+    return { counts, total, avg };
+  }, [periodFilteredFeedback]);
+
+  const visibleFeedback = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return periodFilteredFeedback
+      .filter((item) => {
+        if (starFilter !== null && Math.round(item.rating) !== starFilter) {
+          return false;
+        }
+        if (!q) return true;
+        const commentText = (item.comment ?? "").toLowerCase();
+        return (
+          commentText.includes(q) ||
+          item.session_id.toLowerCase().includes(q) ||
+          item.id.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        if (sortOrder === "high") {
+          return (
+            b.rating - a.rating ||
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        }
+        if (sortOrder === "low") {
+          return (
+            a.rating - b.rating ||
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        }
+        return (
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      });
+  }, [periodFilteredFeedback, searchQuery, sortOrder, starFilter]);
+
+  const shiftAnchor = (dir: -1 | 1) => {
+    setAnchorDate((prev) => {
+      const y = prev.getFullYear();
+      const m = prev.getMonth();
+      const d = prev.getDate();
+      if (periodFilter === "hari") return new Date(y, m, d + dir);
+      if (periodFilter === "minggu") return new Date(y, m, d + dir * 7);
+      if (periodFilter === "bulan") return new Date(y, m + dir, 1);
+      return prev;
+    });
+  };
 
   return (
-    <PageContainer role="counselor" spacing="none">
-      <PageHeader
-        title={
-          <>
-            Feedback <span className="text-primary">Saya</span>
-          </>
-        }
-        description="Penilaian anonim dari klien setelah sesi konseling Anda. Identitas klien dirahasiakan."
-      />
-
-      <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div
-          role="tablist"
-          aria-label="Periode feedback"
-          className="inline-flex w-fit flex-wrap rounded-xl border border-gray-200 bg-gray-100 p-1"
-        >
-          {periodOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="tab"
-              aria-selected={period === option.value}
-              onClick={() => setPeriod(option.value)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${period === option.value ? "bg-white text-primary shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+    <PageContainer className="py-6 lg:py-8">
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <PageHeader
+            title="Feedback"
+            description="Penilaian dan ulasan terverifikasi dari klien yang telah menyelesaikan sesi"
+          />
           <button
             type="button"
-            aria-label="Periode sebelumnya"
-            onClick={() => stepPeriod(-1)}
-            disabled={previousDisabled}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => void handleManualRefresh()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Muat Ulang
           </button>
-          <span className="min-w-[170px] text-center text-sm font-bold capitalize text-gray-900">
-            {currentPeriodLabel}
-          </span>
-          <button
-            type="button"
-            aria-label="Periode berikutnya"
-            onClick={() => stepPeriod(1)}
-            disabled={nextDisabled}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+        </div>
+
+        {errorMessage && (
+          <div
+            role="alert"
+            className="flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
           >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          {period === "semester" && (
-            <select
-              aria-label="Pilih semester"
-              value={semesterIndex}
-              onChange={(event) => setSemesterIndex(Number(event.target.value))}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-primary"
-            >
-              {semesters.map((semester, index) => (
-                <option key={semester.id} value={index}>
-                  TA {semester.ta} · {semester.sem}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-      </section>
-
-      <section className="mt-6 grid gap-4 lg:grid-cols-3">
-        <div className="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                Total Feedback
-              </p>
-              <p className="mt-1 text-4xl font-bold text-gray-900">{total}</p>
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+              <div>
+                <p className="font-semibold">Gagal Memuat Feedback</p>
+                <p className="mt-0.5">{errorMessage}</p>
+              </div>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-primary">
-              <MessageSquare className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-5 border-t border-gray-100 pt-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              Rata-rata Rating
-            </p>
-            <div className="mt-1 flex items-center gap-3">
-              <span className="text-3xl font-bold text-gray-900">
-                {average.toFixed(1)}
-              </span>
-              <Stars rating={average} size="lg" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2">
-          <h2 className="text-base font-bold">Distribusi Bintang</h2>
-          <p className="mb-4 text-xs text-gray-400">
-            Klik baris untuk memfilter daftar feedback.
-          </p>
-          <div className="space-y-2.5">
-            {[5, 4, 3, 2, 1].map((rating) => {
-              const count = periodFeedback.filter(
-                (feedback) => feedback.rating === rating,
-              ).length;
-              const percentage = total ? Math.round((count / total) * 100) : 0;
-              const active = starFilter === rating;
-              return (
-                <button
-                  key={rating}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() =>
-                    setStarFilter((current) =>
-                      current === rating ? 0 : rating,
-                    )
-                  }
-                  className={`flex w-full items-center gap-3 rounded-lg px-2 py-1 text-xs transition ${active ? "bg-primary-soft" : "hover:bg-gray-50"}`}
-                >
-                  <span className="w-10 text-left font-bold text-gray-600">
-                    {rating}{" "}
-                    <Star className="inline h-3 w-3 fill-amber-400 text-amber-400" />
-                  </span>
-                  <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
-                    <span
-                      className="block h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </span>
-                  <span className="w-16 text-right font-semibold text-gray-500">
-                    {count} ({percentage}%)
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-gray-100 p-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-base font-bold">Daftar Feedback</h2>
-            <p className="text-xs text-gray-400">
-              Menampilkan {visibleFeedback.length} dari {total} feedback ·{" "}
-              {currentPeriodLabel}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                type="search"
-                placeholder="Cari isi feedback..."
-                className="w-full rounded-xl border border-gray-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-[#2e9a5f] focus:ring-2 focus:ring-[#2e9a5f]/20 sm:w-56"
-              />
-            </div>
-            <select
-              aria-label="Urutkan feedback"
-              value={sort}
-              onChange={(event) =>
-                setSort(event.target.value as "new" | "high" | "low")
-              }
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#2e9a5f]/20"
-            >
-              <option value="new">Terbaru</option>
-              <option value="high">Bintang tertinggi</option>
-              <option value="low">Bintang terendah</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 border-b border-gray-100 bg-gray-50/60 px-5 py-3">
-          {[0, 5, 4, 3, 2, 1].map((rating) => (
             <button
-              key={rating}
               type="button"
-              aria-pressed={starFilter === rating}
-              onClick={() => setStarFilter(rating)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${starFilter === rating ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-[#2e9a5f]"}`}
+              onClick={() => void handleManualRefresh()}
+              className="shrink-0 rounded-xl border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
             >
-              {rating === 0 ? (
-                "Semua"
-              ) : (
-                <>
-                  {rating}{" "}
-                  <Star className="inline h-3 w-3 fill-amber-400 text-amber-400" />
-                </>
-              )}
+              Coba Lagi
             </button>
-          ))}
-        </div>
-
-        {visibleFeedback.length > 0 ? (
-          <div className="divide-y divide-gray-100">
-            {visibleFeedback.map((feedback) => (
-              <article
-                key={feedback.id}
-                className="flex gap-4 p-5 transition-colors hover:bg-gray-50/60"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
-                  <UserRound className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-sm font-bold text-gray-800">
-                        {anonymousName(feedback.id)}
-                      </span>
-                      <Stars rating={feedback.rating} />
-                    </div>
-                    <time
-                      className="text-xs font-medium text-gray-400"
-                      dateTime={feedback.date}
-                    >
-                      {new Date(feedback.date).toLocaleDateString("id-ID", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </time>
-                  </div>
-                  <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
-                    {feedback.text}
-                  </p>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="py-16 text-center text-gray-400">
-            <Frown className="mx-auto mb-2 h-8 w-8" />
-            <p className="text-sm font-medium">
-              {total === 0
-                ? `Tidak ada feedback pada ${currentPeriodLabel}.`
-                : "Tidak ada feedback yang cocok dengan filter."}
-            </p>
           </div>
         )}
-      </section>
 
-      <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-gray-400">
-        <LockKeyhole className="h-3.5 w-3.5" /> Anda hanya dapat melihat
-        feedback untuk sesi Anda sendiri.
-      </p>
+        {/* Filter Periode */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
+          <div className="inline-flex flex-wrap rounded-xl border border-gray-200 bg-gray-50 p-1">
+            {(
+              [
+                ["semua", "Semua Waktu"],
+                ["hari", "Hari"],
+                ["minggu", "Minggu"],
+                ["bulan", "Bulan"],
+                ["semester", "Semester"],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setPeriodFilter(key)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  periodFilter === key
+                    ? "bg-white text-[#064E3B] shadow-xs"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {periodFilter === "semester" ? (
+            <AcademicPeriodFilter
+              periods={periods}
+              selectedId={selectedPeriodId}
+              onSelect={setSelectedPeriodId}
+              showAllOption={false}
+              className="relative w-full sm:w-80"
+            />
+          ) : periodFilter !== "semua" ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Periode sebelumnya"
+                onClick={() => shiftAnchor(-1)}
+                className="rounded-lg border border-gray-200 p-1.5 hover:bg-gray-50"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="min-w-[160px] text-center text-xs font-bold text-gray-800">
+                {formatRangeLabel(periodFilter, dateRange, activeSemester)}
+              </span>
+              <button
+                type="button"
+                aria-label="Periode berikutnya"
+                onClick={() => shiftAnchor(1)}
+                className="rounded-lg border border-gray-200 p-1.5 hover:bg-gray-50"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <span className="text-xs font-medium text-gray-500">
+              Menampilkan seluruh ulasan yang tercatat ({feedbackList.length} ulasan)
+            </span>
+          )}
+        </div>
+
+        {/* Kartu Ringkasan Rating & Distribusi Bintang */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
+          <div className="grid gap-6 lg:grid-cols-12 lg:items-center">
+            <div className="flex items-center gap-4 lg:col-span-5">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xl font-bold text-[#064E3B]">
+                {getCounselorInitials(counselorName)}
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {counselorName}
+                </h2>
+                <p className="text-xs text-gray-500">{counselorRole}</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-2xl font-bold text-gray-900">
+                    {loading ? "—" : ratingStats.avg}
+                  </span>
+                  <StarsRow
+                    rating={Math.round(Number(ratingStats.avg))}
+                    size="md"
+                  />
+                  <span className="text-xs text-gray-500">
+                    ({ratingStats.total} ulasan)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 lg:col-span-7">
+              {([5, 4, 3, 2, 1] as const).map((star) => {
+                const count = ratingStats.counts[star];
+                const pct =
+                  ratingStats.total > 0
+                    ? Math.round((count / ratingStats.total) * 100)
+                    : 0;
+                const active = starFilter === star;
+                return (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() =>
+                      setStarFilter((prev) => (prev === star ? null : star))
+                    }
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-xs transition ${
+                      active
+                        ? "bg-amber-50 ring-1 ring-amber-300"
+                        : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="w-12 text-left font-semibold text-gray-700">
+                      {star} Bintang
+                    </span>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="h-full rounded-full bg-amber-400 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="w-16 text-right tabular-nums text-gray-500">
+                      {count} ({pct}%)
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Bar Pencarian, Filter Bintang & Urutan */}
+        <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari isi komentar ulasan atau ID sesi..."
+              className="w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-9 text-sm outline-none focus:border-[#064E3B] focus:ring-2 focus:ring-[#064E3B]/15"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Hapus pencarian"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex flex-wrap rounded-xl border border-gray-200 bg-gray-50 p-1">
+              <button
+                type="button"
+                onClick={() => setStarFilter(null)}
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                  starFilter === null
+                    ? "bg-white text-[#064E3B] shadow-xs"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Semua
+              </button>
+              {[5, 4, 3, 2, 1].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() =>
+                    setStarFilter((prev) => (prev === s ? null : s))
+                  }
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                    starFilter === s
+                      ? "bg-white text-amber-700 shadow-xs"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {s} ★
+                </button>
+              ))}
+            </div>
+
+            <select
+              aria-label="Urutkan ulasan"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none focus:border-[#064E3B]"
+            >
+              <option value="new">Terbaru</option>
+              <option value="high">Rating Tertinggi</option>
+              <option value="low">Rating Terendah</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Daftar Ulasan */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white py-16 text-center shadow-xs">
+            <Loader2 className="h-7 w-7 animate-spin text-[#064E3B]" />
+            <p className="mt-3 text-sm font-medium text-gray-600">
+              Memuat ulasan klien dari server...
+            </p>
+          </div>
+        ) : visibleFeedback.length === 0 ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-xs">
+            <MessageSquareQuote className="mx-auto h-10 w-10 text-gray-300" />
+            <p className="mt-3 text-base font-bold text-gray-900">
+              Belum ada ulasan pada filter ini
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
+              Ulasan baru akan muncul secara otomatis setelah klien mengirimkan
+              penilaian pada sesi yang telah selesai.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {visibleFeedback.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs transition hover:border-gray-300"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-[#064E3B]">
+                      KL
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-gray-900">
+                          Klien Terverifikasi (Anonim)
+                        </p>
+                        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-600">
+                          Sesi #{item.session_id.slice(0, 8).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <StarsRow rating={Math.round(item.rating)} />
+                        <span className="text-xs font-bold text-amber-700">
+                          {item.rating}.0
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-medium text-gray-400">
+                    {formatIsoShortDateId(item.created_at)}
+                  </span>
+                </div>
+
+                {item.comment?.trim() ? (
+                  <p className="mt-3.5 rounded-xl bg-gray-50/80 p-3.5 text-sm leading-relaxed text-gray-700">
+                    "{item.comment.trim()}"
+                  </p>
+                ) : (
+                  <p className="mt-3 text-xs italic text-gray-400">
+                    Klien memberikan penilaian bintang tanpa komentar tertulis.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </PageContainer>
   );
 }
