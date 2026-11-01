@@ -10,8 +10,8 @@ const uuid = z.string().uuid();
 const profilePatchSchema = z.object({
   full_name: z.string().trim().min(1).max(160).optional(),
   phone_e164: z.string().trim().min(7).max(20).nullable().optional(),
-  whatsapp_opt_in: z.boolean().optional(),
 }).strict();
+const whatsappConsentSchema = z.object({ opted_in: z.boolean() }).strict();
 const MAX_PUBLIC_AVAILABILITY_RANGE_MS = 90 * 24 * 60 * 60 * 1000;
 const availabilityQuerySchema = z.object({
   counselor_id: uuid.optional(),
@@ -48,8 +48,21 @@ async function loadPublicCounselors() {
   if (profileError) supabaseError(profileError);
 
   const activeIds = new Set((activeProfiles ?? []).map((profile) => profile.id));
-  return candidates.filter((profile) => activeIds.has(profile.profile_id));
+  return candidates.filter((profile) =>
+    activeIds.has(profile.profile_id)
+    && typeof profile.public_name === "string"
+    && profile.public_name.trim().length > 0,
+  );
 }
+
+router.get("/public/hero-motivations", asyncHandler(async (_request, response) => {
+  const { data, error } = await supa().from("hero_motivations")
+    .select("id,content")
+    .eq("is_active", true)
+    .order("created_at", { ascending: true });
+  if (error) supabaseError(error, "Kalimat motivasi publik tidak dapat dibaca.");
+  return sendData(response, data ?? []);
+}));
 
 router.get("/public/counselors", asyncHandler(async (_request, response) => {
   return sendData(response, await loadPublicCounselors());
@@ -86,25 +99,15 @@ router.get("/public/availability", asyncHandler(async (request, response) => {
   if (!publicIds.length) return sendData(response, []);
   if (parsed.data.counselor_id && !publicIds.includes(parsed.data.counselor_id)) return sendData(response, []);
 
-  const { data: slots, error: slotsError } = await supa().from("availability_slots")
-    .select("id,counselor_id,academic_period_id,starts_at,ends_at,status")
-    .eq("status", "available")
-    .in("counselor_id", parsed.data.counselor_id ? [parsed.data.counselor_id] : publicIds)
-    .gte("starts_at", from)
-    .lte("starts_at", new Date(toMs).toISOString())
-    .order("starts_at")
-    .limit(parsed.data.limit);
-  if (slotsError) supabaseError(slotsError);
-  const availableSlots = slots ?? [];
-  if (!availableSlots.length) return sendData(response, []);
-
-  const { data: activeBookings, error: bookingError } = await supa().from("bookings")
-    .select("availability_slot_id")
-    .in("availability_slot_id", availableSlots.map((slot) => slot.id))
-    .in("status", ["waiting_confirmation", "confirmed", "reschedule_requested"]);
-  if (bookingError) supabaseError(bookingError);
-  const reservedIds = new Set((activeBookings ?? []).map((booking) => booking.availability_slot_id));
-  return sendData(response, availableSlots.filter((slot) => !reservedIds.has(slot.id)));
+  const counselorIds = parsed.data.counselor_id ? [parsed.data.counselor_id] : publicIds;
+  const { data, error } = await supa().rpc("sicare_public_availability", {
+    p_counselor_ids: counselorIds,
+    p_from: from,
+    p_to: new Date(toMs).toISOString(),
+    p_limit: parsed.data.limit,
+  });
+  if (error) supabaseError(error, "Jadwal publik tidak dapat dibaca.");
+  return sendData(response, data ?? []);
 }));
 
 router.get("/public/feedback", asyncHandler(async (request, response) => {
@@ -112,12 +115,17 @@ router.get("/public/feedback", asyncHandler(async (request, response) => {
   if (!parsed.success) {
     throw new HttpError(400, "VALIDATION_ERROR", "Filter feedback tidak valid.", parsed.error.issues);
   }
+  const counselors = await loadPublicCounselors();
+  const publicIds = counselors.map((profile) => profile.profile_id);
+  if (!publicIds.length) return sendData(response, []);
+
   const { data, error } = await supa().from("feedback")
     .select("id,rating,comment,counselor_id,created_at")
     .eq("moderation_status", "shown")
+    .in("counselor_id", publicIds)
     .order("created_at", { ascending: false })
     .limit(parsed.data.limit);
-  if (error) supabaseError(error);
+  if (error) supabaseError(error, "Feedback publik tidak dapat dibaca.");
   return sendData(response, data ?? []);
 }));
 
@@ -140,6 +148,33 @@ router.patch("/profile", authenticate, asyncHandler(async (request, response) =>
     entityType: "profile",
     entityId: request.auth.user.id,
     metadata: { field: Object.keys(input).join(",") },
+  });
+  return sendData(response, data);
+}));
+
+// WhatsApp consent is deliberately separate from ordinary profile edits. The API
+// records the affirmative opt-in timestamp and clears it when consent is withdrawn.
+router.patch("/profile/whatsapp-consent", authenticate, asyncHandler(async (request, response) => {
+  const input = parseBody(whatsappConsentSchema, request.body);
+  const updatedAt = new Date().toISOString();
+  const patch = {
+    whatsapp_opt_in: input.opted_in,
+    whatsapp_opt_in_at: input.opted_in ? updatedAt : null,
+  };
+
+  const { data, error } = await supa().from("profiles")
+    .update(patch)
+    .eq("id", request.auth.user.id)
+    .select("id,whatsapp_opt_in,whatsapp_opt_in_at,updated_at")
+    .single();
+  if (error) supabaseError(error, "Persetujuan WhatsApp tidak dapat diperbarui.");
+
+  await writeAudit({
+    actorUserId: request.auth.user.id,
+    action: "profile.whatsapp_consent",
+    entityType: "profile",
+    entityId: request.auth.user.id,
+    metadata: { status: input.opted_in ? "opted_in" : "opted_out" },
   });
   return sendData(response, data);
 }));

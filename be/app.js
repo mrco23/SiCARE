@@ -7,6 +7,15 @@ import { notFoundHandler } from "./src/middleware/notFound.js";
 import healthRoutes from "./src/routes/health.routes.js";
 import authRoutes from "./src/routes/auth.routes.js";
 import domainRoutes from "./src/routes/domain.routes.js";
+import bookingRoutes from "./src/routes/booking.routes.js";
+import sessionRoutes from "./src/routes/session.routes.js";
+import feedbackRoutes from "./src/routes/feedback.routes.js";
+import notificationRoutes from "./src/routes/notification.routes.js";
+import adminRoutes from "./src/routes/admin.routes.js";
+import counselorRoutes from "./src/routes/counselor.routes.js";
+import reportingRoutes from "./src/routes/reporting.routes.js";
+import webhookRoutes from "./src/routes/webhook.routes.js";
+import consentRoutes from "./src/routes/consent.routes.js";
 
 const app = express();
 const allowedOrigins = new Set(env.frontendOrigins);
@@ -28,7 +37,7 @@ app.use(
     maxAge: 600,
   }),
 );
-app.use(express.json({ limit: "100kb", strict: true }));
+app.use(express.json({ limit: "5mb", strict: true }));
 
 app.get("/", (_request, response) => {
   response.status(200).json({
@@ -41,6 +50,15 @@ app.get("/", (_request, response) => {
 app.use("/api/v1", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", domainRoutes);
+app.use("/api/v1/bookings", bookingRoutes);
+app.use("/api/v1/sessions", sessionRoutes);
+app.use("/api/v1", feedbackRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/counselor", counselorRoutes);
+app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1", reportingRoutes);
+app.use("/api/v1/webhooks", webhookRoutes);
+app.use("/api/v1/consents", consentRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

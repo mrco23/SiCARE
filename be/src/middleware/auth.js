@@ -31,6 +31,33 @@ export const authenticate = asyncHandler(async (request, _response, next) => {
   next();
 });
 
+export const optionalAuthenticate = asyncHandler(async (request, _response, next) => {
+  const header = request.get("authorization") ?? "";
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  if (!match) return next();
+
+  if (!isSupabaseConfigured()) return next();
+
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data: authData, error: authError } = await supabase.auth.getUser(match[1]);
+    if (authError || !authData?.user) return next();
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id,identity_code,full_name,app_role,member_category,account_status,phone_e164,whatsapp_opt_in,created_at,updated_at")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+
+    if (profile && profile.account_status === "active") {
+      request.auth = { user: authData.user, profile, token: match[1] };
+    }
+  } catch {
+    // Treat as unauthenticated on error
+  }
+  next();
+});
+
 export function allowRoles(...roles) {
   return (request, _response, next) => {
     if (!request.auth) return next(new HttpError(401, "AUTH_REQUIRED", "Autentikasi diperlukan."));
