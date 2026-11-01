@@ -1,4 +1,6 @@
-export type Role = "CLIENT" | "COUNSELOR" | "ADMIN" | "HEAD_LMI";
+import type { AppRole } from "./auth";
+
+export type Role = AppRole;
 
 export interface User {
   id: string;

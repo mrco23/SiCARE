@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
+import { GuestOnlyRoute, ProtectedRoute } from "../features/auth/RouteGuards";
 
 /* Auth */
 import Login from "../pages/auth/Login";
@@ -52,6 +53,9 @@ import KepalaLMILaporanPage from "../pages/headlmi/KepalaLMILaporanPage.tsx";
 import KepalaLMIPengaturanPage from "../pages/headlmi/KepalaLMIPengaturanPage.tsx";
 import KepalaLMIFeedbackPage from "../pages/headlmi/KepalaLMIFeedbackPage.tsx";
 
+/* Guest Informed Consent Portal */
+import GuestConsentPage from "../pages/guest/GuestConsentPage.tsx";
+
 export default function AppRouter() {
   return (
     <Routes>
@@ -64,10 +68,11 @@ export default function AppRouter() {
         <Route path="feedback" element={<FeedbackPage />} />
       </Route>
 
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<GuestOnlyRoute><Login /></GuestOnlyRoute>} />
+      <Route path="/register" element={<GuestOnlyRoute><Register /></GuestOnlyRoute>} />
+      <Route path="/consent/invite" element={<GuestConsentPage />} />
 
-      <Route path="/klien" element={<KlienLayout />}>
+      <Route path="/klien" element={<ProtectedRoute allowedRoles={["client"]}><KlienLayout /></ProtectedRoute>}>
         <Route index element={<KlienBerandaPage />} />
         <Route path="pesanan" element={<KlienPesananPage />} />
         <Route path="aktivitas" element={<KlienAktivitasPage />} />
@@ -76,7 +81,7 @@ export default function AppRouter() {
         <Route path="pengaturan" element={<KlienPengaturanPage />} />
       </Route>
 
-      <Route path="/konselor" element={<KonselorLayout />}>
+      <Route path="/konselor" element={<ProtectedRoute allowedRoles={["counselor"]}><KonselorLayout /></ProtectedRoute>}>
         <Route index element={<KonselorBerandaPage />} />
         <Route path="aktivitas" element={<KonselorAktivitasPage />} />
         <Route path="permintaan" element={<KonselorPermintaanPage />} />
@@ -86,7 +91,7 @@ export default function AppRouter() {
         <Route path="pengaturan" element={<KonselorPengaturanPage />} />
       </Route>
 
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminLayout /></ProtectedRoute>}>
         <Route index element={<AdminBerandaPage />} />
         <Route path="aktivitas" element={<AdminActivityPage />} />
         <Route path="akun" element={<AdminAkunPage />} />
@@ -97,14 +102,14 @@ export default function AppRouter() {
         <Route path="pengaturan" element={<AdminPengaturanPage />} />
       </Route>
 
-      <Route path="/kepala-lmi" element={<KepalaLMILayout />}>
+      <Route path="/kepala-lmi" element={<ProtectedRoute allowedRoles={["head_lmi"]}><KepalaLMILayout /></ProtectedRoute>}>
         <Route index element={<KepalaLMIBerandaPage />} />
         <Route path="laporan" element={<KepalaLMILaporanPage />} />
         <Route path="feedback" element={<KepalaLMIFeedbackPage />} />
         <Route path="pengaturan" element={<KepalaLMIPengaturanPage />} />
       </Route>
 
-      {/*       <Route path="*" element={<Navigate to="/" replace />} /> */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
