@@ -3,3 +3,8 @@ export { default as PageHeader } from "./PageHeader";
 export type { PageContainerProps, PageRole } from "./PageContainer";
 export type { PageHeaderProps } from "./PageHeader";
 export { SettingsField, SettingsPanel } from "./SettingsPrimitives";
+export { default as NavbarProfileDropdown } from "./NavbarProfileDropdown";
+export type { NavbarProfileDropdownProps } from "./NavbarProfileDropdown";
+export { getInitials } from "../../lib/avatarUtils";
+export { default as AcademicPeriodFilter } from "./AcademicPeriodFilter";
+export type { AcademicPeriodFilterProps, AcademicPeriodLike } from "./AcademicPeriodFilter";

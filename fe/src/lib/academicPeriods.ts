@@ -1,4 +1,5 @@
 import type { AcademicPeriod, PeriodStatus, Semester } from "../types/academicPeriod";
+import type { AcademicPeriodRecordDto } from "../types/api";
 import { DEFAULT_ACADEMIC_PERIODS } from "../data/mock/academicPeriods";
 import {
   formatIndonesianDate,
@@ -7,6 +8,20 @@ import {
 } from "./dateUtils";
 
 export type { AcademicPeriod, PeriodStatus, Semester } from "../types/academicPeriod";
+
+export function mapAcademicPeriodDto(
+  dto: AcademicPeriodRecordDto,
+): AcademicPeriod & { isPublished: boolean } {
+  return {
+    id: dto.id,
+    ta: dto.academic_year,
+    sem: dto.semester,
+    label: `${dto.academic_year} ${dto.semester}`,
+    start: dto.starts_on,
+    end: dto.ends_on,
+    isPublished: dto.is_published,
+  };
+}
 
 export const STORE_KEY = "sicare.periods";
 

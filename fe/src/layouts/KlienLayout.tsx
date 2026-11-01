@@ -1,12 +1,11 @@
 import { NavLink, Outlet } from "react-router-dom";
 import NotificationBell from "../components/shared/NotificationBell";
-import { DEMO_NOTIFICATION_RECIPIENTS } from "../features/notification/notificationStore";
+import NavbarProfileDropdown from "../components/shared/NavbarProfileDropdown";
 import {
   Activity,
   CalendarDays,
   History,
   Home,
-  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -77,20 +76,14 @@ export default function KlienLayout() {
             ))}
           </nav>
 
-          <NotificationBell
-            role="client"
-            recipientId={DEMO_NOTIFICATION_RECIPIENTS.client}
-            wrapperClassName="mr-3 shrink-0 sm:mr-4"
-            buttonClassName="h-9 w-9 sm:h-10 sm:w-10"
-          />
-
-          <NavLink
-            to="/klien/pengaturan"
-            aria-label="Profil"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-gray-700 ring-2 ring-white sm:h-10 sm:w-10"
-          >
-            <UserRound className="h-5 w-5" strokeWidth={1.6} />
-          </NavLink>
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            <NotificationBell
+              role="client"
+              wrapperClassName="relative shrink-0"
+              buttonClassName="flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-gray-100 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            />
+            <NavbarProfileDropdown role="client" wrapperClassName="shrink-0" />
+          </div>
         </div>
       </header>
 
