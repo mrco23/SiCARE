@@ -1,3 +1,8 @@
+import SignOutPanel from "../../features/auth/SignOutPanel";
+import { useAuth } from "../../features/auth/useAuth";
+import { adminApi } from "../../lib/adminApi";
+import { sicareApi } from "../../lib/sicareApi";
+import type { HeroMotivationAdminDto } from "../../types/api";
 import {
   useEffect,
   useMemo,
@@ -17,123 +22,119 @@ import {
   UserRound,
 } from "lucide-react";
 
-const ADMIN_PROFILE_KEY = "sicare_admin_profile_v1";
-export const HERO_CONTENT_KEY = "sicare_home_hero_content_v1";
-
 type AdminProfile = {
   name: string;
   email: string;
   phone: string;
 };
 
-export type HeroCopy = {
-  id: string;
-  heading: string;
-  paragraph: string;
-};
+type HeroMotivation = Pick<HeroMotivationAdminDto, "id" | "content" | "is_active">
+  & Partial<Pick<HeroMotivationAdminDto, "created_at" | "updated_at">>;
 
 const INITIAL_PROFILE: AdminProfile = {
   name: "Administrator SiCARE",
-  email: "admin@unikadelasalle.ac.id",
+  email: "",
   phone: "",
 };
 
-const INITIAL_HERO_COPY: HeroCopy[] = [
-  {
-    id: "hero-1",
-    heading:
-      "Temukan dukungan untuk perjalanan akademik dan kehidupan personalmu.",
-    paragraph:
-      "SiCARE menyediakan ruang konseling yang aman dan suportif untuk membantu mahasiswa menghadapi tantangan akademik maupun personal.",
-  },
-  {
-    id: "hero-2",
-    heading: "Tidak harus menghadapi semuanya sendirian.",
-    paragraph:
-      "Bicarakan tantanganmu bersama konselor kampus dan temukan langkah yang sesuai dengan kebutuhanmu.",
-  },
-  {
-    id: "hero-3",
-    heading: "Jaga keseimbangan diri, tumbuh bersama SiCARE.",
-    paragraph:
-      "Dapatkan pendampingan untuk mengenali potensi diri, mengelola tekanan, dan menjalani kehidupan kampus dengan lebih baik.",
-  },
-];
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^(\+62|62|0)[0-9]{8,13}$/;
-
-function readStoredValue<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
+const PHONE_RE = /^(\+62|62|0)[0-9]{7,15}$/;
 
 function makeId() {
-  return `hero-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export default function AdminPengaturanPage() {
-  const [profile, setProfile] = useState<AdminProfile>(() =>
-    readStoredValue(ADMIN_PROFILE_KEY, INITIAL_PROFILE),
-  );
-  const [savedProfile, setSavedProfile] = useState<AdminProfile>(() =>
-    readStoredValue(ADMIN_PROFILE_KEY, INITIAL_PROFILE),
-  );
-  const [heroCopies, setHeroCopies] = useState<HeroCopy[]>(() =>
-    readStoredValue(HERO_CONTENT_KEY, INITIAL_HERO_COPY),
-  );
-  const [savedHeroCopies, setSavedHeroCopies] = useState<HeroCopy[]>(() =>
-    readStoredValue(HERO_CONTENT_KEY, INITIAL_HERO_COPY),
-  );
+  const { user, profile: authProfile, refreshProfile } = useAuth();
+
+  const [profile, setProfile] = useState<AdminProfile>(() => ({
+    name: authProfile?.full_name || INITIAL_PROFILE.name,
+    email: user?.email || INITIAL_PROFILE.email,
+    phone: authProfile?.phone_e164 || INITIAL_PROFILE.phone,
+  }));
+  const [savedProfile, setSavedProfile] = useState<AdminProfile>(() => ({
+    name: authProfile?.full_name || INITIAL_PROFILE.name,
+    email: user?.email || INITIAL_PROFILE.email,
+    phone: authProfile?.phone_e164 || INITIAL_PROFILE.phone,
+  }));
+
+  const [heroMotivations, setHeroMotivations] = useState<HeroMotivation[]>([]);
+  const [savedHeroMotivations, setSavedHeroMotivations] = useState<HeroMotivation[]>([]);
+  const [heroLoading, setHeroLoading] = useState(true);
+  const [heroLoadError, setHeroLoadError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [toast, setToast] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const profileDirty = JSON.stringify(profile) !== JSON.stringify(savedProfile);
   const heroDirty =
-    JSON.stringify(heroCopies) !== JSON.stringify(savedHeroCopies);
+    JSON.stringify(heroMotivations) !== JSON.stringify(savedHeroMotivations);
   const dirty = profileDirty || heroDirty;
+
+  useEffect(() => {
+    let active = true;
+
+    void sicareApi
+      .getProfile()
+      .then((me) => {
+        if (!active) return;
+        const nextProfile: AdminProfile = {
+          name: me.full_name?.trim() || "Administrator SiCARE",
+          email: user?.email || "",
+          phone: me.phone_e164 || "",
+        };
+        setProfile(nextProfile);
+        setSavedProfile(nextProfile);
+      })
+      .catch(() => {
+        // Tetap gunakan profil dari sesi auth jika endpoint gagal sementara
+      });
+
+    void adminApi.listHeroMotivations()
+      .then((data) => {
+        if (!active) return;
+        const items = data.map((item) => ({ ...item }));
+        setHeroMotivations(items);
+        setSavedHeroMotivations(items);
+        setHeroLoadError("");
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setHeroLoadError(
+          error instanceof Error
+            ? error.message
+            : "Kalimat motivasi tidak dapat dimuat.",
+        );
+      })
+      .finally(() => {
+        if (active) setHeroLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user?.email]);
 
   const errors = useMemo(() => {
     const result: Record<string, string> = {};
     if (!profile.name.trim()) result.name = "Nama admin wajib diisi.";
 
-    const email = profile.email.trim();
-    if (!email) result.email = "Email wajib diisi.";
-    else if (!EMAIL_RE.test(email)) result.email = "Format email tidak valid.";
-
     const phone = profile.phone.replace(/[\s()-]/g, "");
     if (phone && !PHONE_RE.test(phone)) {
-      result.phone = "Format nomor telepon tidak valid.";
+      result.phone = "Format nomor telepon tidak valid (8–20 digit).";
     }
 
-    heroCopies.forEach((item, index) => {
-      if (!item.heading.trim()) {
-        result[`heading-${item.id}`] =
-          `Judul motivasi ${index + 1} wajib diisi.`;
-      }
-      if (!item.paragraph.trim()) {
-        result[`paragraph-${item.id}`] =
-          `Paragraf motivasi ${index + 1} wajib diisi.`;
-      }
-      if (item.heading.length > 180) {
-        result[`heading-${item.id}`] = "H1 maksimal 180 karakter.";
-      }
-      if (item.paragraph.length > 600) {
-        result[`paragraph-${item.id}`] = "Paragraf maksimal 600 karakter.";
+    heroMotivations.forEach((item, index) => {
+      if (!item.content.trim()) {
+        result[`content-${item.id}`] =
+          `Kalimat motivasi ${index + 1} wajib diisi.`;
+      } else if (item.content.trim().length > 180) {
+        result[`content-${item.id}`] =
+          "Kalimat motivasi maksimal 180 karakter.";
       }
     });
 
-    if (!heroCopies.length) {
-      result.heroCopies = "Tambahkan minimal satu pasangan H1 dan paragraf.";
-    }
-
     return result;
-  }, [profile, heroCopies]);
+  }, [profile, heroMotivations]);
 
   useEffect(() => {
     if (!toast) return;
@@ -151,53 +152,112 @@ export default function AdminPengaturanPage() {
     setProfile((previous) => ({ ...previous, [key]: value }));
   }
 
-  function updateHeroCopy(
+  function updateHeroMotivation(
     id: string,
-    field: "heading" | "paragraph",
-    value: string,
+    patch: Partial<Pick<HeroMotivation, "content" | "is_active">>,
   ) {
-    setHeroCopies((previous) =>
-      previous.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item,
-      ),
+    setHeroMotivations((previous) =>
+      previous.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     );
   }
 
-  function addHeroCopy() {
-    setHeroCopies((previous) => [
+  function addHeroMotivation() {
+    setHeroMotivations((previous) => [
       ...previous,
-      { id: makeId(), heading: "", paragraph: "" },
+      { id: makeId(), content: "", is_active: true },
     ]);
   }
 
-  function removeHeroCopy(id: string) {
-    setHeroCopies((previous) => previous.filter((item) => item.id !== id));
+  function removeHeroMotivation(id: string) {
+    setHeroMotivations((previous) => previous.filter((item) => item.id !== id));
   }
 
-  function saveChanges() {
+  async function saveChanges() {
+    if (!heroLoadError && heroLoading) {
+      setToast("Tunggu sampai kalimat motivasi selesai dimuat.");
+      return;
+    }
+    if (heroLoadError && heroDirty) {
+      setToast("Kalimat motivasi belum berhasil dimuat. Muat ulang halaman sebelum menyimpan.");
+      return;
+    }
     if (Object.keys(errors).length > 0) {
       setShowErrors(true);
       setToast("Periksa kembali isian yang ditandai.");
       return;
     }
 
+    setSaving(true);
     try {
-      localStorage.setItem(ADMIN_PROFILE_KEY, JSON.stringify(profile));
-      localStorage.setItem(HERO_CONTENT_KEY, JSON.stringify(heroCopies));
-      setSavedProfile({ ...profile });
-      setSavedHeroCopies(heroCopies.map((item) => ({ ...item })));
+      if (profileDirty) {
+        const cleanedPhone = profile.phone.replace(/[\s()-]/g, "").trim();
+        const updatedMe = await sicareApi.updateProfile({
+          full_name: profile.name.trim(),
+          phone_e164: cleanedPhone || null,
+        });
+        const nextSaved: AdminProfile = {
+          name: updatedMe.full_name?.trim() || profile.name.trim(),
+          email: user?.email || profile.email,
+          phone: updatedMe.phone_e164 || "",
+        };
+        setProfile(nextSaved);
+        setSavedProfile(nextSaved);
+        await refreshProfile().catch(() => undefined);
+      }
+
+      if (heroDirty) {
+        const currentIds = new Set(
+          heroMotivations.filter((item) => !item.id.startsWith("draft-")).map((item) => item.id),
+        );
+
+        for (const saved of savedHeroMotivations) {
+          if (!currentIds.has(saved.id)) {
+            await adminApi.deleteHeroMotivation(saved.id);
+          }
+        }
+
+        for (const item of heroMotivations) {
+          if (item.id.startsWith("draft-")) {
+            await adminApi.createHeroMotivation({ content: item.content.trim(), is_active: item.is_active });
+            continue;
+          }
+
+          const saved = savedHeroMotivations.find((entry) => entry.id === item.id);
+          if (!saved) continue;
+          const patch: Partial<Pick<HeroMotivation, "content" | "is_active">> = {};
+          if (saved.content !== item.content.trim()) patch.content = item.content.trim();
+          if (saved.is_active !== item.is_active) patch.is_active = item.is_active;
+          if (Object.keys(patch).length > 0) {
+            await adminApi.updateHeroMotivation(item.id, patch);
+          }
+        }
+
+        const refreshed = await adminApi.listHeroMotivations();
+        setHeroMotivations(refreshed);
+        setSavedHeroMotivations(refreshed.map((item) => ({ ...item })));
+      }
+
       setShowErrors(false);
-      setToast(
-        "Pengaturan disimpan di browser ini. Hubungkan backend agar perubahan berlaku untuk semua pengguna.",
-      );
-    } catch {
-      setToast("Pengaturan tidak dapat disimpan di browser. Coba lagi.");
+      setToast("Perubahan profil dan kalimat motivasi berhasil disimpan ke database.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Pengaturan tidak dapat disimpan.";
+      setToast(message);
+      try {
+        const refreshed = await adminApi.listHeroMotivations();
+        setHeroMotivations(refreshed);
+        setSavedHeroMotivations(refreshed.map((item) => ({ ...item })));
+        setHeroLoadError("");
+      } catch {
+        setHeroLoadError("Kalimat motivasi tidak dapat dimuat ulang dari server.");
+      }
+    } finally {
+      setSaving(false);
     }
   }
 
   function discardChanges() {
     setProfile({ ...savedProfile });
-    setHeroCopies(savedHeroCopies.map((item) => ({ ...item })));
+    setHeroMotivations(savedHeroMotivations.map((item) => ({ ...item })));
     setShowErrors(false);
   }
 
@@ -218,9 +278,9 @@ export default function AdminPengaturanPage() {
             />
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-gray-900">Administrator SiCARE</p>
+            <p className="font-semibold text-gray-900">{profile.name}</p>
             <p className="mt-1 break-all text-xs text-gray-500">
-              {profile.email}
+              {profile.email || "-"}
             </p>
           </div>
         </div>
@@ -237,38 +297,39 @@ export default function AdminPengaturanPage() {
         <Panel
           icon={<UserRound className="h-5 w-5" />}
           title="Informasi Akun"
-          description="Admin menggunakan logo website dan nama Administrator SiCARE."
+          description="Perbarui nama tampilan dan nomor telepon akun administrator Anda."
         >
           <div className="space-y-5">
-            <Field label="Nama admin">
+            <Field
+              label="Nama admin"
+              required
+              error={showErrors ? errors.name : ""}
+            >
               <input
-                value="Administrator SiCARE"
-                readOnly
-                className={`${inputClass} cursor-not-allowed bg-gray-50 text-gray-500`}
+                value={profile.name}
+                disabled={saving}
+                onChange={(event) =>
+                  updateProfile("name", event.target.value)
+                }
+                placeholder="Administrator SiCARE"
+                className={inputClass}
               />
-              <p className="mt-1.5 text-xs text-gray-500">
-                Nama akun ditetapkan oleh sistem.
-              </p>
             </Field>
 
-            <Field
-              label="Email"
-              required
-              error={showErrors ? errors.email : ""}
-            >
+            <Field label="Email">
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
                   type="email"
                   autoComplete="email"
                   value={profile.email}
-                  onChange={(event) =>
-                    updateProfile("email", event.target.value)
-                  }
-                  placeholder="admin@kampus.ac.id"
-                  className={`${inputClass} pl-10`}
+                  readOnly
+                  className={`${inputClass} cursor-not-allowed bg-gray-50 pl-10 text-gray-500`}
                 />
               </div>
+              <p className="mt-1.5 text-xs text-gray-500">
+                Email autentikasi ditetapkan melalui Supabase Auth.
+              </p>
             </Field>
 
             <Field label="Nomor telepon" error={showErrors ? errors.phone : ""}>
@@ -279,10 +340,11 @@ export default function AdminPengaturanPage() {
                   inputMode="tel"
                   autoComplete="tel"
                   value={profile.phone}
+                  disabled={saving}
                   onChange={(event) =>
                     updateProfile("phone", event.target.value)
                   }
-                  placeholder="Contoh: 081234567890"
+                  placeholder="Contoh: +6281234567890"
                   className={`${inputClass} pl-10`}
                 />
               </div>
@@ -296,12 +358,13 @@ export default function AdminPengaturanPage() {
         <Panel
           icon={<FileText className="h-5 w-5" />}
           title="Kalimat Motivasi Beranda"
-          description="Kelola beberapa kalimat motivasi yang akan ditampilkan bergantian pada bagian Hero halaman utama. Setiap kalimat terdiri dari judul dan paragraf pendukung."
+          description="Kelola kalimat singkat yang ditampilkan secara bergantian pada bagian Hero halaman utama. Tidak ada input paragraf."
           action={
             <button
               type="button"
-              onClick={addHeroCopy}
-              className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary-soft"
+              onClick={addHeroMotivation}
+              disabled={heroLoading || Boolean(heroLoadError) || saving}
+              className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
               Tambah
@@ -309,82 +372,88 @@ export default function AdminPengaturanPage() {
           }
         >
           <div className="space-y-4">
-            {heroCopies.map((item, index) => (
+            {heroLoading && (
+              <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
+                Memuat kalimat motivasi dari database...
+              </p>
+            )}
+
+            {heroLoadError && (
+              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                Kalimat motivasi gagal dimuat: {heroLoadError}
+                <p className="mt-1">Periksa koneksi backend dan akses admin, lalu muat ulang halaman ini.</p>
+              </div>
+            )}
+
+            {!heroLoading && !heroLoadError && heroMotivations.length === 0 && (
+              <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
+                Belum ada kalimat motivasi. Pilih Tambah untuk membuat kalimat pertama.
+              </p>
+            )}
+
+            {!heroLoading && !heroLoadError && heroMotivations.map((item, index) => (
               <div
                 key={item.id}
                 className="rounded-xl border border-gray-200 p-4"
               >
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <p className="text-sm font-bold text-gray-800">
-                    Motivasi {index + 1}
+                    Kalimat {index + 1}
                   </p>
                   <button
                     type="button"
                     aria-label={`Hapus kalimat ${index + 1}`}
-                    onClick={() => removeHeroCopy(item.id)}
-                    className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
+                    disabled={saving}
+                    onClick={() => removeHeroMotivation(item.id)}
+                    className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
 
                 <Field
-                  label="Judul H1"
+                  label="Kalimat motivasi"
                   required
-                  error={showErrors ? errors[`heading-${item.id}`] : ""}
+                  error={showErrors ? errors[`content-${item.id}`] : ""}
                 >
-                  <textarea
-                    rows={2}
+                  <input
+                    type="text"
                     maxLength={180}
-                    value={item.heading}
+                    value={item.content}
+                    disabled={saving}
                     onChange={(event) =>
-                      updateHeroCopy(item.id, "heading", event.target.value)
+                      updateHeroMotivation(item.id, { content: event.target.value })
                     }
                     placeholder="Contoh: Kamu tidak harus menghadapi semuanya sendirian."
-                    className={`${inputClass} resize-y`}
+                    className={inputClass}
                   />
                   <p className="mt-1 text-right text-xs text-gray-400">
-                    {item.heading.length}/180
+                    {item.content.length}/180 karakter
                   </p>
                 </Field>
 
-                <div className="mt-4">
-                  <Field
-                    label="Paragraf"
-                    required
-                    error={showErrors ? errors[`paragraph-${item.id}`] : ""}
-                  >
-                    <textarea
-                      rows={4}
-                      maxLength={600}
-                      value={item.paragraph}
-                      onChange={(event) =>
-                        updateHeroCopy(item.id, "paragraph", event.target.value)
-                      }
-                      placeholder="Tulis pesan motivasi yang mendukung judul di atas."
-                      className={`${inputClass} resize-y`}
-                    />
-                    <p className="mt-1 text-right text-xs text-gray-400">
-                      {item.paragraph.length}/600
-                    </p>
-                  </Field>
-                </div>
+                <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={item.is_active}
+                    disabled={saving}
+                    onChange={(event) =>
+                      updateHeroMotivation(item.id, { is_active: event.target.checked })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  Aktif, boleh ditampilkan di landing page
+                </label>
               </div>
             ))}
 
-            {showErrors && errors.heroCopies && (
-              <p className="text-xs text-red-600">{errors.heroCopies}</p>
+            {showErrors && errors.heroMotivations && (
+              <p className="text-xs text-red-600">{errors.heroMotivations}</p>
             )}
+
             <div className="rounded-xl bg-primary-tint p-3 text-xs leading-relaxed text-gray-600">
               <p className="font-semibold text-primary">Cara kerja</p>
-              Setiap entri adalah satu kalimat motivasi yang terdiri dari judul
-              utama dan paragraf pendukung. HomePage perlu membaca daftar ini
-              dan memilih salah satu entri secara acak setiap kali halaman
-              dimuat ulang. Kunci penyimpanan frontend:{" "}
-              <code className="break-all rounded bg-white px-1 py-0.5">
-                {HERO_CONTENT_KEY}
-              </code>
-              .
+              Pengunjung akan melihat satu kalimat yang dipilih secara acak dari daftar yang aktif. Kalimat nonaktif tidak ditampilkan. Semua perubahan disimpan ke database ketika tombol Simpan perubahan digunakan.
             </div>
           </div>
         </Panel>
@@ -392,15 +461,12 @@ export default function AdminPengaturanPage() {
         <Panel
           className="lg:col-span-2"
           icon={<ShieldCheck className="h-5 w-5" />}
-          title="Catatan Implementasi"
-          description="Batasan penyimpanan versi frontend."
+          title="Status Sinkronisasi"
+          description="Penyimpanan terpusat di database SiCARE."
         >
           <p className="text-sm leading-relaxed text-gray-600">
-            Data akun dan konten Hero saat ini disimpan di localStorage browser.
-            Artinya, perubahan hanya tersedia di browser dan perangkat yang
-            digunakan untuk menyimpan. Untuk menerapkan perubahan secara
-            konsisten kepada seluruh pengunjung, simpan konten melalui backend
-            dan ambil data tersebut dari HomePage.
+            Profil akun administrator dan kalimat motivasi Hero disimpan secara
+            permanen di database melalui backend SiCARE.
           </p>
         </Panel>
       </div>
@@ -415,17 +481,19 @@ export default function AdminPengaturanPage() {
               <button
                 type="button"
                 onClick={discardChanges}
+                disabled={saving}
                 className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:flex-none"
               >
                 Batalkan
               </button>
               <button
                 type="button"
-                onClick={saveChanges}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark sm:flex-none"
+                onClick={() => void saveChanges()}
+                disabled={saving || (heroDirty && (heroLoading || Boolean(heroLoadError)))}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
               >
                 <Save className="h-4 w-4" />
-                Simpan perubahan
+                {saving ? "Menyimpan..." : "Simpan perubahan"}
               </button>
             </div>
           </div>
@@ -443,13 +511,12 @@ export default function AdminPengaturanPage() {
       )}
 
       <p className="mt-8 pb-3 text-center text-[11px] leading-relaxed text-gray-400">
-        Rancangan frontend. Data disimpan lokal dan belum tersinkron dengan
-        server.
+        Profil akun administrator dan kalimat motivasi tersinkron dengan database SiCARE.
       </p>
+      <SignOutPanel />
     </PageContainer>
   );
 }
 
 const inputClass =
   "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15";
-

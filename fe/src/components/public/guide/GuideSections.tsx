@@ -279,4 +279,3 @@ export const SectionTitle = ({ children }: { children: ReactNode }) => (
     {children}
   </h2>
 );
-

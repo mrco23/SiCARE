@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import NotificationBell from "../components/shared/NotificationBell";
+import NavbarProfileDropdown from "../components/shared/NavbarProfileDropdown";
 import { DEMO_NOTIFICATION_RECIPIENTS } from "../features/notification/notificationStore";
 
 
@@ -292,17 +293,9 @@ function Navbar() {
         </span>
       </Link>
 
-      {/* Lonceng */}
-      <NotificationBell
-        role="admin"
-        recipientId={DEMO_NOTIFICATION_RECIPIENTS.admin}
-        wrapperClassName="absolute right-[168px] top-[16px] z-50"
-        buttonClassName="h-10 w-10"
-      />
-
       {/* Dekorasi gunung hijau */}
       <svg
-        className="pointer-events-none absolute right-0 top-0"
+        className="pointer-events-none absolute right-0 top-0 z-0 h-[72px] w-[162px]"
         width="162"
         height="72"
         viewBox="0 0 234 104"
@@ -322,12 +315,16 @@ function Navbar() {
         />
       </svg>
 
-      {/* Avatar */}
-      <img
-        src="/gio.jpeg"
-        alt="Profil"
-        className="absolute right-[14px] top-[16px] h-[40px] w-[40px] rounded-full border-[2px] border-white object-cover shadow-md ring-1 ring-gray-300"
-      />
+      {/* Kontainer Aksi Navbar Kanan: Notifikasi & Avatar Profil di atas Tiga Gunung */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex items-center gap-3">
+        <NotificationBell
+          role="admin"
+          recipientId={DEMO_NOTIFICATION_RECIPIENTS.admin}
+          wrapperClassName="relative shrink-0"
+          buttonClassName="flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md ring-1 ring-slate-200/80 transition hover:bg-white hover:text-primary hover:ring-brand-gold focus:outline-none"
+        />
+        <NavbarProfileDropdown role="admin" wrapperClassName="shrink-0" />
+      </div>
     </header>
   );
 }

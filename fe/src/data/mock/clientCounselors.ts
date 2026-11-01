@@ -2,7 +2,7 @@ export type ClientCounselorKey = "GY" | "RW";
 
 export interface ClientCounselorIdentity {
   /** Stable mock entity key; numeric id is retained for existing UI handlers. */
-  entityId: "counselor-giovanna-yudi" | "counselor-rico-kornelius-wahani";
+  entityId: string;
   id: number;
   key: ClientCounselorKey;
   name: string;
@@ -44,6 +44,7 @@ export interface CounselorEducation {
 }
 
 export interface ClientDirectoryCounselor extends ClientCounselorIdentity {
+  photoUrl?: string | null;
   about: string;
   education: CounselorEducation[];
   experience: string;
@@ -107,8 +108,10 @@ export const CLIENT_DIRECTORY_COUNSELORS: ClientDirectoryCounselor[] = [
 ];
 
 export interface BookingCounselor extends ClientCounselorIdentity {
+  profileId?: string;
+  availabilityByDate?: Record<string, string[]>;
   short: string;
-  gender: "Perempuan" | "Laki-laki";
+  gender: "Perempuan" | "Laki-laki" | "Tidak dicantumkan";
   degree: string;
   experience: string;
   room: string;

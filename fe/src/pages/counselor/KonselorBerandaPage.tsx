@@ -1,438 +1,791 @@
-import { PageContainer, PageHeader } from "../../components/shared";
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowUpRight, CalendarDays, ClipboardList, MessageSquareText } from "lucide-react";
-import { RATINGS, SESSIONS_THIS_WEEK } from "../../data/mock/counselorDashboard";
-import { getCounselorInitials as initials } from "../../features/counselor/shared/presentation";
-import { dashboardWaitLabel as waitLabel, getDashboardSessionState as sessionState, useCounselorDashboard } from "../../features/counselor/dashboard/useCounselorDashboard";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  AlertCircle,
+  ArrowRight,
+  Calendar,
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  Inbox,
+  Loader2,
+  MapPin,
+  RefreshCw,
+  Star,
+  Video,
+  X,
+  XCircle,
+} from "lucide-react";
+import { PageContainer } from "../../components/shared";
+import {
+  BookingDecisionModal,
+  type BookingDecisionAction,
+} from "../../components/counselor/BookingDecisionModal";
+import {
+  formatBookingClientTitle,
+  formatIsoDateId,
+  formatIsoShortDateId,
+  formatIsoTimeRangeWita,
+  formatSessionFormatLabel,
+  getCounselorInitials,
+  toLocalDateKey,
+} from "../../features/counselor/shared/presentation";
+import { useAuth } from "../../features/auth/useAuth";
+import { ApiError } from "../../lib/api";
+import { counselorApi } from "../../lib/counselorApi";
+import { sicareApi } from "../../lib/sicareApi";
+import type {
+  BookingDetailDto,
+  BookingRecordBaseDto,
+  CounselorFeedbackDto,
+  CounselorProfileDto,
+  ProfileDto,
+  SessionListItemDto,
+} from "../../types/api";
 
-export default function CounselorDashboardPage() {
-  const {
-    now,
-    nowMin,
-    requests,
-    sessions,
-    pendingRequests,
-    sortedSessions,
-    nextId,
-    liveSessions,
-    avgRating,
-    todayLabel,
-    summary,
-    decideRequest,
-  } = useCounselorDashboard();
-  const [confirm, setConfirm] = useState<{ id: number; accept: boolean } | null>(null);
-  const [toastMsg, setToastMsg] = useState("");
+function getWeekBounds(now: Date): { start: Date; end: Date } {
+  const day = now.getDay(); // 0 = Sun, 1 = Mon, ...
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
+  const nextMonday = new Date(
+    monday.getFullYear(),
+    monday.getMonth(),
+    monday.getDate() + 7,
+  );
+  return { start: monday, end: nextMonday };
+}
+
+export default function KonselorBerandaPage() {
+  const navigate = useNavigate();
+  const { profile: authProfile } = useAuth();
+
+  const [profile, setProfile] = useState<ProfileDto | null>(null);
+  const [counselorProfile, setCounselorProfile] = useState<CounselorProfileDto | null>(null);
+  const [bookings, setBookings] = useState<BookingRecordBaseDto[]>([]);
+  const [sessions, setSessions] = useState<SessionListItemDto[]>([]);
+  const [feedbackList, setFeedbackList] = useState<CounselorFeedbackDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [decisionModal, setDecisionModal] = useState<{
+    booking: BookingRecordBaseDto;
+    action: BookingDecisionAction;
+  } | null>(null);
+
+  const [toast, setToast] = useState<{
+    type: "approve" | "reject" | "reschedule";
+    message: string;
+  } | null>(null);
+
+  const fetchDashboardData = useCallback(async () => {
+    const [profileRes, counselorProfileRes, bookingsRes, sessionsRes, feedbackRes] =
+      await Promise.all([
+        sicareApi.getProfile(),
+        counselorApi.getProfile().catch(() => null),
+        sicareApi.bookings(100),
+        sicareApi.sessions(100),
+        counselorApi.getFeedback({ limit: 100 }).catch(() => [] as CounselorFeedbackDto[]),
+      ]);
+
+    return {
+      profile: profileRes,
+      counselorProfile: counselorProfileRes,
+      bookings: bookingsRes,
+      sessions: sessionsRes,
+      feedback: feedbackRes,
+    };
+  }, []);
 
   useEffect(() => {
-    if (!toastMsg) return;
-    const timer = window.setTimeout(() => setToastMsg(""), 2600);
-    return () => window.clearTimeout(timer);
-  }, [toastMsg]);
+    let active = true;
+    fetchDashboardData()
+      .then((data) => {
+        if (!active) return;
+        setProfile(data.profile);
+        setCounselorProfile(data.counselorProfile);
+        setBookings(data.bookings);
+        setSessions(data.sessions);
+        setFeedbackList(data.feedback);
+        setErrorMessage(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setErrorMessage(
+          err instanceof ApiError
+            ? err.message
+            : "Gagal memuat data beranda konselor dari server.",
+        );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-  function handleDecide() {
-    if (!confirm) return;
-    const message = decideRequest(confirm.id, confirm.accept);
-    if (!message) return;
-    setConfirm(null);
-    setToastMsg(message);
-  }
+    return () => {
+      active = false;
+    };
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const handleManualRefresh = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const data = await fetchDashboardData();
+      setProfile(data.profile);
+      setCounselorProfile(data.counselorProfile);
+      setBookings(data.bookings);
+      setSessions(data.sessions);
+      setFeedbackList(data.feedback);
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof ApiError
+          ? err.message
+          : "Gagal memuat ulang data beranda konselor.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const counselorName =
+    counselorProfile?.public_name?.trim() ||
+    profile?.full_name?.trim() ||
+    authProfile?.full_name?.trim() ||
+    "Konselor";
+
+  const bookingMap = useMemo(() => {
+    const map = new Map<string, BookingRecordBaseDto>();
+    for (const b of bookings) {
+      map.set(b.id, b);
+    }
+    return map;
+  }, [bookings]);
+
+  const todayKey = useMemo(() => toLocalDateKey(new Date()), []);
+  const todayLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }),
+    [],
+  );
+
+  const pendingRequests = useMemo(
+    () =>
+      bookings
+        .filter((b) => b.status === "waiting_confirmation")
+        .sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        ),
+    [bookings],
+  );
+
+  const todaySessions = useMemo(
+    () =>
+      sessions
+        .filter(
+          (s) =>
+            s.status !== "cancelled" && toLocalDateKey(s.starts_at) === todayKey,
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+        ),
+    [sessions, todayKey],
+  );
+
+  const ongoingSession = useMemo(
+    () => sessions.find((s) => s.status === "ongoing") ?? null,
+    [sessions],
+  );
+
+  const sessionsThisWeek = useMemo(() => {
+    const { start, end } = getWeekBounds(new Date());
+    return sessions.filter((s) => {
+      if (s.status === "cancelled") return false;
+      const t = new Date(s.starts_at).getTime();
+      return t >= start.getTime() && t < end.getTime();
+    }).length;
+  }, [sessions]);
+
+  const ratingStats = useMemo(() => {
+    const counts: Record<1 | 2 | 3 | 4 | 5, number> = {
+      5: 0,
+      4: 0,
+      3: 0,
+      2: 0,
+      1: 0,
+    };
+    let sum = 0;
+    for (const item of feedbackList) {
+      const r = Math.min(5, Math.max(1, Math.round(item.rating))) as
+        | 1
+        | 2
+        | 3
+        | 4
+        | 5;
+      counts[r] += 1;
+      sum += item.rating;
+    }
+    const total = feedbackList.length;
+    const avg = total > 0 ? (sum / total).toFixed(1) : "0.0";
+    return { counts, total, avg };
+  }, [feedbackList]);
+
+  const handleDecisionSuccess = async (
+    result: BookingDetailDto,
+    action: BookingDecisionAction,
+  ) => {
+    const title = formatBookingClientTitle(decisionModal?.booking);
+    setDecisionModal(null);
+
+    if (action === "approve") {
+      setToast({
+        type: "approve",
+        message: `Permintaan ${title} diterima dan sesi baru telah dijadwalkan.`,
+      });
+    } else if (action === "reschedule") {
+      setToast({
+        type: "reschedule",
+        message: `Permintaan jadwal ulang untuk ${title} telah dikirim ke klien.`,
+      });
+    } else {
+      setToast({
+        type: "reject",
+        message: `Permintaan ${title} telah ditolak.`,
+      });
+    }
+
+    try {
+      const fresh = await fetchDashboardData();
+      setProfile(fresh.profile);
+      setCounselorProfile(fresh.counselorProfile);
+      setBookings(fresh.bookings);
+      setSessions(fresh.sessions);
+      setFeedbackList(fresh.feedback);
+    } catch {
+      setBookings((prev) =>
+        prev.map((item) =>
+          item.id === result.id ? { ...item, ...result } : item,
+        ),
+      );
+    }
+  };
 
   return (
-    <PageContainer role="counselor" spacing="none">
-      {/* ================= SAPAAN ================= */}
-      <PageHeader
-        eyebrow={todayLabel}
-        title={
-          <>
-            Selamat datang, Ma’am{" "}
-            <span className="text-primary">Giovanna</span>
-          </>
-        }
-        description={summary}
-      />
-
-      {/* ================= KARTU RINGKASAN ================= */}
-      <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard
-          to="/konselor/permintaan"
-          tone="amber"
-          label="Menunggu konfirmasi"
-          value={pendingRequests.length}
-          note="Perlu ditanggapi segera"
-        />
-        <StatCard
-          to="/konselor/jadwal"
-          label="Sesi hari ini"
-          value={sessions.length}
-          note="Sesi terjadwal"
-        />
-        <StatCard
-          to="/konselor/riwayat"
-          label="Sesi minggu ini"
-          value={SESSIONS_THIS_WEEK}
-          note="Termasuk yang sudah selesai"
-        />
-        <StatCard
-          to="/konselor/feedback"
-          label="Rating rata-rata"
-          value={avgRating.toFixed(1)}
-          suffix="/ 5"
-          note={`Dari ${RATINGS.length} feedback`}
-        />
-      </section>
-
-      {/* ================= INFO SESI BERLANGSUNG ================= */}
-      {liveSessions.length > 0 && (
-        <section className="mt-6 flex flex-col items-start justify-between gap-4 rounded-2xl border border-[#36c08f]/60 bg-primary-tint p-4 sm:flex-row sm:items-center sm:p-5">
-          <div className="flex items-start gap-3">
-            <span className="relative mt-1 flex h-3 w-3 shrink-0">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#36c08f] opacity-75" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-primary" />
-            </span>
-            <div>
-              <p className="font-semibold text-primary">
-                Ada {liveSessions.length} sesi sedang berlangsung
-              </p>
-              <p className="mt-0.5 text-sm text-gray-600">
-                Bersama {liveSessions.map((s) => s.client).join(", ")}. Lengkapi
-                catatan setelah sesi selesai.
-              </p>
-            </div>
+    <PageContainer className="py-6 lg:py-8">
+      <div className="space-y-6">
+        {/* Header Sambutan */}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-gray-500">{todayLabel}</p>
+            <h1 className="mt-0.5 text-2xl font-bold text-gray-900">
+              Halo, {counselorName}
+            </h1>
           </div>
-          <Link
-            to="/konselor/aktivitas"
-            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+          <button
+            type="button"
+            onClick={() => void handleManualRefresh()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
           >
-            Isi catatan
-          </Link>
-        </section>
-      )}
-
-      {/* ================= KONTEN UTAMA ================= */}
-      <section className="mt-6 grid gap-6 lg:grid-cols-5">
-        {/* Permintaan menunggu */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 lg:col-span-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold">Permintaan menunggu</h2>
-              <p className="mt-0.5 text-sm text-gray-500">
-                Diurutkan dari yang paling lama menunggu.
-              </p>
-            </div>
-            <Link
-              to="/konselor/permintaan"
-              className="shrink-0 text-sm font-semibold text-primary hover:underline"
-            >
-              Lihat semua
-            </Link>
-          </div>
-
-          <ul className="mt-5 space-y-3">
-            {pendingRequests.map((r) => (
-              <li
-                key={r.id}
-                className="rounded-xl border border-gray-200 p-4 transition hover:shadow-sm"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
-                    {initials(r.name)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-gray-900">
-                      {r.name}
-                    </p>
-                    <p className="truncate text-xs text-gray-500">
-                      {r.role} · {r.format}
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-3 text-sm text-gray-700">{r.topic}</p>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3">
-                  <span className="text-xs text-gray-500">
-                    {waitLabel(r.waitMin)}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setConfirm({ id: r.id, accept: false })}
-                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                    >
-                      Tolak
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirm({ id: r.id, accept: true })}
-                      className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-dark"
-                    >
-                      Terima
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          {pendingRequests.length === 0 && (
-            <div className="mt-5 rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
-              Tidak ada permintaan yang menunggu.
-            </div>
-          )}
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Muat Ulang
+          </button>
         </div>
 
-        {/* Sesi hari ini */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 lg:col-span-2">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold">Sesi hari ini</h2>
-              {sortedSessions.length > 0 && (
-                <p className="mt-0.5 text-sm text-gray-500">
-                  {sortedSessions.length} sesi ·{" "}
-                  {now.toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "short",
-                  })}
+        {toast && (
+          <div
+            role="status"
+            className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${
+              toast.type === "approve"
+                ? "border-emerald-200 bg-emerald-50 text-[#064E3B]"
+                : toast.type === "reschedule"
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-red-200 bg-red-50 text-red-800"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              {toast.type === "approve" ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+              ) : toast.type === "reschedule" ? (
+                <CalendarClock className="h-4 w-4 shrink-0" />
+              ) : (
+                <XCircle className="h-4 w-4 shrink-0" />
+              )}
+              <span>{toast.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              aria-label="Tutup notifikasi"
+              className="rounded-lg p-1 hover:bg-black/5"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div
+            role="alert"
+            className="flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+              <div>
+                <p className="font-semibold">Gagal Memuat Data Beranda</p>
+                <p className="mt-0.5">{errorMessage}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleManualRefresh()}
+              className="shrink-0 rounded-xl border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
+
+        {/* Banner Sesi Sedang Berlangsung */}
+        {ongoingSession && (
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-[#064E3B] p-5 text-white shadow-xs">
+            <div className="flex items-center gap-3.5">
+              <span className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-emerald-300" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                  Sesi Sedang Berlangsung
                 </p>
+                <p className="mt-0.5 text-base font-bold">
+                  {formatBookingClientTitle(
+                    bookingMap.get(ongoingSession.booking_id),
+                  )}{" "}
+                  ·{" "}
+                  {formatIsoTimeRangeWita(
+                    ongoingSession.starts_at,
+                    ongoingSession.ends_at,
+                  )}
+                </p>
+                <p className="mt-0.5 text-xs text-emerald-100">
+                  {formatSessionFormatLabel(ongoingSession.format)} ·{" "}
+                  {ongoingSession.room || "Ruang Konseling LMI"}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/konselor/aktivitas")}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#064E3B] transition hover:bg-emerald-50"
+            >
+              Buka Sesi <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* 4 Kartu Statistik Aktual */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <button
+            type="button"
+            onClick={() => navigate("/konselor/permintaan")}
+            className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-xs transition hover:border-amber-300"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-500">
+                Permintaan Baru
+              </span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                <Inbox className="h-4 w-4" />
+              </span>
+            </div>
+            <p className="mt-3 text-3xl font-bold text-gray-900">
+              {loading ? "—" : pendingRequests.length}
+            </p>
+            <p className="mt-1 text-xs font-medium text-amber-600">
+              {pendingRequests.length > 0
+                ? "Perlu konfirmasi"
+                : "Semua sudah ditangani"}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/konselor/aktivitas")}
+            className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-xs transition hover:border-emerald-300"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-500">
+                Sesi Hari Ini
+              </span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-[#064E3B]">
+                <Clock className="h-4 w-4" />
+              </span>
+            </div>
+            <p className="mt-3 text-3xl font-bold text-gray-900">
+              {loading ? "—" : todaySessions.length}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {ongoingSession ? "1 sedang berlangsung" : "Terjadwal hari ini"}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/konselor/jadwal")}
+            className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-xs transition hover:border-emerald-300"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-500">
+                Sesi Minggu Ini
+              </span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-[#064E3B]">
+                <Calendar className="h-4 w-4" />
+              </span>
+            </div>
+            <p className="mt-3 text-3xl font-bold text-gray-900">
+              {loading ? "—" : sessionsThisWeek}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">Senin – Minggu ini</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/konselor/feedback")}
+            className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-xs transition hover:border-amber-300"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-500">
+                Rating Klien
+              </span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline gap-1.5">
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? "—" : ratingStats.avg}
+              </p>
+              <span className="text-xs text-gray-400">/ 5.0</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Dari {ratingStats.total} ulasan
+            </p>
+          </button>
+        </div>
+
+        {/* Konten Utama: Permintaan Terlama + Ringkasan Hari Ini */}
+        <div className="grid gap-6 lg:grid-cols-12">
+          {/* Kolom Kiri (7 col): Permintaan Menunggu Konfirmasi */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs lg:col-span-7">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">
+                  Permintaan Menunggu Konfirmasi
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Diurutkan dari permintaan yang paling lama diajukan
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/konselor/permintaan")}
+                className="text-xs font-semibold text-[#064E3B] hover:underline"
+              >
+                Lihat semua
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="mt-6 flex flex-col items-center justify-center py-10 text-center">
+                <Loader2 className="h-6 w-6 animate-spin text-[#064E3B]" />
+                <p className="mt-2 text-xs text-gray-500">
+                  Memuat antrean permintaan konseling...
+                </p>
+              </div>
+            ) : pendingRequests.length === 0 ? (
+              <div className="mt-5 rounded-xl border border-dashed border-gray-200 p-8 text-center">
+                <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
+                <p className="mt-2 text-sm font-semibold text-gray-800">
+                  Tidak ada permintaan yang menunggu
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Semua permintaan konseling sudah ditindaklanjuti.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {pendingRequests.slice(0, 4).map((booking) => {
+                  const title = formatBookingClientTitle(booking);
+                  return (
+                    <div
+                      key={booking.id}
+                      className="rounded-xl border border-gray-200 p-4 transition hover:border-gray-300"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-bold text-[#064E3B]">
+                          {getCounselorInitials(title)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-bold text-gray-900">{title}</p>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                booking.service_type === "group"
+                                  ? "bg-purple-50 text-purple-700"
+                                  : "bg-gray-100 text-gray-700"
+                              }`}
+                            >
+                              {booking.service_type === "group"
+                                ? `Kelompok · ${booking.participant_count} orang`
+                                : "Individu"}
+                            </span>
+                            <span className="ml-auto text-xs font-semibold text-amber-600">
+                              Diajukan {formatIsoShortDateId(booking.created_at)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs font-medium text-gray-700">
+                            Jadwal diminta: {formatIsoDateId(booking.starts_at)} ·{" "}
+                            {formatIsoTimeRangeWita(booking.starts_at, booking.ends_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
+                        <button
+                          type="button"
+                          onClick={() => navigate("/konselor/permintaan")}
+                          className="text-xs font-semibold text-[#064E3B] hover:underline"
+                        >
+                          Lihat detail →
+                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDecisionModal({ booking, action: "reject" })
+                            }
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                          >
+                            Tolak
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDecisionModal({ booking, action: "reschedule" })
+                            }
+                            className="rounded-lg border border-amber-300 bg-amber-50/70 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                          >
+                            Jadwal Ulang
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDecisionModal({ booking, action: "approve" })
+                            }
+                            className="rounded-lg bg-[#064E3B] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#053e2f]"
+                          >
+                            Terima
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Kolom Kanan (5 col): Jadwal Sesi Hari Ini + Rating */}
+          <div className="space-y-6 lg:col-span-5">
+            {/* Jadwal Hari Ini */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">
+                    Jadwal Hari Ini
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    {todaySessions.length} sesi terjadwal
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/konselor/aktivitas")}
+                  className="text-xs font-semibold text-[#064E3B] hover:underline"
+                >
+                  Ke aktivitas
+                </button>
+              </div>
+
+              {loading ? (
+                <div className="mt-5 flex justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-[#064E3B]" />
+                </div>
+              ) : todaySessions.length === 0 ? (
+                <div className="mt-4 rounded-xl border border-dashed border-gray-200 p-6 text-center text-xs text-gray-500">
+                  Belum ada sesi konseling terjadwal untuk hari ini.
+                </div>
+              ) : (
+                <div className="mt-4 space-y-2.5">
+                  {todaySessions.map((session) => {
+                    const booking = bookingMap.get(session.booking_id);
+                    const title = formatBookingClientTitle(booking);
+                    const isOngoing = session.status === "ongoing";
+                    const isCompleted = session.status === "completed";
+                    const startDate = new Date(session.starts_at);
+                    const timeStr = `${String(startDate.getHours()).padStart(2, "0")}.${String(startDate.getMinutes()).padStart(2, "0")}`;
+
+                    return (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() => navigate("/konselor/aktivitas")}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
+                          isOngoing
+                            ? "border-[#064E3B] bg-emerald-50/60"
+                            : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="w-16 shrink-0 text-center">
+                          <p className="text-xs font-bold tabular-nums text-gray-900">
+                            {timeStr}
+                          </p>
+                          <p className="text-[11px] text-gray-400">60 mnt</p>
+                        </div>
+                        <div className="h-8 w-px bg-gray-200" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-gray-900">
+                            {title}
+                          </p>
+                          <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                            <span className="inline-flex items-center gap-1">
+                              {session.format === "online" ? (
+                                <Video className="h-3 w-3" />
+                              ) : (
+                                <MapPin className="h-3 w-3" />
+                              )}
+                              {formatSessionFormatLabel(session.format)}
+                            </span>
+                            <span>·</span>
+                            <span>
+                              {booking?.service_type === "group"
+                                ? "Kelompok"
+                                : "Individu"}
+                            </span>
+                          </div>
+                        </div>
+                        {isOngoing ? (
+                          <span className="rounded-full bg-[#064E3B] px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                            Berlangsung
+                          </span>
+                        ) : isCompleted ? (
+                          <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-semibold text-teal-700">
+                            Selesai
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600">
+                            Mendatang
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
-            <Link
-              to="/konselor/jadwal"
-              className="shrink-0 text-sm font-semibold text-primary hover:underline"
-            >
-              Jadwal
-            </Link>
-          </div>
 
-          {sortedSessions.length > 0 ? (
-            <ol className="relative mt-5 space-y-4 border-l-2 border-gray-200 pl-5">
-              {sortedSessions.map((s) => {
-                const st = sessionState(s, nowMin);
-                const isNext = s.id === nextId;
-                const highlight = st === "live" || isNext;
+            {/* Ringkasan Rating */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">
+                    Penilaian Klien
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Berdasarkan {ratingStats.total} ulasan terverifikasi
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/konselor/feedback")}
+                  className="text-xs font-semibold text-[#064E3B] hover:underline"
+                >
+                  Lihat ulasan
+                </button>
+              </div>
 
-                const dot =
-                  st === "live"
-                    ? "bg-primary ring-4 ring-[#36c08f]/25"
-                    : isNext
-                      ? "bg-[#36c08f] ring-4 ring-[#36c08f]/20"
-                      : "bg-gray-300";
+              <div className="mt-4 flex items-center gap-5">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-gray-900">
+                    {ratingStats.avg}
+                  </p>
+                  <div className="mt-1 flex justify-center gap-0.5 text-amber-400">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`h-3.5 w-3.5 ${
+                          star <= Math.round(Number(ratingStats.avg))
+                            ? "fill-amber-400 text-amber-400"
+                            : "text-gray-200"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-400">dari 5.0</p>
+                </div>
 
-                const badge =
-                  st === "done" ? (
-                    <Badge className="bg-gray-100 text-gray-600">Selesai</Badge>
-                  ) : st === "live" ? (
-                    <Badge className="bg-primary text-white">
-                      Berlangsung
-                    </Badge>
-                  ) : isNext ? (
-                    <Badge className="bg-primary-soft text-primary">
-                      Berikutnya
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-blue-50 text-blue-800">
-                      Terjadwal
-                    </Badge>
-                  );
-
-                return (
-                  <li key={s.id} className="relative">
-                    <span
-                      className={`absolute -left-[27px] top-4 h-3 w-3 rounded-full border-2 border-white ${dot}`}
-                    />
-                    <div
-                      className={`rounded-xl border p-3.5 ${highlight ? "border-[#36c08f]/60 bg-primary-tint" : "border-gray-200"}`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold text-gray-900">
-                          {s.time} WITA
-                        </p>
-                        {badge}
+                <div className="flex-1 space-y-1.5">
+                  {([5, 4, 3, 2, 1] as const).map((star) => {
+                    const count = ratingStats.counts[star];
+                    const pct =
+                      ratingStats.total > 0
+                        ? Math.round((count / ratingStats.total) * 100)
+                        : 0;
+                    return (
+                      <div
+                        key={star}
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <span className="w-3 font-semibold text-gray-600">
+                          {star}
+                        </span>
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className="h-full rounded-full bg-amber-400"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="w-6 text-right tabular-nums text-gray-500">
+                          {count}
+                        </span>
                       </div>
-                      <p className="mt-1 truncate text-sm font-semibold text-gray-800">
-                        {s.client}
-                      </p>
-                      <p className="truncate text-xs text-gray-500">
-                        {s.topic} · {s.format}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : (
-            <div className="mt-5 rounded-xl border border-dashed border-gray-300 p-6 text-center">
-              <p className="text-sm font-semibold text-gray-700">
-                Tidak ada sesi hari ini
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Sesi berikutnya akan tampil di sini.
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ================= AKSI CEPAT ================= */}
-      <section className="mt-6">
-        <h2 className="text-sm font-semibold text-gray-500">Aksi cepat</h2>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <QuickAction
-            to="/konselor/jadwal"
-            icon={CalendarDays}
-            title="Atur jadwal"
-            desc="Ubah ketersediaan mingguan"
-          />
-          <QuickAction
-            to="/konselor/riwayat"
-            icon={ClipboardList}
-            title="Riwayat konseling"
-            desc="Buka catatan klien"
-          />
-          <QuickAction
-            to="/konselor/feedback"
-            icon={MessageSquareText}
-            title="Lihat feedback"
-            desc="Tanggapan dari klien"
-          />
-        </div>
-      </section>
-
-      {/* ================= MODAL KONFIRMASI ================= */}
-      {confirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-900/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-bold">
-              {confirm.accept ? "Terima" : "Tolak"} permintaan{" "}
-              {requests.find((r) => r.id === confirm.id)?.name}?
-            </h2>
-            <p className="mt-2 text-sm text-gray-600">
-              {confirm.accept
-                ? "Sesi akan masuk ke jadwal hari ini dan klien akan diberi tahu."
-                : "Permintaan akan ditolak dan klien akan diberi tahu."}
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirm(null)}
-                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleDecide}
-                className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white ${
-                  confirm.accept
-                    ? "bg-primary hover:bg-primary-dark"
-                    : "bg-red-600 hover:bg-red-700"
-                }`}
-              >
-                {confirm.accept ? "Ya, terima" : "Ya, tolak"}
-              </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      )}
-
-      {/* ================= TOAST ================= */}
-      <div
-        className={`pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-lg transition duration-300 ${
-          toastMsg ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-        }`}
-      >
-        {toastMsg}
       </div>
+
+      {decisionModal && (
+        <BookingDecisionModal
+          booking={decisionModal.booking}
+          action={decisionModal.action}
+          onClose={() => setDecisionModal(null)}
+          onSuccess={(result, action) => void handleDecisionSuccess(result, action)}
+        />
+      )}
     </PageContainer>
-  );
-}
-
-/* ================= SUB-KOMPONEN ================= */
-
-function StatCard({
-  to,
-  label,
-  value,
-  note,
-  suffix,
-  tone,
-}: {
-  to: string;
-  label: string;
-  value: number | string;
-  note: string;
-  suffix?: string;
-  tone?: "amber";
-}) {
-  const amber = tone === "amber";
-  return (
-    <Link
-      to={to}
-      className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${
-        amber ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-white"
-      }`}
-    >
-      <p
-        className={`text-xs font-medium sm:text-sm ${amber ? "text-amber-800" : "text-gray-500"}`}
-      >
-        {label}
-      </p>
-      <p className="mt-2 flex items-baseline gap-1.5">
-        <span
-          className={`text-2xl font-bold sm:text-3xl ${amber ? "text-amber-900" : "text-gray-900"}`}
-        >
-          {value}
-        </span>
-        {suffix && <span className="text-xs text-gray-400">{suffix}</span>}
-      </p>
-      <p
-        className={`mt-1 text-xs ${amber ? "text-amber-700" : "text-gray-400"}`}
-      >
-        {note}
-      </p>
-    </Link>
-  );
-}
-
-function QuickAction({
-  to,
-  icon: Icon,
-  title,
-  desc,
-}: {
-  to: string;
-  icon: typeof CalendarDays;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition hover:border-[#36c08f]/60 hover:shadow-md"
-    >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-        <Icon className="h-5 w-5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold">{title}</span>
-        <span className="block text-xs text-gray-500">{desc}</span>
-      </span>
-      <ArrowUpRight className="h-4 w-4 text-gray-400" />
-    </Link>
-  );
-}
-
-function Badge({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className: string;
-}) {
-  return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${className}`}
-    >
-      {children}
-    </span>
   );
 }

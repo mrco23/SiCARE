@@ -10,11 +10,24 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { ElementType } from "react";
-import { useEffect, useRef } from "react";
-import { HOME_PAGE_TESTIMONIALS as testimonials, HOME_PAGE_COUNSELORS as counselors } from "../../data/mock/publicShowcases";
+import { useEffect, useRef, useState } from "react";
+import {
+  getPublicAcademicPeriods,
+  getPublicCounselors,
+  getPublicFeedback,
+  getPublicHeroMotivations,
+  type PublicAcademicPeriod,
+  type PublicCounselor,
+  type PublicFeedback,
+  getPublicPhotoUrl,
+} from "../../lib/publicApi";
 
 // Lebar konten: lebih sempit dari sebelumnya agar lebih terpusat
 const container = "mx-auto w-[84%] sm:w-[76%] md:w-[72%] lg:w-[66%] xl:w-[80%]";
+
+const DEFAULT_HERO_MOTIVATION =
+  "Kamu tidak harus menghadapi semuanya sendirian.";
+
 
 const reasons = [
   {
@@ -99,19 +112,20 @@ function ReasonCard({
   );
 }
 
-function TestimonialCard({ name, text }: { name: string; text: string }) {
+function TestimonialCard({ name, text, rating }: { name: string; text: string; rating: number }) {
   return (
     <div className="flex w-56 shrink-0 flex-col rounded-xl border border-[#d3e0dc] bg-white px-4 py-4 sm:w-64 sm:px-5 sm:py-5 md:w-72 lg:w-80">
       <p className="font-[Inter] text-sm font-semibold leading-none text-black sm:text-base">
         {name}
       </p>
 
-      <div className="mt-2 flex gap-0.5">
+      <div className="mt-2 flex gap-0.5" aria-label={`Rating ${rating} dari 5`}>
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}
-            className="h-2.5 w-2.5 fill-[#f3c95a] text-[#f3c95a] sm:h-3 sm:w-3"
-            strokeWidth={0}
+            aria-hidden="true"
+            className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${i < Math.round(rating) ? "fill-[#f3c95a] text-[#f3c95a]" : "fill-none text-gray-300"}`}
+            strokeWidth={1.5}
           />
         ))}
       </div>
@@ -123,7 +137,7 @@ function TestimonialCard({ name, text }: { name: string; text: string }) {
   );
 }
 
-function Testimonials() {
+function Testimonials({ testimonials }: { testimonials: PublicFeedback[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const hoverRef = useRef(false);
   const touchRef = useRef(false);
@@ -201,12 +215,14 @@ function Testimonials() {
           Suara dari Mereka yang Telah Melangkah
         </h2>
         <p className="mt-3 text-xs text-[#1b1b1b] sm:text-sm md:text-base">
-          Identitas klien selalu dianonimkan demi menjaga privasi dan rasa aman
-          100%.
+          Feedback yang ditampilkan telah disetujui untuk publikasi. Identitas klien tidak ditampilkan.
         </p>
       </div>
 
-      {/* Marquee: bisa di-swipe di mobile, auto-scroll ke kanan */}
+      {testimonials.length === 0 ? (
+        <p className="mx-auto mt-8 max-w-xl text-center text-sm text-gray-500">Belum ada feedback yang disetujui untuk ditampilkan.</p>
+      ) : (
+      /* Marquee: bisa di-swipe di mobile, auto-scroll ke kanan */
       <div
         ref={scrollRef}
         className="mt-8 touch-pan-x overflow-x-auto overscroll-x-contain md:mt-12 [&::-webkit-scrollbar]:hidden"
@@ -224,22 +240,24 @@ function Testimonials() {
               className="flex shrink-0 gap-3 pr-3 sm:gap-4 sm:pr-4 md:gap-5 md:pr-5 lg:gap-8 lg:pr-8"
               aria-hidden={setIndex === 1}
             >
-              {testimonials.map((item, i) => (
+              {testimonials.map((item) => (
                 <TestimonialCard
-                  key={`${setIndex}-${i}`}
-                  name={item.name}
-                  text={item.text}
+                  key={`${setIndex}-${item.id}`}
+                  name="Klien SiCARE"
+                  rating={item.rating}
+                  text={item.comment?.trim() || `Memberikan penilaian ${item.rating} dari 5 untuk layanan konseling.`}
                 />
               ))}
             </div>
           ))}
         </div>
       </div>
+      )}
     </section>
   );
 }
 
-function Counselors() {
+function Counselors({ counselors, periods }: { counselors: PublicCounselor[]; periods: PublicAcademicPeriod[] }) {
   return (
     <section className="bg-[#f5fdf9] py-12 md:py-16">
       <div className="mx-auto w-[90%] md:w-[84%] lg:w-[76%] xl:w-[80%]">
@@ -253,10 +271,18 @@ function Counselors() {
           </p>
         </div>
 
+        {periods.length > 0 && (
+          <p className="mt-4 text-center text-xs text-gray-600 sm:text-sm">
+            Periode akademik: {periods.map((period) => `${period.academic_year} · ${period.semester}`).join(", ")}
+          </p>
+        )}
+        {counselors.length === 0 ? (
+          <p className="mt-8 text-center text-sm text-gray-500">Belum ada profil konselor yang dipublikasikan.</p>
+        ) : (
         <div className="mt-8 flex flex-wrap justify-center gap-6 md:mt-12 md:gap-5 lg:gap-7">
           {counselors.slice(0, 3).map((counselor) => (
             <article
-              key={counselor.id}
+              key={counselor.profile_id}
               tabIndex={0}
               className={`group relative isolate w-full max-w-sm overflow-hidden rounded-2xl border border-[#dcebe2] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(0,0,0,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 counselors.slice(0, 3).length === 2
@@ -266,27 +292,30 @@ function Counselors() {
                     : "md:w-full"
               }`}
             >
-              <div className="aspect-square overflow-hidden bg-[#e8f4ec]">
-                <img
-                  src={counselor.image}
-                  alt={`Foto ${counselor.name}`}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 group-focus-within:scale-105"
-                  onError={(e) => {
-                    e.currentTarget.style.visibility = "hidden";
-                  }}
-                />
+              <div className="flex aspect-square items-center justify-center overflow-hidden bg-[#e8f4ec]">
+                {getPublicPhotoUrl(counselor.photo_path) ? (
+                  <img
+                    src={getPublicPhotoUrl(counselor.photo_path) ?? undefined}
+                    alt={`Foto ${counselor.public_name}`}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 group-focus-within:scale-105"
+                  />
+                ) : (
+                  <span className="font-[Montserrat] text-5xl font-bold text-primary" aria-label={`Foto ${counselor.public_name} belum tersedia`}>
+                    {counselor.public_name.trim().charAt(0).toUpperCase()}
+                  </span>
+                )}
               </div>
 
               <div className="min-h-[142px] p-5">
                 <h3 className="font-[Montserrat] text-base font-bold text-[#1b1b1b] sm:text-lg">
-                  {counselor.name}
+                  {counselor.public_name}
                 </h3>
                 <p className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500 sm:text-xs">
                   Topik Keahlian
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {counselor.topics.slice(0, 3).map((topic) => (
+                  {(counselor.specialties ?? []).slice(0, 3).map((topic) => (
                     <span
                       key={topic}
                       className="rounded-full bg-[#eef8f3] px-2.5 py-1 font-[Montserrat] text-[10px] font-medium text-primary sm:text-xs"
@@ -303,10 +332,10 @@ function Counselors() {
                     Tentang Konselor
                   </p>
                   <h3 className="mt-2 font-[Montserrat] text-lg font-bold sm:text-xl">
-                    {counselor.name}
+                    {counselor.public_name}
                   </h3>
                   <p className="mt-3 text-xs leading-relaxed text-white/90 sm:text-sm">
-                    {counselor.description}
+                    {counselor.bio?.trim() || counselor.headline?.trim() || "Informasi profil konselor belum tersedia."}
                   </p>
                   <div className="mt-4 space-y-3">
                     <div>
@@ -314,15 +343,15 @@ function Counselors() {
                         Pengalaman
                       </p>
                       <p className="mt-1 text-xs leading-relaxed sm:text-sm">
-                        {counselor.experience}
+                        {typeof counselor.years_experience === "number" ? `${counselor.years_experience} tahun` : "Informasi belum tersedia"}
                       </p>
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-[#b9e4cc] sm:text-xs">
-                        Pendidikan Terakhir
+                        Jabatan / Headline
                       </p>
                       <p className="mt-1 text-xs leading-relaxed sm:text-sm">
-                        {counselor.education}
+                        {counselor.headline?.trim() || "Informasi belum tersedia"}
                       </p>
                     </div>
                   </div>
@@ -341,12 +370,49 @@ function Counselors() {
             </article>
           ))}
         </div>
+        )}
       </div>
     </section>
   );
 }
 
 export default function HomePage() {
+  const [heroMotivation, setHeroMotivation] = useState(DEFAULT_HERO_MOTIVATION);
+  const [publicCounselors, setPublicCounselors] = useState<PublicCounselor[]>([]);
+  const [publicPeriods, setPublicPeriods] = useState<PublicAcademicPeriod[]>([]);
+  const [publicFeedback, setPublicFeedback] = useState<PublicFeedback[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void getPublicCounselors()
+      .then((items) => { if (active) setPublicCounselors(items); })
+      .catch(() => { if (active) setPublicCounselors([]); });
+    void getPublicAcademicPeriods()
+      .then((items) => { if (active) setPublicPeriods(items); })
+      .catch(() => { if (active) setPublicPeriods([]); });
+    void getPublicFeedback(10)
+      .then((items) => { if (active) setPublicFeedback(items); })
+      .catch(() => { if (active) setPublicFeedback([]); });
+
+    void getPublicHeroMotivations()
+      .then((items) => {
+        const available = items.filter(
+          (item) => typeof item.content === "string" && item.content.trim().length > 0,
+        );
+        if (active && available.length > 0) {
+          const selected = available[Math.floor(Math.random() * available.length)];
+          setHeroMotivation(selected.content);
+        }
+      })
+      .catch(() => {
+        // The default sentence remains visible if the public API is unavailable.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <>
       <div className="overflow-x-clip bg-white">
@@ -354,30 +420,22 @@ export default function HomePage() {
         <section className="relative isolate min-h-[420px] overflow-hidden md:min-h-[460px] lg:min-h-[520px]">
           {/* Foto latar */}
           <img
-            src="/hero.png"
+            src="/hero/hero-2.webp"
             alt=""
             className="absolute inset-0 -z-10 h-full w-full object-cover object-[70%_30%] md:object-center"
           />
 
           {/* Overlay tipis: foto tetap terlihat, teks tetap terbaca */}
-          <div className="absolute inset-0 -z-10 bg-gradient-to-t from-white/60 via-white/25 to-white/10 md:from-white/50 md:via-white/25 md:to-white/10" />
+          <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/30 via-white/25 to-black/10 md:from-black/50 md:via-black/10 md:to-black/10" />
 
           {/* Konten: selalu di tengah */}
           <div
             className={`relative z-10 flex min-h-[inherit] flex-col items-center justify-center pb-16 pt-24 text-center md:pb-20 md:pt-36 lg:pb-28 ${container}`}
           >
             <div className="mx-auto flex max-w-xl flex-col items-center lg:max-w-2xl">
-              <h1 className="text-2xl font-bold leading-[1.2] text-[#1b1b1b] sm:text-3xl lg:text-[38px]">
-                Lorem ipsum dolor <span className="text-[#2e9a5f]">sit</span>{" "}
-                amet, <span className="text-[#2e9a5f]">consectetur</span>{" "}
-                <span className="text-[#2e9a5f]">adipiscing elit.</span>
+              <h1 className="text-2xl font-bold leading-[1.2] text-[#1b1b1b] text-balance sm:text-3xl lg:text-[38px]">
+                {heroMotivation}
               </h1>
-
-              <p className="mt-3 max-w-sm text-center text-xs leading-relaxed text-[#1b1b1b] text-balance sm:text-sm md:mt-4 md:max-w-md lg:max-w-lg">
-                Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse
-                temporibus id sit non possimus facilis aliquip libero officia
-                occaecat et qui.
-              </p>
 
               <button className="mt-5 flex w-fit items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-primary-dark sm:px-5 sm:text-sm md:mt-6">
                 <CalendarDays className="h-3.5 w-3.5" />
@@ -457,9 +515,9 @@ export default function HomePage() {
           </div>
         </section>
         <Panduan />
-        <Counselors />
+        <Counselors counselors={publicCounselors} periods={publicPeriods} />
       </div>
-      <Testimonials />
+      <Testimonials testimonials={publicFeedback} />
     </>
   );
 }

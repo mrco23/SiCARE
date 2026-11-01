@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 import CenteredAuthLayout from "../../components/auth/CenteredAuthLayout";
@@ -8,14 +8,20 @@ import {
   PasswordInput,
   TextInput,
 } from "../../components/auth/FormControls";
+import { getRoleHomePath } from "../../features/auth/auth-helpers";
+import { useAuth } from "../../features/auth/useAuth";
 import type { LoginForm } from "../../types/auth";
 
 type LoginErrors = Partial<Record<keyof LoginForm, string>>;
+type LoginLocationState = { notice?: string; from?: string };
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { signIn } = useAuth();
+  const notice = (location.state as LoginLocationState | null)?.notice;
 
-  const [form, setForm] = useState<LoginForm>({ nim: "", password: "" });
+  const [form, setForm] = useState<LoginForm>({ identifier: "", password: "" });
   const [errors, setErrors] = useState<LoginErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -32,13 +38,13 @@ export default function Login() {
 
   function validate(): LoginErrors {
     const next: LoginErrors = {};
-    if (!form.nim.trim()) next.nim = "NIM/NIP wajib diisi";
+    if (!form.identifier.trim()) next.identifier = "Email atau kode identitas wajib diisi";
     if (!form.password) next.password = "Kata sandi wajib diisi";
     return next;
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setSubmitError("");
 
     const found = validate();
@@ -50,13 +56,10 @@ export default function Login() {
 
     setSubmitting(true);
     try {
-      // TODO: ganti dengan pemanggilan API login yang sebenarnya.
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      navigate("/admin");
-    } catch {
-      setSubmitError(
-        "Gagal masuk. Periksa kembali NIM/NIP dan kata sandi Anda.",
-      );
+      const profile = await signIn(form.identifier, form.password);
+      navigate(getRoleHomePath(profile.app_role), { replace: true });
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Login gagal. Silakan coba lagi.");
     } finally {
       setSubmitting(false);
     }
@@ -65,7 +68,7 @@ export default function Login() {
   return (
     <CenteredAuthLayout
       title="Selamat datang"
-      subtitle="Masuk menggunakan NIM/NIP dan kata sandi Anda."
+      subtitle="Masuk menggunakan NIM, NIP, atau email dan kata sandi Anda."
       footer={
         <>
           Belum punya akun?{" "}
@@ -79,6 +82,11 @@ export default function Login() {
       }
     >
       <form noValidate onSubmit={handleSubmit} className="space-y-5">
+        {notice && (
+          <div role="status" className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800">
+            {notice}
+          </div>
+        )}
         {submitError && (
           <div
             role="alert"
@@ -88,17 +96,23 @@ export default function Login() {
           </div>
         )}
 
-        <Field label="NIM/NIP" htmlFor="nim" error={errors.nim} required>
+        <Field
+          label="NIM/NIP atau email"
+          htmlFor="identifier"
+          error={errors.identifier}
+          required
+          hint="Gunakan kode identitas yang terdaftar atau alamat email akun Anda."
+        >
           <TextInput
-            id="nim"
-            name="nim"
+            id="identifier"
+            name="identifier"
             type="text"
             inputMode="text"
             autoComplete="username"
-            placeholder="Masukkan NIM atau NIP"
-            value={form.nim}
-            error={errors.nim}
-            onChange={(e) => setField("nim", e.target.value)}
+            placeholder="NIM, NIP, atau nama@kampus.ac.id"
+            value={form.identifier}
+            error={errors.identifier}
+            onChange={(event) => setField("identifier", event.target.value)}
           />
         </Field>
 
@@ -115,7 +129,7 @@ export default function Login() {
             placeholder="Masukkan kata sandi"
             value={form.password}
             error={errors.password}
-            onChange={(e) => setField("password", e.target.value)}
+            onChange={(event) => setField("password", event.target.value)}
           />
         </Field>
 

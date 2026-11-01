@@ -91,3 +91,110 @@ test("registration validates input before attempting external authentication", a
   assert.equal(response.status, 400);
   assert.equal(body.error.code, "VALIDATION_ERROR");
 });
+
+
+test("login validates identifier and password before calling Supabase", async () => {
+  const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: "24013037" }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, "VALIDATION_ERROR");
+});
+
+test("registration validates international phone format before creating an account", async () => {
+  const response = await fetch(`${baseUrl}/api/v1/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: "test@example.com",
+      password: "ValidPassword123",
+      full_name: "Pengguna Uji",
+      identity_code: "24013037",
+      member_category: "student",
+      phone_e164: "081234567890",
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, "VALIDATION_ERROR");
+});
+
+test("booking endpoints require authentication", async () => {
+  const response = await fetch(`${baseUrl}/api/v1/bookings`);
+  const body = await response.json();
+  assert.equal(response.status, 401);
+  assert.equal(body.error.code, "AUTH_REQUIRED");
+});
+
+test("client reschedule endpoint requires authentication", async () => {
+  const response = await fetch(`${baseUrl}/api/v1/bookings/00000000-0000-4000-8000-000000000000/reschedule`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ availability_slot_id: "00000000-0000-4000-8000-000000000001" }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 401);
+  assert.equal(body.error.code, "AUTH_REQUIRED");
+});
+
+test("session endpoints require authentication", async () => {
+  const response = await fetch(`${baseUrl}/api/v1/sessions`);
+  const body = await response.json();
+  assert.equal(response.status, 401);
+  assert.equal(body.error.code, "AUTH_REQUIRED");
+});
+
+test("feedback submission requires authentication", async () => {
+  const response = await fetch(`${baseUrl}/api/v1/sessions/00000000-0000-4000-8000-000000000000/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rating: 5, comment: "Layak" }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 401);
+  assert.equal(body.error.code, "AUTH_REQUIRED");
+});
+
+test("notification endpoints require authentication", async () => {
+  const response = await fetch(`${baseUrl}/api/v1/notifications`);
+  const body = await response.json();
+  assert.equal(response.status, 401);
+  assert.equal(body.error.code, "AUTH_REQUIRED");
+});
+
+test("unknown API routes remain 404 without authentication", async () => {
+  const response = await fetch(`${baseUrl}/api/v1/unknown-domain-route`);
+  const body = await response.json();
+  assert.equal(response.status, 404);
+  assert.equal(body.error.code, "NOT_FOUND");
+});
+
+test("admin account and academic-period endpoints require authentication", async () => {
+  for (const path of ["/api/v1/admin/accounts", "/api/v1/admin/periods", "/api/v1/admin/hero-motivations", "/api/v1/admin/dashboard", "/api/v1/admin/reports", "/api/v1/admin/counseling", "/api/v1/admin/activity"]) {
+    const response = await fetch(`${baseUrl}${path}`);
+    const body = await response.json();
+    assert.equal(response.status, 401, path);
+    assert.equal(body.error.code, "AUTH_REQUIRED", path);
+  }
+});
+
+test("counselor profile and availability endpoints require authentication", async () => {
+  for (const path of ["/api/v1/counselor/profile", "/api/v1/counselor/availability", "/api/v1/head-lmi/dashboard", "/api/v1/head-lmi/reports"]) {
+    const response = await fetch(`${baseUrl}${path}`);
+    const body = await response.json();
+    assert.equal(response.status, 401, path);
+    assert.equal(body.error.code, "AUTH_REQUIRED", path);
+  }
+});
+
+test("feedback detail, statistics and counselor feedback endpoints require authentication", async () => {
+  for (const path of ["/api/v1/admin/feedback/statistics", "/api/v1/admin/feedback/00000000-0000-4000-8000-000000000000", "/api/v1/feedback/counselor"]) {
+    const response = await fetch(`${baseUrl}${path}`);
+    const body = await response.json();
+    assert.equal(response.status, 401, path);
+    assert.equal(body.error.code, "AUTH_REQUIRED", path);
+  }
+});

@@ -76,4 +76,3 @@ export const faqs = [
     a: LOREM_LONG,
   },
 ];
-
