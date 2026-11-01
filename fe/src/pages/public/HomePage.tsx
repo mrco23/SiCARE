@@ -631,7 +631,7 @@ export default function HomePage() {
               </h1>
 
               <Link
-                to="/panduan"
+                to="/klien/pesanan"
                 className="mt-5 flex w-fit items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-primary-dark sm:px-5 sm:text-sm md:mt-6"
               >
                 <CalendarDays className="h-3.5 w-3.5" />

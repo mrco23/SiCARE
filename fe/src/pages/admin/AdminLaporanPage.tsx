@@ -126,12 +126,7 @@ function mapBookingToReportRow(
     counselorMap.get(dto.counselor_id) ||
     `Konselor #${dto.counselor_id.slice(0, 6).toUpperCase()}`;
 
-  const deliveryFormat =
-    session?.format === "online"
-      ? "Online"
-      : session?.format === "offline"
-        ? "Tatap Muka"
-        : "Belum ditentukan";
+  const deliveryFormat = "Tatap Muka";
 
   return {
     id: dto.id,

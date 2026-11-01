@@ -99,8 +99,9 @@ export function getMinutesFromIso(iso: string): number {
 
 export function formatSessionFormatLabel(
   format?: SessionListItemDto["format"] | null,
-): "Tatap Muka" | "Online" {
-  return format === "online" ? "Online" : "Tatap Muka";
+): "Tatap Muka" {
+  void format;
+  return "Tatap Muka";
 }
 
 export function formatAcademicPeriodLabel(

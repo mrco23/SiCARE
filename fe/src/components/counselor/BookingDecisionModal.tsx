@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, CalendarClock, CheckCircle2, Loader2, MapPin, Video, X, XCircle } from "lucide-react";
+import { AlertCircle, CalendarClock, CheckCircle2, Loader2, MapPin, X, XCircle } from "lucide-react";
 import { ApiError } from "../../lib/api";
 import { sicareApi } from "../../lib/sicareApi";
 import type { BookingDetailDto, BookingRecordBaseDto } from "../../types/api";
@@ -36,7 +36,6 @@ export function BookingDecisionModal({
   onClose: () => void;
   onSuccess: (result: BookingDetailDto, action: BookingDecisionAction) => void;
 }) {
-  const [sessionFormat, setSessionFormat] = useState<"offline" | "online">("offline");
   const [room, setRoom] = useState("Ruang Konseling LMI");
   const [presetReason, setPresetReason] = useState<string>("");
   const [customReason, setCustomReason] = useState("");
@@ -84,7 +83,7 @@ export function BookingDecisionModal({
       if (action === "approve") {
         result = await sicareApi.transitionBooking(booking.id, {
           status: "confirmed",
-          session_format: sessionFormat,
+          session_format: "offline",
           room: room.trim() ? room.trim() : null,
         });
       } else if (action === "reject") {
@@ -181,80 +180,29 @@ export function BookingDecisionModal({
           {action === "approve" ? (
             <>
               <div>
-                <p className="text-sm font-semibold text-gray-800">
-                  Pilih Format Sesi <span className="text-red-600">*</span>
-                </p>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  Backend akan membuat jadwal sesi resmi sesuai format yang Anda tetapkan.
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSessionFormat("offline");
-                      if (!room.trim() || room === "Ruang Konseling Virtual (Online)") {
-                        setRoom("Ruang Konseling LMI");
-                      }
-                    }}
-                    className={`flex items-center gap-2.5 rounded-xl border p-3.5 text-left transition ${
-                      sessionFormat === "offline"
-                        ? "border-[#064E3B] bg-emerald-50/70 text-[#064E3B] ring-2 ring-[#064E3B]/15"
-                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                    }`}
-                  >
-                    <MapPin className="h-4 w-4 shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold">Tatap Muka</p>
-                      <p className="text-xs text-gray-500">Luring (`offline`)</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSessionFormat("online");
-                      if (room === "Ruang Konseling LMI") {
-                        setRoom("Ruang Konseling Virtual (Online)");
-                      }
-                    }}
-                    className={`flex items-center gap-2.5 rounded-xl border p-3.5 text-left transition ${
-                      sessionFormat === "online"
-                        ? "border-[#064E3B] bg-emerald-50/70 text-[#064E3B] ring-2 ring-[#064E3B]/15"
-                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                    }`}
-                  >
-                    <Video className="h-4 w-4 shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold">Online</p>
-                      <p className="text-xs text-gray-500">Daring (`online`)</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div>
                 <label
                   htmlFor="decisionRoomInput"
                   className="block text-sm font-semibold text-gray-800"
                 >
-                  {sessionFormat === "offline"
-                    ? "Ruangan / Lokasi Tatap Muka (Opsional)"
-                    : "Keterangan Ruang / Platform Online (Opsional)"}
+                  Ruangan / Lokasi Konseling (Opsional)
                 </label>
-                <input
-                  id="decisionRoomInput"
-                  type="text"
-                  maxLength={240}
-                  value={room}
-                  onChange={(event) => setRoom(event.target.value)}
-                  placeholder={
-                    sessionFormat === "offline"
-                      ? "Contoh: Ruang Konseling 1, Gedung LMI"
-                      : "Contoh: Google Meet / Ruang Konseling Virtual"
-                  }
-                  className="mt-1.5 w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
-                />
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Sesi konseling dilaksanakan secara Tatap Muka. Tentukan ruangan pelaksanaan jika ada.
+                </p>
+                <div className="relative mt-2">
+                  <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    id="decisionRoomInput"
+                    type="text"
+                    maxLength={240}
+                    value={room}
+                    onChange={(event) => setRoom(event.target.value)}
+                    placeholder="Contoh: Ruang Konseling LMI Lt. 2"
+                    className="w-full rounded-xl border border-gray-300 py-2.5 pl-10 pr-3.5 text-sm text-gray-900 outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
+                  />
+                </div>
                 <p className="mt-1 text-xs text-gray-400">
-                  Maksimal 240 karakter ({room.length}/240). Disimpan pada kolom `room` sesi.
+                  Maksimal 240 karakter ({room.length}/240).
                 </p>
               </div>
             </>

@@ -36,17 +36,41 @@ export default function NavbarProfileDropdown({
 
   // Resolusi URL Foto:
   // Admin: SELALU menggunakan logo resmi SiCARE (/icon-512x512.png)
-  // Peran lain: photoUrl -> avatar_url -> photo_path -> fallback inisial
+  // Peran lain: photoUrl -> avatar_url -> photo_path -> local storage -> fallback inisial
+  const [localPhoto, setLocalPhoto] = useState<string | null>(() => {
+    try {
+      const key = `sicare_profile_photo_${profile?.id || role}`;
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      try {
+        const key = `sicare_profile_photo_${profile?.id || role}`;
+        setLocalPhoto(localStorage.getItem(key));
+        setImageError(false);
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener("sicare:photo-updated", handleUpdate);
+    return () => window.removeEventListener("sicare:photo-updated", handleUpdate);
+  }, [profile?.id, role]);
+
   const resolvedPhoto = useMemo(() => {
     if (role === "admin") {
       return "/icon-512x512.png";
     }
     if (photoUrl) return photoUrl;
+    if (localPhoto) return localPhoto;
     const p = profile as Record<string, unknown> | null;
     if (typeof p?.avatar_url === "string" && p.avatar_url) return p.avatar_url;
     if (typeof p?.photo_path === "string" && p.photo_path) return p.photo_path;
     return null;
-  }, [role, photoUrl, profile]);
+  }, [role, photoUrl, localPhoto, profile]);
 
   // Konfigurasi tautan pengaturan & label peran
   const { roleLabel, settingsPath } = useMemo(() => {

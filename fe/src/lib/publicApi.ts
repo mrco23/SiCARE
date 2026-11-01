@@ -56,7 +56,7 @@ export function getPublicHeroMotivations(signal?: AbortSignal): Promise<PublicHe
 export function getPublicPhotoUrl(photoPath: string | null | undefined): string | null {
   if (!photoPath) return null;
   const value = photoPath.trim();
-  if (value.startsWith("/")) return value;
+  if (value.startsWith("/") || value.startsWith("data:image/")) return value;
   try {
     const parsed = new URL(value);
     return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : null;

@@ -27,32 +27,43 @@ const supa = () => {
   return getSupabaseAdminClient();
 };
 
-// The server-side Supabase client bypasses RLS, so public visibility is enforced here too.
+// The server-side Supabase client bypasses RLS, so active counselor check is enforced here.
 async function loadPublicCounselors() {
-  const { data: publicProfiles, error: publicError } = await supa()
-    .from("counselor_profiles")
-    .select("profile_id,public_name,headline,bio,specialties,years_experience,photo_path")
-    .eq("is_public", true)
-    .not("public_name", "is", null)
-    .order("public_name");
-  if (publicError) supabaseError(publicError);
-
-  const candidates = publicProfiles ?? [];
-  if (!candidates.length) return [];
   const { data: activeProfiles, error: profileError } = await supa()
     .from("profiles")
-    .select("id")
-    .in("id", candidates.map((profile) => profile.profile_id))
+    .select("id,full_name")
     .eq("app_role", "counselor")
-    .eq("account_status", "active");
+    .eq("account_status", "active")
+    .order("full_name");
   if (profileError) supabaseError(profileError);
 
-  const activeIds = new Set((activeProfiles ?? []).map((profile) => profile.id));
-  return candidates.filter((profile) =>
-    activeIds.has(profile.profile_id)
-    && typeof profile.public_name === "string"
-    && profile.public_name.trim().length > 0,
-  );
+  const active = activeProfiles ?? [];
+  if (!active.length) return [];
+
+  const { data: counselorProfiles, error: counselorError } = await supa()
+    .from("counselor_profiles")
+    .select("profile_id,public_name,headline,bio,specialties,years_experience,photo_path")
+    .in("profile_id", active.map((profile) => profile.id));
+  if (counselorError) supabaseError(counselorError);
+
+  const counselorMap = new Map((counselorProfiles ?? []).map((cp) => [cp.profile_id, cp]));
+
+  return active
+    .map((profile) => {
+      const cp = counselorMap.get(profile.id);
+      const publicName = cp?.public_name?.trim() || profile.full_name?.trim() || "";
+      return {
+        profile_id: profile.id,
+        public_name: publicName,
+        headline: cp?.headline ?? null,
+        bio: cp?.bio ?? null,
+        specialties: cp?.specialties ?? [],
+        years_experience: cp?.years_experience ?? null,
+        photo_path: cp?.photo_path ?? null,
+      };
+    })
+    .filter((profile) => profile.public_name.trim().length > 0)
+    .sort((a, b) => a.public_name.localeCompare(b.public_name));
 }
 
 router.get("/public/hero-motivations", asyncHandler(async (_request, response) => {

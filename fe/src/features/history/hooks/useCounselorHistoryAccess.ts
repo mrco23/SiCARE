@@ -111,6 +111,12 @@ export function useCounselorHistoryAccess(
     [],
   );
 
+  const lock = useCallback(() => {
+    clearCounselorHistoryAccess();
+    setAccessUntil(0);
+    onExpiredRef.current?.();
+  }, []);
+
   const hasAccess = accessUntil > now;
   const timeLeft = Math.max(0, accessUntil - now);
   const timerText = `${Math.floor(timeLeft / 60000)}:${String(
@@ -128,5 +134,6 @@ export function useCounselorHistoryAccess(
     maxAttempts: COUNSELOR_HISTORY_MAX_ATTEMPTS,
     accessDurationMs: COUNSELOR_HISTORY_ACCESS_DURATION_MS,
     unlock,
+    lock,
   };
 }
