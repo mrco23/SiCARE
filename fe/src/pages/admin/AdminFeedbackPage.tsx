@@ -1,78 +1,83 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { PageContainer, PageHeader } from "../../components/shared";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PageContainer, PageHeader, AcademicPeriodFilter } from "../../components/shared";
 import {
   FEEDBACK_MODERATION_STATUS,
   type FeedbackModerationStatus,
 } from "../../constants/status";
+import { adminApi } from "../../lib/adminApi";
+import { getPublicCounselors } from "../../lib/publicApi";
+import type {
+  AdminFeedbackDto,
+  FeedbackReviewStatusApi,
+  FeedbackStatisticsDto,
+} from "../../types/api";
 import { formatIndonesianDate } from "../../lib/dateUtils";
 import {
-  Check,
+  Ban,
   CheckCircle2,
-  ChevronDown,
   Clock,
   Eye,
   EyeOff,
-  Ban,
-  X,
-  RotateCcw,
+  Loader2,
   Meh,
   MessageSquareText,
+  RefreshCw,
+  RotateCcw,
   Search,
   Star,
   Stethoscope,
   VenetianMask,
+  X,
 } from "lucide-react";
 import {
-  fmtDate,
-  isInPeriod,
-  loadPeriods,
-  periodStatus,
+  mapAcademicPeriodDto,
   sortPeriods,
   toISO,
   type AcademicPeriod,
-  type PeriodStatus,
 } from "../../lib/academicPeriods";
-import { PSIKOLOG, type Feedback } from "../../data/mock/adminFeedback";
-import { useFeedbackStore } from "../../features/feedback/store/feedbackStore";
-import { countModerationStatuses, selectFeedbackInPeriod, selectModerationRows, type FeedbackSortKey, type FeedbackStatusFilter } from "../../features/admin/feedback/feedbackSelectors";
-import { useNotificationStore } from "../../features/notification/notificationStore";
-
+import {
+  countModerationStatuses,
+  selectFeedbackInPeriod,
+  selectModerationRows,
+  type FeedbackSortKey,
+  type FeedbackStatusFilter,
+} from "../../features/admin/feedback/feedbackSelectors";
 
 /* ========================= TIPE & DATA ========================= */
-/*
-  DATA CONTOH: ganti dengan fetch('/api/admin/feedback?periodeId=...').
-  Nama klien TIDAK dikirim dari server; label anonim dibuat di sini.
-
-  Alur moderasi:
-  - Feedback baru dari klien masuk dengan status "pending".
-  - Admin memeriksa isinya, lalu menekan "Tampilkan" -> status "shown".
-  - Admin dapat menonaktifkan feedback dengan alasan wajib.
-  - Feedback yang dinonaktifkan dapat diperiksa ulang atau ditampilkan.
-  Hanya feedback berstatus "shown" yang boleh ditampilkan ke publik.
-*/
-
-
-
 type SortKey = FeedbackSortKey;
 type StatusFilter = FeedbackStatusFilter;
 
-/* Label anonim konsisten per id, contoh: "Klien Anonim #A3F2" */
-const anon = (id: number) =>
-  "Klien Anonim #" +
-  ((id * 2654435761) >>> 0).toString(16).slice(-4).toUpperCase();
+interface ManagedFeedback {
+  id: string;
+  sessionId: string;
+  counselorId: string;
+  psikolog: string;
+  rating: number;
+  text: string;
+  date: string;
+  status: FeedbackModerationStatus;
+  reviewStatus: FeedbackReviewStatusApi;
+  disabledReason: string | null;
+}
 
-const formatDate = (iso: string) =>
-  formatIndonesianDate(new Date(iso), {
+const REVIEW_LABEL: Record<FeedbackReviewStatusApi, string> = {
+  new: "Baru",
+  reviewed: "Ditinjau LMI",
+  resolved: "Ditindaklanjuti LMI",
+};
+
+const anon = (id: string) =>
+  "Klien Anonim #" +
+  (id.replace(/[^A-Fa-f0-9]/g, "").slice(-4) || "0000").toUpperCase();
+
+const formatDate = (iso: string) => {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return formatIndonesianDate(parsed, {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
-
-
-const STATUS_STYLE: Record<PeriodStatus, string> = {
-  Aktif: "bg-emerald-50 text-primary border-emerald-200",
-  Mendatang: "bg-sky-50 text-sky-700 border-sky-200",
-  Selesai: "bg-slate-100 text-slate-500 border-slate-200",
 };
 
 /* ========================= BINTANG ========================= */
@@ -99,243 +104,62 @@ function Stars({
   );
 }
 
-/* ========================= DROPDOWN PERIODE ========================= */
-function PeriodDropdown({
-  periods,
-  items,
-  selectedId,
-  onSelect,
-  today,
-}: {
-  periods: AcademicPeriod[];
-  items: Feedback[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-  today: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [ta, setTa] = useState<string | null>(null); // tahun ajaran yang sedang dibuka
-  const rootRef = useRef<HTMLDivElement>(null);
+function mapFeedbackDto(
+  dto: AdminFeedbackDto,
+  counselorMap: ReadonlyMap<string, string>,
+): ManagedFeedback {
+  const status: FeedbackModerationStatus =
+    dto.moderation_status === FEEDBACK_MODERATION_STATUS.SHOWN ||
+    dto.moderation_status === FEEDBACK_MODERATION_STATUS.DISABLED
+      ? dto.moderation_status
+      : FEEDBACK_MODERATION_STATUS.PENDING;
 
-  const selected = periods.find((p) => p.id === selectedId) ?? null;
-  const years = useMemo(
-    () => [...new Set(periods.map((p) => p.ta))].sort().reverse(),
-    [periods],
-  );
-  const semestersOf = (year: string) =>
-    periods
-      .filter((p) => p.ta === year)
-      .sort((a, b) => a.start.localeCompare(b.start));
+  const reviewStatus: FeedbackReviewStatusApi =
+    dto.review_status === "reviewed" || dto.review_status === "resolved"
+      ? dto.review_status
+      : "new";
 
-  // Tutup saat klik di luar atau menekan Escape
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const toggle = () => {
-    if (!open) setTa(selected?.ta ?? years[0] ?? null);
-    setOpen((v) => !v);
+  return {
+    id: dto.id,
+    sessionId: dto.session_id,
+    counselorId: dto.counselor_id,
+    psikolog:
+      counselorMap.get(dto.counselor_id) ??
+      `Konselor #${dto.counselor_id.slice(0, 6).toUpperCase()}`,
+    rating: dto.rating,
+    text: dto.comment?.trim() || "(Tanpa komentar tertulis)",
+    date: dto.created_at,
+    status,
+    reviewStatus,
+    disabledReason: dto.disabled_reason ?? null,
   };
-
-  const pick = (id: string) => {
-    onSelect(id);
-    setOpen(false);
-  };
-
-  const activeYear = ta ?? years[0] ?? null;
-  const triggerStatus = selected ? periodStatus(selected, today) : null;
-
-  return (
-    <div ref={rootRef} className="relative">
-      {/* Tombol pemicu */}
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition-colors sm:w-96 ${
-          open
-            ? "border-brand-accent ring-4 ring-brand-accent/15"
-            : "border-slate-200 hover:border-brand-accent/50"
-        }`}
-      >
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Periode akademik
-          </p>
-          <p className="truncate text-sm font-bold text-slate-800">
-            {selected ? `TA ${selected.ta} · ${selected.sem}` : "Semua periode"}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {triggerStatus && (
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLE[triggerStatus]}`}
-            >
-              {triggerStatus}
-            </span>
-          )}
-          <ChevronDown
-            className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
-          />
-        </div>
-      </button>
-
-      {/* Panel */}
-      {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-          <div className="border-b border-slate-100 p-3">
-            <button
-              type="button"
-              onClick={() => pick("all")}
-              className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
-                selectedId === "all"
-                  ? "bg-[#f0fdf4] text-primary"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Semua periode
-              {selectedId === "all" && <Check className="h-4 w-4" />}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-[9rem_1fr]">
-            {/* Kolom tahun ajaran */}
-            <div className="max-h-72 space-y-1 overflow-y-auto border-r border-slate-100 bg-slate-50/60 p-2">
-              <p className="px-2 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Tahun ajaran
-              </p>
-              {years.map((y) => (
-                <button
-                  key={y}
-                  type="button"
-                  onClick={() => setTa(y)}
-                  className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition-colors ${
-                    activeYear === y
-                      ? "bg-white text-primary shadow-sm"
-                      : "text-slate-600 hover:bg-white/70"
-                  }`}
-                >
-                  {y}
-                  {selected?.ta === y && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-brand-accent" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Kolom semester */}
-            <div className="space-y-2 p-3">
-              <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Semester · TA {activeYear}
-              </p>
-              {(["Ganjil", "Genap"] as const).map((sem) => {
-                const p = activeYear
-                  ? semestersOf(activeYear).find((x) => x.sem === sem)
-                  : undefined;
-
-                if (!p) {
-                  return (
-                    <div
-                      key={sem}
-                      className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-400"
-                    >
-                      <span className="font-semibold">{sem}</span> · belum
-                      dibuat di Pengaturan
-                    </div>
-                  );
-                }
-
-                const active = selectedId === p.id;
-                const st = periodStatus(p, today);
-                return (
-                  <button
-                    key={sem}
-                    type="button"
-                    onClick={() => pick(p.id)}
-                    className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
-                      active
-                        ? "border-primary bg-primary text-white"
-                        : "border-slate-200 bg-white hover:border-brand-accent/50 hover:bg-[#f6fcf8]"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold">{sem}</p>
-                      <p
-                        className={`truncate text-[11px] ${
-                          active ? "text-emerald-100" : "text-slate-400"
-                        }`}
-                      >
-                        {fmtDate(p.start)} – {fmtDate(p.end)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                          active
-                            ? "bg-white/15 text-white"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {selectFeedbackInPeriod(items, p).length} feedback
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold ${
-                          active
-                            ? "text-emerald-100"
-                            : st === "Aktif"
-                              ? "text-[#15803d]"
-                              : "text-slate-400"
-                        }`}
-                      >
-                        {st}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 /* ========================= PAGE ========================= */
 export default function AdminFeedbackPage() {
   const today = useMemo(() => toISO(new Date()), []);
-  const periods = useMemo(() => sortPeriods(loadPeriods()), []);
+  const [periods, setPeriods] = useState<AcademicPeriod[]>([]);
+  const [items, setItems] = useState<ManagedFeedback[]>([]);
+  const [counselorMap, setCounselorMap] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+  const [stats, setStats] = useState<FeedbackStatisticsDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const items = useFeedbackStore((state) => state.items);
-  const setModerationStatus = useFeedbackStore((state) => state.setModerationStatus);
-  const addNotification = useNotificationStore((state) => state.addNotification);
-  const [disableId, setDisableId] = useState<number | null>(null);
+  const [disableId, setDisableId] = useState<string | null>(null);
   const [disableReason, setDisableReason] = useState("");
   const [disableError, setDisableError] = useState("");
+  const [moderatingId, setModeratingId] = useState<string | null>(null);
 
-  // Default: periode yang aktif hari ini, jika tidak ada pakai periode terbaru
-  const [selectedId, setSelectedId] = useState<string>(() => {
-    const active = periods.find((p) => isInPeriod(today, p));
-    return active?.id ?? periods[periods.length - 1]?.id ?? "all";
-  });
+  const [selectedId, setSelectedId] = useState<string>("all");
   const [star, setStar] = useState(0);
   const [psikolog, setPsikolog] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("new");
-  // Default membuka antrean feedback yang belum diperiksa
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(FEEDBACK_MODERATION_STATUS.PENDING);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    FEEDBACK_MODERATION_STATUS.PENDING,
+  );
   const [toast, setToast] = useState("");
   const toastTimeout = useRef<ReturnType<typeof window.setTimeout> | null>(
     null,
@@ -349,22 +173,110 @@ export default function AdminFeedbackPage() {
     [],
   );
 
-
   useEffect(() => {
     if (disableId === null) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDisableId(null);
+      if (event.key === "Escape" && !moderatingId) setDisableId(null);
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [disableId]);
+  }, [disableId, moderatingId]);
 
-  const showToast = (message: string) => {
+  const showToast = useCallback((message: string) => {
     setToast(message);
     if (toastTimeout.current !== null)
       window.clearTimeout(toastTimeout.current);
     toastTimeout.current = window.setTimeout(() => setToast(""), 2400);
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    const [
+      feedbackDtos,
+      statisticsDto,
+      periodDtos,
+      counselorAccounts,
+      publicCounselors,
+    ] = await Promise.all([
+      adminApi.listFeedback({ limit: 100 }),
+      adminApi.getFeedbackStatistics(),
+      adminApi.listAcademicPeriods().catch(() => []),
+      adminApi.listAccounts({ role: "counselor", limit: 100 }).catch(() => []),
+      getPublicCounselors().catch(() => []),
+    ]);
+
+    const cMap = new Map<string, string>();
+    for (const c of publicCounselors) {
+      if (c.public_name?.trim()) cMap.set(c.profile_id, c.public_name.trim());
+    }
+    for (const acc of counselorAccounts) {
+      if (acc.full_name?.trim()) cMap.set(acc.id, acc.full_name.trim());
+    }
+
+    const sortedPeriods = sortPeriods(periodDtos.map(mapAcademicPeriodDto));
+    const mappedItems = feedbackDtos.map((dto) => mapFeedbackDto(dto, cMap));
+
+    return {
+      sortedPeriods,
+      cMap,
+      mappedItems,
+      statisticsDto,
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void fetchData()
+      .then(({ sortedPeriods, cMap, mappedItems, statisticsDto }) => {
+        if (!active) return;
+        setPeriods(sortedPeriods);
+        setCounselorMap(cMap);
+        setItems(mappedItems);
+        setStats(statisticsDto);
+        setLoadError(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : "Data feedback tidak dapat dimuat.",
+        );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [fetchData]);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { sortedPeriods, cMap, mappedItems, statisticsDto } =
+        await fetchData();
+      setPeriods(sortedPeriods);
+      setCounselorMap(cMap);
+      setItems(mappedItems);
+      setStats(statisticsDto);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "Data feedback tidak dapat dimuat.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const counselorOptions = useMemo(() => {
+    const names = new Set<string>();
+    counselorMap.forEach((name) => names.add(name));
+    items.forEach((item) => names.add(item.psikolog));
+    return [...names].sort();
+  }, [counselorMap, items]);
 
   const selected = periods.find((p) => p.id === selectedId) ?? null;
 
@@ -377,74 +289,100 @@ export default function AdminFeedbackPage() {
     [items, selected, psikolog],
   );
 
-  const { total, pending: pendingCount, shown: shownCount, disabled: disabledCount } =
-    countModerationStatuses(base);
+  const {
+    total,
+    pending: pendingCount,
+    shown: shownCount,
+    disabled: disabledCount,
+  } = countModerationStatuses(base);
   const avg = total ? base.reduce((sum, f) => sum + f.rating, 0) / total : 0;
 
   const rows = useMemo(
-    () => selectModerationRows(base, { status: statusFilter, rating: star, query, sort }),
+    () =>
+      selectModerationRows(base, {
+        status: statusFilter,
+        rating: star,
+        query,
+        sort,
+      }),
     [base, star, query, sort, statusFilter],
   );
 
   const toggleStar = (n: number) => setStar((prev) => (prev === n ? 0 : n));
 
-  // Prototype: nantinya kirim PATCH /api/admin/feedback/:id melalui backend.
-  const setFeedbackModerationStatus = (
-    id: number,
+  const setFeedbackModerationStatus = async (
+    id: string,
     status: FeedbackModerationStatus,
-    reason = "",
-  ) => {
-    const item = items.find((feedback) => feedback.id === id);
-    setModerationStatus(id, status, reason);
-    if (item?.clientId) {
-      addNotification({
-        recipientId: item.clientId,
-        recipientRole: "client",
-        title:
-          status === FEEDBACK_MODERATION_STATUS.SHOWN
-            ? "Feedback ditampilkan"
-            : status === FEEDBACK_MODERATION_STATUS.DISABLED
-              ? "Feedback dinonaktifkan"
-              : "Feedback dikembalikan ke antrean",
-        message:
-          status === FEEDBACK_MODERATION_STATUS.SHOWN
-            ? "Feedback kamu telah disetujui untuk ditampilkan secara publik."
-            : status === FEEDBACK_MODERATION_STATUS.DISABLED
-              ? `Feedback kamu dinonaktifkan. Alasan: ${reason.trim()}`
-              : "Feedback kamu sedang menunggu pemeriksaan kembali.",
-        href: "/klien/aktivitas",
-      });
+    reason?: string,
+  ): Promise<boolean> => {
+    setModeratingId(id);
+    try {
+      const updated = await adminApi.moderateFeedback(
+        id,
+        status === FEEDBACK_MODERATION_STATUS.DISABLED
+          ? {
+              moderation_status: "disabled",
+              disabled_reason: (reason ?? "").trim(),
+            }
+          : { moderation_status: status },
+      );
+      const mapped = mapFeedbackDto(updated, counselorMap);
+      setItems((prev) => prev.map((item) => (item.id === id ? mapped : item)));
+      const nextStats = await adminApi
+        .getFeedbackStatistics()
+        .catch(() => null);
+      if (nextStats) setStats(nextStats);
+      showToast(
+        status === FEEDBACK_MODERATION_STATUS.SHOWN
+          ? "Feedback ditampilkan."
+          : status === FEEDBACK_MODERATION_STATUS.DISABLED
+            ? "Feedback dinonaktifkan beserta alasannya."
+            : "Feedback dikembalikan ke antrean pemeriksaan.",
+      );
+      return true;
+    } catch (err) {
+      showToast(
+        err instanceof Error
+          ? err.message
+          : "Moderasi feedback tidak dapat disimpan.",
+      );
+      return false;
+    } finally {
+      setModeratingId(null);
     }
-    showToast(
-      status === FEEDBACK_MODERATION_STATUS.SHOWN
-        ? "Feedback ditampilkan."
-        : status === FEEDBACK_MODERATION_STATUS.DISABLED
-          ? "Feedback dinonaktifkan beserta alasannya."
-          : "Feedback dikembalikan ke antrean pemeriksaan.",
-    );
   };
 
-  const openDisableModal = (item: Feedback) => {
+  const openDisableModal = async (item: ManagedFeedback) => {
     setDisableId(item.id);
     setDisableReason(item.disabledReason ?? "");
     setDisableError("");
+    try {
+      const latest = await adminApi.getFeedback(item.id);
+      if (latest.disabled_reason) {
+        setDisableReason(latest.disabled_reason);
+      }
+    } catch {
+      // Gunakan alasan yang sudah ada di memori
+    }
   };
 
-  const confirmDisable = () => {
+  const confirmDisable = async () => {
     if (disableId === null) return;
     const reason = disableReason.trim();
     if (!reason) {
       setDisableError("Alasan penonaktifan wajib diisi.");
       return;
     }
-    setFeedbackModerationStatus(
+    const ok = await setFeedbackModerationStatus(
       disableId,
       FEEDBACK_MODERATION_STATUS.DISABLED,
       reason,
     );
-    setDisableId(null);
-    setDisableReason("");
-    setDisableError("");
+    if (ok) {
+      setDisableId(null);
+      setDisableReason("");
+      setDisableError("");
+    }
   };
 
   const STATUS_TABS: { key: StatusFilter; label: string; count: number }[] = [
@@ -469,9 +407,11 @@ export default function AdminFeedbackPage() {
   const emptyMessage =
     total === 0
       ? "Belum ada feedback pada periode ini."
-      : statusFilter === FEEDBACK_MODERATION_STATUS.PENDING && pendingCount === 0
+      : statusFilter === FEEDBACK_MODERATION_STATUS.PENDING &&
+          pendingCount === 0
         ? "Semua feedback sudah diperiksa. Tidak ada yang menunggu."
-        : statusFilter === FEEDBACK_MODERATION_STATUS.DISABLED && disabledCount === 0
+        : statusFilter === FEEDBACK_MODERATION_STATUS.DISABLED &&
+            disabledCount === 0
           ? "Tidak ada feedback yang dinonaktifkan."
           : "Tidak ada feedback yang cocok.";
 
@@ -481,7 +421,36 @@ export default function AdminFeedbackPage() {
       <PageHeader
         title="Feedback Klien"
         description="Penilaian anonim dari klien untuk psikolog setelah sesi konseling. Periksa feedback baru, lalu tampilkan yang sesuai."
+        actions={
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+            />
+            Muat ulang
+          </button>
+        }
       />
+
+      {loadError && (
+        <div
+          role="alert"
+          className="flex flex-col justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 sm:flex-row sm:items-center"
+        >
+          <p>{loadError}</p>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            className="shrink-0 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+          >
+            Coba lagi
+          </button>
+        </div>
+      )}
 
       {/* Ringkasan */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -517,9 +486,19 @@ export default function AdminFeedbackPage() {
             <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
               Rata-rata Rating
             </p>
-            <div className="flex items-center gap-3">
-              <span className="text-3xl font-bold">{avg.toFixed(1)}</span>
-              <Stars value={avg} className="h-5 w-5" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-bold">{avg.toFixed(1)}</span>
+                <Stars value={avg} className="h-5 w-5" />
+              </div>
+              {stats && (
+                <span className="text-[11px] font-medium text-slate-400">
+                  Total sistem:{" "}
+                  {(stats.moderation.pending ?? 0) +
+                    (stats.moderation.shown ?? 0) +
+                    (stats.moderation.disabled ?? 0)}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -564,12 +543,13 @@ export default function AdminFeedbackPage() {
 
       {/* Filter periode: tepat di atas daftar feedback */}
       <div className="relative z-20 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <PeriodDropdown
+        <AcademicPeriodFilter
           periods={periods}
-          items={items}
           selectedId={selectedId}
           onSelect={setSelectedId}
           today={today}
+          badgeContent={(p) => `${selectFeedbackInPeriod(items, p).length} feedback`}
+          className="relative w-full sm:w-96"
         />
         <p className="text-xs text-slate-400">
           {selected
@@ -606,7 +586,7 @@ export default function AdminFeedbackPage() {
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#22c55e]/30"
             >
               <option value="">Semua psikolog</option>
-              {PSIKOLOG.map((p) => (
+              {counselorOptions.map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
@@ -651,7 +631,8 @@ export default function AdminFeedbackPage() {
                   className={`rounded-full px-1.5 py-0.5 text-[10px] ${
                     active
                       ? "bg-white/20 text-white"
-                      : tab.key === FEEDBACK_MODERATION_STATUS.PENDING && tab.count > 0
+                      : tab.key === FEEDBACK_MODERATION_STATUS.PENDING &&
+                          tab.count > 0
                         ? "bg-amber-100 text-amber-800"
                         : "bg-slate-100 text-slate-500"
                   }`}
@@ -688,11 +669,18 @@ export default function AdminFeedbackPage() {
         </div>
 
         {/* List */}
-        {rows.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            Memuat feedback dari server...
+          </div>
+        ) : rows.length > 0 ? (
           <div className="divide-y divide-slate-100">
             {rows.map((f) => {
               const isPending = f.status === FEEDBACK_MODERATION_STATUS.PENDING;
-              const isDisabled = f.status === FEEDBACK_MODERATION_STATUS.DISABLED;
+              const isDisabled =
+                f.status === FEEDBACK_MODERATION_STATUS.DISABLED;
+              const isModerating = moderatingId === f.id;
               return (
                 <div
                   key={f.id}
@@ -729,6 +717,9 @@ export default function AdminFeedbackPage() {
                             Ditampilkan
                           </span>
                         )}
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                          {REVIEW_LABEL[f.reviewStatus]}
+                        </span>
                       </div>
                       <span className="text-[11px] font-medium text-slate-400">
                         {formatDate(f.date)}
@@ -739,7 +730,7 @@ export default function AdminFeedbackPage() {
                       {f.text}
                     </p>
 
-                    {isDisabled && (
+                    {isDisabled && f.disabledReason && (
                       <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-800">
                         <span className="font-bold">Alasan penonaktifan: </span>
                         {f.disabledReason}
@@ -755,8 +746,14 @@ export default function AdminFeedbackPage() {
                         {f.status !== FEEDBACK_MODERATION_STATUS.SHOWN && (
                           <button
                             type="button"
-                            onClick={() => setFeedbackModerationStatus(f.id, FEEDBACK_MODERATION_STATUS.SHOWN)}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-[#15803d] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-primary"
+                            disabled={isModerating}
+                            onClick={() =>
+                              void setFeedbackModerationStatus(
+                                f.id,
+                                FEEDBACK_MODERATION_STATUS.SHOWN,
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-full bg-[#15803d] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-primary disabled:opacity-50"
                           >
                             <Eye className="h-3.5 w-3.5" />
                             Tampilkan
@@ -765,8 +762,9 @@ export default function AdminFeedbackPage() {
                         {f.status !== FEEDBACK_MODERATION_STATUS.DISABLED && (
                           <button
                             type="button"
-                            onClick={() => openDisableModal(f)}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                            disabled={isModerating}
+                            onClick={() => void openDisableModal(f)}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
                           >
                             <EyeOff className="h-3.5 w-3.5" />
                             Nonaktifkan
@@ -775,8 +773,14 @@ export default function AdminFeedbackPage() {
                         {isDisabled && (
                           <button
                             type="button"
-                            onClick={() => setFeedbackModerationStatus(f.id, FEEDBACK_MODERATION_STATUS.PENDING)}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                            disabled={isModerating}
+                            onClick={() =>
+                              void setFeedbackModerationStatus(
+                                f.id,
+                                FEEDBACK_MODERATION_STATUS.PENDING,
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
                             Periksa ulang
@@ -823,9 +827,10 @@ export default function AdminFeedbackPage() {
               </div>
               <button
                 type="button"
+                disabled={Boolean(moderatingId)}
                 onClick={() => setDisableId(null)}
                 aria-label="Tutup"
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -839,8 +844,9 @@ export default function AdminFeedbackPage() {
             <textarea
               id="feedback-disable-reason"
               rows={4}
-              maxLength={500}
+              maxLength={1000}
               autoFocus
+              disabled={Boolean(moderatingId)}
               value={disableReason}
               onChange={(e) => {
                 setDisableReason(e.target.value);
@@ -857,16 +863,19 @@ export default function AdminFeedbackPage() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
+                disabled={Boolean(moderatingId)}
                 onClick={() => setDisableId(null)}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 type="button"
-                onClick={confirmDisable}
-                className="rounded-xl bg-[#15803d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary"
+                disabled={Boolean(moderatingId)}
+                onClick={() => void confirmDisable()}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#15803d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50"
               >
+                {moderatingId && <Loader2 className="h-4 w-4 animate-spin" />}
                 Simpan alasan & nonaktifkan
               </button>
             </div>

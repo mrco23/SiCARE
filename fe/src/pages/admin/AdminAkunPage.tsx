@@ -1,6 +1,25 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageContainer, PageHeader } from "../../components/shared";
+import { useAuth } from "../../features/auth/useAuth";
+import { adminApi } from "../../lib/adminApi";
+import { getPublicCounselors } from "../../lib/publicApi";
+import type {
+  AccountStatusApi,
+  AdminAccountDto,
+  AdminAccountRecordDto,
+  AppRoleApi,
+  MemberCategoryApi,
+} from "../../types/api";
+import type { Role } from "../../data/mock/adminAccounts";
 import {
+  defaultAccountRoleForTab,
+  type AdminAccountTab,
+} from "../../features/admin/accounts/accountSelectors";
+import {
+  Eye,
+  EyeOff,
+  Loader2,
+  RefreshCw,
   Search,
   SquarePen,
   User,
@@ -8,24 +27,37 @@ import {
   UserPlus,
   UserX,
 } from "lucide-react";
-import { INITIAL_ACCOUNTS, type Account, type Role } from "../../data/mock/adminAccounts";
-import { accountMatchesTab, defaultAccountRoleForTab, selectAccounts, type AdminAccountTab } from "../../features/admin/accounts/accountSelectors";
 
 /* ========================= TIPE & DATA ========================= */
 
 type Tab = AdminAccountTab;
+type StatusFilter = "all" | AccountStatusApi;
+
+type ManagedAccount = {
+  id: string;
+  name: string;
+  code: string;
+  email: string;
+  phone: string;
+  role: Role;
+  appRole: AppRoleApi;
+  memberCategory: MemberCategoryApi | null;
+  status: AccountStatusApi;
+  active: boolean;
+  isPublic: boolean;
+  created: string;
+};
 
 type FormState = {
   name: string;
   code: string;
   email: string;
+  password: string;
+  phone: string;
   role: Role;
-  active: boolean;
+  status: AccountStatusApi;
 };
 
-/* ===== DATA CONTOH =====
-   Ganti dengan data dari backend, mis. fetch('/api/admin/akun').
-   Peran klien disimpan sebagai salah satu: Mahasiswa | Dosen | Staff. */
 const ROLES: Role[] = [
   "Konselor",
   "Mahasiswa",
@@ -45,29 +77,105 @@ const ROLE_STYLE: Record<Role, string> = {
   Admin: "bg-amber-50 text-amber-700 border-amber-100",
 };
 
+const STATUS_LABEL: Record<AccountStatusApi, string> = {
+  active: "Aktif",
+  pending: "Menunggu",
+  disabled: "Nonaktif",
+};
+
 /* ========================= HELPER ========================= */
+function mapDtoToUiRole(dto: AdminAccountRecordDto): Role {
+  if (dto.app_role === "counselor") return "Konselor";
+  if (dto.app_role === "head_lmi") return "Kepala LMI";
+  if (dto.app_role === "admin") return "Admin";
+  if (dto.member_category === "faculty_staff") return "Dosen";
+  if (dto.member_category === "other") return "Staff";
+  return "Mahasiswa";
+}
+
+function mapUiRoleToApi(role: Role): {
+  app_role: AppRoleApi;
+  member_category: MemberCategoryApi | null;
+} {
+  if (role === "Konselor") {
+    return { app_role: "counselor", member_category: null };
+  }
+  if (role === "Kepala LMI") {
+    return { app_role: "head_lmi", member_category: null };
+  }
+  if (role === "Admin") {
+    return { app_role: "admin", member_category: null };
+  }
+  if (role === "Dosen") {
+    return { app_role: "client", member_category: "faculty_staff" };
+  }
+  if (role === "Staff") {
+    return { app_role: "client", member_category: "other" };
+  }
+  return { app_role: "client", member_category: "student" };
+}
+
+function mapAccountDto(
+  dto: AdminAccountDto | (AdminAccountRecordDto & { email?: string | null }),
+  publicCounselorIds: ReadonlySet<string>,
+  fallbackEmail = "-",
+): ManagedAccount {
+  const role = mapDtoToUiRole(dto);
+  const resolvedEmail = dto.email ?? fallbackEmail;
+  return {
+    id: dto.id,
+    name:
+      dto.full_name?.trim() ||
+      (resolvedEmail !== "-" ? resolvedEmail.split("@")[0] : "") ||
+      "Tanpa Nama",
+    code: dto.identity_code?.trim() || "-",
+    email: resolvedEmail,
+    phone: dto.phone_e164 ?? "",
+    role,
+    appRole: dto.app_role,
+    memberCategory: dto.member_category,
+    status: dto.account_status,
+    active: dto.account_status === "active",
+    isPublic: publicCounselorIds.has(dto.id),
+    created: dto.created_at,
+  };
+}
+
+function matchesTab(account: ManagedAccount, tab: Tab): boolean {
+  if (tab === "Semua") return true;
+  if (tab === "Klien") return account.appRole === "client";
+  if (tab === "Konselor") return account.appRole === "counselor";
+  if (tab === "Kepala LMI") return account.appRole === "head_lmi";
+  return account.appRole === "admin";
+}
+
 const initials = (n: string) =>
   n
     .split(" ")
-    .filter((w) => /[A-Za-z]/.test(w[0]))
+    .filter((w) => w && /[A-Za-z]/.test(w[0]))
     .slice(0, 2)
     .map((w) => w[0])
     .join("")
-    .toUpperCase();
+    .toUpperCase() || "AK";
 
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("id-ID", {
+const fmtDate = (iso: string) => {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+};
 
 const emptyForm = (tab: Tab): FormState => ({
   name: "",
   code: "",
   email: "",
+  password: "",
+  phone: "",
   role: defaultAccountRoleForTab(tab),
-  active: true,
+  status: "active",
 });
 
 const inputClass =
@@ -75,90 +183,340 @@ const inputClass =
 
 /* ========================= HALAMAN ========================= */
 export default function AdminAkunPage() {
-  const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
+  const { user: currentUser } = useAuth();
+  const [accounts, setAccounts] = useState<ManagedAccount[]>([]);
+  const [publicCounselorIds, setPublicCounselorIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [tab, setTab] = useState<Tab>("Semua");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
 
   // Modal tambah / ubah
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm("Semua"));
-  const [showError, setShowError] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const rows = useMemo(
-    () => selectAccounts(accounts, tab, query).sort((a, b) => a.name.localeCompare(b.name)),
-    [accounts, tab, query],
+  // Per-row action state
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Toast
+  const [toastMsg, setToastMsg] = useState("");
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMsg(""), 2800);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
+    [],
   );
+
+  const fetchAccounts = useCallback(async () => {
+    const [dtos, publicCounselors] = await Promise.all([
+      adminApi.listAccounts({ limit: 100 }),
+      getPublicCounselors().catch(() => []),
+    ]);
+    const pubSet = new Set(publicCounselors.map((c) => c.profile_id));
+    return {
+      pubSet,
+      items: dtos.map((dto) => mapAccountDto(dto, pubSet)),
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void fetchAccounts()
+      .then(({ pubSet, items }) => {
+        if (!active) return;
+        setPublicCounselorIds(pubSet);
+        setAccounts(items);
+        setLoadError(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error ? err.message : "Daftar akun tidak dapat dimuat.",
+        );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [fetchAccounts]);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { pubSet, items } = await fetchAccounts();
+      setPublicCounselorIds(pubSet);
+      setAccounts(items);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : "Daftar akun tidak dapat dimuat.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return accounts
+      .filter((a) => matchesTab(a, tab))
+      .filter((a) => statusFilter === "all" || a.status === statusFilter)
+      .filter(
+        (a) =>
+          !q ||
+          a.name.toLowerCase().includes(q) ||
+          a.email.toLowerCase().includes(q) ||
+          a.code.toLowerCase().includes(q),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [accounts, tab, statusFilter, query]);
 
   /* ===== MODAL ===== */
   const openAdd = () => {
     setEditingId(null);
     setForm(emptyForm(tab));
-    setShowError(false);
+    setFormError("");
     setModalOpen(true);
   };
 
-  const openEdit = (a: Account) => {
+  const openEdit = async (a: ManagedAccount) => {
     setEditingId(a.id);
     setForm({
       name: a.name,
-      code: a.code,
+      code: a.code === "-" ? "" : a.code,
       email: a.email,
+      password: "",
+      phone: a.phone,
       role: a.role,
-      active: a.active,
+      status: a.status,
     });
-    setShowError(false);
+    setFormError("");
     setModalOpen(true);
+
+    // Ambil detail terbaru dari server
+    try {
+      const latest = await adminApi.getAccount(a.id);
+      const mapped = mapAccountDto(latest, publicCounselorIds);
+      setAccounts((prev) =>
+        prev.map((item) => (item.id === a.id ? mapped : item)),
+      );
+      setForm({
+        name: mapped.name,
+        code: mapped.code === "-" ? "" : mapped.code,
+        email: mapped.email,
+        password: "",
+        phone: mapped.phone,
+        role: mapped.role,
+        status: mapped.status,
+      });
+    } catch {
+      // Tetap gunakan data baris jika gagal refresh detail
+    }
   };
 
-  const closeModal = () => setModalOpen(false);
+  const closeModal = () => {
+    if (submitting) return;
+    setModalOpen(false);
+  };
 
-  const save = () => {
-    const data: FormState = {
-      ...form,
-      name: form.name.trim(),
-      code: form.code.trim() || "-",
-      email: form.email.trim(),
-    };
-    if (!data.name || !data.email) {
-      setShowError(true);
+  const save = async () => {
+    const name = form.name.trim();
+    const code = form.code.trim();
+    const email = form.email.trim();
+    const password = form.password;
+    const phone = form.phone.trim();
+
+    if (!name || !email) {
+      setFormError("Nama lengkap dan email wajib diisi.");
       return;
     }
 
-    if (editingId !== null) {
-      setAccounts((prev) =>
-        prev.map((a) => (a.id === editingId ? { ...a, ...data } : a)),
-      );
-    } else {
-      setAccounts((prev) => [
-        ...prev,
-        {
-          id: Math.max(0, ...prev.map((a) => a.id)) + 1,
-          ...data,
-          created: new Date().toISOString().slice(0, 10),
-        },
-      ]);
+    if (editingId === null && password.length < 8) {
+      setFormError("Password akun baru minimal 8 karakter.");
+      return;
     }
-    closeModal();
+
+    if (phone && (phone.length < 8 || phone.length > 20)) {
+      setFormError("Nomor telepon harus antara 8 hingga 20 karakter.");
+      return;
+    }
+
+    const { app_role, member_category } = mapUiRoleToApi(form.role);
+
+    setSubmitting(true);
+    setFormError("");
+    try {
+      if (editingId !== null) {
+        const updated = await adminApi.updateAccount(editingId, {
+          full_name: name,
+          identity_code: code || null,
+          member_category,
+          phone_e164: phone || null,
+          app_role,
+          account_status: form.status,
+        });
+        const mapped = mapAccountDto(updated, publicCounselorIds, email);
+        setAccounts((prev) =>
+          prev.map((a) => (a.id === editingId ? mapped : a)),
+        );
+        setModalOpen(false);
+        showToast(`Akun ${mapped.name} diperbarui.`);
+      } else {
+        const created = await adminApi.createAccount({
+          email,
+          password,
+          full_name: name,
+          identity_code: code || null,
+          member_category,
+          app_role,
+          account_status: form.status,
+        });
+        const mapped = mapAccountDto(created, publicCounselorIds, email);
+        setAccounts((prev) => [...prev, mapped]);
+        setModalOpen(false);
+        showToast(`Akun ${mapped.name} berhasil dibuat.`);
+      }
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : "Perubahan akun tidak dapat disimpan.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const toggleActive = (id: number) =>
-    setAccounts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, active: !a.active } : a)),
-    );
+  const toggleActive = async (account: ManagedAccount) => {
+    if (account.id === currentUser?.id && account.active) {
+      showToast("Akun admin yang sedang digunakan tidak dapat dinonaktifkan.");
+      return;
+    }
+
+    setBusyId(account.id);
+    try {
+      if (account.active) {
+        await adminApi.deactivateAccount(account.id);
+        const nextPubSet = new Set(publicCounselorIds);
+        nextPubSet.delete(account.id);
+        setPublicCounselorIds(nextPubSet);
+        setAccounts((prev) =>
+          prev.map((a) =>
+            a.id === account.id
+              ? { ...a, status: "disabled", active: false, isPublic: false }
+              : a,
+          ),
+        );
+        showToast(`Akun ${account.name} dinonaktifkan.`);
+      } else {
+        const updated = await adminApi.updateAccount(account.id, {
+          account_status: "active",
+        });
+        const mapped = mapAccountDto(updated, publicCounselorIds, account.email);
+        setAccounts((prev) =>
+          prev.map((a) => (a.id === account.id ? mapped : a)),
+        );
+        showToast(`Akun ${mapped.name} diaktifkan.`);
+      }
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Status akun tidak dapat diubah.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const toggleCounselorPublic = async (account: ManagedAccount) => {
+    if (account.appRole !== "counselor") return;
+    if (!account.active && !account.isPublic) {
+      showToast("Aktifkan akun konselor terlebih dahulu sebelum mempublikasikan profil.");
+      return;
+    }
+
+    setBusyId(account.id);
+    try {
+      const nextPublic = !account.isPublic;
+      await adminApi.setCounselorPublication(account.id, nextPublic);
+      const nextPubSet = new Set(publicCounselorIds);
+      if (nextPublic) nextPubSet.add(account.id);
+      else nextPubSet.delete(account.id);
+      setPublicCounselorIds(nextPubSet);
+      setAccounts((prev) =>
+        prev.map((a) =>
+          a.id === account.id ? { ...a, isPublic: nextPublic } : a,
+        ),
+      );
+      showToast(
+        nextPublic
+          ? `Profil konselor ${account.name} dipublikasikan.`
+          : `Profil konselor ${account.name} disembunyikan dari publik.`,
+      );
+    } catch (err) {
+      showToast(
+        err instanceof Error
+          ? err.message
+          : "Status publikasi konselor tidak dapat diubah.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <PageContainer role="admin">
       <PageHeader
         title="Manajemen Akun"
         description="Kelola akun konselor, klien (mahasiswa, dosen, staff), kepala LMI, dan admin."
+        actions={
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Muat ulang
+          </button>
+        }
       />
+
+      {loadError && (
+        <div
+          role="alert"
+          className="flex flex-col justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 sm:flex-row sm:items-center"
+        >
+          <p>{loadError}</p>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            className="shrink-0 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+          >
+            Coba lagi
+          </button>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-center">
         <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 text-xs font-semibold text-slate-600">
           {TABS.map((t) => {
-            const n = accounts.filter((a) => accountMatchesTab(a, t)).length;
+            const n = accounts.filter((a) => matchesTab(a, t)).length;
             const on = tab === t;
             return (
               <button
@@ -177,13 +535,25 @@ export default function AdminAkunPage() {
           })}
         </div>
 
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          aria-label="Filter status akun"
+          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-700 focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/30"
+        >
+          <option value="all">Semua status</option>
+          <option value="active">Aktif</option>
+          <option value="pending">Menunggu verifikasi</option>
+          <option value="disabled">Nonaktif</option>
+        </select>
+
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari nama, NIM, atau NIP..."
+            placeholder="Cari nama, email, NIM, atau NIP..."
             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/30"
           />
         </div>
@@ -191,7 +561,8 @@ export default function AdminAkunPage() {
         <button
           type="button"
           onClick={openAdd}
-          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-dark"
+          disabled={loading}
+          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-dark disabled:opacity-50"
         >
           <UserPlus className="h-4 w-4" /> Tambah Akun
         </button>
@@ -205,7 +576,12 @@ export default function AdminAkunPage() {
           </p>
         </div>
 
-        {rows.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            Memuat daftar akun dari server...
+          </div>
+        ) : rows.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -219,79 +595,135 @@ export default function AdminAkunPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {rows.map((a) => (
-                  <tr
-                    key={a.id}
-                    className="transition-colors hover:bg-slate-50/60"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
-                          {initials(a.name)}
+                {rows.map((a) => {
+                  const isBusy = busyId === a.id;
+                  const isSelf = a.id === currentUser?.id;
+                  return (
+                    <tr
+                      key={a.id}
+                      className="transition-colors hover:bg-slate-50/60"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                            {initials(a.name)}
+                          </div>
+                          <div>
+                            <p className="font-semibold">
+                              {a.name}
+                              {isSelf && (
+                                <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-primary">
+                                  Anda
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-slate-400">{a.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold">{a.name}</p>
-                          <p className="text-xs text-slate-400">{a.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-slate-600">
-                      {a.code}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${ROLE_STYLE[a.role]}`}
-                      >
-                        {a.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
-                          a.active ? "text-primary" : "text-slate-400"
-                        }`}
-                      >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            a.active ? "bg-brand-accent" : "bg-slate-300"
-                          }`}
-                        />
-                        {a.active ? "Aktif" : "Nonaktif"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs font-medium text-slate-500">
-                      {fmtDate(a.created)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          title="Ubah"
-                          onClick={() => openEdit(a)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary"
-                        >
-                          <SquarePen className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          title={a.active ? "Nonaktifkan" : "Aktifkan"}
-                          onClick={() => toggleActive(a.id)}
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 ${
-                            a.active
-                              ? "hover:text-red-600"
-                              : "hover:text-primary"
-                          }`}
-                        >
-                          {a.active ? (
-                            <UserX className="h-4 w-4" />
-                          ) : (
-                            <UserCheck className="h-4 w-4" />
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-600">
+                        {a.code}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${ROLE_STYLE[a.role]}`}
+                          >
+                            {a.role}
+                          </span>
+                          {a.appRole === "counselor" && (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => void toggleCounselorPublic(a)}
+                              title={
+                                a.isPublic
+                                  ? "Ditampilkan ke publik — klik untuk menyembunyikan"
+                                  : "Disembunyikan dari publik — klik untuk mempublikasikan"
+                              }
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition ${
+                                a.isPublic
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                  : "border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200"
+                              } disabled:opacity-50`}
+                            >
+                              {a.isPublic ? (
+                                <>
+                                  <Eye className="h-3 w-3" /> Publik
+                                </>
+                              ) : (
+                                <>
+                                  <EyeOff className="h-3 w-3" /> Privat
+                                </>
+                              )}
+                            </button>
                           )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+                            a.status === "active"
+                              ? "text-primary"
+                              : a.status === "pending"
+                                ? "text-amber-600"
+                                : "text-slate-400"
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              a.status === "active"
+                                ? "bg-brand-accent"
+                                : a.status === "pending"
+                                  ? "bg-amber-400"
+                                  : "bg-slate-300"
+                            }`}
+                          />
+                          {STATUS_LABEL[a.status]}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-medium text-slate-500">
+                        {fmtDate(a.created)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            title="Ubah"
+                            disabled={isBusy}
+                            onClick={() => void openEdit(a)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary disabled:opacity-40"
+                          >
+                            <SquarePen className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isBusy || (isSelf && a.active)}
+                            title={
+                              isSelf && a.active
+                                ? "Akun admin yang sedang aktif tidak dapat menonaktifkan diri sendiri"
+                                : a.active
+                                  ? "Nonaktifkan"
+                                  : "Aktifkan"
+                            }
+                            onClick={() => void toggleActive(a)}
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-40 ${
+                              a.active
+                                ? "hover:text-red-600"
+                                : "hover:text-primary"
+                            }`}
+                          >
+                            {a.active ? (
+                              <UserX className="h-4 w-4" />
+                            ) : (
+                              <UserCheck className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -323,16 +755,18 @@ export default function AdminAkunPage() {
                 </label>
                 <input
                   value={form.name}
+                  disabled={submitting}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className={inputClass}
                 />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600">
-                  NIM / NIP
+                  NIM / NIP (opsional)
                 </label>
                 <input
-                  value={form.code === "-" ? "" : form.code}
+                  value={form.code}
+                  disabled={submitting}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
                   className={inputClass}
                 />
@@ -344,10 +778,49 @@ export default function AdminAkunPage() {
                 <input
                   type="email"
                   value={form.email}
+                  readOnly={editingId !== null}
+                  disabled={submitting}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className={inputClass}
+                  className={`${inputClass} ${
+                    editingId !== null
+                      ? "cursor-not-allowed bg-slate-50 text-slate-500"
+                      : ""
+                  }`}
                 />
               </div>
+              {editingId === null ? (
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">
+                    Password awal (minimal 8 karakter)
+                  </label>
+                  <input
+                    type="password"
+                    value={form.password}
+                    disabled={submitting}
+                    onChange={(e) =>
+                      setForm({ ...form, password: e.target.value })
+                    }
+                    placeholder="Minimal 8 karakter"
+                    className={inputClass}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">
+                    Nomor telepon (opsional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    disabled={submitting}
+                    onChange={(e) =>
+                      setForm({ ...form, phone: e.target.value })
+                    }
+                    placeholder="Contoh: +6281234567890"
+                    className={inputClass}
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-600">
@@ -355,6 +828,7 @@ export default function AdminAkunPage() {
                   </label>
                   <select
                     value={form.role}
+                    disabled={submitting}
                     onChange={(e) =>
                       setForm({ ...form, role: e.target.value as Role })
                     }
@@ -372,20 +846,28 @@ export default function AdminAkunPage() {
                     Status
                   </label>
                   <select
-                    value={form.active ? "1" : "0"}
+                    value={form.status}
+                    disabled={submitting}
                     onChange={(e) =>
-                      setForm({ ...form, active: e.target.value === "1" })
+                      setForm({
+                        ...form,
+                        status: e.target.value as AccountStatusApi,
+                      })
                     }
                     className={`${inputClass} bg-white`}
                   >
-                    <option value="1">Aktif</option>
-                    <option value="0">Nonaktif</option>
+                    <option value="active">Aktif</option>
+                    <option value="pending">Menunggu</option>
+                    <option value="disabled">Nonaktif</option>
                   </select>
                 </div>
               </div>
-              {showError && (
-                <p className="text-xs text-red-600">
-                  Nama dan email wajib diisi.
+              {formError && (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600"
+                >
+                  {formError}
                 </p>
               )}
             </div>
@@ -393,20 +875,33 @@ export default function AdminAkunPage() {
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
+                disabled={submitting}
                 onClick={closeModal}
-                className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 type="button"
-                onClick={save}
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+                disabled={submitting}
+                onClick={() => void save()}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
               >
-                Simpan
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting ? "Menyimpan..." : "Simpan"}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toastMsg && (
+        <div
+          role="status"
+          className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"
+        >
+          {toastMsg}
         </div>
       )}
     </PageContainer>

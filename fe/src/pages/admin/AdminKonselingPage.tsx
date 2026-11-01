@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  AcademicPeriodFilter,
+} from "../../components/shared";
+import { adminApi } from "../../lib/adminApi";
+import { getPublicCounselors } from "../../lib/publicApi";
+import type {
+  AdminCounselingDto,
+  BookingStatusApi,
+  SessionStatusApi,
+} from "../../types/api";
 import type { AcademicPeriod } from "../../types/academicPeriod";
-import { SESSION_OUTCOME_STATUS } from "../../constants/status";
 import {
   Ban,
   Check,
@@ -11,9 +21,12 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleCheck,
+  Clock,
   FolderOpen,
   List,
+  Loader2,
   Lock,
+  RefreshCw,
   Star,
   User,
   UserRound,
@@ -22,22 +35,49 @@ import {
 } from "lucide-react";
 import {
   isInPeriod,
-  loadPeriods,
+  mapAcademicPeriodDto,
   sortPeriods,
   toISO,
 } from "../../lib/academicPeriods";
-import { COUNSELORS, RATING, SESI, NOW, type Session } from "../../data/mock/adminCounseling";
-import { createCounselingChartBuckets, getCounselingDateRange, type CounselingDateRange, type CounselingPeriodKey } from "../../features/admin/counseling/timeSelectors";
+import {
+  createCounselingChartBuckets,
+  getCounselingDateRange,
+  type CounselingDateRange,
+  type CounselingPeriodKey,
+} from "../../features/admin/counseling/timeSelectors";
 
-/* ========================= DATA CONTOH ========================= */
-/* Ganti dengan fetch('/api/admin/konseling?start=...&end=...') */
-
- // dari halaman Feedback
-
-/* ========================= UTIL ========================= */
+/* ========================= TIPE & UTIL ========================= */
 type PeriodKey = CounselingPeriodKey;
 type TblKey = "semua" | "individu" | "kelompok" | "dibatalkan";
 type ViewKey = "daftar" | "detail";
+type OutcomeCategory = "completed" | "cancelled" | "active";
+
+interface CounselorOption {
+  id: string;
+  name: string;
+  rating: number | null;
+}
+
+interface MonitoringItem {
+  id: string;
+  shortId: string;
+  counselorId: string;
+  counselorName: string;
+  clientAnon: string;
+  participantCount: number;
+  participantAnons: string[];
+  type: "individu" | "kelompok";
+  start: Date;
+  durasi: number;
+  bookingStatus: BookingStatusApi;
+  sessionStatus: SessionStatusApi | null;
+  format: string | null;
+  room: string | null;
+  outcome: OutcomeCategory;
+  statusLabel: string;
+  reason: string | null;
+  createdAt: Date;
+}
 
 const PAGE_SIZE = 20;
 const DAY = 864e5;
@@ -55,9 +95,9 @@ const TBL_OPTS: [TblKey, string][] = [
   ["dibatalkan", "Dibatalkan"],
 ];
 
-const anonOf = (id: number) =>
+const anonFromUuid = (id: string) =>
   "Klien Anonim #" +
-  ((id * 2654435761) >>> 0).toString(16).slice(-4).toUpperCase();
+  (id.replace(/[^A-Fa-f0-9]/g, "").slice(-4) || "0000").toUpperCase();
 
 const initials = (n: string) =>
   n
@@ -67,7 +107,7 @@ const initials = (n: string) =>
     .slice(0, 2)
     .map((w) => w[0])
     .join("")
-    .toUpperCase();
+    .toUpperCase() || "KS";
 
 const fmtT = (d: Date) =>
   d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -79,7 +119,11 @@ const fmtShort = (d: Date) =>
 type Range = CounselingDateRange;
 const inR = (t: number, r: Range) => t >= r.s.getTime() && t < r.e.getTime();
 
-function rangeLabel(period: PeriodKey, range: Range, sem: AcademicPeriod | null) {
+function rangeLabel(
+  period: PeriodKey,
+  range: Range,
+  sem: AcademicPeriod | null,
+) {
   if (period === "hari")
     return range.s.toLocaleDateString("id-ID", {
       weekday: "long",
@@ -90,8 +134,101 @@ function rangeLabel(period: PeriodKey, range: Range, sem: AcademicPeriod | null)
   if (period === "minggu")
     return `${fmtShort(range.s)} – ${fmtShort(new Date(range.e.getTime() - DAY))}`;
   if (period === "bulan")
-    return range.s.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
-  return sem ? `TA ${sem.ta} · ${sem.sem}` : "Belum ada periode";
+    return range.s.toLocaleDateString("id-ID", {
+      month: "long",
+      year: "numeric",
+    });
+  return sem ? `TA ${sem.ta} · ${sem.sem}` : "Semua periode";
+}
+
+function computeDurationMinutesFromIso(
+  startsAt: string,
+  endsAt: string,
+): number {
+  const s = new Date(startsAt).getTime();
+  const e = new Date(endsAt).getTime();
+  const diff = Math.round((e - s) / 60000);
+  return diff > 0 ? diff : 60;
+}
+
+function resolveStatusInfo(
+  bookingStatus: BookingStatusApi,
+  sessionStatus: SessionStatusApi | null,
+): { outcome: OutcomeCategory; label: string } {
+  if (sessionStatus === "completed") {
+    return { outcome: "completed", label: "Selesai" };
+  }
+  if (
+    sessionStatus === "cancelled" ||
+    bookingStatus === "cancelled" ||
+    bookingStatus === "rejected"
+  ) {
+    return {
+      outcome: "cancelled",
+      label: bookingStatus === "rejected" ? "Ditolak" : "Dibatalkan",
+    };
+  }
+  if (sessionStatus === "ongoing") {
+    return { outcome: "active", label: "Sedang Berlangsung" };
+  }
+  if (bookingStatus === "confirmed" || sessionStatus === "scheduled") {
+    return { outcome: "active", label: "Terjadwal" };
+  }
+  if (bookingStatus === "reschedule_requested") {
+    return { outcome: "active", label: "Perubahan Jadwal" };
+  }
+  return { outcome: "active", label: "Menunggu Konfirmasi" };
+}
+
+function mapBookingDtoToItem(
+  dto: AdminCounselingDto,
+  counselorNameFallback: ReadonlyMap<string, string>,
+): MonitoringItem {
+  const primarySession = dto.counseling_sessions?.[0] ?? null;
+  const sessionStatus = primarySession?.status ?? null;
+  const { outcome, label } = resolveStatusInfo(dto.status, sessionStatus);
+  const counselorName =
+    dto.counselor?.full_name?.trim() ||
+    counselorNameFallback.get(dto.counselor_id) ||
+    `Konselor #${dto.counselor_id.slice(0, 6).toUpperCase()}`;
+
+  const clientAnon = anonFromUuid(dto.client?.id || dto.client_id || dto.id);
+  const participantRecords = dto.booking_participants ?? [];
+  const participantAnons =
+    participantRecords.length > 0
+      ? participantRecords.map((p) => anonFromUuid(p.id))
+      : [clientAnon];
+
+  const formatLabel =
+    primarySession?.format === "online"
+      ? "Online"
+      : primarySession?.format === "offline"
+        ? "Tatap Muka"
+        : null;
+
+  return {
+    id: dto.id,
+    shortId: dto.id.slice(0, 8).toUpperCase(),
+    counselorId: dto.counselor_id,
+    counselorName,
+    clientAnon,
+    participantCount: Math.max(
+      1,
+      dto.participant_count || participantAnons.length,
+    ),
+    participantAnons,
+    type: dto.service_type === "group" ? "kelompok" : "individu",
+    start: new Date(dto.starts_at),
+    durasi: computeDurationMinutesFromIso(dto.starts_at, dto.ends_at),
+    bookingStatus: dto.status,
+    sessionStatus,
+    format: formatLabel,
+    room: primarySession?.room ?? null,
+    outcome,
+    statusLabel: label,
+    reason: dto.cancellation_reason || dto.reschedule_reason || null,
+    createdAt: new Date(dto.created_at),
+  };
 }
 
 /* ========================= KOMPONEN KECIL ========================= */
@@ -153,7 +290,6 @@ function SegmentTabs<T extends string>({
   );
 }
 
-/* Pindah tampilan: Daftar Konseling / Detail per Konselor */
 function ViewSwitch({
   value,
   onChange,
@@ -219,20 +355,21 @@ function StatTile({
   );
 }
 
-/* ========================= PANEL DETAIL KONSELOR ========================= */
 /* ========================= POPUP PILIH KONSELOR ========================= */
 function CounselorPicker({
   open,
-  kon,
+  counselors,
+  selectedCounselorId,
   sessions,
   onClose,
   onSelect,
 }: {
   open: boolean;
-  kon: number;
-  sessions: Session[];
+  counselors: CounselorOption[];
+  selectedCounselorId: string;
+  sessions: MonitoringItem[];
   onClose: () => void;
-  onSelect: (i: number) => void;
+  onSelect: (counselorId: string) => void;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -271,30 +408,31 @@ function CounselorPicker({
           </button>
         </div>
 
-        <ul className="divide-y divide-slate-100">
-          {COUNSELORS.map((c, i) => {
-            const active = i === kon;
+        <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+          {counselors.map((c) => {
+            const active = c.id === selectedCounselorId;
             const done = sessions.filter(
-              (s) => s.konselor === i && s.status === SESSION_OUTCOME_STATUS.COMPLETED,
+              (s) => s.counselorId === c.id && s.outcome === "completed",
             ).length;
             return (
-              <li key={c}>
+              <li key={c.id}>
                 <button
                   type="button"
-                  onClick={() => onSelect(i)}
+                  onClick={() => onSelect(c.id)}
                   className={`flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors ${
                     active ? "bg-[#f6fcf8]" : "hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
-                    {initials(c)}
+                    {initials(c.name)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-slate-800">
-                      {c}
+                      {c.name}
                     </p>
                     <p className="text-xs text-slate-400">
-                      {done} sesi selesai · rating {RATING[i].toFixed(1)}
+                      {done} sesi selesai · rating{" "}
+                      {c.rating !== null ? c.rating.toFixed(1) : "-"}
                     </p>
                   </div>
                   {active && <Check className="h-4 w-4 text-[#15803d]" />}
@@ -311,25 +449,36 @@ function CounselorPicker({
 /* ========================= PANEL DETAIL KONSELOR ========================= */
 function CounselorPanel({
   sessions,
-  kon,
-  onKonChange,
+  counselors,
+  selectedCounselorId,
+  onCounselorChange,
   period,
   range,
   onOpen,
 }: {
-  sessions: Session[];
-  kon: number;
-  onKonChange: (i: number) => void;
+  sessions: MonitoringItem[];
+  counselors: CounselorOption[];
+  selectedCounselorId: string;
+  onCounselorChange: (id: string) => void;
   period: PeriodKey;
   range: Range;
-  onOpen: (id: number) => void;
+  onOpen: (id: string) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const KP = sessions.filter((s) => s.konselor === kon);
-  const KSelesai = KP.filter((s) => s.status === SESSION_OUTCOME_STATUS.COMPLETED);
+  const selectedCounselor = counselors.find(
+    (c) => c.id === selectedCounselorId,
+  ) ??
+    counselors[0] ?? {
+      id: "",
+      name: "Belum ada konselor",
+      rating: null,
+    };
+
+  const KP = sessions.filter((s) => s.counselorId === selectedCounselor.id);
+  const KSelesai = KP.filter((s) => s.outcome === "completed");
   const KInd = KSelesai.filter((s) => s.type === "individu").length;
-  const KBatal = KP.filter((s) => s.status === SESSION_OUTCOME_STATUS.CANCELLED).length;
+  const KBatal = KP.filter((s) => s.outcome === "cancelled").length;
 
   const bk = createCounselingChartBuckets(period, range);
   const counts = bk.map(
@@ -342,20 +491,21 @@ function CounselorPanel({
 
   return (
     <div className="space-y-5 p-6">
-      {/* Konselor terpilih + tombol ganti */}
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600">
-            {initials(COUNSELORS[kon])}
+            {initials(selectedCounselor.name)}
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-slate-800">
-              {COUNSELORS[kon]}
+              {selectedCounselor.name}
             </p>
             <p className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
               <span className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                {RATING[kon].toFixed(1)} rating
+                {selectedCounselor.rating !== null
+                  ? `${selectedCounselor.rating.toFixed(1)} rating`
+                  : "Belum ada rating"}
               </span>
               <span className="text-slate-300">|</span>
               <span>{KP.length} jadwal periode ini</span>
@@ -363,28 +513,30 @@ function CounselorPanel({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-        >
-          Ganti konselor
-          <ChevronDown className="h-4 w-4 text-slate-400" />
-        </button>
+        {counselors.length > 1 && (
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            Ganti konselor
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          </button>
+        )}
       </div>
 
       <CounselorPicker
         open={pickerOpen}
-        kon={kon}
+        counselors={counselors}
+        selectedCounselorId={selectedCounselor.id}
         sessions={sessions}
         onClose={() => setPickerOpen(false)}
-        onSelect={(i) => {
-          onKonChange(i);
+        onSelect={(id) => {
+          onCounselorChange(id);
           setPickerOpen(false);
         }}
       />
 
-      {/* Statistik */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile
           icon={CircleCheck}
@@ -402,7 +554,6 @@ function CounselorPanel({
         <StatTile icon={Ban} label="Dibatalkan" value={KBatal} tone="rose" />
       </div>
 
-      {/* Grafik & daftar sesi */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
         <div className="rounded-2xl border border-slate-200 p-5 xl:col-span-3">
           <div className="mb-5 flex items-center justify-between">
@@ -472,19 +623,21 @@ function CounselorPanel({
                     </p>
                     <p className="truncate text-[11px] text-slate-400">
                       {s.type === "individu"
-                        ? anonOf(s.participants[0])
-                        : `${s.participants.length} peserta`}{" "}
+                        ? s.clientAnon
+                        : `${s.participantCount} peserta`}{" "}
                       · {s.durasi} menit
                     </p>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                      s.status === SESSION_OUTCOME_STATUS.COMPLETED
+                      s.outcome === "completed"
                         ? "bg-emerald-50 text-[#15803d]"
-                        : "bg-rose-50 text-rose-600"
+                        : s.outcome === "cancelled"
+                          ? "bg-rose-50 text-rose-600"
+                          : "bg-amber-50 text-amber-700"
                     }`}
                   >
-                    {s.status === SESSION_OUTCOME_STATUS.COMPLETED ? "Selesai" : "Dibatalkan"}
+                    {s.statusLabel}
                   </span>
                 </button>
               ))
@@ -503,48 +656,163 @@ function CounselorPanel({
 /* ========================= HALAMAN ========================= */
 export default function AdminKonselingPage() {
   const today = useMemo(() => toISO(new Date()), []);
-  const periods = useMemo(() => sortPeriods(loadPeriods()), []);
-  const defaultSem =
-    periods.find((p) => isInPeriod(today, p)) ??
-    periods[periods.length - 1] ??
-    null;
+  const [periods, setPeriods] = useState<AcademicPeriod[]>([]);
+  const [allItems, setAllItems] = useState<MonitoringItem[]>([]);
+  const [counselors, setCounselors] = useState<CounselorOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [period, setPeriod] = useState<PeriodKey>("bulan");
-  const [anchor, setAnchor] = useState(
-    () => new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate(), 12),
-  );
-  const [semId, setSemId] = useState<string | null>(defaultSem?.id ?? null);
+  const [anchor, setAnchor] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+  });
+  const [semId, setSemId] = useState<string | null>(null);
   const [tbl, setTbl] = useState<TblKey>("semua");
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Terima state dari halaman lain (mis. Beranda) saat halaman dibuka
   const location = useLocation();
   const navState = location.state as {
     view?: ViewKey;
     konselor?: string;
+    counselorId?: string;
   } | null;
 
   const [view, setView] = useState<ViewKey>(navState?.view ?? "daftar");
-  const [kon, setKon] = useState(() => {
-    const i = COUNSELORS.indexOf(navState?.konselor ?? "");
-    return i >= 0 ? i : 0;
-  });
+  const [selectedCounselorId, setSelectedCounselorId] = useState<string>(
+    navState?.counselorId ?? "",
+  );
 
-  // Sinkronisasi state saat menerima navigasi baru dengan location.key berbeda
-  const [prevLocationKey, setPrevLocationKey] = useState(location.key);
-  if (location.key !== prevLocationKey) {
-    setPrevLocationKey(location.key);
-    if (navState?.view) setView(navState.view);
-    if (navState?.konselor) {
-      const i = COUNSELORS.indexOf(navState.konselor);
-      if (i >= 0) setKon(i);
+  const fetchData = useCallback(async () => {
+    const [
+      bookingDtos,
+      periodDtos,
+      counselorAccounts,
+      publicCounselors,
+      feedbackDtos,
+    ] = await Promise.all([
+      adminApi.listCounseling(100),
+      adminApi.listAcademicPeriods().catch(() => []),
+      adminApi.listAccounts({ role: "counselor", limit: 100 }).catch(() => []),
+      getPublicCounselors().catch(() => []),
+      adminApi.listFeedback({ limit: 100 }).catch(() => []),
+    ]);
+
+    const cNameMap = new Map<string, string>();
+    for (const c of publicCounselors) {
+      if (c.public_name?.trim())
+        cNameMap.set(c.profile_id, c.public_name.trim());
     }
-    setLimit(PAGE_SIZE);
-  }
+    for (const acc of counselorAccounts) {
+      if (acc.full_name?.trim()) cNameMap.set(acc.id, acc.full_name.trim());
+    }
+    for (const b of bookingDtos) {
+      if (b.counselor?.full_name?.trim()) {
+        cNameMap.set(b.counselor_id, b.counselor.full_name.trim());
+      } else if (!cNameMap.has(b.counselor_id)) {
+        cNameMap.set(
+          b.counselor_id,
+          `Konselor #${b.counselor_id.slice(0, 6).toUpperCase()}`,
+        );
+      }
+    }
 
-  // Tutup drawer dengan Escape
+    const ratingSums = new Map<string, { sum: number; count: number }>();
+    for (const f of feedbackDtos) {
+      const prev = ratingSums.get(f.counselor_id) ?? { sum: 0, count: 0 };
+      ratingSums.set(f.counselor_id, {
+        sum: prev.sum + f.rating,
+        count: prev.count + 1,
+      });
+    }
+
+    const counselorList: CounselorOption[] = [...cNameMap.entries()]
+      .map(([id, name]) => {
+        const r = ratingSums.get(id);
+        return {
+          id,
+          name,
+          rating: r && r.count > 0 ? r.sum / r.count : null,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const sortedPeriods = sortPeriods(periodDtos.map(mapAcademicPeriodDto));
+    const items = bookingDtos
+      .map((dto) => mapBookingDtoToItem(dto, cNameMap))
+      .sort((a, b) => b.start.getTime() - a.start.getTime());
+
+    return { sortedPeriods, counselorList, items };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void fetchData()
+      .then(({ sortedPeriods, counselorList, items }) => {
+        if (!active) return;
+        setPeriods(sortedPeriods);
+        setCounselors(counselorList);
+        setAllItems(items);
+        setLoadError(null);
+
+        const defaultSem =
+          sortedPeriods.find((p) => isInPeriod(today, p)) ??
+          sortedPeriods[sortedPeriods.length - 1] ??
+          null;
+        if (defaultSem) {
+          setSemId((prev) => prev ?? defaultSem.id);
+        }
+
+        if (counselorList.length > 0) {
+          setSelectedCounselorId((prev) => {
+            if (prev && counselorList.some((c) => c.id === prev)) return prev;
+            if (navState?.konselor) {
+              const byName = counselorList.find(
+                (c) => c.name === navState.konselor,
+              );
+              if (byName) return byName.id;
+            }
+            return counselorList[0].id;
+          });
+        }
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : "Data monitoring konseling tidak dapat dimuat.",
+        );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [fetchData, today, navState?.konselor]);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { sortedPeriods, counselorList, items } = await fetchData();
+      setPeriods(sortedPeriods);
+      setCounselors(counselorList);
+      setAllItems(items);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "Data monitoring konseling tidak dapat dimuat.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setDrawerOpen(false);
@@ -561,11 +829,15 @@ export default function AdminKonselingPage() {
   const label = rangeLabel(period, range, semester);
 
   const P = useMemo(
-    () => SESI.filter((s) => inR(s.start.getTime(), range)),
-    [range],
+    () =>
+      allItems.filter((s) =>
+        period === "semester" && !semester
+          ? true
+          : inR(s.start.getTime(), range),
+      ),
+    [allItems, period, semester, range],
   );
 
-  /* ----- navigasi periode & filter (reset pagination ke PAGE_SIZE) ----- */
   function handlePeriodChange(p: PeriodKey) {
     setPeriod(p);
     setLimit(PAGE_SIZE);
@@ -603,11 +875,11 @@ export default function AdminKonselingPage() {
   }
 
   /* ----- KPI ----- */
-  const selesai = P.filter((s) => s.status === SESSION_OUTCOME_STATUS.COMPLETED);
-  const batal = P.filter((s) => s.status === SESSION_OUTCOME_STATUS.CANCELLED);
+  const selesai = P.filter((s) => s.outcome === "completed");
+  const batal = P.filter((s) => s.outcome === "cancelled");
   const indCount = selesai.filter((s) => s.type === "individu").length;
   const pctBatal = P.length ? Math.round((batal.length / P.length) * 100) : 0;
-  const aktifKonselor = new Set(P.map((s) => s.konselor)).size;
+  const aktifKonselor = new Set(P.map((s) => s.counselorId)).size;
 
   /* ----- tabel ----- */
   const rows = P.filter(
@@ -615,14 +887,14 @@ export default function AdminKonselingPage() {
       tbl === "semua" ||
       (tbl === "individu" && s.type === "individu") ||
       (tbl === "kelompok" && s.type === "kelompok") ||
-      (tbl === "dibatalkan" && s.status === SESSION_OUTCOME_STATUS.CANCELLED),
+      (tbl === "dibatalkan" && s.outcome === "cancelled"),
   );
   const shown = rows.slice(0, limit);
   const remaining = rows.length - shown.length;
 
   /* ----- drawer ----- */
-  const sesi = SESI.find((s) => s.id === openId) ?? null;
-  const openDrawer = (id: number) => {
+  const sesi = allItems.find((s) => s.id === openId) ?? null;
+  const openDrawer = (id: string) => {
     setOpenId(id);
     setDrawerOpen(true);
   };
@@ -664,21 +936,45 @@ export default function AdminKonselingPage() {
             </div>
 
             {period === "semester" && (
-              <select
-                value={semId ?? ""}
-                onChange={(e) => handleSemIdChange(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#22c55e]/30"
-              >
-                {periods.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    TA {p.ta} · {p.sem}
-                  </option>
-                ))}
-              </select>
+              <AcademicPeriodFilter
+                periods={periods}
+                selectedId={semId ?? ""}
+                onSelect={(id) => handleSemIdChange(id === "all" ? "" : id)}
+                showAllOption={false}
+                className="relative w-full sm:w-72"
+              />
             )}
+
+            <button
+              type="button"
+              onClick={() => void handleRefresh()}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              />
+              Muat ulang
+            </button>
           </div>
         }
       />
+
+      {loadError && (
+        <div
+          role="alert"
+          className="flex flex-col justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 sm:flex-row sm:items-center"
+        >
+          <p>{loadError}</p>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            className="shrink-0 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+          >
+            Coba lagi
+          </button>
+        </div>
+      )}
 
       {/* ================= KPI ================= */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -697,12 +993,12 @@ export default function AdminKonselingPage() {
         <KpiCard
           icon={UserRound}
           title="Konselor Aktif"
-          value={`${aktifKonselor}/${COUNSELORS.length}`}
+          value={`${aktifKonselor}/${counselors.length}`}
           sub="melayani sesi pada periode ini"
         />
       </div>
 
-      {/* ================= SECTION UTAMA (SATU TAMPILAN SEKALIGUS) ================= */}
+      {/* ================= SECTION UTAMA ================= */}
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -727,7 +1023,12 @@ export default function AdminKonselingPage() {
           </div>
         </div>
 
-        {view === "daftar" ? (
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            Memuat data monitoring konseling dari server...
+          </div>
+        ) : view === "daftar" ? (
           <>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -753,22 +1054,20 @@ export default function AdminKonselingPage() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-xs">
                         {s.type === "individu" ? (
-                          <span className="font-semibold">
-                            {anonOf(s.participants[0])}
-                          </span>
+                          <span className="font-semibold">{s.clientAnon}</span>
                         ) : (
                           <>
                             <span className="font-semibold">
-                              {s.participants.length} peserta
+                              {s.participantCount} peserta
                             </span>{" "}
                             <span className="text-slate-400">
-                              · {anonOf(s.participants[0])} dst.
+                              · {s.clientAnon} dst.
                             </span>
                           </>
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-600">
-                        {COUNSELORS[s.konselor]}
+                        {s.counselorName}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3.5">
                         {s.type === "individu" ? (
@@ -785,26 +1084,26 @@ export default function AdminKonselingPage() {
                         {s.durasi} menit
                       </td>
                       <td className="px-6 py-3.5">
-                        {s.status === SESSION_OUTCOME_STATUS.COMPLETED ? (
+                        {s.outcome === "completed" ? (
                           <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-[#15803d]">
-                            Selesai
+                            {s.statusLabel}
                           </span>
-                        ) : (
+                        ) : s.outcome === "cancelled" ? (
                           <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-1">
-                              <span className="rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700">
-                                Dibatalkan {s.cancelledBy}
-                              </span>
-                              {(s.cancelLead ?? 99) < 24 && (
-                                <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700">
-                                  Mendadak H-{s.cancelLead}j
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-400">
-                              {s.cancelReason}
-                            </p>
+                            <span className="rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700">
+                              {s.statusLabel}
+                            </span>
+                            {s.reason && (
+                              <p className="text-[11px] text-slate-400">
+                                {s.reason}
+                              </p>
+                            )}
                           </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800">
+                            <Clock className="h-3 w-3" />
+                            {s.statusLabel}
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -841,8 +1140,9 @@ export default function AdminKonselingPage() {
         ) : (
           <CounselorPanel
             sessions={P}
-            kon={kon}
-            onKonChange={setKon}
+            counselors={counselors}
+            selectedCounselorId={selectedCounselorId}
+            onCounselorChange={setSelectedCounselorId}
             period={period}
             range={range}
             onOpen={openDrawer}
@@ -865,10 +1165,10 @@ export default function AdminKonselingPage() {
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Detail Sesi
+              Detail Jadwal & Sesi
             </p>
             <h4 className="text-base font-bold">
-              {sesi ? `Sesi #${sesi.id}` : ""}
+              {sesi ? `Booking #${sesi.shortId}` : ""}
             </h4>
           </div>
           <button
@@ -894,13 +1194,20 @@ export default function AdminKonselingPage() {
               </span>
               <span
                 className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                  sesi.status === SESSION_OUTCOME_STATUS.COMPLETED
+                  sesi.outcome === "completed"
                     ? "bg-emerald-50 text-[#15803d]"
-                    : "bg-rose-50 text-rose-700"
+                    : sesi.outcome === "cancelled"
+                      ? "bg-rose-50 text-rose-700"
+                      : "bg-amber-50 text-amber-800"
                 }`}
               >
-                {sesi.status === SESSION_OUTCOME_STATUS.COMPLETED ? "Selesai" : "Dibatalkan"}
+                {sesi.statusLabel}
               </span>
+              {sesi.format && (
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                  {sesi.format}
+                </span>
+              )}
             </div>
 
             <dl className="grid grid-cols-2 gap-4 text-sm">
@@ -920,27 +1227,31 @@ export default function AdminKonselingPage() {
                 <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Konselor
                 </dt>
-                <dd className="mt-1 font-semibold">
-                  {COUNSELORS[sesi.konselor]}
-                </dd>
+                <dd className="mt-1 font-semibold">{sesi.counselorName}</dd>
               </div>
+              {sesi.room && (
+                <div className="col-span-2">
+                  <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Ruangan / Lokasi
+                  </dt>
+                  <dd className="mt-1 font-semibold">{sesi.room}</dd>
+                </div>
+              )}
               <div className="col-span-2">
                 <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   {sesi.type === "individu"
                     ? "Klien"
-                    : `Peserta (${sesi.participants.length})`}
+                    : `Peserta (${sesi.participantCount})`}
                 </dt>
                 <dd className="mt-1">
                   {sesi.type === "individu" ? (
-                    <p className="font-semibold">
-                      {anonOf(sesi.participants[0])}
-                    </p>
+                    <p className="font-semibold">{sesi.clientAnon}</p>
                   ) : (
                     <ul className="space-y-1 text-sm">
-                      {sesi.participants.map((p) => (
-                        <li key={p} className="flex items-center gap-2">
+                      {sesi.participantAnons.map((p, idx) => (
+                        <li key={idx} className="flex items-center gap-2">
                           <Lock className="h-3 w-3 text-slate-300" />
-                          {anonOf(p)}
+                          {p}
                         </li>
                       ))}
                     </ul>
@@ -949,71 +1260,31 @@ export default function AdminKonselingPage() {
               </div>
             </dl>
 
-            {sesi.status === SESSION_OUTCOME_STATUS.CANCELLED && (
-              <div
-                className={`space-y-2 rounded-2xl border p-4 ${
-                  (sesi.cancelLead ?? 99) < 24
-                    ? "border-amber-200 bg-amber-50"
-                    : "border-slate-200 bg-slate-50"
-                }`}
-              >
-                <p
-                  className={`text-xs font-bold uppercase tracking-wider ${
-                    (sesi.cancelLead ?? 99) < 24
-                      ? "text-amber-700"
-                      : "text-slate-500"
-                  }`}
-                >
-                  Pembatalan
+            {sesi.reason && (
+              <div className="space-y-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Keterangan Status
                 </p>
-                <p className="text-sm">
-                  <span className="text-slate-500">Dibatalkan oleh:</span>{" "}
-                  <b className="capitalize">{sesi.cancelledBy}</b>
-                </p>
-                <p className="text-sm">
-                  <span className="text-slate-500">Alasan:</span>{" "}
-                  {sesi.cancelReason}
-                </p>
-                <p className="text-sm">
-                  <span className="text-slate-500">Waktu:</span> H-
-                  {sesi.cancelLead} jam sebelum jadwal
-                  {(sesi.cancelLead ?? 99) < 24 && (
-                    <span className="ml-1 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                      Mendadak
-                    </span>
-                  )}
-                </p>
+                <p className="text-sm text-slate-700">{sesi.reason}</p>
               </div>
             )}
 
             <div>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Riwayat
+                Riwayat Sistem
               </p>
               <ol className="space-y-2 border-l-2 border-slate-100 pl-4 text-xs">
+                <li>{fmtDT(sesi.createdAt)} · Permintaan booking tercatat</li>
                 <li>
-                  {fmtDT(new Date(sesi.start.getTime() - 2 * DAY))} · Sesi
-                  dijadwalkan
+                  {fmtDT(sesi.start)} · Status saat ini: {sesi.statusLabel}
                 </li>
-                {sesi.status === SESSION_OUTCOME_STATUS.COMPLETED ? (
-                  <li>{fmtDT(sesi.start)} · Sesi selesai dicatat</li>
-                ) : (
-                  <li>
-                    {fmtDT(
-                      new Date(
-                        sesi.start.getTime() - (sesi.cancelLead ?? 0) * 3600e3,
-                      ),
-                    )}{" "}
-                    · Dibatalkan oleh {sesi.cancelledBy}
-                  </li>
-                )}
               </ol>
             </div>
 
             <p className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-[11px] text-slate-400">
               <Lock className="mt-0.5 h-3 w-3 shrink-0" />
-              Identitas klien ditampilkan dalam bentuk anonim. Setiap akses
-              dicatat dalam log audit.
+              Identitas klien ditampilkan dalam bentuk anonim. Catatan klinis
+              konseling bersifat rahasia dan tidak dapat diakses oleh Admin.
             </p>
           </div>
         )}
