@@ -53,6 +53,10 @@ export function slotsForCounselor(
     return [];
   }
 
+  if (counselor.availabilityByDate) {
+    return counselor.availabilityByDate[iso] ?? [];
+  }
+
   const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
   if (dayOfWeek === 0 || dayOfWeek === 6) return [];
   return counselor.schedule[DAYS[dayOfWeek - 1]] ?? [];

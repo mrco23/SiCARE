@@ -14,16 +14,19 @@ import {
   Stepper,
 } from "../../components/client/booking/BookingFormControls";
 import type { CounselingFormat, IntakeAnswer } from "../../types/counseling";
-import { CalendarPicker, TimePanel } from "../../components/client/booking/BookingCalendar";
+import {
+  CalendarPicker,
+  TimePanel,
+} from "../../components/client/booking/BookingCalendar";
 import {
   firstOfMonth,
-  formatBookingDate as fmtLong,
   formatBookingSlot as fmtSlot,
   minBookingDate as minDate,
   MAX_AHEAD_DAYS,
   type BookingSlot as Slot,
 } from "../../features/booking/utils/clientBookingCalendar";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   ArrowRight,
   Check,
@@ -32,21 +35,31 @@ import {
   MapPin,
   Search,
 } from "lucide-react";
-import { CLIENT_BOOKING_COUNSELORS as COUNSELORS } from "../../data/mock/clientCounselors";
-import { INTAKE_TOPICS as TOPICS, INTAKE_YESNO_OPTIONS as YESNO, INTAKE_SCALE_OPTIONS as SCALES, INTAKE_ESSAY_OPTIONS as ESSAYS } from "../../data/mock/intakeOptions";
-import { useBookingStore } from "../../features/booking/store/bookingStore";
+import type { BookingCounselor } from "../../data/mock/clientCounselors";
+import { sicareApi } from "../../lib/sicareApi";
+import {
+  getPublicAvailability,
+  getPublicCounselors,
+  type PublicAvailabilitySlot,
+  type PublicCounselor,
+} from "../../lib/publicApi";
+import { ApiError } from "../../lib/api";
+import { useAuth } from "../../features/auth/useAuth";
+import {
+  INTAKE_TOPICS as TOPICS,
+  INTAKE_YESNO_OPTIONS as YESNO,
+  INTAKE_SCALE_OPTIONS as SCALES,
+  INTAKE_ESSAY_OPTIONS as ESSAYS,
+} from "../../data/mock/intakeOptions";
 import {
   createEmptyClientIntakeForm,
   validateClientIntakeForm,
   type ClientIntakeForm as IntakeForm,
 } from "../../features/booking/utils/clientIntakeForm";
-import { DEMO_NOTIFICATION_RECIPIENTS, useNotificationStore } from "../../features/notification/notificationStore";
-
+import { normalizePhoneToE164 } from "../../features/client/profile/profileValidation";
 
 /* ========================= TIPE ========================= */
 type Step = 1 | 2 | 3 | 4 | 5 | 6; // 6 = selesai
-
-
 
 /* ========================= DATA (contoh) ========================= */
 // Di produksi, ambil dari API. Jadwal dan keahlian berasal dari profil konselor.
@@ -57,22 +70,6 @@ const STEPS = [
   "Form Awal",
   "Persetujuan",
 ];
-const SPESIALIS = [
-  "Kecemasan",
-  "Stres",
-  "Masalah Hubungan",
-  "Pengembangan Diri",
-];
-
-
-
-
-
-
-
-
-
-
 
 const ANSWER_STYLE: Record<IntakeAnswer, string> = {
   Ya: "bg-red-100 text-red-800",
@@ -81,16 +78,81 @@ const ANSWER_STYLE: Record<IntakeAnswer, string> = {
 };
 
 /* ========================= HALAMAN ========================= */
+function localDateISO(value: string) {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function localTime(value: string) {
+  return new Date(value).toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+function mapBookingCounselors(
+  profiles: PublicCounselor[],
+  slots: PublicAvailabilitySlot[],
+): BookingCounselor[] {
+  return profiles.map((profile, index) => {
+    const availabilityByDate: Record<string, string[]> = {};
+    slots
+      .filter((slot) => slot.counselor_id === profile.profile_id)
+      .forEach((slot) => {
+        const date = localDateISO(slot.starts_at);
+        const time = localTime(slot.starts_at);
+        availabilityByDate[date] = [...(availabilityByDate[date] ?? []), time];
+      });
+    const specialties = profile.specialties ?? [];
+    return {
+      id: index + 1,
+      entityId: profile.profile_id,
+      key: index === 0 ? "GY" : "RW",
+      name: profile.public_name,
+      historyName: profile.public_name,
+      initials: profile.public_name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase(),
+      profileId: profile.profile_id,
+      availabilityByDate,
+      short: profile.public_name,
+      gender: "Tidak dicantumkan",
+      degree: profile.headline ?? "Belum dicantumkan",
+      experience:
+        profile.years_experience == null
+          ? "Pengalaman belum dicantumkan"
+          : `${profile.years_experience} tahun pengalaman`,
+      room: "Ditentukan saat konfirmasi",
+      focus: profile.headline ?? "",
+      about: profile.bio ?? "Informasi profil belum tersedia.",
+      skills: specialties,
+      schedule: {},
+    };
+  });
+}
+
 export default function KlienPesananPage() {
-  const createBooking = useBookingStore((state) => state.createBooking);
-  const addNotification = useNotificationStore((state) => state.addNotification);
+  const { profile } = useAuth();
+  const location = useLocation();
+  const preselectedProfileId =
+    (location.state as { counselorProfileId?: string } | null)
+      ?.counselorProfileId ?? null;
   const submissionLock = useRef(false);
+  const [counselors, setCounselors] = useState<BookingCounselor[]>([]);
+  const [availabilitySlots, setAvailabilitySlots] = useState<
+    PublicAvailabilitySlot[]
+  >([]);
+  const [directoryLoading, setDirectoryLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestError, setRequestError] = useState("");
   const [step, setStep] = useState<Step>(1);
   const [layanan, setLayanan] = useState<CounselingFormat | null>(null);
   const [konselorId, setKonselorId] = useState<number | null>(null);
   const [q, setQ] = useState("");
   const [spesialis, setSpesialis] = useState("");
-  const [gender, setGender] = useState("");
   const [calMonth, setCalMonth] = useState<Date>(() => firstOfMonth(minDate()));
   const [selDate, setSelDate] = useState<string | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
@@ -98,17 +160,61 @@ export default function KlienPesananPage() {
   const [missing, setMissing] = useState<string[]>([]);
   const [formError, setFormError] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() + 1);
+    fromDate.setHours(0, 0, 0, 0);
+    const toDate = new Date();
+    toDate.setDate(toDate.getDate() + MAX_AHEAD_DAYS);
+    Promise.all([
+      getPublicCounselors(),
+      getPublicAvailability({ from: fromDate, to: toDate, limit: 100 }),
+    ])
+      .then(([profiles, slots]) => {
+        if (!active) return;
+        const mapped = mapBookingCounselors(profiles, slots);
+        setAvailabilitySlots(slots);
+        setCounselors(mapped);
+        if (preselectedProfileId) {
+          const matched = mapped.find(
+            (c) => c.entityId === preselectedProfileId,
+          );
+          if (matched) {
+            setKonselorId((prev) => prev ?? matched.id);
+          }
+        }
+      })
+      .catch((cause: unknown) => {
+        if (active)
+          setRequestError(
+            cause instanceof ApiError || cause instanceof Error
+              ? cause.message
+              : "Jadwal konselor tidak dapat dimuat.",
+          );
+      })
+      .finally(() => {
+        if (active) setDirectoryLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [preselectedProfileId]);
+
+  const COUNSELORS = counselors;
   const counselor = COUNSELORS.find((c) => c.id === konselorId) ?? null;
+  const specialtyOptions = [
+    ...new Set(COUNSELORS.flatMap((item) => item.skills)),
+  ].sort((a, b) => a.localeCompare(b));
 
   const filteredCounselors = useMemo(() => {
     const term = q.trim().toLowerCase();
     return COUNSELORS.filter(
       (c) =>
         (!term || c.name.toLowerCase().includes(term)) &&
-        (!spesialis || c.skills.includes(spesialis)) &&
-        (!gender || c.gender === gender),
+        (!spesialis || c.skills.includes(spesialis)),
     );
-  }, [q, spesialis, gender]);
+  }, [COUNSELORS, q, spesialis]);
 
   const goTo = (n: Step) => {
     setStep(n);
@@ -143,55 +249,150 @@ export default function KlienPesananPage() {
 
   const handleNextFromForm = () => {
     const miss = validate();
-    setMissing(miss);
+    if (layanan === "Kelompok") {
+      const memberLines = form.groupMembers
+        .split(/\r?\n/)
+        .map((name) => name.trim())
+        .filter(Boolean);
+      if (memberLines.length !== Number(form.groupSize) - 1) {
+        miss.push("groupMembers");
+      } else {
+        const hasInvalidPhone = memberLines.some((line) => {
+          const parts = line
+            .split(/[,;\t]|\s+-\s+/)
+            .map((p) => p.trim())
+            .filter(Boolean);
+          let phone = parts.length > 1 ? parts[1] : null;
+          if (!phone) {
+            const match = line.match(
+              /^(.*?)\s+((?:\+62|62|08)[0-9\s-]{7,15})$/,
+            );
+            if (match) phone = match[2].trim();
+          }
+          return !phone || !normalizePhoneToE164(phone);
+        });
+        if (hasInvalidPhone) miss.push("groupMembers");
+      }
+    }
+    setMissing([...new Set(miss)]);
     setFormError(miss.length > 0);
     if (miss.length === 0) goTo(5);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!counselor || !slot || !layanan || submissionLock.current) return;
+    const selectedAvailability = availabilitySlots.find(
+      (candidate) =>
+        candidate.counselor_id === counselor.entityId &&
+        localDateISO(candidate.starts_at) === slot.date &&
+        localTime(candidate.starts_at) === slot.time &&
+        candidate.status === "available",
+    );
+    if (!selectedAvailability) {
+      setRequestError(
+        "Jadwal yang dipilih sudah tidak tersedia. Muat ulang halaman dan pilih jadwal lain.",
+      );
+      return;
+    }
+    const groupMemberLines = form.groupMembers
+      .split(/\r?\n/)
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (
+      layanan === "Kelompok" &&
+      groupMemberLines.length !== Number(form.groupSize) - 1
+    ) {
+      setMissing((previous) => [...new Set([...previous, "groupMembers"])]);
+      setRequestError(
+        "Jumlah nama anggota harus sama dengan jumlah peserta dikurangi satu, karena jumlah peserta sudah termasuk kamu.",
+      );
+      return;
+    }
+
+    let parsedGroupParticipants: Array<{
+      display_name: string;
+      full_name: string;
+      phone_e164: string | null;
+      is_representative: boolean;
+    }> = [];
+
+    if (layanan === "Kelompok") {
+      parsedGroupParticipants = groupMemberLines.map((line) => {
+        const parts = line
+          .split(/[,;\t]|\s+-\s+/)
+          .map((p) => p.trim())
+          .filter(Boolean);
+        let name = parts[0] || line.trim();
+        let phone = parts.length > 1 ? parts[1] : null;
+        if (!phone) {
+          const match = line.match(/^(.*?)\s+((?:\+62|62|08)[0-9\s-]{7,15})$/);
+          if (match) {
+            name = match[1].trim();
+            phone = match[2].trim();
+          }
+        }
+        const phoneE164 = phone ? normalizePhoneToE164(phone) : null;
+        return {
+          display_name: name,
+          full_name: name,
+          phone_e164: phoneE164,
+          is_representative: false,
+        };
+      });
+
+      const invalidMember = parsedGroupParticipants.find((p) => !p.phone_e164);
+      if (invalidMember) {
+        setMissing((previous) => [...new Set([...previous, "groupMembers"])]);
+        setRequestError(
+          `Nomor WhatsApp untuk anggota "${invalidMember.display_name}" tidak valid atau belum diisi. Format per baris: Nama Lengkap, Nomor WhatsApp (contoh: ${invalidMember.display_name}, 081234567890).`,
+        );
+        return;
+      }
+    }
+
+    const representativeParticipant = {
+      display_name: profile?.full_name?.trim() || "Perwakilan klien",
+      full_name: profile?.full_name?.trim() || "Perwakilan klien",
+      phone_e164: profile?.phone_e164
+        ? normalizePhoneToE164(profile.phone_e164)
+        : null,
+      is_representative: true,
+    };
+
     submissionLock.current = true;
-
-    // Simpan hanya metadata booking. Jawaban intake tidak dimasukkan ke store.
-    const booking = createBooking({
-      clientId: DEMO_NOTIFICATION_RECIPIENTS.client,
-      clientName: "Klien Demo",
-      counselorId: counselor.entityId,
-      counselorName: counselor.name,
-      serviceType: layanan === "Kelompok" ? "GROUP" : "INDIVIDUAL",
-      date: slot.date,
-      startTime: slot.time,
-      // Jangan menyalin jawaban/topik intake ke state global; detail intake tetap lokal.
-      topic: "Konseling",
-    });
-
-    const formattedDate = fmtLong(slot.date);
-    addNotification({
-      recipientId: DEMO_NOTIFICATION_RECIPIENTS.client,
-      recipientRole: "client",
-      title: "Permintaan booking berhasil dikirim",
-      message: `Permintaan konseling dengan ${counselor.name} pada ${formattedDate}, ${slot.time} telah dikirim dan menunggu konfirmasi.`,
-      href: "/klien/riwayat",
-    });
-    addNotification({
-      recipientId: booking.counselorId,
-      recipientRole: "counselor",
-      title: "Permintaan booking baru",
-      message: `${booking.clientName} mengajukan konseling ${layanan.toLowerCase()} pada ${formattedDate}, ${slot.time}.`,
-      href: "/konselor/permintaan",
-    });
-    addNotification({
-      recipientId: DEMO_NOTIFICATION_RECIPIENTS.admin,
-      recipientRole: "admin",
-      title: "Booking baru dari klien",
-      message: `${booking.clientName} mengajukan konseling dengan ${counselor.name}.`,
-      href: "/admin",
-    });
-    goTo(6);
+    setIsSubmitting(true);
+    setRequestError("");
+    try {
+      await sicareApi.createBooking({
+        counselor_id: counselor.entityId,
+        availability_slot_id: selectedAvailability.id,
+        service_type: layanan === "Kelompok" ? "group" : "individual",
+        ...(layanan === "Kelompok"
+          ? {
+              group_name: form.groupName.trim(),
+              participants: [
+                representativeParticipant,
+                ...parsedGroupParticipants,
+              ],
+            }
+          : { group_name: null, participants: [] }),
+      });
+      goTo(6);
+    } catch (cause) {
+      submissionLock.current = false;
+      setRequestError(
+        cause instanceof ApiError || cause instanceof Error
+          ? cause.message
+          : "Permintaan booking tidak dapat dikirim.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleRestart = () => {
     submissionLock.current = false;
+    setIsSubmitting(false);
     setStep(1);
     setLayanan(null);
     setKonselorId(null);
@@ -201,6 +402,7 @@ export default function KlienPesananPage() {
     setForm(createEmptyClientIntakeForm());
     setMissing([]);
     setFormError(false);
+    setRequestError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -210,6 +412,19 @@ export default function KlienPesananPage() {
         title="Booking Jadwal Konseling"
         description="Langkah mudah untuk mendapatkan dukungan yang kamu butuhkan."
       />
+      {requestError && (
+        <p
+          role="alert"
+          className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        >
+          {requestError}
+        </p>
+      )}
+      {directoryLoading && (
+        <p className="mt-4 rounded-xl bg-white p-3 text-sm text-slate-600">
+          Memuat konselor dan jadwal dari backend...
+        </p>
+      )}
 
       {step <= 5 && <Stepper step={step} steps={STEPS} />}
 
@@ -255,8 +470,9 @@ export default function KlienPesananPage() {
               <div>
                 <p className="font-semibold text-gray-900">Privasi Terjaga</p>
                 <p className="text-sm text-gray-600">
-                  Informasi awal hanya digunakan untuk membantu konselor
-                  mempersiapkan sesi.
+                  Formulir awal belum terhubung ke penyimpanan backend. Jawaban
+                  tidak dikirim kepada konselor dan hanya tersedia sementara di
+                  halaman ini.
                 </p>
               </div>
             </div>
@@ -301,18 +517,9 @@ export default function KlienPesananPage() {
               className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary"
             >
               <option value="">Semua Spesialis</option>
-              {SPESIALIS.map((s) => (
+              {specialtyOptions.map((s) => (
                 <option key={s}>{s}</option>
               ))}
-            </select>
-            <select
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary"
-            >
-              <option value="">Semua Jenis Kelamin</option>
-              <option>Perempuan</option>
-              <option>Laki-laki</option>
             </select>
           </div>
 
@@ -401,10 +608,7 @@ export default function KlienPesananPage() {
                     {counselor.degree}
                   </p>
                   <p className="mt-1 flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin
-                      className="h-4 w-4 text-primary"
-                      strokeWidth={2}
-                    />
+                    <MapPin className="h-4 w-4 text-primary" strokeWidth={2} />
                     {counselor.room}
                   </p>
                 </div>
@@ -494,9 +698,20 @@ export default function KlienPesananPage() {
             Form Awal
           </h2>
           <p className="mt-1 text-sm text-gray-600">
-            Isi informasi berikut agar konselor dapat mempersiapkan sesi.
-            Jawabanmu hanya dapat dilihat oleh konselor yang kamu pilih.
+            Formulir ini membantu kamu merangkum kebutuhan sebelum sesi. Saat
+            ini jawaban belum disimpan atau dikirim kepada konselor melalui
+            sistem SiCARE.
           </p>
+          <div
+            role="note"
+            className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900"
+          >
+            Demi privasi, jawaban formulir awal hanya berada sementara di
+            halaman ini. Jawaban akan hilang saat alur direset atau halaman
+            ditutup. Jangan mengandalkan formulir ini untuk menyampaikan
+            informasi yang membutuhkan tindak lanjut segera. Sampaikan kebutuhan
+            penting secara langsung kepada konselor.
+          </div>
 
           <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
             {[
@@ -557,16 +772,22 @@ export default function KlienPesananPage() {
                 </Field>
 
                 <Field
-                  label="Nama anggota kelompok"
+                  label="Daftar Anggota Kelompok & No. WhatsApp"
                   error={missing.includes("groupMembers")}
-                  errorText="Wajib diisi."
+                  errorText="Wajib diisi sesuai jumlah anggota dengan format: Nama Lengkap, Nomor WhatsApp."
                 >
+                  <p className="mb-2 text-xs text-gray-500">
+                    Tuliskan satu anggota per baris dengan format:{" "}
+                    <strong>Nama Lengkap, Nomor WhatsApp</strong>. Setiap
+                    anggota akan menerima tautan persetujuan digital via
+                    WhatsApp.
+                  </p>
                   <textarea
                     rows={4}
                     maxLength={800}
                     value={form.groupMembers}
                     onChange={(e) => setField("groupMembers", e.target.value)}
-                    placeholder="Tulis satu nama per baris"
+                    placeholder="Contoh:&#10;Budi Santoso, 081234567890&#10;Siti Rahma, 089876543210"
                     className={INPUT}
                   />
                 </Field>
@@ -580,15 +801,17 @@ export default function KlienPesananPage() {
                   <div key={key} className="py-4">
                     <p className="text-sm text-gray-700">{label}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {(["Ya", "Mungkin", "Tidak"] as IntakeAnswer[]).map((v) => (
-                        <Pill
-                          key={v}
-                          selected={form[key] === v}
-                          onClick={() => setField(key, v)}
-                        >
-                          {v}
-                        </Pill>
-                      ))}
+                      {(["Ya", "Mungkin", "Tidak"] as IntakeAnswer[]).map(
+                        (v) => (
+                          <Pill
+                            key={v}
+                            selected={form[key] === v}
+                            onClick={() => setField(key, v)}
+                          >
+                            {v}
+                          </Pill>
+                        ),
+                      )}
                     </div>
                     {key === "selfHarm" &&
                       (form.selfHarm === "Ya" ||
@@ -731,7 +954,7 @@ export default function KlienPesananPage() {
                   value={counselor.short.replace(/\n/g, " ")}
                 />
                 <Kv label="Jadwal" value={fmtSlot(slot)} />
-                <Kv label="Ruangan" value={counselor.room} />
+                <Kv label="Ruangan" value="Ditentukan saat konfirmasi" />
                 <Kv label="Durasi" value="60 menit" />
               </dl>
             </section>
@@ -842,7 +1065,7 @@ export default function KlienPesananPage() {
             <CheckRow
               checked={form.consent}
               onChange={(v) => setField("consent", v)}
-              label="Saya setuju informasi ini dibagikan kepada konselor yang saya pilih untuk persiapan sesi."
+              label="Saya memahami jawaban formulir awal belum disimpan atau dikirim kepada konselor melalui sistem ini."
             />
           </div>
 
@@ -850,11 +1073,18 @@ export default function KlienPesananPage() {
             <BackButton onClick={() => goTo(4)} />
             <button
               type="button"
-              onClick={handleSubmit}
-              disabled={!(form.declared && form.consent)}
+              onClick={() => void handleSubmit()}
+              disabled={
+                !(form.declared && form.consent) ||
+                isSubmitting ||
+                directoryLoading ||
+                !counselor ||
+                !slot ||
+                !layanan
+              }
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Kirim Janji Temu{" "}
+              {isSubmitting ? "Mengirim..." : "Kirim Janji Temu"}{" "}
               <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
             </button>
           </div>
@@ -877,6 +1107,11 @@ export default function KlienPesananPage() {
             </p>
             <p className="mt-2 text-sm text-gray-500">
               Status: menunggu konfirmasi konselor.
+            </p>
+            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs leading-relaxed text-amber-900">
+              Catatan: jawaban formulir awal tidak ikut dikirim bersama booking
+              dan tidak tersedia bagi konselor. Sampaikan informasi yang
+              diperlukan secara langsung kepada konselor saat sesi.
             </p>
             <button
               type="button"

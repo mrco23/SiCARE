@@ -1,388 +1,64 @@
-import { PageHeader } from "../../components/shared";
-import {
-  CLIENT_BOOKING_STATUS,
-  type ClientDashboardBookingStatus,
-} from "../../constants/status";
-import { useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useBookingStore } from "../../features/booking/store/bookingStore";
-import { selectLatestClientBooking } from "../../features/booking/selectors/clientBookingSelectors";
-import { DEMO_NOTIFICATION_RECIPIENTS } from "../../features/notification/notificationStore";
-import { parseLocalISODate } from "../../lib/dateUtils";
-import { DetailRow } from "../../components/client/dashboard/DetailRow";
-import {
-  AlarmClock,
-  ArrowRight,
-  ArrowUpRight,
-  CalendarCheck,
-  CalendarDays,
-  CalendarPlus,
-  Activity,
-  ChevronsRight,
-  ClipboardList,
-  Clock,
-  History,
-  MapPin,
-  UserRound,
-  type LucideIcon,
-} from "lucide-react";
-
-/* ========================= TIPE & DATA (contoh) ========================= */
-// Di produksi, ambil dari API sesuai akun klien yang sedang login.
-type NextSession = {
-  date: Date;
-  time: string;
-  counselor: string;
-  service: string;
-  room: string;
-};
-
-type LastBooking = {
-  service: string;
-  counselor: string;
-  status: ClientDashboardBookingStatus;
-  requestedDate: Date;
-};
-
-const USER_NAME = "Marco";
-
-const STATUS_STYLE: Record<
-  ClientDashboardBookingStatus,
-  { cls: string; label: string }
-> = {
-  [CLIENT_BOOKING_STATUS.PENDING]: {
-    cls: "bg-amber-50 text-amber-700",
-    label: "Menunggu Konfirmasi",
-  },
-  [CLIENT_BOOKING_STATUS.SCHEDULED]: {
-    cls: "bg-primary-soft text-primary",
-    label: "Terjadwal",
-  },
-  [CLIENT_BOOKING_STATUS.COMPLETED]: {
-    cls: "bg-gray-100 text-gray-700",
-    label: "Selesai",
-  },
-  [CLIENT_BOOKING_STATUS.CANCELLED]: {
-    cls: "bg-red-50 text-red-700",
-    label: "Dibatalkan",
-  },
-  [CLIENT_BOOKING_STATUS.REJECTED]: {
-    cls: "bg-red-50 text-red-700",
-    label: "Ditolak",
-  },
-};
-
-const LAST_BOOKING: LastBooking | null = {
-  service: "Konseling Individu",
-  counselor: "Giovanna Yudi, S. Psi., M. Psi.",
-  status: CLIENT_BOOKING_STATUS.PENDING,
-  requestedDate: new Date(2026, 9, 15),
-};
-
-const ACCESS_CARDS: {
-  to: string;
-  title: string;
-  desc: string;
-  icon: LucideIcon;
-  highlight?: boolean;
-}[] = [
-  {
-    to: "/klien/pesanan",
-    title: "Booking Jadwal",
-    desc: "Atur jadwal konseling sesuai kebutuhan.",
-    icon: CalendarPlus,
-    highlight: true,
-  },
-  {
-    to: "/klien/konselor",
-    title: "Profile Konselor",
-    desc: "Lihat data konselor dan keahliannya.",
-    icon: UserRound,
-  },
-  {
-    to: "/klien/aktivitas",
-    title: "Aktivitas Saya",
-    desc: "Lihat aktivitas dan booking yang sedang berjalan.",
-    icon: Activity,
-  },
-  {
-    to: "/klien/riwayat",
-    title: "Riwayat",
-    desc: "Lihat riwayat konseling dan booking kamu.",
-    icon: History,
-  },
-];
-
-/* ========================= HELPER ========================= */
-const addDays = (d: Date, n: number) =>
-  new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-const fmtDateLong = (d: Date) =>
-  d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
-/* ========================= HALAMAN ========================= */
-export default function BerandaKlienPage() {
-  const sharedBookings = useBookingStore((state) => state.bookings);
-  const latestSharedBooking = useMemo(
-    () => selectLatestClientBooking(sharedBookings, DEMO_NOTIFICATION_RECIPIENTS.client),
-    [sharedBookings],
-  );
-  const lastBooking: LastBooking | null = latestSharedBooking
-    ? {
-        service: latestSharedBooking.serviceLabel,
-        counselor: latestSharedBooking.counselorName,
-        status: latestSharedBooking.clientStatus,
-        requestedDate: parseLocalISODate(latestSharedBooking.date),
-      }
-    : LAST_BOOKING;
-  const today = useMemo(() => new Date(), []);
-  const tomorrow = useMemo(() => addDays(today, 1), [today]);
-
-  const upcoming: NextSession | null = useMemo(
-    () => ({
-      date: addDays(today, 1), // contoh: besok, untuk memunculkan banner
-      time: "10:00",
-      counselor: "Giovanna Yudi, S. Psi., M. Psi.",
-      service: "Konseling Individu",
-      room: "Ruang Konseling 01",
-    }),
-    [today],
-  );
-
-  const showTomorrowBanner = !!upcoming && sameDay(upcoming.date, tomorrow);
-
-  return (
-    <div className="space-y-6">
-      {/* ================= SAPAAN ================= */}
-      <PageHeader
-        title={
-          <>
-            Selamat datang kembali,{" "}
-            <span className="text-primary">{USER_NAME}!</span>{" "}
-            <span className="inline-block">👋</span>
-          </>
-        }
-        description="Jaga kesehatan mentalmu, karena kamu juga penting."
-      >
-        <p className="text-sm leading-relaxed text-gray-600 sm:text-base">
-          Disini tempat kamu bisa berbagi, bercerita, didengar, dan mendapatkan
-          dukungan.
-        </p>
-        <Link
-          to="/klien/pesanan"
-          className="mt-5 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-white px-5 py-2.5 text-sm font-semibold text-primary shadow-sm transition hover:bg-primary-soft sm:text-[15px]"
-        >
-          Buat janji konseling
-          <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
-        </Link>
-      </PageHeader>
-
-      {/* ================= JADWAL & STATUS ================= */}
-      <section className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        {/* Jadwal berikutnya */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-[0_20px_50px_rgba(0,0,0,0.06)] sm:p-6">
-          <div className="flex items-center gap-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-              <CalendarDays className="h-5 w-5" strokeWidth={1.8} />
-            </span>
-            <h2 className="font-display text-lg font-bold sm:text-xl">
-              Jadwal konseling berikutnya
-            </h2>
-          </div>
-
-          {!upcoming ? (
-            <div className="mt-5 rounded-2xl border border-dashed border-gray-300 p-6 text-center">
-              <p className="text-sm font-semibold text-gray-700">
-                Belum ada jadwal konseling
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Buat janji konseling untuk memulainya.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,240px)_1fr] sm:items-start">
-                {/* Tanggal */}
-                <div className="rounded-2xl bg-[#f3f8ff] p-4">
-                  <div className="flex items-start gap-3">
-                    <CalendarDays
-                      className="mt-1 h-6 w-6 shrink-0 text-gray-800"
-                      strokeWidth={1.8}
-                    />
-                    <div>
-                      <p className="text-base text-gray-800">
-                        {upcoming.date.toLocaleDateString("id-ID", {
-                          weekday: "long",
-                        })}
-                      </p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {fmtDateLong(upcoming.date)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center gap-3 text-gray-600">
-                    <Clock className="h-5 w-5 shrink-0" strokeWidth={1.8} />
-                    <span className="text-base">{upcoming.time} WITA</span>
-                  </div>
-                </div>
-
-                {/* Detail */}
-                <div className="space-y-3">
-                  <DetailRow
-                    icon={UserRound}
-                    label="Konselor"
-                    value={upcoming.counselor}
-                  />
-                  <DetailRow
-                    icon={ClipboardList}
-                    label="Layanan"
-                    value={upcoming.service}
-                  />
-                  <DetailRow
-                    icon={MapPin}
-                    label="Lokasi"
-                    value={upcoming.room}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-5 flex justify-end">
-                <Link
-                  to="/klien/aktivitas"
-                  className="inline-flex items-center gap-2 rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary-soft"
-                >
-                  Lihat Detail
-                  <ChevronsRight className="h-4 w-4" strokeWidth={2} />
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Status booking terakhir */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-[0_20px_50px_rgba(0,0,0,0.06)] sm:p-6">
-          <div className="flex items-center gap-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-              <CalendarCheck className="h-5 w-5" strokeWidth={1.8} />
-            </span>
-            <h2 className="font-display text-lg font-bold sm:text-xl">
-              Status Booking Terakhir
-            </h2>
-          </div>
-
-          {!lastBooking ? (
-            <div className="mt-5 rounded-2xl border border-dashed border-gray-300 p-5 text-center text-sm text-gray-500">
-              Belum ada booking.
-            </div>
-          ) : (
-            <div className="mt-5">
-              <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
-                  <UserRound className="h-5 w-5" strokeWidth={1.8} />
-                </span>
-                <div>
-                  <p className="font-semibold text-gray-700">
-                    {lastBooking.service}
-                  </p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {lastBooking.counselor}
-                  </p>
-                </div>
-              </div>
-
-              <span
-                className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${STATUS_STYLE[lastBooking.status].cls}`}
-              >
-                {STATUS_STYLE[lastBooking.status].label}
-              </span>
-
-              <div className="mt-4">
-                <p className="text-sm text-gray-500">Tanggal diminta</p>
-                <p className="mt-0.5 font-semibold text-gray-900">
-                  {fmtDateLong(lastBooking.requestedDate)}
-                </p>
-              </div>
-
-              <div className="mt-5 flex justify-end">
-                <Link
-                  to="/klien/riwayat"
-                  className="inline-flex items-center gap-2 rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary-soft"
-                >
-                  Lihat Detail
-                  <ChevronsRight className="h-4 w-4" strokeWidth={2} />
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ================= BANNER PENGINGAT BESOK ================= */}
-      {showTomorrowBanner && upcoming && (
-        <div className="flex items-center gap-3 rounded-2xl border border-[#36c08f]/40 bg-primary-soft p-3 sm:p-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-primary">
-            <AlarmClock className="h-5 w-5" strokeWidth={1.8} />
-          </span>
-          <div>
-            <p className="text-base font-semibold text-gray-900">
-              Besok <span className="mx-1 text-gray-400">•</span>{" "}
-              {upcoming.time} WITA
-            </p>
-            <p className="text-sm text-gray-600">
-              Jangan lupa hadir sesuai jadwal!
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ================= AKSES CEPAT ================= */}
-      <section className="rounded-2xl bg-gray-100/60 p-4 sm:p-6">
-        <div className="flex items-center justify-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-soft text-primary">
-            <ChevronsRight className="h-5 w-5" strokeWidth={1.8} />
-          </span>
-          <h2 className="font-display text-xl font-bold text-primary sm:text-2xl">
-            Akses Cepat
-          </h2>
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {ACCESS_CARDS.map((card) => {
-            const Icon = card.icon;
-            return (
-              <Link
-                key={card.to}
-                to={card.to}
-                className="group flex min-h-[130px] flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-primary-soft px-3 py-1 text-sm font-semibold text-primary">
-                  <Icon className="h-4 w-4" strokeWidth={1.8} />
-                  {card.title}
-                </span>
-                <p className="mt-3 flex-1 text-sm text-gray-600">{card.desc}</p>
-                <span
-                  className={`ml-auto flex h-7 w-7 items-center justify-center rounded-full text-white transition group-hover:translate-x-0.5 ${
-                    card.highlight
-                      ? "bg-primary"
-                      : "bg-gray-300 group-hover:bg-primary"
-                  }`}
-                >
-                  {card.highlight ? (
-                    <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                  ) : (
-                    <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
-                  )}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
+import { CalendarClock, CalendarPlus, CheckCircle2, Clock3, MessageSquareText, RefreshCw } from "lucide-react";
+import { PageHeader } from "../../components/shared";
+import { useAuth } from "../../features/auth/useAuth";
+import { sicareApi, type BookingRecordApi, type SessionRecordApi, type FeedbackRecordApi } from "../../lib/sicareApi";
+import { getPublicCounselors } from "../../lib/publicApi";
+import { ApiError } from "../../lib/api";
+const dateTime = (value: string) => new Date(value).toLocaleString("id-ID", { dateStyle: "full", timeStyle: "short" });
+export default function KlienBerandaPage() {
+  const { profile } = useAuth();
+  const [bookings, setBookings] = useState<BookingRecordApi[]>([]);
+  const [sessions, setSessions] = useState<SessionRecordApi[]>([]);
+  const [feedback, setFeedback] = useState<FeedbackRecordApi[]>([]);
+  const [counselorNames, setCounselorNames] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [now, setNow] = useState(0);
+  const fetchDashboard = useCallback(async () => {
+    const [bookingRows, sessionRows, feedbackRows] = await Promise.all([
+      sicareApi.bookings(100), sicareApi.sessions(100), sicareApi.myFeedback(),
+    ]);
+    // Booking/session list DTOs expose counselor_id, not nested counselor objects.
+    // Use the public directory for display names without making the dashboard depend on it.
+    const counselorRows = await getPublicCounselors().catch(() => []);
+    const counselorNameMap = Object.fromEntries(
+      counselorRows.map((counselor) => [counselor.profile_id, counselor.public_name] as const),
+    );
+    return { bookingRows, sessionRows, feedbackRows, counselorNameMap, currentTime: Date.now() };
+  }, []);
+  const applyDashboard = useCallback((result: Awaited<ReturnType<typeof fetchDashboard>>) => {
+    setBookings(result.bookingRows);
+    setSessions(result.sessionRows);
+    setFeedback(result.feedbackRows);
+    setCounselorNames(result.counselorNameMap);
+    setNow(result.currentTime);
+    setError("");
+  }, []);
+  const reportLoadError = useCallback((cause: unknown) => {
+    setError(cause instanceof ApiError || cause instanceof Error ? cause.message : "Beranda klien tidak dapat dimuat.");
+  }, []);
+  useEffect(() => {
+    let active = true;
+    void fetchDashboard()
+      .then((result) => { if (active) applyDashboard(result); })
+      .catch((cause: unknown) => { if (active) reportLoadError(cause); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [fetchDashboard, applyDashboard, reportLoadError]);
+  const refresh = () => { setLoading(true); setError(""); void fetchDashboard().then(applyDashboard).catch(reportLoadError).finally(() => setLoading(false)); };
+  const pending = bookings.filter((item) => ["waiting_confirmation", "reschedule_requested"].includes(item.status)).length;
+  const confirmed = bookings.filter((item) => item.status === "confirmed").length;
+  const completed = sessions.filter((item) => item.status === "completed").length;
+  const upcoming = sessions
+    .filter((item) => ["scheduled", "ongoing"].includes(item.status))
+    .filter((item) => item.status === "ongoing" || Date.parse(item.starts_at) >= now)
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
+  const nextBooking = bookings
+    .filter((item) => ["waiting_confirmation", "confirmed", "reschedule_requested"].includes(item.status))
+    .filter((item) => Date.parse(item.starts_at) >= now)
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
+  const cards = [{ label: "Menunggu konfirmasi", value: pending, icon: Clock3 }, { label: "Booking dikonfirmasi", value: confirmed, icon: CalendarClock }, { label: "Sesi selesai", value: completed, icon: CheckCircle2 }, { label: "Feedback dikirim", value: feedback.length, icon: MessageSquareText }];
+  return <div className="space-y-5"><PageHeader title={`Halo, ${profile?.full_name ?? "Klien"}`} description="Berikut ringkasan aktivitas konselingmu dari database SiCARE." actions={<button type="button" onClick={refresh} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"><RefreshCw className="h-4 w-4" /> Muat ulang</button>} />{error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}{loading && <p className="rounded-xl bg-white p-4 text-sm text-slate-600">Memuat ringkasan...</p>}<section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{cards.map(({ label, value, icon: Icon }) => <article key={label} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5"><div><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-2 text-2xl font-bold text-slate-900">{value}</p></div><Icon className="h-5 w-5 text-primary" /></article>)}</section><section className="grid gap-4 lg:grid-cols-2"><article className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center gap-2"><CalendarClock className="h-5 w-5 text-primary" /><h2 className="font-bold">Jadwal sesi berikutnya</h2></div>{upcoming ? <><p className="mt-3 font-semibold text-slate-900">{dateTime(upcoming.starts_at)}</p><p className="mt-1 text-sm text-slate-600">{counselorNames[upcoming.counselor_id] ?? "Konselor"} · {upcoming.status === "ongoing" ? "Sedang berlangsung" : "Terjadwal"}</p></> : nextBooking ? <><p className="mt-3 font-semibold text-slate-900">{dateTime(nextBooking.starts_at)}</p><p className="mt-1 text-sm text-slate-600">{counselorNames[nextBooking.counselor_id] ?? "Konselor"} · {nextBooking.status === "reschedule_requested" ? "Perlu memilih jadwal ulang" : "Menunggu konfirmasi booking"}</p></> : <p className="mt-3 text-sm text-slate-500">Belum ada jadwal aktif.</p>}<Link to="/klien/aktivitas" className="mt-4 inline-flex text-sm font-semibold text-primary">Lihat aktivitas</Link></article><article className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center gap-2"><CalendarPlus className="h-5 w-5 text-primary" /><h2 className="font-bold">Butuh sesi konseling?</h2></div><p className="mt-3 text-sm leading-relaxed text-slate-600">Pilih konselor dan jadwal yang benar-benar tersedia. Permintaan akan dikirim untuk konfirmasi konselor.</p><Link to="/klien/pesanan" className="mt-4 inline-flex rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white">Buat booking</Link></article></section></div>;
 }
-
