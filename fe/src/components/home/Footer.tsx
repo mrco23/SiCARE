@@ -4,7 +4,7 @@ const navigasi = [
   { label: "Beranda", to: "/" },
   { label: "Tentang Kami", to: "/tentang-kami" },
   { label: "Panduan", to: "/panduan" },
-  { label: "Konselor", to: "/konselor" },
+  { label: "Konselor", to: "/profil-konselor" },
   { label: "Mood Tracker", to: "/mood-tracker" },
   { label: "Feedback", to: "/feedback" },
 ];
@@ -13,7 +13,7 @@ const informasi = [
   { label: "Beranda", to: "/" },
   { label: "Tentang Kami", to: "/tentang-kami" },
   { label: "Panduan", to: "/panduan" },
-  { label: "Konselor", to: "/konselor" },
+  { label: "Konselor", to: "/profil-konselor" },
   { label: "Mood Tracker", to: "/mood-tracker" },
   { label: "Feedback", to: "/feedback" },
 ];

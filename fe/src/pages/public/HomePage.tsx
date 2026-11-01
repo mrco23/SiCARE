@@ -4,13 +4,15 @@ import {
   ClipboardList,
   Heart,
   Lock,
+  ShieldCheck,
   SquarePen,
   UserRoundSearch,
   Star,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import type { ElementType } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getPublicAcademicPeriods,
   getPublicCounselors,
@@ -28,22 +30,21 @@ const container = "mx-auto w-[84%] sm:w-[76%] md:w-[72%] lg:w-[66%] xl:w-[80%]";
 const DEFAULT_HERO_MOTIVATION =
   "Kamu tidak harus menghadapi semuanya sendirian.";
 
-
 const reasons = [
   {
     icon: Heart,
     title: "Mengurangi beban & Temukan solusi",
-    text: "Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id sit non possimus facilis aliquip libero officia occaecat et qui non atque.",
+    text: "Dapatkan ruang refleksi dan bimbingan terarah bersama konselor untuk mengurai tantangan akademik, relasi sosial, maupun penyesuaian diri di kampus.",
   },
   {
     icon: Lock,
-    title: "Kerahasiaan terjaga",
-    text: "Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id sit non possimus facilis aliquip libero officia occaecat et qui.",
+    title: "Privasi & Kerahasiaan Terjamin",
+    text: "Setiap sesi konseling berpedoman pada kode etik profesional dan dilindungi persetujuan Digital Informed Consent demi menjaga kerahasiaan data Anda.",
   },
   {
-    icon: Lock,
-    title: "Kerahasiaan terjaga",
-    text: "Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse temporibus id sit non possimus facilis aliquip libero officia occaecat et qui.",
+    icon: ShieldCheck,
+    title: "Pendampingan Inklusif & Terbuka",
+    text: "Layanan konseling terbuka bagi seluruh mahasiswa dan sivitas akademika Unika De La Salle Manado dengan pendekatan empati tanpa diskriminasi.",
   },
 ];
 
@@ -52,27 +53,168 @@ const steps = [
     no: "01",
     title: "Memilih Layanan Konseling",
     icon: SquarePen,
-    text: "Lorem ipsum dolor sit amet consectetur adipiscing elit anim enim ipsum similique distinctio consectetur nisi q cupiditate quidem libero",
+    text: "Tentukan bentuk pendampingan yang dibutuhkan, baik konseling individu personal maupun konseling kelompok bersama rekan.",
   },
   {
     no: "02",
     title: "Memilih Konselor",
     icon: UserRoundSearch,
-    text: "Lorem ipsum dolor sit amet consectetur adipiscing elit anim enim ipsum similique distinctio consectetur nisi q cupiditate quidem libero",
+    text: "Pelajari fokus keahlian dan profil konselor berwenang yang siap mendampingi kebutuhan perkembangan Anda.",
   },
   {
     no: "03",
     title: "Memilih Jadwal Tersedia",
     icon: CalendarDays,
-    text: "Lorem ipsum dolor sit amet consectetur adipiscing elit anim enim ipsum similique distinctio consectetur nisi q cupiditate quidem libero",
+    text: "Pilih waktu sesi yang paling sesuai dari jadwal yang telah dibuka konselor pada periode akademik aktif.",
   },
   {
     no: "04",
     title: "Mengisi Informasi",
     icon: ClipboardList,
-    text: "Lorem ipsum dolor sit amet consectetur adipiscing elit anim enim ipsum similique distinctio consectetur nisi q cupiditate quidem libero",
+    text: "Lengkapi data pengajuan secara ringkas serta tanda tangani persetujuan informed consent sebelum sesi dimulai.",
   },
 ];
+
+function getSentenceSplit(text: string): { prefix: string; highlight: string } {
+  const trimmed = text.trim();
+  const words = trimmed.split(/\s+/);
+  if (words.length <= 1) {
+    return { prefix: "", highlight: text };
+  }
+
+  const highlightWordCount =
+    words.length <= 3
+      ? 1
+      : words.length <= 6
+        ? 2
+        : Math.min(4, Math.max(2, Math.floor(words.length * 0.35)));
+
+  const targetWords = words.slice(words.length - highlightWordCount);
+  const targetSubstring = targetWords.join(" ");
+  const cutoffIndex = text.lastIndexOf(targetSubstring);
+
+  if (cutoffIndex <= 0) {
+    const spaceIndices: number[] = [];
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === " ") spaceIndices.push(i);
+    }
+    const splitSpaceIndex =
+      spaceIndices[Math.max(0, spaceIndices.length - highlightWordCount)];
+    if (splitSpaceIndex !== undefined && splitSpaceIndex > 0) {
+      return {
+        prefix: text.slice(0, splitSpaceIndex + 1),
+        highlight: text.slice(splitSpaceIndex + 1),
+      };
+    }
+    return { prefix: text, highlight: "" };
+  }
+
+  return {
+    prefix: text.slice(0, cutoffIndex),
+    highlight: text.slice(cutoffIndex),
+  };
+}
+
+function MotivationalTyping({ text }: { text: string }) {
+  const [displayedCount, setDisplayedCount] = useState(0);
+  const [prevText, setPrevText] = useState(text);
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const [hasStarted, setHasStarted] = useState(
+    () => typeof window === "undefined" || !("IntersectionObserver" in window),
+  );
+
+  // Reset displayed count cleanly when prop changes
+  if (text !== prevText) {
+    setPrevText(text);
+    setDisplayedCount(0);
+  }
+
+  const prefersReducedMotion =
+    typeof window !== "undefined"
+      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      : false;
+
+  const { prefix, highlight } = useMemo(() => getSentenceSplit(text), [text]);
+
+  // Trigger when visible in viewport or first rendered
+  useEffect(() => {
+    if (prefersReducedMotion || hasStarted) return;
+
+    const element = containerRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setHasStarted(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [prefersReducedMotion, hasStarted]);
+
+  // Character reveal animation (approx 50ms per character)
+  useEffect(() => {
+    if (prefersReducedMotion || !hasStarted) return;
+
+    let current = 0;
+    const interval = 50;
+    const targetLength = text.length;
+
+    const timer = window.setInterval(() => {
+      current += 1;
+      setDisplayedCount(current);
+      if (current >= targetLength) {
+        window.clearInterval(timer);
+      }
+    }, interval);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [text, hasStarted, prefersReducedMotion]);
+
+  const effectiveCount = prefersReducedMotion ? text.length : displayedCount;
+  const displayedPrefix = prefix.slice(
+    0,
+    Math.min(effectiveCount, prefix.length),
+  );
+  const remainingForHighlight = Math.max(0, effectiveCount - prefix.length);
+  const displayedHighlight = highlight.slice(0, remainingForHighlight);
+  const isTyping = effectiveCount < text.length && !prefersReducedMotion;
+
+  return (
+    <span ref={containerRef} className="relative inline-block w-full">
+      {/* Accessible alternative for screen readers */}
+      <span className="sr-only">{text}</span>
+
+      {/* Visual presentation hidden from screen readers to prevent character-by-character reading */}
+      <span aria-hidden="true" className="grid place-items-center">
+        {/* Invisible full text reserving dimensions to prevent layout shifts */}
+        <span className="invisible col-start-1 row-start-1 select-none pointer-events-none">
+          <span>{prefix}</span>
+          <span className="text-primary">{highlight}</span>
+        </span>
+
+        {/* Sequentially typed text */}
+        <span className="col-start-1 row-start-1">
+          <span className="text-[#1b1b1b]">{displayedPrefix}</span>
+          <span className="text-primary">{displayedHighlight}</span>
+          {isTyping && (
+            <span
+              className="inline-block h-[0.85em] w-[2.5px] translate-y-[2px] bg-primary ml-1 motion-safe:animate-pulse"
+              aria-hidden="true"
+            />
+          )}
+        </span>
+      </span>
+    </span>
+  );
+}
 
 function ReasonCard({
   icon: Icon,
@@ -112,7 +254,15 @@ function ReasonCard({
   );
 }
 
-function TestimonialCard({ name, text, rating }: { name: string; text: string; rating: number }) {
+function TestimonialCard({
+  name,
+  text,
+  rating,
+}: {
+  name: string;
+  text: string;
+  rating: number;
+}) {
   return (
     <div className="flex w-56 shrink-0 flex-col rounded-xl border border-[#d3e0dc] bg-white px-4 py-4 sm:w-64 sm:px-5 sm:py-5 md:w-72 lg:w-80">
       <p className="font-[Inter] text-sm font-semibold leading-none text-black sm:text-base">
@@ -215,49 +365,61 @@ function Testimonials({ testimonials }: { testimonials: PublicFeedback[] }) {
           Suara dari Mereka yang Telah Melangkah
         </h2>
         <p className="mt-3 text-xs text-[#1b1b1b] sm:text-sm md:text-base">
-          Feedback yang ditampilkan telah disetujui untuk publikasi. Identitas klien tidak ditampilkan.
+          Feedback yang ditampilkan telah disetujui untuk publikasi. Identitas
+          klien tidak ditampilkan.
         </p>
       </div>
 
       {testimonials.length === 0 ? (
-        <p className="mx-auto mt-8 max-w-xl text-center text-sm text-gray-500">Belum ada feedback yang disetujui untuk ditampilkan.</p>
+        <p className="mx-auto mt-8 max-w-xl text-center text-sm text-gray-500">
+          Belum ada feedback yang disetujui untuk ditampilkan.
+        </p>
       ) : (
-      /* Marquee: bisa di-swipe di mobile, auto-scroll ke kanan */
-      <div
-        ref={scrollRef}
-        className="mt-8 touch-pan-x overflow-x-auto overscroll-x-contain md:mt-12 [&::-webkit-scrollbar]:hidden"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-      >
-        <div className="flex w-max">
-          {/* Dua set identik agar loop mulus */}
-          {[0, 1].map((setIndex) => (
-            <div
-              key={setIndex}
-              className="flex shrink-0 gap-3 pr-3 sm:gap-4 sm:pr-4 md:gap-5 md:pr-5 lg:gap-8 lg:pr-8"
-              aria-hidden={setIndex === 1}
-            >
-              {testimonials.map((item) => (
-                <TestimonialCard
-                  key={`${setIndex}-${item.id}`}
-                  name="Klien SiCARE"
-                  rating={item.rating}
-                  text={item.comment?.trim() || `Memberikan penilaian ${item.rating} dari 5 untuk layanan konseling.`}
-                />
-              ))}
-            </div>
-          ))}
+        /* Marquee: bisa di-swipe di mobile, auto-scroll ke kanan */
+        <div
+          ref={scrollRef}
+          className="mt-8 touch-pan-x overflow-x-auto overscroll-x-contain md:mt-12 [&::-webkit-scrollbar]:hidden"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+          onPointerEnter={handlePointerEnter}
+          onPointerLeave={handlePointerLeave}
+        >
+          <div className="flex w-max">
+            {/* Dua set identik agar loop mulus */}
+            {[0, 1].map((setIndex) => (
+              <div
+                key={setIndex}
+                className="flex shrink-0 gap-3 pr-3 sm:gap-4 sm:pr-4 md:gap-5 md:pr-5 lg:gap-8 lg:pr-8"
+                aria-hidden={setIndex === 1}
+              >
+                {testimonials.map((item) => (
+                  <TestimonialCard
+                    key={`${setIndex}-${item.id}`}
+                    name="Klien SiCARE"
+                    rating={item.rating}
+                    text={
+                      item.comment?.trim() ||
+                      `Memberikan penilaian ${item.rating} dari 5 untuk layanan konseling.`
+                    }
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
       )}
     </section>
   );
 }
 
-function Counselors({ counselors, periods }: { counselors: PublicCounselor[]; periods: PublicAcademicPeriod[] }) {
+function Counselors({
+  counselors,
+  periods,
+}: {
+  counselors: PublicCounselor[];
+  periods: PublicAcademicPeriod[];
+}) {
   return (
     <section className="bg-[#f5fdf9] py-12 md:py-16">
       <div className="mx-auto w-[90%] md:w-[84%] lg:w-[76%] xl:w-[80%]">
@@ -273,103 +435,116 @@ function Counselors({ counselors, periods }: { counselors: PublicCounselor[]; pe
 
         {periods.length > 0 && (
           <p className="mt-4 text-center text-xs text-gray-600 sm:text-sm">
-            Periode akademik: {periods.map((period) => `${period.academic_year} · ${period.semester}`).join(", ")}
+            Periode akademik:{" "}
+            {periods
+              .map((period) => `${period.academic_year} · ${period.semester}`)
+              .join(", ")}
           </p>
         )}
         {counselors.length === 0 ? (
-          <p className="mt-8 text-center text-sm text-gray-500">Belum ada profil konselor yang dipublikasikan.</p>
+          <p className="mt-8 text-center text-sm text-gray-500">
+            Belum ada profil konselor yang dipublikasikan.
+          </p>
         ) : (
-        <div className="mt-8 flex flex-wrap justify-center gap-6 md:mt-12 md:gap-5 lg:gap-7">
-          {counselors.slice(0, 3).map((counselor) => (
-            <article
-              key={counselor.profile_id}
-              tabIndex={0}
-              className={`group relative isolate w-full max-w-sm overflow-hidden rounded-2xl border border-[#dcebe2] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(0,0,0,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                counselors.slice(0, 3).length === 2
-                  ? "md:w-[calc(50%_-_0.625rem)]"
-                  : counselors.slice(0, 3).length === 3
-                    ? "md:w-[calc(33.333%_-_0.84rem)]"
-                    : "md:w-full"
-              }`}
-            >
-              <div className="flex aspect-square items-center justify-center overflow-hidden bg-[#e8f4ec]">
-                {getPublicPhotoUrl(counselor.photo_path) ? (
-                  <img
-                    src={getPublicPhotoUrl(counselor.photo_path) ?? undefined}
-                    alt={`Foto ${counselor.public_name}`}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 group-focus-within:scale-105"
-                  />
-                ) : (
-                  <span className="font-[Montserrat] text-5xl font-bold text-primary" aria-label={`Foto ${counselor.public_name} belum tersedia`}>
-                    {counselor.public_name.trim().charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </div>
-
-              <div className="min-h-[142px] p-5">
-                <h3 className="font-[Montserrat] text-base font-bold text-[#1b1b1b] sm:text-lg">
-                  {counselor.public_name}
-                </h3>
-                <p className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500 sm:text-xs">
-                  Topik Keahlian
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(counselor.specialties ?? []).slice(0, 3).map((topic) => (
+          <div className="mt-8 flex flex-wrap justify-center gap-6 md:mt-12 md:gap-5 lg:gap-7">
+            {counselors.slice(0, 3).map((counselor) => (
+              <article
+                key={counselor.profile_id}
+                tabIndex={0}
+                className={`group relative isolate w-full max-w-sm overflow-hidden rounded-2xl border border-[#dcebe2] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(0,0,0,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                  counselors.slice(0, 3).length === 2
+                    ? "md:w-[calc(50%_-_0.625rem)]"
+                    : counselors.slice(0, 3).length === 3
+                      ? "md:w-[calc(33.333%_-_0.84rem)]"
+                      : "md:w-full"
+                }`}
+              >
+                <div className="flex aspect-square items-center justify-center overflow-hidden bg-[#e8f4ec]">
+                  {getPublicPhotoUrl(counselor.photo_path) ? (
+                    <img
+                      src={getPublicPhotoUrl(counselor.photo_path) ?? undefined}
+                      alt={`Foto ${counselor.public_name}`}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 group-focus-within:scale-105"
+                    />
+                  ) : (
                     <span
-                      key={topic}
-                      className="rounded-full bg-[#eef8f3] px-2.5 py-1 font-[Montserrat] text-[10px] font-medium text-primary sm:text-xs"
+                      className="font-[Montserrat] text-5xl font-bold text-primary"
+                      aria-label={`Foto ${counselor.public_name} belum tersedia`}
                     >
-                      {topic}
+                      {counselor.public_name.trim().charAt(0).toUpperCase()}
                     </span>
-                  ))}
+                  )}
                 </div>
-              </div>
 
-              <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-b from-[#163c2c]/90 via-[#174a32]/95 to-[#123b29] p-5 text-white opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100 group-focus:pointer-events-auto group-focus:opacity-100 sm:p-6">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[#b9e4cc]">
-                    Tentang Konselor
-                  </p>
-                  <h3 className="mt-2 font-[Montserrat] text-lg font-bold sm:text-xl">
+                <div className="min-h-[142px] p-5">
+                  <h3 className="font-[Montserrat] text-base font-bold text-[#1b1b1b] sm:text-lg">
                     {counselor.public_name}
                   </h3>
-                  <p className="mt-3 text-xs leading-relaxed text-white/90 sm:text-sm">
-                    {counselor.bio?.trim() || counselor.headline?.trim() || "Informasi profil konselor belum tersedia."}
+                  <p className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500 sm:text-xs">
+                    Topik Keahlian
                   </p>
-                  <div className="mt-4 space-y-3">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#b9e4cc] sm:text-xs">
-                        Pengalaman
-                      </p>
-                      <p className="mt-1 text-xs leading-relaxed sm:text-sm">
-                        {typeof counselor.years_experience === "number" ? `${counselor.years_experience} tahun` : "Informasi belum tersedia"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#b9e4cc] sm:text-xs">
-                        Jabatan / Headline
-                      </p>
-                      <p className="mt-1 text-xs leading-relaxed sm:text-sm">
-                        {counselor.headline?.trim() || "Informasi belum tersedia"}
-                      </p>
-                    </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(counselor.specialties ?? []).slice(0, 3).map((topic) => (
+                      <span
+                        key={topic}
+                        className="rounded-full bg-[#eef8f3] px-2.5 py-1 font-[Montserrat] text-[10px] font-medium text-primary sm:text-xs"
+                      >
+                        {topic}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
-                <a
-                  href="/profil-konselor"
-                  className="mt-5 flex w-fit items-center gap-2 rounded-full bg-white py-2 pl-4 pr-1.5 text-xs font-medium text-[#1b1b1b] shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition hover:shadow-lg sm:text-sm"
-                >
-                  Kenali Lebih Lanjut
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1d3a86] text-white">
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  </span>
-                </a>
-              </div>
-            </article>
-          ))}
-        </div>
+                <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-b from-[#163c2c]/90 via-[#174a32]/95 to-[#123b29] p-5 text-white opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100 group-focus:pointer-events-auto group-focus:opacity-100 sm:p-6">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#b9e4cc]">
+                      Tentang Konselor
+                    </p>
+                    <h3 className="mt-2 font-[Montserrat] text-lg font-bold sm:text-xl">
+                      {counselor.public_name}
+                    </h3>
+                    <p className="mt-3 text-xs leading-relaxed text-white/90 sm:text-sm">
+                      {counselor.bio?.trim() ||
+                        counselor.headline?.trim() ||
+                        "Informasi profil konselor belum tersedia."}
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-[#b9e4cc] sm:text-xs">
+                          Pengalaman
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed sm:text-sm">
+                          {typeof counselor.years_experience === "number"
+                            ? `${counselor.years_experience} tahun`
+                            : "Informasi belum tersedia"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-[#b9e4cc] sm:text-xs">
+                          Jabatan / Headline
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed sm:text-sm">
+                          {counselor.headline?.trim() ||
+                            "Informasi belum tersedia"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Link
+                    to="/profil-konselor"
+                    className="mt-5 flex w-fit items-center gap-2 rounded-full bg-white py-2 pl-4 pr-1.5 text-xs font-medium text-[#1b1b1b] shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition hover:shadow-lg sm:text-sm"
+                  >
+                    Kenali Lebih Lanjut
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1d3a86] text-white">
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </span>
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
         )}
       </div>
     </section>
@@ -378,29 +553,47 @@ function Counselors({ counselors, periods }: { counselors: PublicCounselor[]; pe
 
 export default function HomePage() {
   const [heroMotivation, setHeroMotivation] = useState(DEFAULT_HERO_MOTIVATION);
-  const [publicCounselors, setPublicCounselors] = useState<PublicCounselor[]>([]);
-  const [publicPeriods, setPublicPeriods] = useState<PublicAcademicPeriod[]>([]);
+  const [publicCounselors, setPublicCounselors] = useState<PublicCounselor[]>(
+    [],
+  );
+  const [publicPeriods, setPublicPeriods] = useState<PublicAcademicPeriod[]>(
+    [],
+  );
   const [publicFeedback, setPublicFeedback] = useState<PublicFeedback[]>([]);
 
   useEffect(() => {
     let active = true;
     void getPublicCounselors()
-      .then((items) => { if (active) setPublicCounselors(items); })
-      .catch(() => { if (active) setPublicCounselors([]); });
+      .then((items) => {
+        if (active) setPublicCounselors(items);
+      })
+      .catch(() => {
+        if (active) setPublicCounselors([]);
+      });
     void getPublicAcademicPeriods()
-      .then((items) => { if (active) setPublicPeriods(items); })
-      .catch(() => { if (active) setPublicPeriods([]); });
+      .then((items) => {
+        if (active) setPublicPeriods(items);
+      })
+      .catch(() => {
+        if (active) setPublicPeriods([]);
+      });
     void getPublicFeedback(10)
-      .then((items) => { if (active) setPublicFeedback(items); })
-      .catch(() => { if (active) setPublicFeedback([]); });
+      .then((items) => {
+        if (active) setPublicFeedback(items);
+      })
+      .catch(() => {
+        if (active) setPublicFeedback([]);
+      });
 
     void getPublicHeroMotivations()
       .then((items) => {
         const available = items.filter(
-          (item) => typeof item.content === "string" && item.content.trim().length > 0,
+          (item) =>
+            typeof item.content === "string" && item.content.trim().length > 0,
         );
         if (active && available.length > 0) {
-          const selected = available[Math.floor(Math.random() * available.length)];
+          const selected =
+            available[Math.floor(Math.random() * available.length)];
           setHeroMotivation(selected.content);
         }
       })
@@ -422,11 +615,11 @@ export default function HomePage() {
           <img
             src="/hero/hero-2.webp"
             alt=""
-            className="absolute inset-0 -z-10 h-full w-full object-cover object-[70%_30%] md:object-center"
+            className="absolute inset-0 -z-20 h-full w-full object-cover object-[70%_30%] md:object-center"
           />
 
-          {/* Overlay tipis: foto tetap terlihat, teks tetap terbaca */}
-          <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/30 via-white/25 to-black/10 md:from-black/50 md:via-black/10 md:to-black/10" />
+          {/* White overlay */}
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-white/40" />
 
           {/* Konten: selalu di tengah */}
           <div
@@ -434,13 +627,16 @@ export default function HomePage() {
           >
             <div className="mx-auto flex max-w-xl flex-col items-center lg:max-w-2xl">
               <h1 className="text-2xl font-bold leading-[1.2] text-[#1b1b1b] text-balance sm:text-3xl lg:text-[38px]">
-                {heroMotivation}
+                <MotivationalTyping text={heroMotivation} />
               </h1>
 
-              <button className="mt-5 flex w-fit items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-primary-dark sm:px-5 sm:text-sm md:mt-6">
+              <Link
+                to="/panduan"
+                className="mt-5 flex w-fit items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-primary-dark sm:px-5 sm:text-sm md:mt-6"
+              >
                 <CalendarDays className="h-3.5 w-3.5" />
                 Mulai Konseling
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -485,9 +681,10 @@ export default function HomePage() {
                 </h2>
 
                 <p className="mt-3 max-w-md text-xs leading-relaxed text-gray-600 sm:text-sm">
-                  Lorem ipsum dolor sit amet consectetur adipiscing elit odio
-                  esse temporibus id sit non possimus facilis aliquip libero
-                  officia occaecat et qui
+                  Lembaga Misi &amp; Identitas (LMI) menyediakan layanan
+                  bimbingan konseling yang aman, empatik, dan profesional guna
+                  mendampingi perkembangan akademik serta kesehatan mental
+                  sivitas akademika Unika De La Salle Manado.
                 </p>
               </div>
 
@@ -560,12 +757,15 @@ function Panduan() {
           })}
         </div>
 
-        <button className="mx-auto mt-10 flex items-center gap-2 rounded-full bg-white py-2 pl-5 pr-1.5 text-xs font-medium text-[#1b1b1b] shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition hover:shadow-lg sm:text-sm">
+        <Link
+          to="/panduan"
+          className="mx-auto mt-10 flex w-fit items-center gap-2 rounded-full bg-white py-2 pl-5 pr-1.5 text-xs font-medium text-[#1b1b1b] shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition hover:shadow-lg sm:text-sm"
+        >
           Lihat Selengkapnya
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1d3a86] text-white">
             <ArrowUpRight className="h-3.5 w-3.5" />
           </span>
-        </button>
+        </Link>
       </div>
     </section>
   );

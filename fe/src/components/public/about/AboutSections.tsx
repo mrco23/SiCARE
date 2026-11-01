@@ -41,7 +41,7 @@ export function AboutHero() {
 
       <div className={`relative z-10 ${container}`}>
         <h1 className="text-center text-[20px] font-bold leading-tight text-primary sm:text-[26px] md:text-[30px]">
-          Mendampingi Langka,
+          Mendampingi Langkah,
           <br />
           Membantu <span className="text-[#d4b82a]">Tumbuh Bersama</span>
         </h1>
@@ -241,17 +241,17 @@ export function FokusLayanan() {
     {
       icon: User,
       title: "Konseling Personal",
-      text: "Lorem ipsum dolor sit amet consectetur adipiscing elit facere exercitation mollit consectetur excepteur cum quos laboris illum quo minus nihil excepturi reprehenderit quos.",
+      text: "Membantu menguraikan dinamika emosional, pengelolaan stres, penyesuaian diri di lingkungan perkuliahan, serta penguatan kesehatan mental pribadi.",
     },
     {
       icon: GraduationCap,
       title: "Konseling Edukasional",
-      text: "Lorem ipsum dolor sit amet consectetur adipiscing elit facere exercitation mollit consectetur excepteur cum quos laboris illum quo minus nihil excepturi reprehenderit quos quod assumenda quibusdam.",
+      text: "Mendampingi kendala belajar, manajemen waktu, motivasi studi, dan perumusan strategi akademik agar mahasiswa dapat mencapai potensi terbaiknya.",
     },
     {
       icon: Briefcase,
       title: "Konseling Vokasional",
-      text: "Lorem ipsum dolor sit amet consectetur adipiscing elit facere exercitation mollit consectetur excepteur cum quos laboris illum quo minus nihil excepturi reprehenderit quos.",
+      text: "Memberikan ruang eksplorasi minat, kesiapan transisi karier, serta pengembangan keterampilan hidup (life skills) untuk masa depan profesional.",
     },
   ];
 

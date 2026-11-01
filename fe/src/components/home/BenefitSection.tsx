@@ -79,9 +79,8 @@ text-gray-600
 max-w-sm
 "
             >
-              Lorem ipsum dolor sit amet consectetur adipiscing elit odio esse
-              temporibus ut sit non possimus facilis aliquip libero officia
-              occaecat et.
+              Layanan bimbingan konseling hadir untuk mendampingi kesehatan mental
+              dan perkembangan pribadi sivitas akademika Unika De La Salle Manado.
             </p>
           </div>
 
