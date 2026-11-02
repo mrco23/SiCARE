@@ -194,9 +194,7 @@ export default function Register() {
       navigate("/login", {
         replace: true,
         state: {
-          notice: result.emailConfirmationRequired
-            ? "Pendaftaran berhasil. Periksa email kampus Anda untuk mengonfirmasi akun sebelum masuk."
-            : "Pendaftaran berhasil. Silakan masuk menggunakan email atau kode identitas Anda.",
+          notice: "Silakan periksa email untuk melakukan verifikasi akun",
         },
       });
     } catch (error) {

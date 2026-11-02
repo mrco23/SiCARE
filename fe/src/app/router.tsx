@@ -4,6 +4,7 @@ import { GuestOnlyRoute, ProtectedRoute } from "../features/auth/RouteGuards";
 /* Auth */
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
+import AuthConfirmedPage from "../pages/auth/AuthConfirmedPage";
 
 /* Layouts */
 import KonselorLayout from "../layouts/KonselorLayout";
@@ -70,6 +71,7 @@ export default function AppRouter() {
 
       <Route path="/login" element={<GuestOnlyRoute><Login /></GuestOnlyRoute>} />
       <Route path="/register" element={<GuestOnlyRoute><Register /></GuestOnlyRoute>} />
+      <Route path="/auth/confirmed" element={<AuthConfirmedPage />} />
       <Route path="/consent/invite" element={<GuestConsentPage />} />
 
       <Route path="/klien" element={<ProtectedRoute allowedRoles={["client"]}><KlienLayout /></ProtectedRoute>}>

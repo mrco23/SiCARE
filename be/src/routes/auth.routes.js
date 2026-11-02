@@ -35,6 +35,25 @@ function getPublicAuthClient() {
   });
 }
 
+function getTrustedConfirmationCallbackUrl(request) {
+  const originHeader = request.headers.origin;
+  const isAllowedOrigin = originHeader && env.frontendOrigins.includes(originHeader);
+  const baseUrl = isAllowedOrigin ? originHeader : env.appBaseUrl;
+  return `${baseUrl.replace(/\/+$/, "")}/auth/confirmed`;
+}
+
+// In-memory cooldown tracker: Map<normalized_email, timestamp>
+const resendCooldowns = new Map();
+const RESEND_COOLDOWN_MS = 60 * 1000;
+
+const resendConfirmationSchema = z.object({
+  identifier: z.string().trim().min(1).max(254).optional(),
+  email: z.string().trim().email().max(254).optional(),
+}).strict().refine((input) => Boolean(input.identifier || input.email), {
+  path: ["email"],
+  message: "Email atau kode identitas wajib diisi.",
+});
+
 async function rollbackCreatedAuthUser(userId) {
   try {
     const { error } = await getSupabaseAdminClient().auth.admin.deleteUser(userId);
@@ -70,10 +89,15 @@ router.post("/register", asyncHandler(async (request, response) => {
     if (existing) throw new HttpError(409, "IDENTITY_EXISTS", "Kode identitas sudah terdaftar.");
   }
 
+  const emailRedirectTo = getTrustedConfirmationCallbackUrl(request);
+
   const { data, error } = await authClient.auth.signUp({
     email: input.email,
     password: input.password,
-    options: { data: { full_name: input.full_name } },
+    options: {
+      data: { full_name: input.full_name },
+      emailRedirectTo,
+    },
   });
   if (error) {
     if (/already registered|already exists/i.test(error.message)) {
@@ -132,6 +156,85 @@ router.post("/register", asyncHandler(async (request, response) => {
   }, 201);
 }));
 
+router.post("/resend-confirmation", asyncHandler(async (request, response) => {
+  const input = parseBody(resendConfirmationSchema, request.body);
+  const identifier = (input.identifier ?? input.email ?? "").trim();
+  const admin = getSupabaseAdminClient();
+  let email = identifier;
+
+  // If identifier is not email (e.g. NIM/NIP), resolve it to registered email
+  if (!z.string().email().safeParse(identifier).success) {
+    const escapedIdentifier = identifier.replace(/[\\%_]/g, "\\$&");
+    const { data: identityProfile } = await admin
+      .from("profiles")
+      .select("id")
+      .ilike("identity_code", escapedIdentifier)
+      .maybeSingle();
+
+    if (identityProfile) {
+      const { data: authUserData } = await admin.auth.admin.getUserById(identityProfile.id);
+      if (authUserData?.user?.email) {
+        email = authUserData.user.email;
+      }
+    }
+  }
+
+  const normalizedEmail = email.toLowerCase();
+
+  // Cooldown check
+  const now = Date.now();
+  const lastSent = resendCooldowns.get(normalizedEmail);
+  if (lastSent && now - lastSent < RESEND_COOLDOWN_MS) {
+    const remainingSeconds = Math.ceil((RESEND_COOLDOWN_MS - (now - lastSent)) / 1000);
+    throw new HttpError(
+      429,
+      "RATE_LIMITED",
+      `Mohon tunggu ${remainingSeconds} detik sebelum meminta pengiriman ulang email verifikasi.`,
+    );
+  }
+
+  const emailRedirectTo = getTrustedConfirmationCallbackUrl(request);
+  const authClient = getPublicAuthClient();
+
+  const { error } = await authClient.auth.resend({
+    type: "signup",
+    email: normalizedEmail,
+    options: {
+      emailRedirectTo,
+    },
+  });
+
+  if (error) {
+    if (/rate limit|too many requests/i.test(error.message)) {
+      throw new HttpError(
+        429,
+        "RATE_LIMITED",
+        "Terlalu banyak permintaan pengiriman email verifikasi. Silakan coba beberapa saat lagi.",
+      );
+    }
+    if (/already confirmed|confirmed/i.test(error.message)) {
+      return sendData(response, {
+        sent: false,
+        message: "Email ini sudah dikonfirmasi sebelumnya. Silakan langsung masuk ke akun Anda.",
+      });
+    }
+  }
+
+  resendCooldowns.set(normalizedEmail, now);
+  if (resendCooldowns.size > 1000) {
+    for (const [key, timestamp] of resendCooldowns.entries()) {
+      if (now - timestamp > RESEND_COOLDOWN_MS) {
+        resendCooldowns.delete(key);
+      }
+    }
+  }
+
+  return sendData(response, {
+    sent: true,
+    message: "Jika email terdaftar dan belum dikonfirmasi, tautan verifikasi telah dikirimkan ke kotak masuk Anda.",
+  });
+}));
+
 router.post("/login", asyncHandler(async (request, response) => {
   const input = parseBody(loginSchema, request.body);
   const identifier = (input.identifier ?? input.email ?? "").trim();
@@ -170,7 +273,16 @@ router.post("/login", asyncHandler(async (request, response) => {
     password: input.password,
   });
   if (error || !data.user || !data.session) {
+    if (error && /email not confirmed/i.test(error.message)) {
+      throw new HttpError(403, "EMAIL_NOT_CONFIRMED", "Email akun Anda belum diverifikasi. Silakan periksa kotak masuk atau spam email Anda untuk mengonfirmasi akun sebelum masuk.");
+    }
     throw new HttpError(401, "INVALID_CREDENTIALS", "Email/kode identitas atau kata sandi tidak benar, atau email belum dikonfirmasi.");
+  }
+
+  // Explicit verification: reject login if email has not been confirmed
+  const isEmailConfirmed = Boolean(data.user.email_confirmed_at || data.user.confirmed_at);
+  if (!isEmailConfirmed) {
+    throw new HttpError(403, "EMAIL_NOT_CONFIRMED", "Email akun Anda belum diverifikasi. Silakan periksa kotak masuk atau spam email Anda untuk mengonfirmasi akun sebelum masuk.");
   }
 
   const { data: profile, error: profileError } = await admin.from("profiles")

@@ -243,6 +243,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  const resendConfirmation = useCallback(async (email: string) => {
+    return await apiRequest<{ sent: boolean; message: string }>("/auth/resend-confirmation", {
+      method: "POST",
+      auth: false,
+      body: { email: email.trim().toLowerCase() },
+    });
+  }, []);
+
   const value = useMemo<AuthContextValue>(() => ({
     user,
     profile,
@@ -252,7 +260,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     refreshProfile,
-  }), [user, profile, loading, authError, signIn, signUp, signOut, refreshProfile]);
+    resendConfirmation,
+  }), [user, profile, loading, authError, signIn, signUp, signOut, refreshProfile, resendConfirmation]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

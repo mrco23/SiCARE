@@ -17,6 +17,7 @@ export interface AuthContextValue {
   }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<AuthProfile | null>;
+  resendConfirmation: (email: string) => Promise<{ sent: boolean; message: string }>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
