@@ -205,13 +205,7 @@ export default function KlienRiwayatPage() {
                       {dateTime(session.starts_at)}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      Format:{" "}
-                      {session.format === "online"
-                        ? "Online"
-                        : session.format === "offline"
-                          ? "Tatap muka"
-                          : "Belum ditentukan"}{" "}
-                      · {session.room ?? "Lokasi belum ditentukan"}
+                      Tatap muka · {session.room ?? "Ruang Konseling LMI"}
                     </p>
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">

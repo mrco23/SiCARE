@@ -199,12 +199,7 @@ function mapBookingDtoToItem(
       ? participantRecords.map((p) => anonFromUuid(p.id))
       : [clientAnon];
 
-  const formatLabel =
-    primarySession?.format === "online"
-      ? "Online"
-      : primarySession?.format === "offline"
-        ? "Tatap Muka"
-        : null;
+  const formatLabel = "Tatap Muka";
 
   return {
     id: dto.id,

@@ -12,7 +12,6 @@ import {
   MapPin,
   RefreshCw,
   Star,
-  Video,
   X,
   XCircle,
 } from "lucide-react";
@@ -668,12 +667,8 @@ export default function KonselorBerandaPage() {
                           </p>
                           <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
                             <span className="inline-flex items-center gap-1">
-                              {session.format === "online" ? (
-                                <Video className="h-3 w-3" />
-                              ) : (
-                                <MapPin className="h-3 w-3" />
-                              )}
-                              {formatSessionFormatLabel(session.format)}
+                              <MapPin className="h-3 w-3" />
+                              {session.room || "Ruang Konseling LMI"}
                             </span>
                             <span>·</span>
                             <span>

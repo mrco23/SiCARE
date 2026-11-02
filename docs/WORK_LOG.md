@@ -1161,3 +1161,77 @@ Setelah implementasi Batch 1.5g.2, posisi avatar profil pada layout portal (`Adm
 - `npm --prefix be run check`: **PASS** (31 berkas backend valid).
 - `npm --prefix be test`: **184/184 PASS** (0 failed, 0 skipped).
 - `git diff --check`: **PASS** (bersih dari whitespace error).
+
+---
+
+## 2026-11-02 — Integrasi Foto Profil Supabase Storage, Pemulihan Scroll Global & Pembersihan Pengaturan
+
+### Scope & Tujuan
+Mengimplementasikan integrasi penuh penyimpanan foto profil Supabase Storage, pemulihan posisi scroll global otomatis pada setiap transisi halaman, dan perapian antarmuka halaman pengaturan dengan menghapus tombol keluar:
+1. **CRUD Foto Profil Supabase Storage:**
+   - Menggantikan mekanisme data URL Base64 dan `localStorage` sementara dengan upload riil ke bucket publik `avatars` di Supabase Storage.
+   - Menyediakan endpoint backend terproteksi `POST /api/v1/profile/photo` dan `DELETE /api/v1/profile/photo` dengan validasi berkas (JPG/JPEG, PNG, WebP; maksimal 2 MB; pesan penolakan bahasa Indonesia).
+   - Menghapus objek foto lama pada penyimpanan saat terjadi penggantian foto baru atau penghapusan foto profil.
+   - Memperbarui `photo_path` pada `counselor_profiles` (untuk Konselor) dan metadata otentikasi `user_metadata.avatar_url` (untuk seluruh peran: Konselor, Kepala LMI, Klien).
+   - Mempertahankan logo resmi SiCARE (`/icon-512x512.png`) sebagai identitas baku Administrator.
+   - Menyelaraskan tampilan avatar navbar (`NavbarProfileDropdown`) seketika tanpa memerlukan logout/login ulang.
+   - Memastikan direktori publik konselor (`HomePage` dan `CounselorPage`) menampilkan foto dari Supabase Storage dengan fallback inisial nama yang anggun jika foto tidak ada atau gagal dimuat.
+2. **Restorasi Scroll Global Terpusat (`ScrollToTop`):**
+   - Komponen pemulihan scroll otomatis saat transisi rute (`pathname`) pada seluruh peran dan halaman publik.
+   - Mengembalikan posisi scroll pada `window`, `document.documentElement`, `document.body`, dan seluruh kontainer konten utama (`main`).
+   - Mempertahankan posisi scroll pada perubahan tab/filter lokal di halaman yang sama (query parameters) dan mendukung navigasi jangkar hash (`#anchor`).
+3. **Pembersihan Tombol Keluar pada Halaman Pengaturan:**
+   - Menghapus tombol dan panel `SignOutPanel` dari seluruh 4 halaman pengaturan:
+     - `AdminPengaturanPage.tsx`
+     - `KepalaLMIPengaturanPage.tsx`
+     - `KonselorPengaturanPage.tsx`
+     - `KlienPengaturanPage.tsx`
+   - Mempertahankan fungsi keluar aplikasi terpusat melalui menu dropdown profil pada navigasi atas (`NavbarProfileDropdown`).
+
+### File yang Dibuat / Diubah
+- **`be/src/routes/domain.routes.js`** (Diperbarui: menambahkan endpoint `POST /profile/photo` dan `DELETE /profile/photo` lengkap dengan audit trail dan pembersihan objek storage lama).
+- **`be/src/middleware/auth.js`** (Diperbarui: hidrasi `avatar_url` dan `photo_path` pada `request.auth.profile`).
+- **`fe/src/lib/profilePhotoStorage.ts`** (Baru: utilitas client-side untuk validasi berkas, upload, delete, dan resolusi URL foto profil).
+- **`fe/src/components/shared/ScrollToTop.tsx`** (Baru: komponen pengatur posisi scroll terpusat berbasis rute).
+- **`fe/src/components/shared/index.ts`** (Diperbarui: mengekspor `ScrollToTop`).
+- **`fe/src/App.tsx`** (Diperbarui: memasang `<ScrollToTop />` di root router).
+- **`fe/src/types/auth.ts` & `fe/src/types/api.ts`** (Diperbarui: menambahkan field `avatar_url` dan `photo_path` pada `AuthProfile` dan `ProfileDto`, serta tipe `ProfilePhotoResultDto`).
+- **`fe/src/lib/sicareApi.ts`** (Diperbarui: menambahkan metode `uploadPhoto` dan `deletePhoto`).
+- **`fe/src/components/shared/NavbarProfileDropdown.tsx`** (Diperbarui: resolusi URL foto via `getPublicPhotoUrl` dan sinkronisasi reaktif tanpa cascading render).
+- **`fe/src/pages/admin/AdminPengaturanPage.tsx`** (Diperbarui: menghapus `SignOutPanel`).
+- **`fe/src/pages/headlmi/KepalaLMIPengaturanPage.tsx`** (Diperbarui: menghapus `SignOutPanel`, menghapus foto hardcoded `/gio.jpeg`, integrasi CRUD foto storage).
+- **`fe/src/pages/counselor/KonselorPengaturanPage.tsx`** (Diperbarui: menghapus `SignOutPanel`, integrasi CRUD foto storage ke `counselor_profiles`).
+- **`fe/src/pages/client/KlienPengaturanPage.tsx`** (Diperbarui: menghapus `SignOutPanel`, integrasi CRUD foto storage ke metadata).
+- **`fe/src/pages/public/HomePage.tsx` & `fe/src/pages/public/CounselorPage.tsx`** (Diperbarui: penanganan fallback foto konselor reaktif tanpa memory leak atau layout shift).
+- **`docs/WORK_LOG.md` & `docs/PROJECT_STATUS.md`** (Diperbarui: pencatatan progres dan log pekerjaan).
+
+### Bukti Pengujian
+- `npm --prefix be run check`: **PASS** (31 berkas backend valid tanpa syntax error).
+- `npm --prefix be test`: **189/189 PASS** (0 failed, 0 skipped, seluruh suite backend lulus).
+- Uji integrasi endpoint foto profil (`scratch/test-photo-endpoint.mjs`): **PASS** (Admin ditolak 403, berkas invalid ditolak 400, upload 200, penimpaan menghapus berkas lama, GET /profile mengembalikan avatar_url, DELETE menghapus dari storage dan mengosongkan metadata).
+- `npm --prefix fe run lint`: **PASS** (0 errors, 0 warnings).
+- `npm --prefix fe run build`: **PASS** (2467 modul ditransformasi, PWA bundle siap produksi).
+- `git diff --check`: **PASS** (bersih dari whitespace error dan conflict marker).
+
+## 2026-11-02 — Perbaikan Konstruksi URL Foto Profil Supabase Storage (Resolusi Bucket 'avatars')
+
+### Ringkasan
+Memperbaiki bug di mana foto profil yang berhasil diunggah ke Supabase Storage tidak muncul pada antarmuka website (jatuh ke inisial nama).
+
+1. **Akar Masalah:**
+   - Fungsi `getPublicPhotoUrl` pada `fe/src/lib/publicApi.ts` mengonstruksi URL publik Supabase Storage tanpa menyertakan nama bucket `avatars/` ketika menerima path relatif dari database (misal: `<user_id>/avatar-<timestamp>.jpg`).
+   - Akibatnya, URL yang dihasilkan menjadi `https://<supabase-url>/storage/v1/object/public/<user_id>/avatar-...jpg`, di mana Supabase menganggap segmen `<user_id>` sebagai nama bucket.
+   - Supabase merespons dengan `HTTP 400 Bad Request` (`code: NoSuchBucket`), memicu handler `onError` pada elemen `<img>`, dan memaksa antarmuka beralih ke inisial nama (fallback).
+2. **Perbaikan:**
+   - Menyempurnakan `getPublicPhotoUrl` di `fe/src/lib/publicApi.ts`:
+     - Memastikan segmen bucket `avatars/` selalu disertakan pada relative path Supabase Storage.
+     - Melakukan auto-correct jika URL absolut Supabase Storage yang masuk tidak memiliki prefix `avatars/`.
+     - Menghindari duplikasi bucket (`avatars/avatars/`).
+     - Mempertahankan integritas data URL (`data:image/`) dan aset statis lokal (`/icon-512x512.png`, `/logo.png`, dll.).
+3. **Hasil Verifikasi:**
+   - 12/12 uji kasus URL pembentukan foto profil: **PASS**.
+   - Probe live URL foto konselor di Supabase Storage: `HTTP 200 OK` (Content-Type: `image/jpeg`, Content-Length: 94336 bytes).
+   - `npm --prefix fe run lint`: **PASS** (0 errors, 0 warnings).
+   - `npm --prefix fe run build`: **PASS** (2467 modules transformed, build sukses).
+   - `npm --prefix be run check`: **PASS** (syntax checks clean).
+

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { LogOut, Settings, Loader2 } from "lucide-react";
 import { useAuth } from "../../features/auth/useAuth";
 import { getInitials } from "../../lib/avatarUtils";
+import { getPublicPhotoUrl } from "../../lib/publicApi";
 
 export interface NavbarProfileDropdownProps {
   role: "admin" | "head_lmi" | "counselor" | "client";
@@ -19,7 +20,7 @@ export default function NavbarProfileDropdown({
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imageError, setImageError] = useState(false);
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Ambil nama lengkap pengguna
@@ -36,17 +37,44 @@ export default function NavbarProfileDropdown({
 
   // Resolusi URL Foto:
   // Admin: SELALU menggunakan logo resmi SiCARE (/icon-512x512.png)
-  // Peran lain: photoUrl -> avatar_url -> photo_path -> fallback inisial
+  // Peran lain: photoUrl -> avatar_url -> photo_path -> local storage -> fallback inisial
+  const [localPhoto, setLocalPhoto] = useState<string | null>(() => {
+    try {
+      const key = `sicare_profile_photo_${profile?.id || role}`;
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      try {
+        const key = `sicare_profile_photo_${profile?.id || role}`;
+        setLocalPhoto(localStorage.getItem(key));
+        setFailedPhotoUrl(null);
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener("sicare:photo-updated", handleUpdate);
+    return () => window.removeEventListener("sicare:photo-updated", handleUpdate);
+  }, [profile?.id, role]);
+
   const resolvedPhoto = useMemo(() => {
     if (role === "admin") {
       return "/icon-512x512.png";
     }
-    if (photoUrl) return photoUrl;
     const p = profile as Record<string, unknown> | null;
-    if (typeof p?.avatar_url === "string" && p.avatar_url) return p.avatar_url;
-    if (typeof p?.photo_path === "string" && p.photo_path) return p.photo_path;
-    return null;
-  }, [role, photoUrl, profile]);
+    const raw =
+      photoUrl ||
+      (typeof p?.avatar_url === "string" && p.avatar_url ? p.avatar_url : null) ||
+      (typeof p?.photo_path === "string" && p.photo_path ? p.photo_path : null) ||
+      localPhoto;
+    return getPublicPhotoUrl(raw);
+  }, [role, photoUrl, localPhoto, profile]);
+
+  const imageError = Boolean(resolvedPhoto && failedPhotoUrl === resolvedPhoto);
 
   // Konfigurasi tautan pengaturan & label peran
   const { roleLabel, settingsPath } = useMemo(() => {
@@ -123,7 +151,7 @@ export default function NavbarProfileDropdown({
         <img
           src={resolvedPhoto}
           alt={fullName}
-          onError={() => setImageError(true)}
+          onError={() => setFailedPhotoUrl(resolvedPhoto)}
           className={`${sizeClass} rounded-full object-cover`}
         />
       );

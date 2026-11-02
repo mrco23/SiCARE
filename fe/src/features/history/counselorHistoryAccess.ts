@@ -1,10 +1,10 @@
-export const COUNSELOR_HISTORY_MAX_ATTEMPTS = 3;
-export const COUNSELOR_HISTORY_ACCESS_DURATION_MS = 30 * 60 * 1000;
-export const COUNSELOR_HISTORY_LOCK_DURATION_MS = 5 * 60 * 1000;
-export const COUNSELOR_HISTORY_DEFAULT_PASSWORD = "1234";
+import { counselorApi } from "../../lib/counselorApi";
+import { ApiError } from "../../lib/api";
 
-const PASSWORD_DIGEST_KEY = "sicare:konselor:riwayat-password-digest";
+export const COUNSELOR_HISTORY_ACCESS_DURATION_MS = 30 * 60 * 1000;
+
 const ACCESS_STORAGE_KEY = "sicare:konselor:riwayat-access";
+const GRANT_STORAGE_KEY = "sicare:konselor:riwayat-grant";
 const ATTEMPT_STORAGE_KEY = "sicare:konselor:riwayat-attempts";
 
 export interface CounselorHistoryAttemptState {
@@ -17,27 +17,13 @@ const EMPTY_ATTEMPTS: CounselorHistoryAttemptState = {
   lockedUntil: 0,
 };
 
-function getSessionStorage(): Storage {
-  if (typeof window === "undefined") {
-    throw new Error("Penyimpanan sesi tidak tersedia di lingkungan ini.");
-  }
-  return window.sessionStorage;
-}
-
 function getSessionStorageSafely(): Storage | null {
   try {
-    return getSessionStorage();
+    if (typeof window !== "undefined") return window.sessionStorage;
   } catch {
-    return null;
+    // blocked or unavailable
   }
-}
-
-async function passwordDigest(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const hash = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(hash), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
+  return null;
 }
 
 /** Reads only the fixed access expiry timestamp; it never stores a password. */
@@ -55,11 +41,22 @@ export function readCounselorHistoryAccess(now = Date.now()): number {
     ) {
       return expiry;
     }
-    if (raw !== null) storage.removeItem(ACCESS_STORAGE_KEY);
+    if (raw !== null) {
+      storage.removeItem(ACCESS_STORAGE_KEY);
+      storage.removeItem(GRANT_STORAGE_KEY);
+    }
   } catch {
-    // A blocked browser storage should fail closed: history remains locked.
+    // Fail closed: history remains locked.
   }
   return 0;
+}
+
+/** Reads the server-issued history access grant token from session storage. */
+export function readCounselorHistoryGrantToken(): string | null {
+  const expiry = readCounselorHistoryAccess();
+  if (expiry <= Date.now()) return null;
+  const storage = getSessionStorageSafely();
+  return storage ? storage.getItem(GRANT_STORAGE_KEY) : null;
 }
 
 export function readCounselorHistoryAttempts(
@@ -79,74 +76,37 @@ export function readCounselorHistoryAttempts(
         typeof entry.count === "number" &&
         Number.isInteger(entry.count) &&
         entry.count >= 0 &&
-        entry.count <= COUNSELOR_HISTORY_MAX_ATTEMPTS &&
         typeof entry.lockedUntil === "number" &&
         Number.isFinite(entry.lockedUntil)
       ) {
         if (entry.lockedUntil > now) {
           return {
-            count: COUNSELOR_HISTORY_MAX_ATTEMPTS,
+            count: entry.count,
             lockedUntil: entry.lockedUntil,
           };
         }
-        if (entry.count < COUNSELOR_HISTORY_MAX_ATTEMPTS) {
-          return { count: entry.count, lockedUntil: 0 };
-        }
+        return { count: entry.count, lockedUntil: 0 };
       }
     }
     storage.removeItem(ATTEMPT_STORAGE_KEY);
   } catch {
-    // Invalid or unavailable storage resets the local attempt counter.
+    // reset local attempt counter
   }
   return { ...EMPTY_ATTEMPTS };
 }
 
-export async function verifyCounselorHistoryPassword(
-  input: string,
-): Promise<boolean> {
-  const storage = getSessionStorage();
-  const savedDigest = storage.getItem(PASSWORD_DIGEST_KEY);
-  const expectedDigest =
-    savedDigest ?? (await passwordDigest(COUNSELOR_HISTORY_DEFAULT_PASSWORD));
-  return (await passwordDigest(input)) === expectedDigest;
-}
-
-export function grantCounselorHistoryAccess(now = Date.now()): number {
-  const storage = getSessionStorage();
-  const expiry = now + COUNSELOR_HISTORY_ACCESS_DURATION_MS;
-  storage.setItem(ACCESS_STORAGE_KEY, String(expiry));
-  storage.removeItem(ATTEMPT_STORAGE_KEY);
-  return expiry;
-}
-
-export function recordCounselorHistoryFailedAttempt(
-  now = Date.now(),
-): CounselorHistoryAttemptState {
-  const latest = readCounselorHistoryAttempts(now);
-  if (latest.lockedUntil > now) return latest;
-
-  const count = Math.min(
-    COUNSELOR_HISTORY_MAX_ATTEMPTS,
-    latest.count + 1,
-  );
-  const next: CounselorHistoryAttemptState = {
-    count,
-    lockedUntil:
-      count >= COUNSELOR_HISTORY_MAX_ATTEMPTS
-        ? now + COUNSELOR_HISTORY_LOCK_DURATION_MS
-        : 0,
-  };
-  getSessionStorage().setItem(ATTEMPT_STORAGE_KEY, JSON.stringify(next));
-  return next;
-}
-
-export function clearCounselorHistoryAccess(): void {
+export function recordClientFailedAttempt(now = Date.now()): CounselorHistoryAttemptState {
   const storage = getSessionStorageSafely();
+  const current = readCounselorHistoryAttempts(now);
+  const count = current.count + 1;
+  const lockedUntil = count >= 3 ? now + 30 * 1000 : 0; // 30s local cooldown
+  const updated: CounselorHistoryAttemptState = { count, lockedUntil };
   try {
-    storage?.removeItem(ACCESS_STORAGE_KEY);
+    storage?.setItem(ATTEMPT_STORAGE_KEY, JSON.stringify(updated));
   } catch {
-    // Fail closed in memory even if browser storage is blocked.
+    // ignore
   }
+  return updated;
 }
 
 export function clearCounselorHistoryAttempts(): void {
@@ -154,30 +114,90 @@ export function clearCounselorHistoryAttempts(): void {
   try {
     storage?.removeItem(ATTEMPT_STORAGE_KEY);
   } catch {
-    // In-memory state is reset by the caller.
+    // ignore
+  }
+}
+
+export function clearCounselorHistoryAccess(): void {
+  const storage = getSessionStorageSafely();
+  try {
+    storage?.removeItem(ACCESS_STORAGE_KEY);
+    storage?.removeItem(GRANT_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** Check whether counselor has configured a history password in the database */
+export async function checkCounselorHistoryPasswordConfigured(): Promise<boolean> {
+  try {
+    const res = await counselorApi.getHistoryPasswordStatus();
+    return res.configured;
+  } catch {
+    return false;
+  }
+}
+
+/** Initialize first-time history password in database */
+export async function initCounselorHistoryPassword(password: string): Promise<{ success: boolean; message: string }> {
+  return counselorApi.initHistoryPassword(password);
+}
+
+/** Verifies password with backend server */
+export async function verifyCounselorHistoryPasswordWithServer(
+  input: string,
+): Promise<
+  | { status: "success"; expiresAt: number; grantToken: string }
+  | { status: "invalid"; message: string }
+  | { status: "locked"; message: string }
+  | { status: "error"; message: string }
+> {
+  try {
+    const res = await counselorApi.verifyHistoryPassword(input);
+    const storage = getSessionStorageSafely();
+    const expiresAt = Date.now() + (res.expires_in_seconds || 1800) * 1000;
+    if (storage) {
+      storage.setItem(ACCESS_STORAGE_KEY, String(expiresAt));
+      storage.setItem(GRANT_STORAGE_KEY, res.grant_token || res.token);
+      storage.removeItem(ATTEMPT_STORAGE_KEY);
+    }
+    return { status: "success", expiresAt, grantToken: res.grant_token || res.token };
+  } catch (err: unknown) {
+    if (err instanceof ApiError) {
+      if (err.status === 429) {
+        return { status: "locked", message: err.message };
+      }
+      if (err.status === 401) {
+        recordClientFailedAttempt();
+        return { status: "invalid", message: err.message };
+      }
+      return { status: "error", message: err.message };
+    }
+    return { status: "error", message: "Gagal memverifikasi kata sandi dengan server." };
   }
 }
 
 /**
- * Change the session-only history password. The verifier is a SHA-256 digest,
- * never the clear-text password. This remains a demo-only browser mechanism;
- * production authorization must be enforced by the backend.
+ * Changes history password in backend database.
  */
 export async function changeCounselorHistoryPassword(
   currentPassword: string,
   nextPassword: string,
-): Promise<boolean> {
-  const storage = getSessionStorage();
-  const currentDigest = await passwordDigest(currentPassword);
-  const savedDigest = storage.getItem(PASSWORD_DIGEST_KEY);
-  const defaultDigest = await passwordDigest(
-    COUNSELOR_HISTORY_DEFAULT_PASSWORD,
-  );
-
-  if (currentDigest !== (savedDigest ?? defaultDigest)) return false;
-
-  storage.setItem(PASSWORD_DIGEST_KEY, await passwordDigest(nextPassword));
-  storage.removeItem(ACCESS_STORAGE_KEY);
-  storage.removeItem(ATTEMPT_STORAGE_KEY);
-  return true;
+  confirmPassword = nextPassword,
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await counselorApi.changeHistoryPassword({
+      current_password: currentPassword,
+      new_password: nextPassword,
+      confirm_password: confirmPassword,
+    });
+    clearCounselorHistoryAccess();
+    clearCounselorHistoryAttempts();
+    return res;
+  } catch (err: unknown) {
+    if (err instanceof ApiError) {
+      return { success: false, message: err.message };
+    }
+    return { success: false, message: "Gagal memperbarui kata sandi riwayat." };
+  }
 }

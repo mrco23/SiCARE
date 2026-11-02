@@ -122,7 +122,8 @@ router.post("/accounts", authenticate, allowRoles("admin"), asyncHandler(async (
     supabaseError(error, "Profil akun tidak dapat dibuat.");
   }
   if (input.app_role === "counselor") {
-    const { error: counselorError } = await supa().from("counselor_profiles").upsert({ profile_id: data.id, public_name: input.full_name, is_public: false }, { onConflict: "profile_id" });
+    const isCounselorActive = (input.account_status ?? "active") === "active";
+    const { error: counselorError } = await supa().from("counselor_profiles").upsert({ profile_id: data.id, public_name: input.full_name, is_public: isCounselorActive }, { onConflict: "profile_id" });
     if (counselorError) {
       await supa().auth.admin.deleteUser(created.user.id);
       supabaseError(counselorError, "Profil konselor tidak dapat disiapkan.");
@@ -155,12 +156,11 @@ router.patch("/accounts/:id", authenticate, allowRoles("admin"), asyncHandler(as
   if (!data) throw new HttpError(404, "ACCOUNT_NOT_FOUND", "Akun tidak ditemukan.");
   if (input.app_role === "counselor" || current.app_role === "counselor") {
     if (data.app_role === "counselor") {
-      const { error: counselorError } = await supa().from("counselor_profiles").upsert({ profile_id: data.id, public_name: data.full_name, is_public: false }, { onConflict: "profile_id", ignoreDuplicates: true });
+      const isCounselorActive = data.account_status === "active";
+      const { error: counselorError } = await supa().from("counselor_profiles").upsert({ profile_id: data.id, public_name: data.full_name, is_public: isCounselorActive }, { onConflict: "profile_id", ignoreDuplicates: true });
       if (counselorError) supabaseError(counselorError, "Profil konselor tidak dapat disiapkan.");
-      if (data.account_status !== "active") {
-        const { error: hideError } = await supa().from("counselor_profiles").update({ is_public: false }).eq("profile_id", data.id);
-        if (hideError) supabaseError(hideError, "Publikasi profil konselor tidak dapat dihentikan.");
-      }
+      const { error: hideError } = await supa().from("counselor_profiles").update({ is_public: isCounselorActive }).eq("profile_id", data.id);
+      if (hideError) supabaseError(hideError, "Status profil konselor tidak dapat diperbarui.");
     } else {
       const { error: hideError } = await supa().from("counselor_profiles").update({ is_public: false }).eq("profile_id", data.id);
       if (hideError) supabaseError(hideError, "Publikasi profil konselor tidak dapat dihentikan.");
@@ -209,6 +209,27 @@ router.patch("/counselors/:id/publication", authenticate, allowRoles("admin"), a
   return sendData(res, data);
 }));
 
+async function validatePeriodOverlap(client, startsOn, endsOn, excludeId = null) {
+  let query = client.from("academic_periods")
+    .select("id,academic_year,semester,starts_on,ends_on")
+    .lte("starts_on", endsOn)
+    .gte("ends_on", startsOn);
+  if (excludeId) {
+    query = query.neq("id", excludeId);
+  }
+  const { data: overlapping, error } = await query;
+  if (error) supabaseError(error, "Gagal memverifikasi benturan periode akademik.");
+  if (overlapping && overlapping.length > 0) {
+    const conflict = overlapping[0];
+    throw new HttpError(
+      409,
+      "PERIOD_OVERLAP",
+      `Rentang tanggal bertabrakan dengan periode akademik yang sudah ada (${conflict.academic_year} ${conflict.semester}: ${conflict.starts_on} s/d ${conflict.ends_on}).`,
+      { overlapping: conflict },
+    );
+  }
+}
+
 router.get("/periods", authenticate, allowRoles("admin"), asyncHandler(async (_req, res) => {
   const { data, error } = await supa().from("academic_periods").select("id,academic_year,semester,starts_on,ends_on,is_published,created_at,updated_at").order("starts_on", { ascending: false });
   if (error) supabaseError(error, "Daftar periode akademik tidak dapat dibaca.");
@@ -217,6 +238,7 @@ router.get("/periods", authenticate, allowRoles("admin"), asyncHandler(async (_r
 
 router.post("/periods", authenticate, allowRoles("admin"), asyncHandler(async (req, res) => {
   const input = parseBody(periodSchema, req.body);
+  await validatePeriodOverlap(supa(), input.starts_on, input.ends_on);
   const { data, error } = await supa().from("academic_periods").insert(input)
     .select("id,academic_year,semester,starts_on,ends_on,is_published,created_at,updated_at").single();
   if (error) supabaseError(error, "Periode akademik tidak dapat dibuat.");
@@ -234,6 +256,7 @@ router.patch("/periods/:id", authenticate, allowRoles("admin"), asyncHandler(asy
   const starts = input.starts_on ?? current.starts_on;
   const ends = input.ends_on ?? current.ends_on;
   if (ends < starts) throw new HttpError(400, "INVALID_DATE_RANGE", "Tanggal akhir harus sama dengan atau setelah tanggal mulai.");
+  await validatePeriodOverlap(supa(), starts, ends, req.params.id);
   const { data, error } = await supa().from("academic_periods").update(input).eq("id", req.params.id)
     .select("id,academic_year,semester,starts_on,ends_on,is_published,created_at,updated_at").maybeSingle();
   if (error) supabaseError(error, "Periode akademik tidak dapat diperbarui.");
@@ -242,16 +265,8 @@ router.patch("/periods/:id", authenticate, allowRoles("admin"), asyncHandler(asy
   return sendData(res, data);
 }));
 
-router.delete("/periods/:id", authenticate, allowRoles("admin"), asyncHandler(async (req, res) => {
-  if (!uuid.safeParse(req.params.id).success) throw new HttpError(400, "INVALID_ID", "ID periode tidak valid.");
-  const { count, error: slotsError } = await supa().from("availability_slots").select("id", { count: "exact", head: true }).eq("academic_period_id", req.params.id);
-  if (slotsError) supabaseError(slotsError);
-  if ((count ?? 0) > 0) throw new HttpError(409, "PERIOD_HAS_SLOTS", "Periode masih memiliki jadwal. Batalkan atau pindahkan jadwal terlebih dahulu.");
-  const { data, error } = await supa().from("academic_periods").delete().eq("id", req.params.id).select("id").maybeSingle();
-  if (error) supabaseError(error, "Periode akademik tidak dapat dihapus.");
-  if (!data) throw new HttpError(404, "PERIOD_NOT_FOUND", "Periode akademik tidak ditemukan.");
-  await writeAudit({ actorUserId: req.auth.user.id, action: "admin.period.delete", entityType: "academic_period", entityId: data.id, metadata: { role: "admin" } });
-  return sendData(res, { deleted: true, id: data.id });
+router.delete("/periods/:id", authenticate, allowRoles("admin"), asyncHandler(async () => {
+  throw new HttpError(405, "METHOD_NOT_ALLOWED", "Periode akademik tidak dapat dihapus untuk menjaga integritas data historis konseling.");
 }));
 
 router.get("/counseling", authenticate, allowRoles("admin", "head_lmi"), asyncHandler(async (req, res) => {

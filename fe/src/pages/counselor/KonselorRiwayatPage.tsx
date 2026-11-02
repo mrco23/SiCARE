@@ -1,894 +1,977 @@
+import { PageContainer, PageHeader } from "../../components/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
-  ArrowLeft,
-  Calendar,
-  CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  FileText,
-  Info,
-  Loader2,
-  MapPin,
+  Download,
+  Eye,
+  EyeOff,
+  FileSignature,
+  KeyRound,
+  Lock,
   RefreshCw,
   Search,
-  ShieldCheck,
-  Users,
-  Video,
+  ShieldAlert,
   X,
-  XCircle,
 } from "lucide-react";
-import { PageContainer, PageHeader, AcademicPeriodFilter } from "../../components/shared";
 import {
-  formatAcademicPeriodLabel,
+  isInPeriod,
+  loadPeriods,
+  sortPeriods,
+  toISO,
+} from "../../lib/academicPeriods";
+import type { CounselingFormat as Format } from "../../types/counseling";
+import {
   formatBookingClientTitle,
   formatBookingRepresentative,
-  formatIsoDateId,
-  formatIsoShortDateId,
-  formatIsoTimeRangeWita,
-  formatSessionFormatLabel,
-  getCounselorInitials,
-  toLocalDateKey,
+  getCounselorInitials as initials,
 } from "../../features/counselor/shared/presentation";
-import { ApiError } from "../../lib/api";
+import { useCounselorHistoryAccess } from "../../features/history/hooks/useCounselorHistoryAccess";
 import {
-  getPublicAcademicPeriods,
-  type PublicAcademicPeriod,
-} from "../../lib/publicApi";
-import { sicareApi } from "../../lib/sicareApi";
-import type { BookingRecordBaseDto, SessionListItemDto } from "../../types/api";
+  counselorHistorySessionKey as sessionKey,
+  formatCounselorHistoryDate as fmtDate,
+  getCounselorHistoryDateRange as getDateRange,
+  getCounselorHistoryDateRangeLabel as dateRangeLabel,
+  matchesCounselorHistoryFilter as matches,
+  type CounselorHistoryPeriod as PeriodKey,
+} from "../../features/counselor/history/historySelectors";
+import { counselorApi } from "../../lib/counselorApi";
+import type { BookingRecordBaseDto } from "../../types/api";
 
-type PeriodFilter = "semua" | "hari" | "minggu" | "bulan" | "semester";
-type StatusFilter = "Semua" | "Selesai" | "Dibatalkan";
-type FormatFilter = "Semua" | "Tatap Muka" | "Online";
-type TypeFilter = "Semua" | "Individu" | "Kelompok";
-
-const DAY_MS = 86_400_000;
-
-function parseDateOnly(isoDate: string): Date {
-  const [y, m, d] = isoDate.split("-").map(Number);
-  return new Date(y, m - 1, d);
+export interface ClientSession {
+  id: number;
+  topic: string;
+  format: Format;
+  date: string;
+  time: string;
+  summary: string;
+  note: string;
 }
 
-function getDateRange(
-  period: PeriodFilter,
-  anchor: Date,
-  semester: PublicAcademicPeriod | null,
-): { start: Date; end: Date } | null {
-  if (period === "semua") return null;
-  const y = anchor.getFullYear();
-  const m = anchor.getMonth();
-  const d = anchor.getDate();
-
-  if (period === "hari") {
-    return { start: new Date(y, m, d), end: new Date(y, m, d + 1) };
-  }
-  if (period === "minggu") {
-    return { start: new Date(y, m, d - 6), end: new Date(y, m, d + 1) };
-  }
-  if (period === "bulan") {
-    return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
-  }
-  if (!semester) return null;
-  return {
-    start: parseDateOnly(semester.starts_on),
-    end: new Date(parseDateOnly(semester.ends_on).getTime() + DAY_MS),
-  };
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  password?: string;
+  sessions: ClientSession[];
 }
 
-function formatRangeLabel(
-  period: PeriodFilter,
-  range: { start: Date; end: Date } | null,
-  semester: PublicAcademicPeriod | null,
-): string {
-  if (period === "semua") return "Semua Waktu";
-  if (period === "semester") {
-    return semester
-      ? formatAcademicPeriodLabel(semester)
-      : "Belum ada periode akademik";
-  }
-  if (!range) return "Semua Waktu";
-  if (period === "hari") {
-    return range.start.toLocaleDateString("id-ID", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  }
-  if (period === "minggu") {
-    const endInclusive = new Date(range.end.getTime() - DAY_MS);
-    return `${range.start.toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "short",
-    })} – ${endInclusive.toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    })}`;
-  }
-  return range.start.toLocaleDateString("id-ID", {
-    month: "long",
-    year: "numeric",
-  });
-}
+const PERIOD_OPTIONS: [PeriodKey, string][] = [
+  ["hari", "Hari"],
+  ["minggu", "Minggu"],
+  ["bulan", "Bulan"],
+  ["semester", "Semester"],
+];
+
+const CONSENT_PDF_URL = "/informed-consent.pdf";
 
 export default function KonselorRiwayatPage() {
-  const [sessions, setSessions] = useState<SessionListItemDto[]>([]);
-  const [bookings, setBookings] = useState<BookingRecordBaseDto[]>([]);
-  const [periods, setPeriods] = useState<PublicAcademicPeriod[]>([]);
+  const navigate = useNavigate();
+  const today = useMemo(() => toISO(new Date()), []);
+  const periods = useMemo(() => sortPeriods(loadPeriods()), []);
+  const defaultSemester =
+    periods.find((p) => isInPeriod(today, p)) ??
+    periods[periods.length - 1] ??
+    null;
 
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("semua");
-  const [anchorDate, setAnchorDate] = useState(() => new Date());
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
-
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("Semua");
-  const [formatFilter, setFormatFilter] = useState<FormatFilter>("Semua");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("Semua");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    null,
+  const [period, setPeriod] = useState<PeriodKey>("bulan");
+  const [anchor, setAnchor] = useState(
+    () =>
+      new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        new Date().getDate(),
+        12,
+      ),
   );
+  const [semesterId, setSemesterId] = useState<string | null>(
+    defaultSemester?.id ?? null,
+  );
+  const [format, setFormat] = useState<Format>("Individu");
+  const [query, setQuery] = useState("");
+  const [timeSort, setTimeSort] = useState<"terbaru" | "terlama">("terbaru");
 
-  const fetchHistoryData = useCallback(async () => {
-    const [sessionsRes, bookingsRes, periodsRes] = await Promise.all([
-      sicareApi.sessions(100),
-      sicareApi.bookings(100),
-      getPublicAcademicPeriods().catch(() => [] as PublicAcademicPeriod[]),
-    ]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [noteId, setNoteId] = useState<string | number | null>(null);
+  const [consentSessionId, setConsentSessionId] = useState<string | number | null>(null);
 
-    return {
-      sessions: sessionsRes,
-      bookings: bookingsRes,
-      periods: periodsRes,
-    };
+  const [pwInput, setPwInput] = useState("");
+  const [pwVisible, setPwVisible] = useState(false);
+  const [pwError, setPwError] = useState("");
+  const [verifying, setVerifying] = useState(false);
+
+  const [toastMsg, setToastMsg] = useState("");
+
+  const handleAccessExpired = useCallback(() => {
+    setSelectedId(null);
+    setNoteId(null);
+    setConsentSessionId(null);
+    setToastMsg("Akses riwayat terkunci kembali.");
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    fetchHistoryData()
-      .then((data) => {
-        if (!active) return;
-        setSessions(data.sessions);
-        setBookings(data.bookings);
-        setPeriods(data.periods);
-        if (data.periods.length > 0) {
-          const todayKey = toLocalDateKey(new Date());
-          const current =
-            data.periods.find(
-              (p) => todayKey >= p.starts_on && todayKey <= p.ends_on,
-            ) ?? data.periods[0];
-          setSelectedPeriodId(current.id);
+  const handleCooldownExpired = useCallback(() => setPwError(""), []);
+
+  const {
+    attemptState,
+    hasAccess,
+    grantToken,
+    timerText,
+    isPasswordLocked: pwLocked,
+    isConfigured,
+    maxAttempts: MAX_ATTEMPTS,
+    unlock: unlockHistory,
+    lock: lockHistory,
+    initPassword,
+  } = useCounselorHistoryAccess(handleAccessExpired, handleCooldownExpired);
+
+  // Live session and booking data from backend API
+  const [apiClients, setApiClients] = useState<Client[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  const loadClientsFromResponse = useCallback(
+    (res: { configured: boolean; bookings?: BookingRecordBaseDto[]; clients?: Array<{ id: string; full_name: string; phone_e164?: string | null }>; sessions?: Array<{ id: string; booking_id: string; starts_at: string; status: string; room?: string | null }> }) => {
+      if (!res.configured) {
+        setApiClients([]);
+        return;
+      }
+
+      const clientMap = new Map<string, Client>();
+      const bookingMap = new Map<string, BookingRecordBaseDto>();
+      for (const b of res.bookings || []) {
+        bookingMap.set(b.id, b);
+      }
+
+      const profileMap = new Map<string, { full_name: string; phone_e164?: string | null }>();
+      for (const p of res.clients || []) {
+        profileMap.set(p.id, p);
+      }
+
+      for (const s of res.sessions || []) {
+        if (s.status !== "completed" && s.status !== "cancelled") continue;
+        const b = bookingMap.get(s.booking_id);
+        const clientId = b?.client_id || b?.id || s.id;
+        const profileInfo = profileMap.get(b?.client_id || "");
+        const repName = formatBookingRepresentative(b);
+        const clientName = profileInfo?.full_name || repName || formatBookingClientTitle(b);
+        const clientRole = "Mahasiswa";
+
+        if (!clientMap.has(clientId)) {
+          clientMap.set(clientId, {
+            id: clientId,
+            name: clientName,
+            email: "klien@unikadelasalle.ac.id",
+            role: clientRole,
+            password: "",
+            sessions: [],
+          });
         }
-        setErrorMessage(null);
+
+        const client = clientMap.get(clientId)!;
+        const startDate = s.starts_at.split("T")[0] || today;
+        const startTime = s.starts_at.includes("T")
+          ? s.starts_at.split("T")[1].slice(0, 5).replace(":", ".")
+          : "10.00";
+
+        client.sessions.push({
+          id: Number(s.id.replace(/\D/g, "").slice(0, 8)) || Date.now(),
+          topic: b?.group_name
+            ? `Konseling Kelompok: ${b.group_name}`
+            : "Konseling Pengembangan Diri & Akademik",
+          format: b?.service_type === "group" ? "Kelompok" : "Individu",
+          date: startDate,
+          time: startTime,
+          summary: `Sesi konseling telah selesai dilaksanakan di ${s.room || "Ruang Konseling LMI"}.`,
+          note: "Catatan sesi konselor tersimpan secara aman dalam arsip rekam medis SiCARE.",
+        });
+      }
+
+      setApiClients(Array.from(clientMap.values()));
+    },
+    [today],
+  );
+
+  const fetchHistoryData = useCallback(async (token: string) => {
+    setLoadingHistory(true);
+    setHistoryError(null);
+    try {
+      const res = await counselorApi.getHistory(token);
+      loadClientsFromResponse(res);
+    } catch (err: unknown) {
+      setHistoryError(err instanceof Error ? err.message : "Gagal memuat riwayat konseling dari server.");
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [loadClientsFromResponse]);
+
+  useEffect(() => {
+    if (!hasAccess || !grantToken) {
+      return;
+    }
+
+    let active = true;
+    counselorApi
+      .getHistory(grantToken)
+      .then((res) => {
+        if (!active) return;
+        loadClientsFromResponse(res);
+        setHistoryError(null);
       })
       .catch((err: unknown) => {
         if (!active) return;
-        setErrorMessage(
-          err instanceof ApiError
+        setHistoryError(
+          err instanceof Error
             ? err.message
-            : "Gagal memuat riwayat sesi konseling dari server.",
+            : "Gagal memuat riwayat konseling dari server.",
         );
-      })
-      .finally(() => {
-        if (active) setLoading(false);
       });
 
     return () => {
       active = false;
     };
-  }, [fetchHistoryData]);
+  }, [hasAccess, grantToken, loadClientsFromResponse]);
 
-  const handleManualRefresh = async () => {
-    setLoading(true);
-    setErrorMessage(null);
-    try {
-      const data = await fetchHistoryData();
-      setSessions(data.sessions);
-      setBookings(data.bookings);
-      setPeriods(data.periods);
-    } catch (err: unknown) {
-      setErrorMessage(
-        err instanceof ApiError
-          ? err.message
-          : "Gagal memuat ulang riwayat sesi konseling.",
-      );
-    } finally {
-      setLoading(false);
+  const allClients = useMemo(() => apiClients, [apiClients]);
+
+  const allSessions = useMemo(
+    () => allClients.flatMap((c) => c.sessions),
+    [allClients],
+  );
+
+  // Sembunyikan toast otomatis.
+  useEffect(() => {
+    if (!toastMsg) return;
+    const t = setTimeout(() => setToastMsg(""), 2800);
+    return () => clearTimeout(t);
+  }, [toastMsg]);
+
+  const semester = periods.find((p) => p.id === semesterId) ?? null;
+  const range = useMemo(
+    () => getDateRange(period, anchor, semester),
+    [period, anchor, semester],
+  );
+  const label = dateRangeLabel(period, range, semester);
+
+  function stepPeriod(direction: -1 | 1) {
+    if (period === "semester") {
+      const index = periods.findIndex((p) => p.id === semesterId);
+      const next = periods[index + direction];
+      if (next) setSemesterId(next.id);
+      return;
     }
-  };
-
-  const bookingMap = useMemo(() => {
-    const map = new Map<string, BookingRecordBaseDto>();
-    for (const b of bookings) {
-      map.set(b.id, b);
+    const next = new Date(anchor);
+    if (period === "hari") next.setDate(next.getDate() + direction);
+    else if (period === "minggu") next.setDate(next.getDate() + 7 * direction);
+    else {
+      next.setDate(15);
+      next.setMonth(next.getMonth() + direction);
     }
-    return map;
-  }, [bookings]);
+    setAnchor(next);
+  }
 
-  const activeSemester = useMemo(
-    () =>
-      periods.find((p) => p.id === selectedPeriodId) ?? periods[0] ?? null,
-    [periods, selectedPeriodId],
-  );
+  const semesterIndex = periods.findIndex((p) => p.id === semesterId);
+  const canPrevious = period !== "semester" || semesterIndex > 0;
+  const canNext = period !== "semester" || semesterIndex < periods.length - 1;
 
-  const dateRange = useMemo(
-    () => getDateRange(periodFilter, anchorDate, activeSemester),
-    [activeSemester, anchorDate, periodFilter],
-  );
-
-  const historySessions = useMemo(
-    () =>
-      sessions.filter(
-        (s) => s.status === "completed" || s.status === "cancelled",
-      ),
-    [sessions],
-  );
-
-  const filteredSessions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return historySessions
-      .filter((session) => {
-        if (statusFilter === "Selesai" && session.status !== "completed") {
-          return false;
-        }
-        if (statusFilter === "Dibatalkan" && session.status !== "cancelled") {
-          return false;
-        }
-
-        const fmtLabel = formatSessionFormatLabel(session.format);
-        if (formatFilter !== "Semua" && fmtLabel !== formatFilter) {
-          return false;
-        }
-
-        const booking = bookingMap.get(session.booking_id);
-        const svcType =
-          booking?.service_type === "group" ? "Kelompok" : "Individu";
-        if (typeFilter !== "Semua" && svcType !== typeFilter) {
-          return false;
-        }
-
-        if (dateRange) {
-          const t = new Date(session.starts_at).getTime();
-          if (t < dateRange.start.getTime() || t >= dateRange.end.getTime()) {
-            return false;
-          }
-        }
-
-        if (!q) return true;
-        const title = formatBookingClientTitle(booking).toLowerCase();
-        const clientId = (booking?.client_id ?? "").toLowerCase();
-        const room = (session.room ?? "").toLowerCase();
-        const reason = (booking?.cancellation_reason ?? "").toLowerCase();
-        const participantMatch = (booking?.booking_participants ?? []).some(
-          (p) => p.display_name.toLowerCase().includes(q),
-        );
-
-        return (
-          session.id.toLowerCase().includes(q) ||
-          session.booking_id.toLowerCase().includes(q) ||
-          clientId.includes(q) ||
-          title.includes(q) ||
-          room.includes(q) ||
-          reason.includes(q) ||
-          participantMatch
-        );
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return allClients
+      .filter((c) => !q || c.name.toLowerCase().includes(q))
+      .map((c) => {
+        const sessions = c.sessions.filter((s) => matches(s, format, range));
+        const latest =
+          sessions
+            .map((s) => s.date)
+            .sort()
+            .at(-1) ?? "";
+        return { client: c, count: sessions.length, latest };
       })
-      .sort(
-        (a, b) =>
-          new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime(),
+      .filter((r) => r.count > 0)
+      .sort((a, b) => b.latest.localeCompare(a.latest));
+  }, [allClients, query, format, range]);
+
+  const selected = allClients.find((c) => c.id === selectedId) ?? null;
+
+  const detailSessions = useMemo(() => {
+    if (!selected) return [];
+    return selected.sessions
+      .filter((s) => matches(s, format, range))
+      .sort((a, b) =>
+        timeSort === "terlama"
+          ? sessionKey(a).localeCompare(sessionKey(b))
+          : sessionKey(b).localeCompare(sessionKey(a)),
       );
-  }, [
-    bookingMap,
-    dateRange,
-    formatFilter,
-    historySessions,
-    searchQuery,
-    statusFilter,
-    typeFilter,
-  ]);
+  }, [selected, format, range, timeSort]);
 
-  const summaryCounts = useMemo(() => {
-    const completedCount = filteredSessions.filter(
-      (s) => s.status === "completed",
-    ).length;
-    const cancelledCount = filteredSessions.filter(
-      (s) => s.status === "cancelled",
-    ).length;
-    const uniqueClients = new Set(
-      filteredSessions.map(
-        (s) => bookingMap.get(s.booking_id)?.client_id ?? s.booking_id,
-      ),
-    ).size;
-    return {
-      total: filteredSessions.length,
-      completed: completedCount,
-      cancelled: cancelledCount,
-      uniqueClients,
-    };
-  }, [bookingMap, filteredSessions]);
+  const lastDate =
+    detailSessions
+      .map((s) => s.date)
+      .sort()
+      .at(-1) ?? "";
 
-  const selectedSession = useMemo(
-    () => historySessions.find((s) => s.id === selectedSessionId) ?? null,
-    [historySessions, selectedSessionId],
-  );
+  const noteSession =
+    noteId !== null ? (allSessions.find((s) => String(s.id) === String(noteId)) ?? null) : null;
+  const consentSession =
+    consentSessionId !== null
+      ? (detailSessions.find((s) => String(s.id) === String(consentSessionId)) ?? null)
+      : null;
 
-  const shiftAnchor = (dir: -1 | 1) => {
-    setAnchorDate((prev) => {
-      const y = prev.getFullYear();
-      const m = prev.getMonth();
-      const d = prev.getDate();
-      if (periodFilter === "hari") return new Date(y, m, d + dir);
-      if (periodFilter === "minggu") return new Date(y, m, d + dir * 7);
-      if (periodFilter === "bulan") return new Date(y, m + dir, 1);
-      return prev;
-    });
-  };
+  const pwUsed = attemptState.count;
+
+  function handleOpenClient(cid: string) {
+    if (!hasAccess) return;
+    setSelectedId(cid);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function closePw() {
+    setPwInput("");
+    navigate("/konselor");
+  }
+
+  async function handleUnlock(e: FormEvent) {
+    e.preventDefault();
+    if (verifying) return;
+    setVerifying(true);
+    setPwError("");
+    try {
+      if (isConfigured === false) {
+        if (pwInput.length < 4) {
+          setPwError("Kata sandi riwayat minimal 4 karakter.");
+          return;
+        }
+        const initRes = await initPassword(pwInput);
+        if (!initRes.success) {
+          setPwError(initRes.message || "Gagal mengatur kata sandi riwayat.");
+          return;
+        }
+      }
+
+      const result = await unlockHistory(pwInput);
+      if (result.status === "success") {
+        setPwInput("");
+        setPwError("");
+        setToastMsg("Riwayat konseling dibuka. Terkunci otomatis dalam 30 menit.");
+        return;
+      }
+      if (result.status === "locked") {
+        setPwInput("");
+        setPwError(result.message || "Terlalu banyak percobaan. Akses dikunci sementara.");
+        return;
+      }
+      if (result.status === "invalid") {
+        setPwInput("");
+        setPwError(result.message || `Kata sandi salah. Sisa percobaan: ${result.remainingAttempts}`);
+        return;
+      }
+      setPwError(result.message || "Gagal membuka riwayat konseling.");
+    } catch (err: unknown) {
+      setPwError(err instanceof Error ? err.message : "Terjadi kesalahan sistem saat memverifikasi kata sandi.");
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  function backToClients() {
+    setSelectedId(null);
+    setNoteId(null);
+    setConsentSessionId(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleOpenConsent(id: string | number) {
+    if (!hasAccess || !selectedId) {
+      setConsentSessionId(null);
+      return;
+    }
+    setConsentSessionId(id);
+  }
+
+  function handleOpenNote(id: string | number) {
+    if (!selectedId || !hasAccess) {
+      setToastMsg("Akses habis. Masukkan kata sandi kembali.");
+      backToClients();
+      return;
+    }
+    setNoteId(id);
+  }
 
   return (
-    <PageContainer className="py-6 lg:py-8">
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <PageHeader
-            title="Riwayat"
-            description="Arsip sesi konseling yang telah selesai dan dibatalkan dari server"
-          />
+    <PageContainer role="counselor" spacing="none">
+      {/* Timer Bar when Access Granted */}
+      {hasAccess && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-[#064E3B] sm:px-5">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[#064E3B]" />
+            <span>
+              Akses riwayat terbuka sementara (sisa waktu:{" "}
+              <span className="font-mono font-bold">{timerText}</span>)
+            </span>
+          </div>
           <button
             type="button"
-            onClick={() => void handleManualRefresh()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
+            onClick={lockHistory}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-[#064E3B] transition hover:bg-emerald-100/50"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Muat Ulang
+            <Lock className="h-3.5 w-3.5" />
+            Kunci Sekarang
           </button>
         </div>
+      )}
 
-        {/* Banner Informasi Keamanan & Batas Data Klinis */}
-        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs text-gray-700">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#064E3B]" />
-          <div className="leading-relaxed">
-            <p className="font-bold text-gray-900">
-              Otorisasi Server Aktif · Batas Penyimpanan Catatan Klinis
-            </p>
-            <p className="mt-0.5">
-              Seluruh riwayat sesi di halaman ini diverifikasi langsung oleh
-              autentikasi server (`/api/v1/sessions` & `/api/v1/bookings`).
-              Catatan konseling naratif dan dokumen Informed Consent PDF belum
-              disimpan pada database backend sesuai batas SOP saat ini.
-            </p>
-          </div>
-        </div>
+      {hasAccess &&
+        (!selected ? (
+          <>
+            {/* ================= DAFTAR KLIEN ================= */}
+            <PageHeader
+              title="Riwayat Konseling"
+              description="Pilih klien untuk membuka riwayat dan catatan konseling."
+            />
 
-        {errorMessage && (
-          <div
-            role="alert"
-            className="flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-          >
-            <div className="flex items-start gap-2.5">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-              <div>
-                <p className="font-semibold">Gagal Memuat Riwayat</p>
-                <p className="mt-0.5">{errorMessage}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleManualRefresh()}
-              className="shrink-0 rounded-xl border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
-            >
-              Coba Lagi
-            </button>
-          </div>
-        )}
+            {/* Filter nama, format, dan periode waktu */}
+            <div className="mt-6 space-y-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Cari nama klien ..."
+                    className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15"
+                  />
+                </div>
 
-        {selectedSession ? (
-          /* ========================= DETAIL RIWAYAT SESI ========================= */
-          (() => {
-            const booking = bookingMap.get(selectedSession.booking_id);
-            const title = formatBookingClientTitle(booking);
-            const isCompleted = selectedSession.status === "completed";
-
-            return (
-              <div className="space-y-5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedSessionId(null)}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900"
+                <div
+                  role="tablist"
+                  aria-label="Format konseling"
+                  className="flex w-full rounded-xl border border-gray-200 bg-gray-100/70 p-1 lg:w-auto"
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  Kembali ke daftar riwayat
-                </button>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
-                  <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 pb-5">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-base font-bold text-[#064E3B]">
-                        {getCounselorInitials(title)}
-                      </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="text-lg font-bold text-gray-900">
-                            {title}
-                          </h2>
-                          <span
-                            className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                              isCompleted
-                                ? "border-teal-200 bg-teal-50 text-teal-800"
-                                : "border-red-200 bg-red-50 text-red-700"
-                            }`}
-                          >
-                            {isCompleted ? "Selesai" : "Dibatalkan"}
-                          </span>
-                          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
-                            {formatSessionFormatLabel(selectedSession.format)}
-                          </span>
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              booking?.service_type === "group"
-                                ? "bg-purple-50 text-purple-700"
-                                : "bg-gray-100 text-gray-700"
-                            }`}
-                          >
-                            {booking?.service_type === "group"
-                              ? `Kelompok (${booking.participant_count} orang)`
-                              : "Individu"}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">
-                          ID Sesi:{" "}
-                          <code className="font-mono">{selectedSession.id}</code>{" "}
-                          · ID Booking:{" "}
-                          <code className="font-mono">
-                            {selectedSession.booking_id}
-                          </code>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
-                        <Calendar className="h-4 w-4 text-[#064E3B]" />
-                        Tanggal Sesi
-                      </div>
-                      <p className="mt-1.5 text-sm font-bold text-gray-900">
-                        {formatIsoDateId(selectedSession.starts_at)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
-                        <Clock className="h-4 w-4 text-[#064E3B]" />
-                        Rentang Waktu
-                      </div>
-                      <p className="mt-1.5 text-sm font-bold text-gray-900">
-                        {formatIsoTimeRangeWita(
-                          selectedSession.starts_at,
-                          selectedSession.ends_at,
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
-                        {selectedSession.format === "online" ? (
-                          <Video className="h-4 w-4 text-[#064E3B]" />
-                        ) : (
-                          <MapPin className="h-4 w-4 text-[#064E3B]" />
-                        )}
-                        Format & Lokasi
-                      </div>
-                      <p className="mt-1.5 text-sm font-bold text-gray-900">
-                        {formatSessionFormatLabel(selectedSession.format)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        {selectedSession.room || "Ruang Konseling LMI"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
-                        <Users className="h-4 w-4 text-[#064E3B]" />
-                        Identitas Klien
-                      </div>
-                      <p className="mt-1.5 text-sm font-bold text-gray-900">
-                        ID:{" "}
-                        {booking?.client_id
-                          ? `#${booking.client_id.slice(0, 8).toUpperCase()}`
-                          : "—"}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        {booking?.service_type === "group"
-                          ? `Perwakilan: ${formatBookingRepresentative(booking) ?? "—"}`
-                          : "Konseling Individu"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Timestamp Rekaman */}
-                  <div className="mt-4 flex flex-wrap gap-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs text-gray-600">
-                    {selectedSession.started_at && (
-                      <span>
-                        <strong className="text-gray-800">Dimulai:</strong>{" "}
-                        {new Date(selectedSession.started_at).toLocaleString("id-ID")}
-                      </span>
-                    )}
-                    {selectedSession.completed_at && (
-                      <span>
-                        <strong className="text-teal-800">Diselesaikan:</strong>{" "}
-                        {new Date(selectedSession.completed_at).toLocaleString("id-ID")}
-                      </span>
-                    )}
-                    {selectedSession.status === "cancelled" && (
-                      <span>
-                        <strong className="text-red-700">Diperbarui (Batal):</strong>{" "}
-                        {new Date(selectedSession.updated_at).toLocaleString("id-ID")}
-                      </span>
-                    )}
-                  </div>
-
-                  {booking?.service_type === "group" && (
-                    <div className="mt-5 rounded-xl border border-purple-100 bg-purple-50/40 p-4">
-                      <h3 className="text-sm font-bold text-purple-950">
-                        Daftar Anggota Kelompok ({booking.participant_count} Peserta)
-                      </h3>
-                      {(booking.booking_participants ?? []).length > 0 ? (
-                        <ul className="mt-2.5 grid gap-2 sm:grid-cols-2">
-                          {(booking.booking_participants ?? []).map((p, idx) => (
-                            <li
-                              key={p.id}
-                              className="flex items-center justify-between rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm"
-                            >
-                              <span className="font-medium text-gray-800">
-                                {idx + 1}. {p.display_name}
-                              </span>
-                              {p.is_representative && (
-                                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-800">
-                                  Perwakilan
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-1 text-xs text-purple-800">
-                          Kelompok {booking.group_name ?? "—"} ({booking.participant_count} peserta).
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {booking?.cancellation_reason && (
-                    <div className="mt-5 rounded-xl border border-red-200 bg-red-50/70 p-4 text-sm text-red-900">
-                      <p className="font-bold">Alasan Pembatalan:</p>
-                      <p className="mt-1">{booking.cancellation_reason}</p>
-                    </div>
-                  )}
-
-                  <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-                    <div className="flex items-start gap-3">
-                      <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#064E3B]" />
-                      <div>
-                        <h3 className="text-sm font-bold text-gray-900">
-                          Catatan Klinis & Informed Consent Belum Disimpan di Database
-                        </h3>
-                        <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                          Saat ini tabel `sessions` di backend menyimpan metadata
-                          pelaksanaan sesi terverifikasi (jadwal, format, ruangan, dan
-                          waktu mulai/selesai/batal). Penyimpanan dokumen tanda tangan
-                          Informed Consent dan catatan klinis konselor akan ditambahkan
-                          setelah SOP retensi & enkripsi rekam konseling disahkan.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  {(["Individu", "Kelompok"] as Format[]).map((f) => {
+                    const active = format === f;
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => setFormat(f)}
+                        className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition lg:flex-none ${
+                          active
+                            ? "bg-white font-semibold text-gray-900 shadow-sm"
+                            : "font-medium text-gray-500"
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })()
-        ) : (
-          /* ========================= DAFTAR RIWAYAT SESI ========================= */
-          <>
-            {/* Ringkasan Angka */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
-                <p className="text-xs font-medium text-gray-500">
-                  Total Sesi (Terfilter)
-                </p>
-                <p className="mt-1.5 text-2xl font-bold text-gray-900">
-                  {loading ? "—" : summaryCounts.total}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
-                <p className="text-xs font-medium text-teal-700">
-                  Sesi Selesai (`completed`)
-                </p>
-                <p className="mt-1.5 text-2xl font-bold text-teal-800">
-                  {loading ? "—" : summaryCounts.completed}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
-                <p className="text-xs font-medium text-red-600">
-                  Sesi Dibatalkan (`cancelled`)
-                </p>
-                <p className="mt-1.5 text-2xl font-bold text-red-700">
-                  {loading ? "—" : summaryCounts.cancelled}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
-                <p className="text-xs font-medium text-gray-500">
-                  Klien Unik Dilayani
-                </p>
-                <p className="mt-1.5 text-2xl font-bold text-gray-900">
-                  {loading ? "—" : summaryCounts.uniqueClients}
-                </p>
-              </div>
-            </div>
 
-            {/* Filter Periode & Pencarian */}
-            <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
-                <div className="inline-flex flex-wrap rounded-xl border border-gray-200 bg-gray-50 p-1">
-                  {(
-                    [
-                      ["semua", "Semua Waktu"],
-                      ["hari", "Hari"],
-                      ["minggu", "Minggu"],
-                      ["bulan", "Bulan"],
-                      ["semester", "Semester"],
-                    ] as const
-                  ).map(([key, label]) => (
+              <div className="flex flex-col gap-3 border-t border-gray-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-gray-200 bg-gray-100/70 p-1">
+                  {PERIOD_OPTIONS.map(([key, labelText]) => (
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setPeriodFilter(key)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                        periodFilter === key
-                          ? "bg-white text-[#064E3B] shadow-xs"
-                          : "text-gray-600 hover:text-gray-900"
+                      onClick={() => setPeriod(key)}
+                      className={`rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${
+                        period === key
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-500 hover:text-gray-900"
                       }`}
                     >
-                      {label}
+                      {labelText}
                     </button>
                   ))}
                 </div>
 
-                {periodFilter === "semester" ? (
-                  <AcademicPeriodFilter
-                    periods={periods}
-                    selectedId={selectedPeriodId}
-                    onSelect={setSelectedPeriodId}
-                    showAllOption={false}
-                    className="relative w-full sm:w-80"
-                  />
-                ) : periodFilter !== "semua" ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      aria-label="Periode sebelumnya"
-                      onClick={() => shiftAnchor(-1)}
-                      className="rounded-lg border border-gray-200 p-1.5 hover:bg-gray-50"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <span className="min-w-[160px] text-center text-xs font-bold text-gray-800">
-                      {formatRangeLabel(periodFilter, dateRange, activeSemester)}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Periode berikutnya"
-                      onClick={() => shiftAnchor(1)}
-                      className="rounded-lg border border-gray-200 p-1.5 hover:bg-gray-50"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cari ID sesi, klien, kelompok, ruangan, atau alasan batal..."
-                    className="w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-9 text-sm outline-none focus:border-[#064E3B] focus:ring-2 focus:ring-[#064E3B]/15"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      aria-label="Hapus pencarian"
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
-                    {(["Semua", "Selesai", "Dibatalkan"] as const).map((st) => (
-                      <button
-                        key={st}
-                        type="button"
-                        onClick={() => setStatusFilter(st)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                          statusFilter === st
-                            ? "bg-white text-[#064E3B] shadow-xs"
-                            : "text-gray-600 hover:text-gray-900"
-                        }`}
-                      >
-                        {st}
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => stepPeriod(-1)}
+                    disabled={!canPrevious}
+                    aria-label="Periode sebelumnya"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[170px] flex-1 text-center text-sm font-semibold text-gray-800 sm:flex-none">
+                    {label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => stepPeriod(1)}
+                    disabled={!canNext}
+                    aria-label="Periode berikutnya"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
 
-                  <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
-                    {(["Semua", "Tatap Muka", "Online"] as const).map((fmt) => (
-                      <button
-                        key={fmt}
-                        type="button"
-                        onClick={() => setFormatFilter(fmt)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                          formatFilter === fmt
-                            ? "bg-white text-[#064E3B] shadow-xs"
-                            : "text-gray-600 hover:text-gray-900"
-                        }`}
-                      >
-                        {fmt}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
-                    {(["Semua", "Individu", "Kelompok"] as const).map((tp) => (
-                      <button
-                        key={tp}
-                        type="button"
-                        onClick={() => setTypeFilter(tp)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                          typeFilter === tp
-                            ? "bg-white text-[#064E3B] shadow-xs"
-                            : "text-gray-600 hover:text-gray-900"
-                        }`}
-                      >
-                        {tp}
-                      </button>
-                    ))}
-                  </div>
+                  {period === "semester" && (
+                    <select
+                      value={semesterId ?? ""}
+                      onChange={(e) => setSemesterId(e.target.value)}
+                      aria-label="Pilih semester akademik"
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
+                      {periods.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          TA {p.ta} · {p.sem}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
             </div>
 
-            {loading ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white py-16 text-center shadow-xs">
-                <Loader2 className="h-7 w-7 animate-spin text-[#064E3B]" />
-                <p className="mt-3 text-sm font-medium text-gray-600">
-                  Memuat riwayat sesi konseling dari server...
-                </p>
+            {historyError && (
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
+                  <span>{historyError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => grantToken && void fetchHistoryData(grantToken)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Coba Lagi
+                </button>
               </div>
-            ) : filteredSessions.length === 0 ? (
-              <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-xs">
-                <FileText className="mx-auto h-10 w-10 text-gray-300" />
-                <p className="mt-3 text-base font-bold text-gray-900">
-                  Tidak ada riwayat sesi pada filter ini
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  Sesi yang telah ditandai selesai (`completed`) atau dibatalkan
-                  (`cancelled`) akan tercatat secara otomatis di sini.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredSessions.map((session) => {
-                  const booking = bookingMap.get(session.booking_id);
-                  const title = formatBookingClientTitle(booking);
-                  const isCompleted = session.status === "completed";
+            )}
 
-                  return (
-                    <div
-                      key={session.id}
-                      className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs transition hover:border-gray-300"
-                    >
-                      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-                        <div className="flex items-start gap-4">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-bold text-[#064E3B]">
-                            {getCounselorInitials(title)}
+            {loadingHistory && (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-full bg-gray-200" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-3/4 rounded bg-gray-200" />
+                        <div className="h-3 w-1/2 rounded bg-gray-100" />
+                      </div>
+                    </div>
+                    <div className="mt-4 border-t border-gray-100 pt-4 flex justify-between">
+                      <div className="h-3 w-20 rounded bg-gray-100" />
+                      <div className="h-5 w-14 rounded-full bg-gray-200" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!loadingHistory && allClients.length === 0 && (
+              <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-[#064E3B]">
+                  <FileSignature className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 text-base font-bold text-gray-900">
+                  Belum ada riwayat konseling.
+                </h3>
+                <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
+                  Riwayat sesi konseling yang telah selesai atau dibatalkan akan tercatat secara otomatis di sini.
+                </p>
+              </div>
+            )}
+
+            {!loadingHistory && allClients.length > 0 && (
+              <>
+                <p className="mt-4 text-xs text-gray-500">
+                  Menampilkan {rows.length} klien · {format} · {label}
+                </p>
+
+                <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {rows.map(({ client, count, latest }) => (
+                    <li key={client.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenClient(client.id)}
+                        className="flex w-full flex-col rounded-2xl border border-gray-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-[#36c08f]/60 hover:shadow-md"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">
+                            {initials(client.name)}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-bold text-gray-900">{title}</p>
-                              <span
-                                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                                  isCompleted
-                                    ? "border-teal-200 bg-teal-50 text-teal-800"
-                                    : "border-red-200 bg-red-50 text-red-700"
-                                }`}
-                              >
-                                {isCompleted ? (
-                                  <CheckCircle2 className="h-3 w-3" />
-                                ) : (
-                                  <XCircle className="h-3 w-3" />
-                                )}
-                                {isCompleted ? "Selesai" : "Dibatalkan"}
-                              </span>
-                              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
-                                {formatSessionFormatLabel(session.format)}
-                              </span>
-                              <span
-                                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                  booking?.service_type === "group"
-                                    ? "bg-purple-50 text-purple-700"
-                                    : "bg-gray-100 text-gray-700"
-                                }`}
-                              >
-                                {booking?.service_type === "group"
-                                  ? `Kelompok · ${booking.participant_count} orang`
-                                  : "Individu"}
-                              </span>
-                            </div>
-
-                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
-                              <span className="inline-flex items-center gap-1.5 font-medium text-gray-800">
-                                <Calendar className="h-3.5 w-3.5 text-[#064E3B]" />
-                                {formatIsoDateId(session.starts_at)}
-                              </span>
-                              <span className="inline-flex items-center gap-1.5 font-medium text-gray-800">
-                                <Clock className="h-3.5 w-3.5 text-[#064E3B]" />
-                                {formatIsoTimeRangeWita(
-                                  session.starts_at,
-                                  session.ends_at,
-                                )}
-                              </span>
-                              <span>
-                                {session.room || "Ruang Konseling LMI"}
-                              </span>
-                              {session.completed_at && (
-                                <span>
-                                  Diselesaikan{" "}
-                                  {formatIsoShortDateId(session.completed_at)}
-                                </span>
-                              )}
-                            </div>
-
-                            {booking?.cancellation_reason && (
-                              <p className="mt-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs text-red-700">
-                                <span className="font-semibold">
-                                  Alasan pembatalan:
-                                </span>{" "}
-                                {booking.cancellation_reason}
-                              </p>
-                            )}
+                            <p className="truncate font-semibold text-gray-900">
+                              {client.name}
+                            </p>
+                            <p className="truncate text-xs text-gray-500">
+                              {client.role}
+                            </p>
                           </div>
                         </div>
+                        <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 text-sm">
+                          <span className="text-gray-600">
+                            {count} sesi {format.toLowerCase()}
+                          </span>
+                          <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary">
+                            Selesai
+                          </span>
+                        </div>
+                        <p className="mt-3 text-xs text-gray-400">
+                          Terakhir: {fmtDate(latest)}
+                        </p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
 
-                        <div className="lg:shrink-0">
+                {rows.length === 0 && (
+                  <div className="mt-5 rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
+                    Tidak ada klien yang cocok dengan filter ini.
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            {/* ================= DETAIL KLIEN ================= */}
+            <nav className="flex items-center gap-2 text-sm text-gray-500">
+              <button
+                type="button"
+                onClick={backToClients}
+                className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Riwayat Konseling
+              </button>
+              <span>/</span>
+              <span className="truncate text-gray-700">{selected.name}</span>
+            </nav>
+
+            <div className="mt-5 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#36c08f] text-xl font-bold text-white">
+                {initials(selected.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-bold sm:text-2xl">
+                  {selected.name}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {selected.role} · {selected.email}
+                </p>
+              </div>
+              <dl className="grid grid-cols-2 gap-3 sm:gap-6">
+                <div className="rounded-xl bg-gray-50 px-3 py-2.5 text-center sm:px-4">
+                  <dt className="text-xs text-gray-500">Total sesi</dt>
+                  <dd className="mt-0.5 text-lg font-bold">
+                    {detailSessions.length}
+                  </dd>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-3 py-2.5 text-center sm:px-4">
+                  <dt className="text-xs text-gray-500">Terakhir</dt>
+                  <dd className="mt-0.5 text-sm font-semibold">
+                    {lastDate ? fmtDate(lastDate) : "-"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">
+                  Riwayat sesi
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {format} · {label}
+                </p>
+              </div>
+              <div className="relative">
+                <select
+                  value={timeSort}
+                  onChange={(e) =>
+                    setTimeSort(e.target.value as "terbaru" | "terlama")
+                  }
+                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-100/70 py-2.5 pl-4 pr-10 text-sm text-gray-600 outline-none focus:border-primary focus:bg-white sm:w-auto"
+                >
+                  <option value="terbaru">Waktu terbaru</option>
+                  <option value="terlama">Waktu terlama</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+              </div>
+            </div>
+
+            {detailSessions.length === 0 ? (
+              <p className="mt-4 text-sm text-gray-500">
+                Tidak ada sesi yang cocok dengan filter ini.
+              </p>
+            ) : (
+              <ol className="relative mt-4 space-y-4 border-l-2 border-gray-200 pl-5 sm:pl-7">
+                {detailSessions.map((s) => (
+                  <li key={s.id} className="relative">
+                    <span className="absolute -left-[27px] top-5 h-3 w-3 rounded-full border-2 border-white bg-[#36c08f] sm:-left-[35px]" />
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {s.topic}
+                          </p>
+                          <p className="mt-0.5 text-sm text-gray-500">
+                            {fmtDate(s.date)} · {s.time} WITA
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            s.format === "Kelompok"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-emerald-100 text-emerald-800"
+                          }`}
+                        >
+                          {s.format}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                        <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary">
+                          Selesai
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => setSelectedSessionId(session.id)}
-                            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 sm:text-sm"
+                            onClick={() => handleOpenConsent(s.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-3.5 py-2 text-sm font-semibold text-primary hover:bg-primary-soft"
                           >
-                            Lihat Detail Riwayat
+                            <FileSignature className="h-4 w-4" />
+                            Lihat informed consent
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenNote(s.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Lihat catatan
                           </button>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </li>
+                ))}
+              </ol>
             )}
           </>
-        )}
+        ))}
+
+      {/* ================= MODAL PASSWORD ================= */}
+      {!hasAccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/45 p-4 backdrop-blur-[2px]">
+          <form
+            onSubmit={handleUnlock}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${
+              isConfigured === false ? "bg-amber-50 text-amber-600" : "bg-primary-soft text-primary"
+            }`}>
+              {isConfigured === false ? <KeyRound className="h-6 w-6" /> : <Lock className="h-6 w-6" />}
+            </div>
+            <h2 className="text-lg font-bold">
+              {isConfigured === false ? "Atur Sandi Riwayat Konseling" : "Buka Riwayat Konseling"}
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              {isConfigured === false
+                ? "Kata sandi riwayat belum dikonfigurasi di database. Buat kata sandi khusus (minimal 4 karakter) untuk melindungi rekam medis konseling Anda."
+                : "Masukkan kata sandi khusus untuk membuka seluruh riwayat dan catatan konseling. Ini berbeda dari kata sandi login Anda."}
+            </p>
+
+            <label
+              htmlFor="pwInput"
+              className="mt-5 block text-sm font-medium text-gray-700"
+            >
+              {isConfigured === false ? "Kata sandi riwayat baru" : "Kata sandi"}
+            </label>
+            <div className="relative mt-1.5">
+              <input
+                id="pwInput"
+                type={pwVisible ? "text" : "password"}
+                autoComplete="off"
+                autoFocus
+                value={pwInput}
+                onChange={(e) => setPwInput(e.target.value)}
+                disabled={pwLocked || verifying}
+                placeholder={isConfigured === false ? "Buat kata sandi baru (min. 4 karakter)" : "Masukkan kata sandi riwayat"}
+                className="w-full rounded-xl border border-gray-300 py-2.5 pl-4 pr-20 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:bg-gray-100"
+              />
+              <button
+                type="button"
+                onClick={() => setPwVisible((v) => !v)}
+                className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-primary hover:bg-primary-soft"
+              >
+                {pwVisible ? (
+                  <EyeOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" />
+                )}
+                {pwVisible ? "Sembunyikan" : "Lihat"}
+              </button>
+            </div>
+
+            {pwError && (
+              <div className="mt-2 flex items-center gap-1.5 text-sm text-red-600">
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <span>{pwError}</span>
+              </div>
+            )}
+            {!pwError && pwUsed > 0 && !pwLocked && isConfigured !== false && (
+              <p className="mt-1 text-xs text-gray-500">
+                Sisa percobaan: {MAX_ATTEMPTS - pwUsed}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closePw}
+                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={pwLocked || verifying || pwInput.length === 0}
+                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
+              >
+                {verifying
+                  ? "Memproses..."
+                  : isConfigured === false
+                  ? "Simpan & Buka"
+                  : "Buka"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ================= MODAL LIHAT INFORMED CONSENT ================= */}
+      {hasAccess && selected && consentSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/45 p-4 backdrop-blur-[2px]">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="consent-view-title"
+            className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 p-5">
+              <div>
+                <h2
+                  id="consent-view-title"
+                  className="text-lg font-bold text-gray-900"
+                >
+                  Informed Consent
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {selected.name} · {fmtDate(consentSession.date)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConsentSessionId(null)}
+                aria-label="Tutup informed consent"
+                className="rounded-lg p-2 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <object
+                data={`${CONSENT_PDF_URL}#toolbar=0&navpanes=0`}
+                type="application/pdf"
+                className="h-[55vh] w-full"
+                aria-label="Dokumen informed consent"
+              >
+                <div className="p-6 text-center text-sm text-gray-600">
+                  Browser tidak dapat menampilkan PDF.{" "}
+                  <a
+                    href={CONSENT_PDF_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-primary underline"
+                  >
+                    Buka dokumen di tab baru
+                  </a>
+                </div>
+              </object>
+              <p className="border-t border-gray-200 p-5 text-sm text-gray-600">
+                Ini adalah dokumen informed consent resmi SiCARE. Riwayat persetujuan
+                dan status persetujuan disimpan dalam rekam medis terproteksi.
+              </p>
+            </div>
+            <div className="flex justify-end border-t border-gray-200 p-5">
+              <a
+                href={CONSENT_PDF_URL}
+                download="informed-consent.pdf"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+              >
+                <Download className="h-4 w-4" />
+                Unduh PDF
+              </a>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ================= MODAL BACA CATATAN ================= */}
+      {hasAccess && noteSession && selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/45 p-4 backdrop-blur-[2px]">
+          <div className="flex max-h-[88vh] w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 p-5 sm:p-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  Catatan terbuka sementara
+                </p>
+                <h2 className="mt-1 text-lg font-bold">{noteSession.topic}</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {fmtDate(noteSession.date)} · {noteSession.time} WITA ·{" "}
+                  {noteSession.format}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNoteId(null)}
+                aria-label="Tutup"
+                className="rounded-lg p-2 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-5 sm:p-6">
+              <h3 className="text-sm font-semibold text-gray-700">
+                Ringkasan sesi
+              </h3>
+              <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">
+                {noteSession.summary}
+              </p>
+              <h3 className="mt-5 text-sm font-semibold text-gray-700">
+                Catatan konselor
+              </h3>
+              <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">
+                {noteSession.note}
+              </p>
+              <p className="mt-5 text-xs text-gray-400">
+                Akses terkunci otomatis dalam {timerText}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= TOAST ================= */}
+      <div
+        className={`pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-lg transition duration-300 ${
+          toastMsg ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+        }`}
+      >
+        {toastMsg}
       </div>
     </PageContainer>
   );

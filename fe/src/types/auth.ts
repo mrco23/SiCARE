@@ -20,6 +20,8 @@ export interface AuthProfile {
   account_status: "pending" | "active" | "disabled";
   phone_e164?: string | null;
   whatsapp_opt_in?: boolean;
+  avatar_url?: string | null;
+  photo_path?: string | null;
   created_at?: string;
   updated_at?: string;
 }

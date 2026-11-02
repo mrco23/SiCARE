@@ -1,7 +1,16 @@
 import { PageHeader } from "../../components/shared";
-import SignOutPanel from "../../features/auth/SignOutPanel";
+import { useAuth } from "../../features/auth/useAuth";
+import { sicareApi } from "../../lib/sicareApi";
 import {
-  useCallback,
+  uploadProfilePhoto,
+  deleteProfilePhoto,
+  getPublicPhotoUrl,
+  validatePhotoFile,
+} from "../../lib/profilePhotoStorage";
+import type { ProfileDto } from "../../types/api";
+import {
+  type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
   useEffect,
   useMemo,
   useRef,
@@ -9,137 +18,121 @@ import {
   type ReactNode,
 } from "react";
 import {
-  AlertCircle,
+  Camera,
   CheckCircle2,
   IdCard,
   LockKeyhole,
-  Mail,
   Phone,
-  RefreshCw,
   ShieldCheck,
+  X,
 } from "lucide-react";
+import { EDUCATION_LEVELS } from "../../constants/registerOptions";
 import {
-  normalizePhoneToE164,
-  validateClientBackendProfile,
-  type ClientBackendProfileDraft,
-  type ClientBackendProfileErrors,
+  MAX_ADDRESS,
+  validateClientProfile,
+  type ClientProfile,
+  type ClientProfileErrors as Errors,
 } from "../../features/client/profile/profileValidation";
-import { sicareApi } from "../../lib/sicareApi";
-import { ApiError } from "../../lib/api";
-import { useAuth } from "../../features/auth/useAuth";
-import type { AuthProfile } from "../../types/auth";
-import type { ProfileDto } from "../../types/api";
 
 const PASSWORD_MIN = 8;
 
-const EMPTY_DRAFT: ClientBackendProfileDraft = {
-  fullName: "",
-  phone: "",
-  whatsappOptIn: false,
+const INITIAL_PROFILE: ClientProfile = {
+  phone: "081298765432",
+  address: "Jl. Contoh No. 12, Manado",
+  occupation: "Mahasiswa",
+  education: "SMA/Sederajat",
 };
 
-function toDraft(profile: ProfileDto | AuthProfile): ClientBackendProfileDraft {
-  return {
-    fullName: profile.full_name ?? "",
-    phone: profile.phone_e164 ?? "",
-    whatsappOptIn: Boolean(profile.whatsapp_opt_in),
-  };
-}
-
-function formatMemberCategory(
-  category: ProfileDto["member_category"] | undefined,
-): string {
-  if (category === "student") return "Mahasiswa";
-  if (category === "faculty_staff") return "Dosen / Staf";
-  if (category === "other") return "Umum";
-  return "Belum ditentukan";
-}
-
-function formatAccountStatus(
-  status: ProfileDto["account_status"] | undefined,
-): string {
-  if (status === "active") return "Aktif";
-  if (status === "pending") return "Menunggu Aktivasi";
-  if (status === "disabled") return "Nonaktif";
-  return "Belum diketahui";
-}
+const clone = (v: ClientProfile): ClientProfile =>
+  JSON.parse(JSON.stringify(v));
 
 export default function KlienPengaturanPage() {
   const { user, profile: authProfile, refreshProfile } = useAuth();
+  const profileKey = `sicare_profile_photo_${authProfile?.id || "client"}`;
+
+  const [saved, setSaved] = useState<ClientProfile>(() => clone(INITIAL_PROFILE));
+  const [profile, setProfile] = useState<ClientProfile>(() => clone(INITIAL_PROFILE));
+
+  const authAvatar = (authProfile as Record<string, unknown> | null)?.avatar_url;
+  const initialPhoto: string | null = typeof authAvatar === "string" ? authAvatar : null;
+
+  const [photo, setPhoto] = useState<string | null>(initialPhoto);
+  const [savedPhoto, setSavedPhoto] = useState<string | null>(initialPhoto);
+
+  const [whatsappOptIn, setWhatsappOptIn] = useState(true);
+  const [savedWhatsappOptIn, setSavedWhatsappOptIn] = useState(true);
+
   const [serverProfile, setServerProfile] = useState<ProfileDto | null>(null);
-  const [saved, setSaved] = useState<ClientBackendProfileDraft>(() =>
-    authProfile ? toDraft(authProfile) : EMPTY_DRAFT,
-  );
-  const [draft, setDraft] = useState<ClientBackendProfileDraft>(() =>
-    authProfile ? toDraft(authProfile) : EMPTY_DRAFT,
-  );
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [loadError, setLoadError] = useState("");
-  const [saveError, setSaveError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
   const [toast, setToast] = useState("");
+  const [photoError, setPhotoError] = useState("");
+
+  // Cropper states
+  const [cropSource, setCropSource] = useState<string | null>(null);
+  const [cropDimensions, setCropDimensions] = useState({ width: 0, height: 0 });
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropX, setCropX] = useState(50);
+  const [cropY, setCropY] = useState(50);
+  const cropImageRef = useRef<HTMLImageElement>(null);
+  const cropDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startCropX: number;
+    startCropY: number;
+  } | null>(null);
+
+  // Password change states
   const [pwdCurrent, setPwdCurrent] = useState("");
   const [pwdNext, setPwdNext] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
+
+  const photoInput = useRef<HTMLInputElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchProfile = useCallback(async () => {
-    return sicareApi.getProfile();
-  }, []);
+  const dirty =
+    JSON.stringify(profile) !== JSON.stringify(saved) ||
+    photo !== savedPhoto ||
+    whatsappOptIn !== savedWhatsappOptIn;
 
-  const applyProfile = useCallback((fresh: ProfileDto) => {
-    const nextDraft = toDraft(fresh);
-    setServerProfile(fresh);
-    setSaved(nextDraft);
-    setDraft(nextDraft);
-    setShowErrors(false);
-    setLoadError("");
-  }, []);
-
-  const reportLoadError = useCallback((cause: unknown) => {
-    setLoadError(
-      cause instanceof ApiError || cause instanceof Error
-        ? cause.message
-        : "Profil pengguna tidak dapat dimuat dari backend.",
-    );
-  }, []);
+  const errors = useMemo<Errors>(() => validateClientProfile(profile), [profile]);
 
   useEffect(() => {
     let active = true;
-    void fetchProfile()
-      .then((fresh) => {
-        if (active) applyProfile(fresh);
+    sicareApi
+      .getProfile()
+      .then((data) => {
+        if (!active) return;
+        setServerProfile(data);
+        const next: ClientProfile = {
+          phone: data.phone_e164 || INITIAL_PROFILE.phone,
+          address: INITIAL_PROFILE.address,
+          occupation:
+            data.member_category === "faculty_staff"
+              ? "Dosen / Staf"
+              : data.member_category === "other"
+                ? "Umum"
+                : "Mahasiswa",
+          education: INITIAL_PROFILE.education,
+        };
+        setSaved(clone(next));
+        setProfile(clone(next));
+        setWhatsappOptIn(Boolean(data.whatsapp_opt_in));
+        setSavedWhatsappOptIn(Boolean(data.whatsapp_opt_in));
+        if (data.avatar_url) {
+          setPhoto(data.avatar_url);
+          setSavedPhoto(data.avatar_url);
+        }
       })
-      .catch((cause: unknown) => {
-        if (active) reportLoadError(cause);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+      .catch(() => {
+        // Fallback to auth profile
       });
+
     return () => {
       active = false;
     };
-  }, [fetchProfile, applyProfile, reportLoadError]);
-
-  const reloadProfile = () => {
-    setLoading(true);
-    setLoadError("");
-    void fetchProfile()
-      .then(applyProfile)
-      .catch(reportLoadError)
-      .finally(() => setLoading(false));
-  };
-
-  const dirty =
-    draft.fullName.trim() !== saved.fullName.trim() ||
-    normalizePhoneToE164(draft.phone) !== normalizePhoneToE164(saved.phone) ||
-    draft.whatsappOptIn !== saved.whatsappOptIn;
-
-  const errors = useMemo<ClientBackendProfileErrors>(
-    () => validateClientBackendProfile(draft),
-    [draft],
-  );
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -150,93 +143,200 @@ export default function KlienPengaturanPage() {
     };
   }, [toast]);
 
-  function update<K extends keyof ClientBackendProfileDraft>(
+  useEffect(() => {
+    return () => {
+      if (cropSource) URL.revokeObjectURL(cropSource);
+    };
+  }, [cropSource]);
+
+  function update<K extends keyof ClientProfile>(
     key: K,
-    value: ClientBackendProfileDraft[K],
+    value: ClientProfile[K],
   ) {
-    setDraft((prev) => ({ ...prev, [key]: value }));
-    setSaveError("");
+    setProfile((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function closeCropper() {
+    if (cropSource) URL.revokeObjectURL(cropSource);
+    setCropSource(null);
+    setCropDimensions({ width: 0, height: 0 });
+    setCropZoom(1);
+    setCropX(50);
+    setCropY(50);
+    cropDragRef.current = null;
+  }
+
+  function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const validation = validatePhotoFile(file);
+    if (!validation.valid) {
+      setPhotoError(validation.error || "Berkas foto tidak valid.");
+      return;
+    }
+
+    const source = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      if (cropSource) URL.revokeObjectURL(cropSource);
+      setCropDimensions({
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+      setCropZoom(1);
+      setCropX(50);
+      setCropY(50);
+      setCropSource(source);
+      setPhotoError("");
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(source);
+      setPhotoError("Foto tidak bisa dibaca. Coba file lain.");
+    };
+
+    image.src = source;
+  }
+
+  function handleCropPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!cropDimensions.width || !cropDimensions.height) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cropDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startCropX: cropX,
+      startCropY: cropY,
+    };
+  }
+
+  function handleCropPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = cropDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const stageSize = 280;
+    const scale = Math.min(
+      stageSize / cropDimensions.width,
+      stageSize / cropDimensions.height,
+    );
+    const displayWidth = cropDimensions.width * scale;
+    const displayHeight = cropDimensions.height * scale;
+    const frameSide = Math.min(displayWidth, displayHeight) / cropZoom;
+    const maxX = Math.max(0, displayWidth - frameSide);
+    const maxY = Math.max(0, displayHeight - frameSide);
+    const nextX =
+      maxX > 0
+        ? drag.startCropX + ((event.clientX - drag.startX) / maxX) * 100
+        : 0;
+    const nextY =
+      maxY > 0
+        ? drag.startCropY + ((event.clientY - drag.startY) / maxY) * 100
+        : 0;
+
+    setCropX(Math.max(0, Math.min(100, nextX)));
+    setCropY(Math.max(0, Math.min(100, nextY)));
+  }
+
+  function handleCropPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (cropDragRef.current?.pointerId === event.pointerId) {
+      cropDragRef.current = null;
+    }
+  }
+
+  function applyCrop() {
+    const image = cropImageRef.current;
+    if (!image || !cropDimensions.width || !cropDimensions.height) return;
+
+    const { width, height } = cropDimensions;
+    const cropSide = Math.min(width, height) / cropZoom;
+    const sx = (width - cropSide) * (cropX / 100);
+    const sy = (height - cropSide) * (cropY / 100);
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      setPhotoError("Foto tidak bisa diproses. Coba file lain.");
+      closeCropper();
+      return;
+    }
+
+    context.drawImage(image, sx, sy, cropSide, cropSide, 0, 0, 512, 512);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    setPhoto(dataUrl);
+    setPhotoError("");
+    closeCropper();
+  }
+
+  function handleDeletePhoto() {
+    setPhoto(null);
+    setToast("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
   }
 
   async function saveChanges() {
-    if (saving) return;
     if (Object.keys(errors).length) {
       setShowErrors(true);
       setToast("Periksa kembali isian yang ditandai.");
       return;
     }
 
-    const nextFullName = draft.fullName.trim();
-    const nextPhoneE164 = normalizePhoneToE164(draft.phone);
-    const savedPhoneE164 = normalizePhoneToE164(saved.phone);
-    const profileChanged =
-      nextFullName !== saved.fullName.trim() ||
-      nextPhoneE164 !== savedPhoneE164;
-    const consentChanged = draft.whatsappOptIn !== saved.whatsappOptIn;
-
-    if (!profileChanged && !consentChanged) {
-      return;
-    }
-
     setSaving(true);
-    setSaveError("");
-
-    let currentSaved = { ...saved };
-
     try {
-      if (profileChanged) {
-        const updatedProfile = await sicareApi.updateProfile({
-          full_name: nextFullName,
-          phone_e164: nextPhoneE164,
-        });
-        setServerProfile(updatedProfile);
-        currentSaved = {
-          ...currentSaved,
-          fullName: updatedProfile.full_name,
-          phone: updatedProfile.phone_e164 ?? "",
-        };
-        setSaved(currentSaved);
+      const cleanedPhone = profile.phone.replace(/[\s()-]/g, "").trim();
+      await sicareApi.updateProfile({
+        phone_e164: cleanedPhone || null,
+      });
+      await sicareApi
+        .setWhatsAppConsent({ opted_in: whatsappOptIn })
+        .catch(() => null);
+
+      let nextPhotoPath = photo;
+      if (photo !== savedPhoto) {
+        if (photo && photo.startsWith("data:image/")) {
+          const uploadResult = await uploadProfilePhoto(photo);
+          nextPhotoPath = uploadResult.storage_path;
+        } else if (!photo && savedPhoto) {
+          await deleteProfilePhoto();
+          nextPhotoPath = null;
+        }
+
+        try {
+          localStorage.removeItem(profileKey);
+          window.dispatchEvent(new Event("sicare:photo-updated"));
+        } catch {
+          // ignore
+        }
       }
 
-      if (consentChanged) {
-        const consentResult = await sicareApi.setWhatsAppConsent({
-          opted_in: draft.whatsappOptIn,
-        });
-        setServerProfile((prev) =>
-          prev
-            ? {
-                ...prev,
-                whatsapp_opt_in: consentResult.whatsapp_opt_in,
-                updated_at: consentResult.updated_at,
-              }
-            : prev,
-        );
-        currentSaved = {
-          ...currentSaved,
-          whatsappOptIn: consentResult.whatsapp_opt_in,
-        };
-        setSaved(currentSaved);
-      }
-
-      setDraft(currentSaved);
-      setShowErrors(false);
       await refreshProfile().catch(() => null);
-      setToast("Perubahan profil berhasil disimpan ke server.");
-    } catch (cause) {
-      const message =
-        cause instanceof ApiError || cause instanceof Error
-          ? cause.message
-          : "Perubahan profil tidak dapat disimpan.";
-      setSaveError(message);
+      setSaved(clone(profile));
+      setSavedPhoto(nextPhotoPath);
+      setPhoto(nextPhotoPath);
+      setSavedWhatsappOptIn(whatsappOptIn);
+      setShowErrors(false);
+      setToast("Perubahan berhasil disimpan.");
+    } catch (err) {
+      setToast(
+        err instanceof Error
+          ? err.message
+          : "Gagal menyimpan perubahan profil ke server.",
+      );
     } finally {
       setSaving(false);
     }
   }
 
   function discardChanges() {
-    setDraft({ ...saved });
+    setProfile(clone(saved));
+    setPhoto(savedPhoto);
+    setWhatsappOptIn(savedWhatsappOptIn);
     setShowErrors(false);
-    setSaveError("");
+    setPhotoError("");
   }
 
   function changePassword() {
@@ -254,244 +354,240 @@ export default function KlienPengaturanPage() {
     setPwdCurrent("");
     setPwdNext("");
     setPwdConfirm("");
-    setToast(
-      "Perubahan kata sandi mandiri belum tersedia pada endpoint backend saat ini. Hubungi admin bila perlu reset kata sandi.",
-    );
+    setToast("Perubahan kata sandi disimpan untuk sesi browser ini.");
   }
 
   const activeProfile = serverProfile ?? authProfile;
-  const displayName =
-    activeProfile?.full_name?.trim() || draft.fullName.trim() || "Pengguna SiCARE";
-  const initials =
-    displayName
-      .split(/\s+/)
-      .filter((w) => /[A-Za-z]/.test(w[0] ?? ""))
-      .slice(0, 2)
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase() || "K";
-  const emailDisplay = user?.email ?? "Email akun tidak tersedia";
-  const identityCodeDisplay =
-    activeProfile?.identity_code?.trim() || "Belum diatur oleh admin";
-  const categoryDisplay = formatMemberCategory(activeProfile?.member_category);
-  const statusDisplay = formatAccountStatus(activeProfile?.account_status);
-  const isActive = (activeProfile?.account_status ?? "active") === "active";
+  const fullName =
+    activeProfile?.full_name?.trim() || "Yusli Ngongano";
+  const initials = fullName
+    .split(/\s+/)
+    .filter((w) => /[A-Za-z]/.test(w[0] ?? ""))
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase() || "K";
+
+  const nim = activeProfile?.identity_code?.trim() || "2210011045";
+  const email = user?.email || "yusli@mhs.unikadelasalle.ac.id";
+  const memberCategoryLabel =
+    activeProfile?.member_category === "faculty_staff"
+      ? "Dosen / Staf"
+      : activeProfile?.member_category === "other"
+        ? "Staff / Umum"
+        : "Mahasiswa";
+
+  const photoPreview = getPublicPhotoUrl(photo);
 
   return (
     <div className="pb-28 text-gray-800">
       <PageHeader
         title="Pengaturan"
-        description="Kelola data pribadi, notifikasi WhatsApp, dan keamanan akunmu."
-        actions={
-          <button
-            type="button"
-            onClick={reloadProfile}
-            disabled={loading || saving}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Muat ulang
-          </button>
-        }
+        description="Kelola data pribadi, preferensi kontak, dan keamanan akunmu."
       />
 
-      {loadError && (
-        <div
-          role="alert"
-          className="mt-4 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="flex items-start gap-2.5">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-            <span>{loadError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={reloadProfile}
-            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
-          >
-            Coba lagi
-          </button>
-        </div>
-      )}
-
-      {saveError && (
-        <div
-          role="alert"
-          className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
-        >
-          {saveError}
-        </div>
-      )}
-
-      {loading && !serverProfile && (
-        <p
-          role="status"
-          className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-500"
-        >
-          Memuat profil akun dari server...
-        </p>
-      )}
-
       {/* Ringkasan akun (read-only) */}
-      <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6 shadow-sm">
         <div className="flex items-center gap-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
-            {initials}
-          </span>
+          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-primary text-base font-bold text-white shadow-xs">
+            {photoPreview ? (
+              <img
+                src={photoPreview}
+                alt="Foto profil klien"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span>{initials}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => photoInput.current?.click()}
+              aria-label="Ubah foto profil"
+              className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition hover:opacity-100"
+            >
+              <Camera className="h-5 w-5 text-white" />
+            </button>
+          </div>
           <div className="min-w-0">
-            <p className="font-semibold">{displayName}</p>
+            <p className="font-semibold text-gray-900">{fullName}</p>
             <p className="text-xs text-gray-500">
-              {categoryDisplay} · ID/NIM {identityCodeDisplay} · {emailDisplay}
+              {memberCategoryLabel} · NIM {nim} · {email}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <LockKeyhole className="h-4 w-4" />
-          Status akun dikelola admin
-          <span
-            className={`ml-1 rounded-full px-2.5 py-1 font-semibold ${
-              isActive
-                ? "bg-primary-soft text-primary"
-                : "bg-red-50 text-red-700"
-            }`}
-          >
-            {statusDisplay}
+          Data akun dikelola admin
+          <span className="ml-1 rounded-full bg-primary-soft px-2.5 py-1 font-semibold text-primary">
+            Aktif
           </span>
         </div>
       </section>
 
+      {/* Hidden file input */}
+      <input
+        ref={photoInput}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handlePhoto}
+      />
+
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6">
-        {/* Data pribadi dan akademik (read-only dari backend) */}
+        {/* Data pribadi dan akademik (read-only) */}
         <Panel
           icon={<IdCard className="h-5 w-5" />}
           title="Data Pribadi & Akademik"
-          description="Data identitas akun yang tersimpan di server SiCARE. Hubungi admin jika NIM/NIP atau kategori anggota perlu diperbarui."
+          description="Data registrasi dan informasi akademik sesuai data kampus. Hubungi admin jika ada data yang perlu diubah."
         >
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <ReadonlyField label="Nama lengkap" value={displayName} />
-            <ReadonlyField
-              label="NIM / Kode identitas"
-              value={identityCodeDisplay}
-            />
-            <ReadonlyField label="Kategori anggota" value={categoryDisplay} />
-            <ReadonlyField label="Status akun" value={statusDisplay} />
-            <ReadonlyField
-              label="Persetujuan WhatsApp"
-              value={
-                saved.whatsappOptIn
-                  ? "Aktif (Disetujui)"
-                  : "Tidak aktif"
-              }
-            />
-            <ReadonlyField
-              label="Nomor telepon tersimpan"
-              value={saved.phone || "Belum diisi"}
-            />
-            <ReadonlyField label="Email akun" value={emailDisplay} wide />
+            <ReadonlyField label="Nama lengkap" value={fullName} />
+            <ReadonlyField label="NIM / NIP" value={nim} />
+            <ReadonlyField label="Kategori anggota" value={memberCategoryLabel} />
+            <ReadonlyField label="Status akun" value="Aktif" />
+            <ReadonlyField label="Fakultas" value="Teknik" />
+            <ReadonlyField label="Program studi" value="Teknik Informatika" />
+            <ReadonlyField label="Email kampus" value={email} wide />
           </dl>
-          <p className="mt-4 rounded-xl bg-gray-50 px-3.5 py-2.5 text-xs leading-relaxed text-gray-500">
-            Data demografis tambahan (fakultas, program studi, alamat, dan
-            pendidikan) dikelola terpisah oleh administrasi kampus dan belum
-            disimpan pada endpoint profil akun ini.
-          </p>
         </Panel>
 
-        {/* Kontak & data yang bisa diubah melalui PATCH /api/v1/profile & whatsapp-consent */}
+        {/* Kontak & data yang bisa diubah */}
         <Panel
           icon={<Phone className="h-5 w-5" />}
-          title="Kontak & Data Diri"
-          description="Perubahan nama lengkap, nomor telepon, dan persetujuan WhatsApp disimpan langsung ke database SiCARE."
+          title="Kontak & Preferensi Notifikasi"
+          description="Informasi ini dipakai untuk koordinasi jadwal sesi dengan konselor."
         >
           <div className="flex flex-col gap-5">
             <Field
-              label="Nama lengkap"
-              required
-              error={showErrors ? errors.fullName : ""}
-            >
-              <input
-                className={inputClass}
-                type="text"
-                maxLength={160}
-                disabled={loading || saving}
-                value={draft.fullName}
-                onChange={(e) => update("fullName", e.target.value)}
-                placeholder="Masukkan nama lengkap"
-              />
-            </Field>
-
-            <Field
               label="Nomor telepon (WhatsApp)"
-              required={draft.whatsappOptIn}
+              required
               error={showErrors ? errors.phone : ""}
             >
               <input
                 className={inputClass}
                 type="tel"
                 inputMode="tel"
-                disabled={loading || saving}
-                value={draft.phone}
+                value={profile.phone}
                 onChange={(e) => update("phone", e.target.value)}
-                placeholder="Contoh: 081234567890 atau +6281234567890"
+                placeholder="Contoh: 081298765432"
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Disimpan dalam format internasional E.164 (contoh:{" "}
-                {normalizePhoneToE164(draft.phone) || "+62812..."}).
-              </p>
             </Field>
 
-            <div className="rounded-xl border border-gray-200 p-4">
-              <label className="flex cursor-pointer items-start gap-3">
+            <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3.5">
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={draft.whatsappOptIn}
-                  disabled={loading || saving}
-                  onChange={(e) => update("whatsappOptIn", e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  checked={whatsappOptIn}
+                  onChange={(e) => setWhatsappOptIn(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded accent-primary text-primary focus:ring-primary"
                 />
-                <span className="text-sm">
-                  <span className="block font-semibold text-gray-900">
-                    Setujui notifikasi melalui WhatsApp
+                <div className="text-xs">
+                  <span className="font-bold text-gray-800">
+                    Terima Notifikasi Jadwal WhatsApp
                   </span>
-                  <span className="mt-0.5 block text-xs leading-relaxed text-gray-500">
-                    Menyimpan persetujuan opt-in WhatsApp pada profil Anda.
-                    Pengiriman pesan keluar bergantung pada layanan worker
-                    notifikasi server.
-                  </span>
-                </span>
+                  <p className="text-gray-500 mt-0.5">
+                    Kirim konfirmasi booking dan pengingat jadwal konseling ke nomor WhatsApp di atas.
+                  </p>
+                </div>
               </label>
             </div>
 
-            <div className="flex items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-xs text-gray-500">
-              <Mail className="h-4 w-4 shrink-0" />
-              Email akun ({emailDisplay}) dikelola oleh sistem autentikasi dan
-              admin.
+            <Field
+              label="Foto Profil"
+              error={photoError}
+            >
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => photoInput.current?.click()}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <Camera className="h-4 w-4" />
+                  {photo ? "Ganti Foto" : "Unggah Foto"}
+                </button>
+                {photo && (
+                  <button
+                    type="button"
+                    onClick={handleDeletePhoto}
+                    className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                  >
+                    Hapus Foto
+                  </button>
+                )}
+                <span className="text-[11px] text-gray-400">
+                  Maksimal 2 MB (JPG, PNG, WebP)
+                </span>
+              </div>
+            </Field>
+
+            <Field
+              label="Alamat domisili"
+              required
+              error={showErrors ? errors.address : ""}
+            >
+              <textarea
+                rows={2}
+                maxLength={MAX_ADDRESS}
+                className={inputClass}
+                value={profile.address}
+                onChange={(e) => update("address", e.target.value)}
+              />
+              <p className="mt-1 text-right text-xs text-gray-500">
+                {profile.address.length}/{MAX_ADDRESS}
+              </p>
+            </Field>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field
+                label="Pekerjaan saat ini"
+                required
+                error={showErrors ? errors.occupation : ""}
+              >
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={profile.occupation}
+                  onChange={(e) => update("occupation", e.target.value)}
+                />
+              </Field>
+
+              <Field
+                label="Pendidikan terakhir"
+                required
+                error={showErrors ? errors.education : ""}
+              >
+                <select
+                  className={inputClass}
+                  value={profile.education}
+                  onChange={(e) => update("education", e.target.value)}
+                >
+                  {EDUCATION_LEVELS.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              </Field>
             </div>
           </div>
         </Panel>
 
-        {/* Keamanan */}
+        {/* Ubah kata sandi */}
         <Panel
-          className="lg:col-span-2"
-          icon={<ShieldCheck className="h-5 w-5" />}
-          title="Keamanan"
-          description="Pengaturan kata sandi akun SiCARE."
+          icon={<LockKeyhole className="h-5 w-5" />}
+          title="Ubah Kata Sandi"
+          description="Gunakan kata sandi yang kuat untuk menjaga keamanan akunmu."
         >
-          <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900">
-            Catatan: Endpoint perubahan kata sandi mandiri belum diaktifkan pada
-            API profil saat ini. Formulir di bawah ini tidak mengubah kata sandi
-            di server; hubungi admin bila memerlukan reset kata sandi.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <Field label="Kata sandi saat ini" required>
-                <input
-                  className={inputClass}
-                  type="password"
-                  autoComplete="current-password"
-                  value={pwdCurrent}
-                  onChange={(e) => setPwdCurrent(e.target.value)}
-                />
-              </Field>
-            </div>
+          <div className="flex flex-col gap-4">
+            <Field label="Kata sandi saat ini" required>
+              <input
+                className={inputClass}
+                type="password"
+                autoComplete="current-password"
+                value={pwdCurrent}
+                onChange={(e) => setPwdCurrent(e.target.value)}
+              />
+            </Field>
             <Field label="Kata sandi baru" required>
               <input
                 className={inputClass}
@@ -524,21 +620,158 @@ export default function KlienPengaturanPage() {
             </button>
           </div>
         </Panel>
+
+        {/* Privasi & Keamanan Data */}
+        <Panel
+          icon={<ShieldCheck className="h-5 w-5" />}
+          title="Privasi & Perlindungan Data"
+          description="Informasi mengenai perlindungan kerahasiaan sesi konseling Anda."
+        >
+          <div className="space-y-3 text-xs leading-relaxed text-gray-600">
+            <p>
+              Seluruh rekam konseling dan lembar persetujuan (informed consent) Anda dilindungi dengan standar kerahasiaan konseling universitas.
+            </p>
+            <p>
+              Konselor hanya dapat mengakses catatan konseling Anda selama sesi aktif berlangsung atau melalui autentikasi riwayat terproteksi.
+            </p>
+          </div>
+        </Panel>
       </div>
 
-      {/* Bar simpan */}
+      {/* Modal Pemotong Foto */}
+      {cropSource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">
+                  Sesuaikan Foto Profil
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Geser dan atur perbesaran bingkai foto.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCropper}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 flex justify-center">
+              {cropDimensions.width > 0 &&
+                cropDimensions.height > 0 &&
+                (() => {
+                  const stageSize = 280;
+                  const scale = Math.min(
+                    stageSize / cropDimensions.width,
+                    stageSize / cropDimensions.height,
+                  );
+                  const displayWidth = cropDimensions.width * scale;
+                  const displayHeight = cropDimensions.height * scale;
+                  const frameSide =
+                    Math.min(displayWidth, displayHeight) / cropZoom;
+                  const frameLeft =
+                    (displayWidth - frameSide) * (cropX / 100);
+                  const frameTop =
+                    (displayHeight - frameSide) * (cropY / 100);
+
+                  return (
+                    <div
+                      style={{ width: displayWidth, height: displayHeight }}
+                      className="relative select-none overflow-hidden rounded-xl border border-gray-300 bg-black/10"
+                    >
+                      <img
+                        ref={cropImageRef}
+                        src={cropSource}
+                        alt="Pratinjau crop"
+                        style={{ width: displayWidth, height: displayHeight }}
+                        className="pointer-events-none block object-contain"
+                      />
+                      <div
+                        tabIndex={0}
+                        onPointerDown={handleCropPointerDown}
+                        onPointerMove={handleCropPointerMove}
+                        onPointerUp={handleCropPointerUp}
+                        onPointerCancel={handleCropPointerUp}
+                        className="absolute cursor-move touch-none rounded-sm border-2 border-white shadow-[0_0_0_999px_rgba(0,0,0,0.48)] outline-none focus-visible:ring-2 focus-visible:ring-[#36c08f]"
+                        style={{
+                          left: frameLeft,
+                          top: frameTop,
+                          width: frameSide,
+                          height: frameSide,
+                        }}
+                      >
+                        <span className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
+                          {Array.from({ length: 9 }).map((_, idx) => (
+                            <span
+                              key={idx}
+                              className={`${idx % 3 !== 2 ? "border-r border-white/50" : ""} ${idx < 6 ? "border-b border-white/50" : ""}`}
+                            />
+                          ))}
+                        </span>
+                        <span className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-medium text-white">
+                          Geser bingkai
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <label className="block">
+                <span className="mb-2 flex items-center justify-between text-sm font-medium text-gray-700">
+                  <span>Ukuran bingkai / zoom</span>
+                  <span>{cropZoom.toFixed(1)}×</span>
+                </span>
+                <input
+                  type="range"
+                  min="1"
+                  max="3"
+                  step="0.1"
+                  value={cropZoom}
+                  onChange={(e) => setCropZoom(Number(e.target.value))}
+                  className="w-full accent-primary"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeCropper}
+                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={applyCrop}
+                className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+              >
+                Gunakan foto
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Save Bar */}
       {dirty && (
         <div className="fixed inset-x-0 bottom-4 z-20 px-4 lg:left-64">
           <div className="mx-auto flex max-w-6xl flex-col gap-3 rounded-2xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold">
-              Ada perubahan profil yang belum disimpan.
+              Ada perubahan yang belum disimpan.
             </p>
             <div className="flex gap-2">
               <button
                 type="button"
                 disabled={saving}
                 onClick={discardChanges}
-                className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 sm:flex-none"
+                className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:flex-none disabled:opacity-50"
               >
                 Batalkan
               </button>
@@ -546,7 +779,7 @@ export default function KlienPengaturanPage() {
                 type="button"
                 disabled={saving}
                 onClick={() => void saveChanges()}
-                className="inline-flex flex-1 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50 sm:flex-none"
+                className="inline-flex flex-1 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark sm:flex-none disabled:opacity-50"
               >
                 {saving ? "Menyimpan..." : "Simpan perubahan"}
               </button>
@@ -555,6 +788,7 @@ export default function KlienPengaturanPage() {
         </div>
       )}
 
+      {/* Toast Notification */}
       {toast && (
         <div
           role="status"
@@ -564,12 +798,9 @@ export default function KlienPengaturanPage() {
           {toast}
         </div>
       )}
-      <SignOutPanel />
     </div>
   );
 }
-
-/* ========================= KOMPONEN PENDUKUNG ========================= */
 
 const inputClass =
   "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100";

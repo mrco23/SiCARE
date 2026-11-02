@@ -8,6 +8,7 @@ export type CounselorEducation = {
 export type CounselorProfile = {
   photo: string | null;
   displayName: string;
+  headline?: string;
   bio: string;
   experienceStartYear: string;
   educations: CounselorEducation[];

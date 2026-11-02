@@ -65,7 +65,7 @@ function supa() {
 
 async function loadBookingById(client, bookingId, profile) {
   let query = client.from("bookings")
-    .select("id,client_id,counselor_id,availability_slot_id,service_type,group_name,participant_count,starts_at,ends_at,status,cancellation_reason,reschedule_reason,created_at,updated_at,booking_participants(id,display_name,is_representative,participant_status)")
+    .select("id,client_id,counselor_id,availability_slot_id,service_type,group_name,participant_count,starts_at,ends_at,status,cancellation_reason,reschedule_reason,created_at,updated_at,booking_participants(id,display_name,is_representative)")
     .eq("id", bookingId);
   query = profile.app_role === "client" ? query.eq("client_id", profile.id) : query.eq("counselor_id", profile.id);
   const { data, error } = await query.maybeSingle();
@@ -79,7 +79,7 @@ router.get("/", authenticate, allowRoles("client", "counselor"), asyncHandler(as
   const filters = bookingListQuerySchema.safeParse(request.query);
   if (!filters.success) throw new HttpError(400, "VALIDATION_ERROR", "Filter booking tidak valid.", filters.error.issues);
   let query = supa().from("bookings")
-    .select("id,client_id,counselor_id,availability_slot_id,service_type,group_name,participant_count,starts_at,ends_at,status,cancellation_reason,reschedule_reason,created_at,updated_at,booking_participants(id,display_name,is_representative,participant_status)")
+    .select("id,client_id,counselor_id,availability_slot_id,service_type,group_name,participant_count,starts_at,ends_at,status,cancellation_reason,reschedule_reason,created_at,updated_at,booking_participants(id,display_name,is_representative)")
     .order("created_at", { ascending: false }).limit(filters.data.limit);
   query = request.auth.profile.app_role === "client"
     ? query.eq("client_id", request.auth.user.id)

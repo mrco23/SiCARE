@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Search,
   Users,
-  Video,
   X,
   XCircle,
 } from "lucide-react";
@@ -39,7 +38,6 @@ import type {
 } from "../../types/api";
 
 type ActivityTab = "active" | "today" | "upcoming" | "finished";
-type FormatFilter = "Semua" | "Tatap Muka" | "Online";
 type TypeFilter = "Semua" | "Individu" | "Kelompok";
 
 function getSessionStatusBadge(status: SessionStatusApi) {
@@ -81,7 +79,6 @@ export default function KonselorAktivitasPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<ActivityTab>("active");
-  const [formatFilter, setFormatFilter] = useState<FormatFilter>("Semua");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("Semua");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -224,11 +221,6 @@ export default function KonselorAktivitasPage() {
         }
 
         const booking = bookingMap.get(session.booking_id);
-        const fmtLabel = formatSessionFormatLabel(session.format);
-        if (formatFilter !== "Semua" && fmtLabel !== formatFilter) {
-          return false;
-        }
-
         const svcType =
           booking?.service_type === "group" ? "Kelompok" : "Individu";
         if (typeFilter !== "Semua" && svcType !== typeFilter) {
@@ -258,7 +250,7 @@ export default function KonselorAktivitasPage() {
         const timeB = new Date(b.starts_at).getTime();
         return activeTab === "finished" ? timeB - timeA : timeA - timeB;
       });
-  }, [activeTab, bookingMap, formatFilter, searchQuery, sessions, todayKey, typeFilter]);
+  }, [activeTab, bookingMap, searchQuery, sessions, todayKey, typeFilter]);
 
   const selectedSession = useMemo(
     () => sessions.find((s) => s.id === selectedSessionId) ?? null,
@@ -572,18 +564,14 @@ export default function KonselorAktivitasPage() {
 
                     <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
                       <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
-                        {selectedSession.format === "online" ? (
-                          <Video className="h-4 w-4 text-[#064E3B]" />
-                        ) : (
-                          <MapPin className="h-4 w-4 text-[#064E3B]" />
-                        )}
-                        Format & Lokasi Ruang
+                        <MapPin className="h-4 w-4 text-[#064E3B]" />
+                        Lokasi Ruangan
                       </div>
                       <p className="mt-1.5 text-sm font-bold text-gray-900">
-                        {formatSessionFormatLabel(selectedSession.format)}
+                        {selectedSession.room?.trim() || "Ruang Konseling LMI"}
                       </p>
                       <p className="mt-0.5 text-xs text-gray-500">
-                        {selectedSession.room || "Ruang Konseling LMI"}
+                        Tatap Muka
                       </p>
                     </div>
 
@@ -756,23 +744,6 @@ export default function KonselorAktivitasPage() {
 
               <div className="flex flex-wrap items-center gap-2">
                 <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
-                  {(["Semua", "Tatap Muka", "Online"] as const).map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setFormatFilter(item)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                        formatFilter === item
-                          ? "bg-white text-[#064E3B] shadow-xs"
-                          : "text-gray-600 hover:text-gray-900"
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
                   {(["Semua", "Individu", "Kelompok"] as const).map((item) => (
                     <button
                       key={item}
@@ -875,11 +846,7 @@ export default function KonselorAktivitasPage() {
                                 )}
                               </span>
                               <span className="inline-flex items-center gap-1">
-                                {session.format === "online" ? (
-                                  <Video className="h-3.5 w-3.5 text-gray-400" />
-                                ) : (
-                                  <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                                )}
+                                <MapPin className="h-3.5 w-3.5 text-gray-400" />
                                 {session.room || "Ruang Konseling LMI"}
                               </span>
                               {session.completed_at && (

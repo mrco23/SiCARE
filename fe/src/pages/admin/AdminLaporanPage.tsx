@@ -20,9 +20,6 @@ import {
   CalendarX,
   CheckCircle2,
   ClipboardList,
-  Download,
-  Loader2,
-  MessageSquareText,
   Printer,
   RefreshCw,
   Star,
@@ -126,12 +123,7 @@ function mapBookingToReportRow(
     counselorMap.get(dto.counselor_id) ||
     `Konselor #${dto.counselor_id.slice(0, 6).toUpperCase()}`;
 
-  const deliveryFormat =
-    session?.format === "online"
-      ? "Online"
-      : session?.format === "offline"
-        ? "Tatap Muka"
-        : "Belum ditentukan";
+  const deliveryFormat = "Tatap Muka";
 
   return {
     id: dto.id,
@@ -475,19 +467,6 @@ export default function AdminLaporanPage() {
     counselorMap,
   ]);
 
-  const deliveryFormatRows = useMemo(() => {
-    const categories = ["Tatap Muka", "Online", "Belum ditentukan"] as const;
-    return categories.map((fmtName) => {
-      const matching = rows.filter((r) => r.deliveryFormat === fmtName);
-      return {
-        formatName: fmtName,
-        total: matching.length,
-        completed: matching.filter((r) => r.outcome === "Selesai").length,
-        cancelled: matching.filter((r) => r.outcome === "Dibatalkan").length,
-      };
-    });
-  }, [rows]);
-
   const reasonCount = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of cancelled) {
@@ -498,39 +477,6 @@ export default function AdminLaporanPage() {
       .map(([reason, count]) => ({ reason, count }))
       .sort((a, b) => b.count - a.count);
   }, [cancelled]);
-
-  const handleExportCsv = () => {
-    const headers = [
-      "ID Booking",
-      "Tanggal Sesi",
-      "Jenis Sesi",
-      "Format Pelaksanaan",
-      "Konselor",
-      "Status",
-    ];
-    const csvLines = [
-      headers.join(","),
-      ...rows.map((r) =>
-        [
-          r.id,
-          r.date,
-          r.format,
-          `"${r.deliveryFormat.replace(/"/g, '""')}"`,
-          `"${r.counselor.replace(/"/g, '""')}"`,
-          r.outcome,
-        ].join(","),
-      ),
-    ];
-    const blob = new Blob([csvLines.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `laporan-konseling-sicare-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
 
   const selectClass =
     "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20 sm:w-auto";
@@ -656,15 +602,6 @@ export default function AdminLaporanPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={handleExportCsv}
-              disabled={rows.length === 0}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              Ekspor CSV
-            </button>
-            <button
-              type="button"
               onClick={() => window.print()}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
             >
@@ -687,24 +624,35 @@ export default function AdminLaporanPage() {
         </div>
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500 shadow-sm">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          Memuat laporan konseling dari server...
+      {/* KPI summary */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">
+            Ringkasan sesi
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Semua angka dihitung dari data aktual database sesuai periode,
+            jenis sesi, dan konselor yang dipilih.
+          </p>
         </div>
-      ) : (
-        <>
-          {/* KPI summary */}
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Ringkasan sesi
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Semua angka dihitung dari data aktual database sesuai periode,
-                jenis sesi, dan konselor yang dipilih.
-              </p>
-            </div>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="h-3.5 w-28 rounded bg-slate-200" />
+                  <div className="h-5 w-5 rounded bg-slate-100" />
+                </div>
+                <div className="mt-3 h-8 w-20 rounded bg-slate-200" />
+                <div className="mt-2 h-3.5 w-40 rounded bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <KpiCard
                 label="Total booking & sesi"
@@ -764,37 +712,48 @@ export default function AdminLaporanPage() {
                 valueClass="text-red-600"
               />
             </div>
-          </section>
+          </>
+        )}
+      </section>
 
-          {/* Monthly chart */}
-          <section className="print-break-inside rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="font-bold text-slate-900">
-                  Perkembangan sesi per bulan
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Perbandingan jumlah sesi selesai dan dibatalkan dalam periode
-                  terpilih.
-                </p>
-              </div>
-              <div className="flex gap-3 text-xs font-medium text-slate-600">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-brand-accent" />{" "}
-                  Selesai
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-red-400" />{" "}
-                  Dibatalkan
-                </span>
-              </div>
-            </div>
+      {/* Monthly chart */}
+      <section className="print-break-inside rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-bold text-slate-900">
+              Perkembangan sesi per bulan
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Perbandingan jumlah sesi selesai dan dibatalkan dalam periode
+              terpilih.
+            </p>
+          </div>
+          <div className="flex gap-3 text-xs font-medium text-slate-600">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-brand-accent" />{" "}
+              Selesai
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-red-400" />{" "}
+              Dibatalkan
+            </span>
+          </div>
+        </div>
 
-            {monthly.length === 0 ? (
-              <div className="flex h-48 items-center justify-center text-sm text-slate-400">
-                Tidak ada data pada filter ini.
+        {loading ? (
+          <div className="mt-6 flex h-48 animate-pulse items-end gap-3 rounded-xl bg-slate-50 p-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex-1 space-y-2">
+                <div className="mx-auto h-24 w-full rounded bg-slate-200" />
+                <div className="mx-auto h-3 w-8 rounded bg-slate-200" />
               </div>
-            ) : (
+            ))}
+          </div>
+        ) : monthly.length === 0 ? (
+          <div className="flex h-48 items-center justify-center text-sm text-slate-400">
+            Belum ada tren bulanan yang tercatat untuk periode ini.
+          </div>
+        ) : (
               <div className="mt-6">
                 <div className="flex h-52 items-end gap-2 border-b border-slate-100 pb-1 sm:gap-3">
                   {monthly.map((month) => {
@@ -847,19 +806,25 @@ export default function AdminLaporanPage() {
             )}
           </section>
 
-          {/* Counselor and Delivery Format tables */}
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <section className="print-break-inside overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 p-4 sm:p-5">
-                <h2 className="font-bold text-slate-900">
-                  Laporan per konselor
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Distribusi sesi selesai dan dibatalkan berdasarkan jenis
-                  konseling.
-                </p>
+          {/* Counselor table */}
+          <section className="print-break-inside overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-4 sm:p-5">
+              <h2 className="font-bold text-slate-900">
+                Laporan per konselor
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Distribusi sesi selesai dan dibatalkan berdasarkan jenis
+                konseling.
+              </p>
+            </div>
+            {loading ? (
+              <div className="space-y-3 p-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-10 animate-pulse rounded-lg bg-slate-100" />
+                ))}
               </div>
-              <div className="overflow-x-auto">
+            ) : (
+              <div className="overflow-x-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
                 <table className="w-full min-w-[680px] text-left text-sm">
                   <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
                     <tr>
@@ -879,7 +844,7 @@ export default function AdminLaporanPage() {
                           colSpan={7}
                           className="px-4 py-8 text-center text-sm text-slate-400"
                         >
-                          Tidak ada data konselor pada filter ini.
+                          Belum ada data layanan konselor pada filter ini.
                         </td>
                       </tr>
                     ) : (
@@ -915,65 +880,8 @@ export default function AdminLaporanPage() {
                   </tbody>
                 </table>
               </div>
-            </section>
-
-            <section className="print-break-inside overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 p-4 sm:p-5">
-                <h2 className="font-bold text-slate-900">
-                  Distribusi format pelaksanaan & ulasan
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Ringkasan format pelaksanaan sesi (Tatap Muka vs Online) tanpa
-                  menampilkan catatan klinis rahasia.
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[440px] text-left text-sm">
-                  <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3">Format Pelaksanaan</th>
-                      <th className="px-4 py-3 text-right">Total</th>
-                      <th className="px-4 py-3 text-right">Selesai</th>
-                      <th className="px-4 py-3 text-right">Dibatalkan</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {deliveryFormatRows.map((row) => (
-                      <tr key={row.formatName} className="hover:bg-slate-50/70">
-                        <td className="px-4 py-3 font-medium">
-                          {row.formatName}
-                        </td>
-                        <td className="px-4 py-3 text-right">{row.total}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-primary">
-                          {row.completed}
-                        </td>
-                        <td className="px-4 py-3 text-right text-red-600">
-                          {row.cancelled}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-4 py-3.5 text-xs text-slate-600 sm:px-5">
-                <span className="inline-flex items-center gap-1.5 font-semibold">
-                  <MessageSquareText className="h-4 w-4 text-primary" />
-                  Total feedback diterima: {ratingSummary.total} ulasan
-                </span>
-                <span>
-                  Ditampilkan ke publik:{" "}
-                  <strong className="text-primary">
-                    {ratingSummary.shown}
-                  </strong>{" "}
-                  · Rata-rata:{" "}
-                  <strong className="text-amber-600">
-                    {ratingSummary.total ? ratingSummary.avg.toFixed(1) : "-"}
-                  </strong>
-                </span>
-              </div>
-            </section>
-          </div>
+            )}
+          </section>
 
           {/* Cancellation analysis */}
           <section className="print-break-inside rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -983,9 +891,14 @@ export default function AdminLaporanPage() {
                 Ringkasan alasan pembatalan/penolakan dari data booking aktual.
               </p>
             </div>
-            {cancelled.length === 0 ? (
+            {loading ? (
+              <div className="mt-4 space-y-2">
+                <div className="h-6 w-full animate-pulse rounded bg-slate-100" />
+                <div className="h-6 w-3/4 animate-pulse rounded bg-slate-100" />
+              </div>
+            ) : cancelled.length === 0 ? (
               <p className="mt-5 text-sm text-slate-400">
-                Tidak ada pembatalan pada filter ini.
+                Belum ada pembatalan sesi yang tercatat pada periode ini.
               </p>
             ) : (
               <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1018,79 +931,85 @@ export default function AdminLaporanPage() {
             <div className="border-b border-slate-100 p-4 sm:p-5">
               <h2 className="font-bold text-slate-900">Rincian data sesi</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Data identitas klien tidak ditampilkan. Gunakan ekspor hanya
+                Data identitas klien tidak ditampilkan. Gunakan dokumen cetak/PDF hanya
                 sesuai kebutuhan dan kewenangan.
               </p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3">ID Booking</th>
-                    <th className="px-4 py-3">Tanggal</th>
-                    <th className="px-4 py-3">Jenis sesi</th>
-                    <th className="px-4 py-3">Format</th>
-                    <th className="px-4 py-3">Konselor</th>
-                    <th className="px-4 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {rows.length === 0 ? (
+            {loading ? (
+              <div className="space-y-3 p-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-10 animate-pulse rounded-lg bg-slate-100" />
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-4 py-10 text-center text-sm text-slate-400"
-                      >
-                        Tidak ada sesi yang sesuai dengan filter.
-                      </td>
+                      <th className="px-4 py-3">ID Booking</th>
+                      <th className="px-4 py-3">Tanggal</th>
+                      <th className="px-4 py-3">Jenis sesi</th>
+                      <th className="px-4 py-3">Format</th>
+                      <th className="px-4 py-3">Konselor</th>
+                      <th className="px-4 py-3">Status</th>
                     </tr>
-                  ) : (
-                    rows.slice(0, 12).map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-50/70">
-                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold">
-                          {row.shortId}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                          {new Date(`${row.date}T00:00:00`).toLocaleDateString(
-                            "id-ID",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            },
-                          )}
-                        </td>
-                        <td className="px-4 py-3">{row.format}</td>
-                        <td className="px-4 py-3">{row.deliveryFormat}</td>
-                        <td className="px-4 py-3">{row.counselor}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              row.outcome === "Selesai"
-                                ? "bg-emerald-50 text-emerald-700"
-                                : row.outcome === "Dibatalkan"
-                                  ? "bg-red-50 text-red-700"
-                                  : "bg-amber-50 text-amber-800"
-                            }`}
-                          >
-                            {row.outcome}
-                          </span>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rows.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-4 py-10 text-center text-sm text-slate-400"
+                        >
+                          Belum ada riwayat sesi konseling untuk periode ini.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      rows.slice(0, 12).map((row) => (
+                        <tr key={row.id} className="hover:bg-slate-50/70">
+                          <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold">
+                            {row.shortId}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                            {new Date(`${row.date}T00:00:00`).toLocaleDateString(
+                              "id-ID",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )}
+                          </td>
+                          <td className="px-4 py-3">{row.format}</td>
+                          <td className="px-4 py-3">{row.deliveryFormat}</td>
+                          <td className="px-4 py-3">{row.counselor}</td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                row.outcome === "Selesai"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : row.outcome === "Dibatalkan"
+                                    ? "bg-red-50 text-red-700"
+                                    : "bg-amber-50 text-amber-800"
+                              }`}
+                            >
+                              {row.outcome}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
             {rows.length > 12 && (
               <p className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
                 Menampilkan 12 dari {rows.length} sesi pada pratinjau laporan.
-                Gunakan tombol Ekspor CSV untuk mengunduh seluruh baris.
+                Gunakan tombol Unduh Laporan PDF untuk mencetak atau menyimpan seluruh baris.
               </p>
             )}
           </section>
-        </>
-      )}
 
       <p className="pb-4 text-center text-[11px] text-slate-400">
         Laporan ini bersumber langsung dari database SiCARE dengan perlindungan

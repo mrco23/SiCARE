@@ -8,3 +8,4 @@ export type { NavbarProfileDropdownProps } from "./NavbarProfileDropdown";
 export { getInitials } from "../../lib/avatarUtils";
 export { default as AcademicPeriodFilter } from "./AcademicPeriodFilter";
 export type { AcademicPeriodFilterProps, AcademicPeriodLike } from "./AcademicPeriodFilter";
+export { ScrollToTop } from "./ScrollToTop";

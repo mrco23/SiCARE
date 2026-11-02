@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageContainer, PageHeader } from "../../components/shared";
 import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
-import { getPublicCounselors } from "../../lib/publicApi";
 import type {
   AccountStatusApi,
   AdminAccountDto,
@@ -16,8 +15,6 @@ import {
   type AdminAccountTab,
 } from "../../features/admin/accounts/accountSelectors";
 import {
-  Eye,
-  EyeOff,
   Loader2,
   RefreshCw,
   Search,
@@ -44,7 +41,6 @@ type ManagedAccount = {
   memberCategory: MemberCategoryApi | null;
   status: AccountStatusApi;
   active: boolean;
-  isPublic: boolean;
   created: string;
 };
 
@@ -117,7 +113,6 @@ function mapUiRoleToApi(role: Role): {
 
 function mapAccountDto(
   dto: AdminAccountDto | (AdminAccountRecordDto & { email?: string | null }),
-  publicCounselorIds: ReadonlySet<string>,
   fallbackEmail = "-",
 ): ManagedAccount {
   const role = mapDtoToUiRole(dto);
@@ -136,7 +131,6 @@ function mapAccountDto(
     memberCategory: dto.member_category,
     status: dto.account_status,
     active: dto.account_status === "active",
-    isPublic: publicCounselorIds.has(dto.id),
     created: dto.created_at,
   };
 }
@@ -185,9 +179,6 @@ const inputClass =
 export default function AdminAkunPage() {
   const { user: currentUser } = useAuth();
   const [accounts, setAccounts] = useState<ManagedAccount[]>([]);
-  const [publicCounselorIds, setPublicCounselorIds] = useState<Set<string>>(
-    () => new Set(),
-  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -223,23 +214,15 @@ export default function AdminAkunPage() {
   );
 
   const fetchAccounts = useCallback(async () => {
-    const [dtos, publicCounselors] = await Promise.all([
-      adminApi.listAccounts({ limit: 100 }),
-      getPublicCounselors().catch(() => []),
-    ]);
-    const pubSet = new Set(publicCounselors.map((c) => c.profile_id));
-    return {
-      pubSet,
-      items: dtos.map((dto) => mapAccountDto(dto, pubSet)),
-    };
+    const dtos = await adminApi.listAccounts({ limit: 100 });
+    return dtos.map((dto) => mapAccountDto(dto));
   }, []);
 
   useEffect(() => {
     let active = true;
     void fetchAccounts()
-      .then(({ pubSet, items }) => {
+      .then((items) => {
         if (!active) return;
-        setPublicCounselorIds(pubSet);
         setAccounts(items);
         setLoadError(null);
       })
@@ -261,8 +244,7 @@ export default function AdminAkunPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { pubSet, items } = await fetchAccounts();
-      setPublicCounselorIds(pubSet);
+      const items = await fetchAccounts();
       setAccounts(items);
     } catch (err) {
       setLoadError(
@@ -313,7 +295,7 @@ export default function AdminAkunPage() {
     // Ambil detail terbaru dari server
     try {
       const latest = await adminApi.getAccount(a.id);
-      const mapped = mapAccountDto(latest, publicCounselorIds);
+      const mapped = mapAccountDto(latest);
       setAccounts((prev) =>
         prev.map((item) => (item.id === a.id ? mapped : item)),
       );
@@ -372,7 +354,7 @@ export default function AdminAkunPage() {
           app_role,
           account_status: form.status,
         });
-        const mapped = mapAccountDto(updated, publicCounselorIds, email);
+        const mapped = mapAccountDto(updated, email);
         setAccounts((prev) =>
           prev.map((a) => (a.id === editingId ? mapped : a)),
         );
@@ -388,7 +370,7 @@ export default function AdminAkunPage() {
           app_role,
           account_status: form.status,
         });
-        const mapped = mapAccountDto(created, publicCounselorIds, email);
+        const mapped = mapAccountDto(created, email);
         setAccounts((prev) => [...prev, mapped]);
         setModalOpen(false);
         showToast(`Akun ${mapped.name} berhasil dibuat.`);
@@ -412,13 +394,10 @@ export default function AdminAkunPage() {
     try {
       if (account.active) {
         await adminApi.deactivateAccount(account.id);
-        const nextPubSet = new Set(publicCounselorIds);
-        nextPubSet.delete(account.id);
-        setPublicCounselorIds(nextPubSet);
         setAccounts((prev) =>
           prev.map((a) =>
             a.id === account.id
-              ? { ...a, status: "disabled", active: false, isPublic: false }
+              ? { ...a, status: "disabled", active: false }
               : a,
           ),
         );
@@ -427,7 +406,7 @@ export default function AdminAkunPage() {
         const updated = await adminApi.updateAccount(account.id, {
           account_status: "active",
         });
-        const mapped = mapAccountDto(updated, publicCounselorIds, account.email);
+        const mapped = mapAccountDto(updated, account.email);
         setAccounts((prev) =>
           prev.map((a) => (a.id === account.id ? mapped : a)),
         );
@@ -436,42 +415,6 @@ export default function AdminAkunPage() {
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : "Status akun tidak dapat diubah.",
-      );
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const toggleCounselorPublic = async (account: ManagedAccount) => {
-    if (account.appRole !== "counselor") return;
-    if (!account.active && !account.isPublic) {
-      showToast("Aktifkan akun konselor terlebih dahulu sebelum mempublikasikan profil.");
-      return;
-    }
-
-    setBusyId(account.id);
-    try {
-      const nextPublic = !account.isPublic;
-      await adminApi.setCounselorPublication(account.id, nextPublic);
-      const nextPubSet = new Set(publicCounselorIds);
-      if (nextPublic) nextPubSet.add(account.id);
-      else nextPubSet.delete(account.id);
-      setPublicCounselorIds(nextPubSet);
-      setAccounts((prev) =>
-        prev.map((a) =>
-          a.id === account.id ? { ...a, isPublic: nextPublic } : a,
-        ),
-      );
-      showToast(
-        nextPublic
-          ? `Profil konselor ${account.name} dipublikasikan.`
-          : `Profil konselor ${account.name} disembunyikan dari publik.`,
-      );
-    } catch (err) {
-      showToast(
-        err instanceof Error
-          ? err.message
-          : "Status publikasi konselor tidak dapat diubah.",
       );
     } finally {
       setBusyId(null);
@@ -631,33 +574,6 @@ export default function AdminAkunPage() {
                           >
                             {a.role}
                           </span>
-                          {a.appRole === "counselor" && (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => void toggleCounselorPublic(a)}
-                              title={
-                                a.isPublic
-                                  ? "Ditampilkan ke publik — klik untuk menyembunyikan"
-                                  : "Disembunyikan dari publik — klik untuk mempublikasikan"
-                              }
-                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition ${
-                                a.isPublic
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                  : "border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200"
-                              } disabled:opacity-50`}
-                            >
-                              {a.isPublic ? (
-                                <>
-                                  <Eye className="h-3 w-3" /> Publik
-                                </>
-                              ) : (
-                                <>
-                                  <EyeOff className="h-3 w-3" /> Privat
-                                </>
-                              )}
-                            </button>
-                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">

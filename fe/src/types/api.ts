@@ -73,8 +73,15 @@ export interface ProfileDto {
   account_status: AccountStatusApi;
   phone_e164: string | null;
   whatsapp_opt_in: boolean;
+  avatar_url?: string | null;
+  photo_path?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProfilePhotoResultDto {
+  storage_path: string;
+  photo_url: string;
 }
 
 export interface ProfilePatchApi {
@@ -138,6 +145,33 @@ export interface CounselorPublicationDto {
   public_name: string;
   is_public: boolean;
   updated_at: string;
+}
+
+export interface CounselorHistoryPasswordStatusDto {
+  configured: boolean;
+}
+
+export interface CounselorHistoryVerifyResultDto {
+  success: boolean;
+  grant_token: string;
+  token: string;
+  expires_in_seconds: number;
+  expires_at: string;
+}
+
+export interface CounselorHistoryResponseDto {
+  configured: boolean;
+  sessions: SessionListItemDto[];
+  bookings: BookingRecordBaseDto[];
+  clients: Array<{
+    id: string;
+    full_name: string;
+    student_id?: string | null;
+    faculty?: string | null;
+    study_program?: string | null;
+    phone_e164?: string | null;
+  }>;
+  message?: string;
 }
 
 // Booking DTOs. List and detail currently share the same projection. They remain

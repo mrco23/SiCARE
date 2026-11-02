@@ -28,6 +28,21 @@ export const sicareApi = {
     return apiRequest<ApiTypes.ProfileDto>("/profile", { method: "PATCH", auth: true, body: input });
   },
 
+  uploadPhoto(imageData: string): Promise<ApiTypes.ProfilePhotoResultDto> {
+    return apiRequest<ApiTypes.ProfilePhotoResultDto>("/profile/photo", {
+      method: "POST",
+      auth: true,
+      body: { image_data: imageData },
+    });
+  },
+
+  deletePhoto(): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>("/profile/photo", {
+      method: "DELETE",
+      auth: true,
+    });
+  },
+
   setWhatsAppConsent(input: ApiTypes.WhatsAppConsentApi): Promise<ApiTypes.WhatsAppConsentResultApi> {
     return apiRequest<ApiTypes.WhatsAppConsentResultApi>("/profile/whatsapp-consent", {
       method: "PATCH",

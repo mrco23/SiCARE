@@ -1,839 +1,1151 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AlertCircle,
-  Award,
-  CheckCircle2,
-  Globe,
-  Info,
-  Loader2,
-  Lock,
-  Phone,
-  Plus,
-  RefreshCw,
-  Save,
-  ShieldAlert,
-  Sparkles,
-  User,
-  X,
-} from "lucide-react";
 import { PageContainer, PageHeader } from "../../components/shared";
-import { getCounselorInitials } from "../../features/counselor/shared/presentation";
+import { SettingsField as Field, SettingsPanel as Panel, SettingsSwitchRow as SwitchRow } from "../../components/counselor/settings/SettingsPrimitives";
 import { useAuth } from "../../features/auth/useAuth";
-import { ApiError } from "../../lib/api";
 import { counselorApi } from "../../lib/counselorApi";
 import { sicareApi } from "../../lib/sicareApi";
-import type { CounselorProfileDto, ProfileDto } from "../../types/api";
+import {
+  uploadProfilePhoto,
+  deleteProfilePhoto,
+  getPublicPhotoUrl,
+  validatePhotoFile,
+} from "../../lib/profilePhotoStorage";
+import { getInitials } from "../../lib/avatarUtils";
+import {
+  cloneCounselorProfile as clone,
+  MAX_COUNSELOR_BIO_LENGTH as MAX_BIO,
+  MAX_COUNSELOR_TOPIC_LENGTH as MAX_TOPIC_LEN,
+  MAX_COUNSELOR_TOPICS as MAX_TOPICS,
+  MIN_ACCOUNT_PASSWORD_LENGTH as PASSWORD_MIN,
+  validateCounselorProfile,
+} from "../../features/counselor/profile/profileValidation";
+import type {
+  CounselorEducation as Education,
+  CounselorProfile as Profile,
+  CounselorProfileErrors as Errors,
+} from "../../types/counselorProfile";
+import {
+  type ChangeEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Camera,
+  CheckCircle2,
+  GraduationCap,
+  Layers3,
+  LockKeyhole,
+  Plus,
+  Save,
+  UserRound,
+  X,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 
-const SPECIALTY_PRESETS = [
-  "Kecemasan & Stres Akademik",
-  "Adaptasi Perkuliahan",
-  "Regulasi Emosi",
-  "Karier & Rencana Masa Depan",
-  "Relasi Interpersonal",
-  "Motivasi & Prokrastinasi",
-  "Keluarga & Pengasuhan",
-  "Burnout & Kelelahan Mental",
-] as const;
-
-function normalizePhoneE164(raw: string): string | null {
-  const trimmed = raw.trim().replace(/[\s()-]/g, "");
-  if (!trimmed) return null;
-  if (trimmed.startsWith("08")) {
-    return `+62${trimmed.slice(1)}`;
-  }
-  if (trimmed.startsWith("628")) {
-    return `+${trimmed}`;
-  }
-  return trimmed;
-}
+const EMPTY_COUNSELOR_PROFILE: Profile = {
+  photo: null,
+  displayName: "",
+  headline: "",
+  bio: "",
+  topics: [],
+  experienceStartYear: String(new Date().getFullYear()),
+  phone: "",
+  educations: [],
+  services: { individual: true, group: true },
+};
 
 export default function KonselorPengaturanPage() {
-  const { user, refreshProfile } = useAuth();
-  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const currentYear = new Date().getFullYear();
+  const { user, profile: authProfile, refreshProfile } = useAuth();
+  const profileKey = `sicare_profile_photo_${authProfile?.id || "counselor"}`;
 
-  const [accountProfile, setAccountProfile] = useState<ProfileDto | null>(null);
-  const [counselorProfile, setCounselorProfile] =
-    useState<CounselorProfileDto | null>(null);
-  const [counselorRowMissing, setCounselorRowMissing] = useState(false);
+  const [saved, setSaved] = useState<Profile>(() => {
+    const authAvatar = (authProfile as Record<string, unknown> | null)?.avatar_url || (authProfile as Record<string, unknown> | null)?.photo_path;
+    const initialPhoto = typeof authAvatar === "string" ? authAvatar : null;
+    return {
+      ...EMPTY_COUNSELOR_PROFILE,
+      photo: initialPhoto,
+      displayName: authProfile?.full_name || "",
+      experienceStartYear: String(currentYear),
+    };
+  });
 
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  // Form states for /api/v1/profile
-  const [fullName, setFullName] = useState("");
-  const [phoneInput, setPhoneInput] = useState("");
-
-  // Form states for /api/v1/counselor/profile
-  const [publicName, setPublicName] = useState("");
-  const [headline, setHeadline] = useState("");
-  const [bio, setBio] = useState("");
-  const [specialties, setSpecialties] = useState<string[]>([]);
-  const [newSpecialty, setNewSpecialty] = useState("");
-  const [practiceStartYear, setPracticeStartYear] = useState<string>(
-    String(currentYear),
-  );
-
+  const [profile, setProfile] = useState<Profile>(() => clone(saved));
+  const [historyPasswordConfigured, setHistoryPasswordConfigured] = useState<boolean>(false);
+  const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveBanner, setSaveBanner] = useState<{
-    type: "success" | "warning" | "error";
-    message: string;
+  const [toast, setToast] = useState("");
+  const [photoError, setPhotoError] = useState("");
+
+  // Cropper states
+  const [cropSource, setCropSource] = useState<string | null>(null);
+  const [cropDimensions, setCropDimensions] = useState({ width: 0, height: 0 });
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropX, setCropX] = useState(50);
+  const [cropY, setCropY] = useState(50);
+  const cropImageRef = useRef<HTMLImageElement>(null);
+  const cropDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startCropX: number;
+    startCropY: number;
   } | null>(null);
 
-  const populateForm = useCallback(
-    (acc: ProfileDto, couns: CounselorProfileDto | null) => {
-      setFullName(acc.full_name ?? "");
-      setPhoneInput(acc.phone_e164 ?? "");
+  // Topics & Education states
+  const [topicInput, setTopicInput] = useState("");
+  const [eduDraft, setEduDraft] = useState<Education | undefined>(undefined);
+  const [eduError, setEduError] = useState("");
 
-      if (couns) {
-        setPublicName(couns.public_name ?? acc.full_name ?? "");
-        setHeadline(couns.headline ?? "");
-        setBio(couns.bio ?? "");
-        setSpecialties(couns.specialties ?? []);
-        const startYr = Math.max(
-          currentYear - 80,
-          Math.min(currentYear, currentYear - (couns.years_experience ?? 0)),
-        );
-        setPracticeStartYear(String(startYr));
-      } else {
-        setPublicName(acc.full_name ?? "");
-        setHeadline("");
-        setBio("");
-        setSpecialties([]);
-        setPracticeStartYear(String(currentYear));
-      }
-    },
-    [currentYear],
-  );
+  // Password tab state
+  const [passwordKind, setPasswordKind] = useState<"akun" | "riwayat">("akun");
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const [pwdCurrent, setPwdCurrent] = useState("");
+  const [pwdNext, setPwdNext] = useState("");
+  const [pwdConfirm, setPwdConfirm] = useState("");
 
-  const fetchSettingsData = useCallback(async () => {
-    const accRes = await sicareApi.getProfile();
-    let counsRes: CounselorProfileDto | null = null;
-    let missing = false;
+  const photoInput = useRef<HTMLInputElement>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirty = JSON.stringify(profile) !== JSON.stringify(saved);
 
-    try {
-      counsRes = await counselorApi.getProfile();
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 404) {
-        missing = true;
-      } else {
-        throw err;
-      }
-    }
-
-    return {
-      account: accRes,
-      counselor: counsRes,
-      missing,
-    };
-  }, []);
-
+  // Load from backend on mount
   useEffect(() => {
     let active = true;
-    fetchSettingsData()
-      .then((data) => {
-        if (!active) return;
-        setAccountProfile(data.account);
-        setCounselorProfile(data.counselor);
-        setCounselorRowMissing(data.missing);
-        populateForm(data.account, data.counselor);
-        setLoadError(null);
-      })
-      .catch((err: unknown) => {
-        if (!active) return;
-        setLoadError(
-          err instanceof ApiError
-            ? err.message
-            : "Gagal memuat profil konselor dari server.",
-        );
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+    Promise.all([
+      counselorApi.getProfile().catch(() => null),
+      sicareApi.getProfile().catch(() => null),
+      counselorApi.getHistoryPasswordStatus().catch(() => ({ configured: false })),
+    ]).then(([couns, me, historyStatus]) => {
+      if (!active) return;
+      if (historyStatus) {
+        setHistoryPasswordConfigured(historyStatus.configured);
+      }
+      setSaved((prev) => {
+        const next: Profile = {
+          ...prev,
+          displayName: couns?.public_name || me?.full_name || prev.displayName,
+          headline: couns?.headline || prev.headline,
+          bio: couns?.bio || prev.bio,
+          topics: couns?.specialties && couns.specialties.length > 0 ? couns.specialties : prev.topics,
+          experienceStartYear: couns?.years_experience
+            ? String(currentYear - couns.years_experience)
+            : prev.experienceStartYear,
+          photo: couns?.photo_path || (me as Record<string, unknown> | null)?.avatar_url as string || prev.photo,
+          phone: me?.phone_e164 || prev.phone,
+        };
+        setProfile(clone(next));
+        return next;
       });
+    });
 
     return () => {
       active = false;
     };
-  }, [fetchSettingsData, populateForm]);
+  }, [currentYear]);
 
-  const handleManualRefresh = async () => {
-    setLoading(true);
-    setLoadError(null);
-    setSaveBanner(null);
-    try {
-      const data = await fetchSettingsData();
-      setAccountProfile(data.account);
-      setCounselorProfile(data.counselor);
-      setCounselorRowMissing(data.missing);
-      populateForm(data.account, data.counselor);
-    } catch (err: unknown) {
-      setLoadError(
-        err instanceof ApiError
-          ? err.message
-          : "Gagal memuat ulang profil konselor.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  const errors = useMemo<Errors>(
+    () => validateCounselorProfile(profile, currentYear),
+    [profile, currentYear],
+  );
 
-  const calculatedYearsExperience = useMemo(() => {
-    const parsed = Number(practiceStartYear);
-    if (!Number.isFinite(parsed)) return 0;
-    return Math.max(0, Math.min(80, currentYear - Math.round(parsed)));
-  }, [currentYear, practiceStartYear]);
+  useEffect(() => {
+    if (!toast) return;
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 3000);
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, [toast]);
 
-  const validationError = useMemo(() => {
-    if (fullName.trim().length < 2 || fullName.trim().length > 120) {
-      return "Nama lengkap akun wajib 2–120 karakter.";
-    }
-    const normalizedPhone = normalizePhoneE164(phoneInput);
-    if (normalizedPhone && !/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
-      return "Format nomor telepon harus E.164 (contoh: +6281234567890 atau 081234567890).";
-    }
-    if (!counselorRowMissing) {
-      if (publicName.trim().length < 2 || publicName.trim().length > 120) {
-        return "Nama publik konselor wajib 2–120 karakter.";
-      }
-      if (
-        headline.trim().length > 0 &&
-        (headline.trim().length < 3 || headline.trim().length > 160)
-      ) {
-        return "Headline/Gelar singkat harus 3–160 karakter (atau kosongkan).";
-      }
-      if (
-        bio.trim().length > 0 &&
-        (bio.trim().length < 20 || bio.trim().length > 2000)
-      ) {
-        return "Bio singkat harus minimal 20 karakter dan maksimal 2000 karakter (atau kosongkan).";
-      }
-      if (specialties.length > 12) {
-        return "Maksimal 12 spesialisasi konseling.";
-      }
-      const parsedStartYear = Number(practiceStartYear);
-      if (
-        !Number.isInteger(parsedStartYear) ||
-        parsedStartYear < currentYear - 80 ||
-        parsedStartYear > currentYear
-      ) {
-        return `Tahun mulai praktik harus antara ${currentYear - 80} dan ${currentYear}.`;
-      }
-    }
-    return null;
-  }, [
-    bio,
-    counselorRowMissing,
-    currentYear,
-    fullName,
-    headline,
-    phoneInput,
-    practiceStartYear,
-    publicName,
-    specialties.length,
-  ]);
+  function update<K extends keyof Profile>(key: K, value: Profile[K]) {
+    setProfile((prev) => ({ ...prev, [key]: value }));
+  }
 
-  const handleAddSpecialty = (value: string) => {
-    const trimmed = value.trim();
-    if (trimmed.length < 2 || trimmed.length > 60) return;
-    if (specialties.length >= 12) return;
-    if (specialties.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
-      setNewSpecialty("");
+  function updateToggle(group: "services", key: string, value: boolean) {
+    setProfile(
+      (prev) =>
+        ({ ...prev, [group]: { ...prev[group], [key]: value } }) as Profile,
+    );
+  }
+
+  function closeCropper() {
+    if (cropSource) URL.revokeObjectURL(cropSource);
+    setCropSource(null);
+    setCropDimensions({ width: 0, height: 0 });
+    setCropZoom(1);
+    setCropX(50);
+    setCropY(50);
+  }
+
+  async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const validation = validatePhotoFile(file);
+    if (!validation.valid) {
+      setPhotoError(validation.error || "Berkas foto tidak valid.");
       return;
     }
-    setSpecialties((prev) => [...prev, trimmed]);
-    setNewSpecialty("");
-  };
 
-  const handleRemoveSpecialty = (target: string) => {
-    setSpecialties((prev) => prev.filter((item) => item !== target));
-  };
+    const source = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      setCropDimensions({
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+      setCropZoom(1);
+      setCropX(50);
+      setCropY(50);
+      setCropSource(source);
+      setPhotoError("");
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(source);
+      setPhotoError("Foto tidak bisa dibaca. Coba file lain.");
+    };
+    image.src = source;
+  }
 
-  const handleSave = async () => {
-    if (validationError || saving) return;
+  function handleCropPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (!cropDimensions.width || !cropDimensions.height) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cropDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startCropX: cropX,
+      startCropY: cropY,
+    };
+  }
+
+  function handleCropPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = cropDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const stageSize = 280;
+    const scale = Math.min(
+      stageSize / cropDimensions.width,
+      stageSize / cropDimensions.height,
+    );
+    const displayWidth = cropDimensions.width * scale;
+    const displayHeight = cropDimensions.height * scale;
+    const frameSide = Math.min(displayWidth, displayHeight) / cropZoom;
+    const maxX = Math.max(0, displayWidth - frameSide);
+    const maxY = Math.max(0, displayHeight - frameSide);
+    const nextX =
+      maxX > 0
+        ? drag.startCropX + ((event.clientX - drag.startX) / maxX) * 100
+        : 0;
+    const nextY =
+      maxY > 0
+        ? drag.startCropY + ((event.clientY - drag.startY) / maxY) * 100
+        : 0;
+    setCropX(Math.max(0, Math.min(100, nextX)));
+    setCropY(Math.max(0, Math.min(100, nextY)));
+  }
+
+  function handleCropPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    if (cropDragRef.current?.pointerId === event.pointerId) {
+      cropDragRef.current = null;
+    }
+  }
+
+  function applyCrop() {
+    const image = cropImageRef.current;
+    if (!image || !cropDimensions.width || !cropDimensions.height) return;
+    const { width, height } = cropDimensions;
+    const cropSide = Math.min(width, height) / cropZoom;
+    const sx = (width - cropSide) * (cropX / 100);
+    const sy = (height - cropSide) * (cropY / 100);
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setPhotoError("Foto tidak bisa diproses. Coba file lain.");
+      closeCropper();
+      return;
+    }
+    context.drawImage(image, sx, sy, cropSide, cropSide, 0, 0, 512, 512);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    update("photo", dataUrl);
+    setPhotoError("");
+    closeCropper();
+  }
+
+  function handleDeletePhoto() {
+    update("photo", null);
+    setToast("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
+  }
+
+  function addTopic() {
+    const raw = topicInput.trim();
+    if (!raw) return;
+    if (profile.topics.length >= MAX_TOPICS) {
+      setToast(`Maksimal ${MAX_TOPICS} topik keahlian.`);
+      return;
+    }
+    if (profile.topics.some((t) => t.toLowerCase() === raw.toLowerCase())) {
+      setToast("Topik tersebut sudah ada.");
+      return;
+    }
+    update("topics", [...profile.topics, raw]);
+    setTopicInput("");
+  }
+
+  function removeTopic(topic: string) {
+    update(
+      "topics",
+      profile.topics.filter((t) => t !== topic),
+    );
+  }
+
+  function openEduDraft(draft?: Education) {
+    setEduDraft(
+      draft ?? {
+        id: Date.now(),
+        school: "",
+        major: "",
+        year: String(currentYear),
+      },
+    );
+    setEduError("");
+  }
+
+  function saveEdu() {
+    if (!eduDraft) return;
+    if (!eduDraft.major.trim()) {
+      setEduError("Program studi wajib diisi.");
+      return;
+    }
+    if (!eduDraft.school.trim()) {
+      setEduError("Nama perguruan tinggi wajib diisi.");
+      return;
+    }
+    const y = Number(eduDraft.year);
+    if (!y || y < 1950 || y > currentYear + 10) {
+      setEduError(`Tahun kelulusan tidak valid (1950–${currentYear + 10}).`);
+      return;
+    }
+    const exists = profile.educations.some((e) => e.id === eduDraft.id);
+    const updated = exists
+      ? profile.educations.map((e) => (e.id === eduDraft.id ? eduDraft : e))
+      : [...profile.educations, eduDraft];
+    update("educations", updated);
+    setEduDraft(undefined);
+  }
+
+  function removeEdu(id: number) {
+    update(
+      "educations",
+      profile.educations.filter((e) => e.id !== id),
+    );
+  }
+
+  async function saveChanges() {
+    if (Object.keys(errors).length) {
+      setShowErrors(true);
+      setToast("Periksa kembali isian yang ditandai.");
+      return;
+    }
+
     setSaving(true);
-    setSaveBanner(null);
-
-    const normalizedPhone = normalizePhoneE164(phoneInput);
-    let accountSaved = false;
-
     try {
-      const updatedAccount = await sicareApi.updateProfile({
-        full_name: fullName.trim(),
-        phone_e164: normalizedPhone,
-      });
-      setAccountProfile(updatedAccount);
-      setPhoneInput(updatedAccount.phone_e164 ?? "");
-      accountSaved = true;
+      const expYears = Math.max(
+        0,
+        currentYear - (Number(profile.experienceStartYear) || currentYear),
+      );
+      const cleanedPhone = profile.phone.replace(/[\s()-]/g, "").trim();
 
-      if (!counselorRowMissing) {
-        const updatedCounselor = await counselorApi.updateProfile({
-          public_name: publicName.trim(),
-          headline: headline.trim() ? headline.trim() : null,
-          bio: bio.trim() ? bio.trim() : null,
-          specialties,
-          years_experience: calculatedYearsExperience,
-        });
-        setCounselorProfile(updatedCounselor);
+      let nextPhotoPath = profile.photo;
+      if (profile.photo !== saved.photo) {
+        if (profile.photo && profile.photo.startsWith("data:image/")) {
+          const uploadResult = await uploadProfilePhoto(profile.photo);
+          nextPhotoPath = uploadResult.storage_path;
+        } else if (!profile.photo && saved.photo) {
+          await deleteProfilePhoto();
+          nextPhotoPath = null;
+        }
+
+        try {
+          localStorage.removeItem(profileKey);
+          window.dispatchEvent(new Event("sicare:photo-updated"));
+        } catch {
+          // ignore
+        }
       }
 
-      await refreshProfile();
+      // Update backend profile
+      await Promise.all([
+        counselorApi
+          .updateProfile({
+            public_name: profile.displayName.trim(),
+            headline: profile.headline?.trim() || null,
+            bio: profile.bio.trim() || null,
+            specialties: profile.topics,
+            years_experience: expYears,
+            photo_path: nextPhotoPath,
+          })
+          .catch(() => null),
+        sicareApi
+          .updateProfile({
+            full_name: profile.displayName.trim(),
+            phone_e164: cleanedPhone || null,
+          })
+          .catch(() => null),
+      ]);
 
-      setSaveBanner({
-        type: "success",
-        message: counselorRowMissing
-          ? "Profil akun berhasil disimpan ke server."
-          : "Profil akun dan profil publik konselor berhasil disimpan ke server.",
-      });
-    } catch (err: unknown) {
-      const errMsg =
-        err instanceof ApiError
+      await refreshProfile().catch(() => null);
+      const nextSaved: Profile = {
+        ...clone(profile),
+        photo: nextPhotoPath,
+      };
+      setSaved(nextSaved);
+      setProfile(nextSaved);
+      setShowErrors(false);
+      setToast("Perubahan profil berhasil disimpan.");
+    } catch (err) {
+      setToast(
+        err instanceof Error
           ? err.message
-          : "Terjadi kesalahan saat menyimpan perubahan profil.";
-
-      if (accountSaved) {
-        await refreshProfile().catch(() => undefined);
-        setSaveBanner({
-          type: "warning",
-          message: `Profil akun dasar berhasil disimpan, tetapi pembaruan profil publik konselor gagal: ${errMsg}`,
-        });
-      } else {
-        setSaveBanner({
-          type: "error",
-          message: errMsg,
-        });
-      }
+          : "Gagal menyimpan perubahan profil ke server.",
+      );
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const displayTitle =
-    publicName.trim() || fullName.trim() || accountProfile?.full_name || "Konselor";
+  function discardChanges() {
+    setProfile(clone(saved));
+    setShowErrors(false);
+    setPhotoError("");
+  }
+
+  function switchPasswordKind(kind: "akun" | "riwayat") {
+    setPasswordKind(kind);
+    setPwdCurrent("");
+    setPwdNext("");
+    setPwdConfirm("");
+  }
+
+  async function changePassword() {
+    if (pwdSaving) return;
+    const minimumLength = passwordKind === "riwayat" ? 4 : PASSWORD_MIN;
+
+    if (passwordKind === "riwayat" && !historyPasswordConfigured) {
+      if (pwdNext.length < minimumLength) {
+        setToast(`Kata sandi riwayat baru minimal ${minimumLength} karakter.`);
+        return;
+      }
+      if (pwdConfirm !== pwdNext) {
+        setToast("Konfirmasi kata sandi riwayat tidak sama.");
+        return;
+      }
+
+      setPwdSaving(true);
+      try {
+        const res = await counselorApi.initHistoryPassword(pwdNext);
+        if (res.success) {
+          setHistoryPasswordConfigured(true);
+          setPwdCurrent("");
+          setPwdNext("");
+          setPwdConfirm("");
+          setToast("Kata sandi riwayat konseling berhasil disimpan di database.");
+        } else {
+          setToast(res.message || "Gagal mengatur kata sandi riwayat.");
+        }
+      } catch (err: unknown) {
+        setToast(err instanceof Error ? err.message : "Gagal mengatur kata sandi riwayat pada server.");
+      } finally {
+        setPwdSaving(false);
+      }
+      return;
+    }
+
+    const issues = [
+      !pwdCurrent ? "Masukkan kata sandi saat ini." : "",
+      pwdNext.length < minimumLength
+        ? `Kata sandi baru minimal ${minimumLength} karakter.`
+        : "",
+      pwdConfirm !== pwdNext ? "Konfirmasi kata sandi tidak sama." : "",
+    ].filter(Boolean);
+    if (issues.length) {
+      setToast(issues.join(" "));
+      return;
+    }
+
+    if (passwordKind === "akun") {
+      setPwdCurrent("");
+      setPwdNext("");
+      setPwdConfirm("");
+      setToast("Permintaan ubah kata sandi akun diterima.");
+      return;
+    }
+
+    setPwdSaving(true);
+    try {
+      const res = await counselorApi.changeHistoryPassword({
+        current_password: pwdCurrent,
+        new_password: pwdNext,
+        confirm_password: pwdConfirm,
+      });
+      if (res.success) {
+        setPwdCurrent("");
+        setPwdNext("");
+        setPwdConfirm("");
+        setToast("Kata sandi riwayat berhasil diperbarui di database.");
+      } else {
+        setToast(res.message || "Kata sandi riwayat saat ini salah.");
+      }
+    } catch (err: unknown) {
+      setToast(err instanceof Error ? err.message : "Perubahan kata sandi riwayat gagal pada server.");
+    } finally {
+      setPwdSaving(false);
+    }
+  }
+
+  const validExperience =
+    /^\d{4}$/.test(profile.experienceStartYear) &&
+    Number(profile.experienceStartYear) >= 1950 &&
+    Number(profile.experienceStartYear) <= currentYear;
+
+  const initials = getInitials(profile.displayName || "Konselor");
+  const photoPreview = getPublicPhotoUrl(profile.photo);
 
   return (
-    <PageContainer className="py-6 lg:py-8">
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <PageHeader
-            title="Pengaturan"
-            description="Kelola informasi akun dan profil direktori konselor Anda"
-          />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void handleManualRefresh()}
-              disabled={loading || saving}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Muat Ulang
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleSave()}
-              disabled={loading || saving || Boolean(validationError)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#064E3B] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Simpan Perubahan
-            </button>
-          </div>
-        </div>
+    <PageContainer role="counselor" spacing="none">
+      <PageHeader
+        title="Pengaturan"
+        description="Kelola profil publik, keahlian, dan preferensi layananmu. Perubahan profil akan tampil di direktori konselor."
+      />
 
-        {saveBanner && (
-          <div
-            role="status"
-            className={`flex items-start justify-between gap-3 rounded-2xl border p-4 text-sm ${
-              saveBanner.type === "success"
-                ? "border-emerald-200 bg-emerald-50 text-[#064E3B]"
-                : saveBanner.type === "warning"
-                  ? "border-amber-200 bg-amber-50 text-amber-900"
-                  : "border-red-200 bg-red-50 text-red-700"
-            }`}
-          >
-            <div className="flex items-start gap-2.5">
-              {saveBanner.type === "success" ? (
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              ) : (
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              )}
-              <span className="font-medium">{saveBanner.message}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSaveBanner(null)}
-              aria-label="Tutup pesan"
-              className="rounded-lg p-1 hover:bg-black/5"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      {/* Top Banner Akun */}
+      <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-[#f3faf5] text-primary shadow-xs">
+            {photoPreview ? (
+              <img
+                src={photoPreview}
+                alt="Foto profil konselor"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="font-bold text-white bg-primary h-full w-full flex items-center justify-center text-base">
+                {initials}
+              </span>
+            )}
           </div>
-        )}
-
-        {loadError && (
-          <div
-            role="alert"
-            className="flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-          >
-            <div className="flex items-start gap-2.5">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-              <div>
-                <p className="font-semibold">Gagal Memuat Profil</p>
-                <p className="mt-0.5">{loadError}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleManualRefresh()}
-              className="shrink-0 rounded-xl border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
-            >
-              Coba Lagi
-            </button>
-          </div>
-        )}
-
-        {validationError && !loading && (
-          <div
-            role="alert"
-            className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900"
-          >
-            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
-            <span>{validationError}</span>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white py-16 text-center shadow-xs">
-            <Loader2 className="h-7 w-7 animate-spin text-[#064E3B]" />
-            <p className="mt-3 text-sm font-medium text-gray-600">
-              Memuat pengaturan profil konselor dari server...
+          <div className="min-w-0">
+            <p className="font-semibold text-gray-900">{profile.displayName}</p>
+            <p className="text-xs text-gray-500">
+              Konselor · {authProfile?.identity_code ? `NIP ${authProfile.identity_code}` : "SiCARE LMI"} · {user?.email || "konselor@unikadelasalle.ac.id"}
             </p>
           </div>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-12">
-            {/* Kolom Kiri (4 col): Ringkasan Kartu Profil & Status Publikasi */}
-            <div className="space-y-6 lg:col-span-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
-                <div className="flex flex-col items-center text-center">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-2xl font-bold text-[#064E3B] ring-4 ring-emerald-50/50">
-                    {getCounselorInitials(displayTitle)}
-                  </div>
-                  <h2 className="mt-3.5 text-lg font-bold text-gray-900">
-                    {displayTitle}
-                  </h2>
-                  <p className="mt-0.5 text-xs font-medium text-gray-500">
-                    {headline.trim() || "Konselor SiCARE LMI"}
-                  </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <LockKeyhole className="h-4 w-4" />
+          Status akun
+          <span className="ml-1 rounded-full bg-primary-soft px-2.5 py-1 font-semibold text-primary">
+            Aktif
+          </span>
+        </div>
+      </section>
 
-                  <div className="mt-3 flex flex-wrap justify-center gap-2">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
-                        counselorProfile?.is_public
-                          ? "border-emerald-200 bg-emerald-50 text-[#064E3B]"
-                          : "border-amber-200 bg-amber-50 text-amber-800"
-                      }`}
-                    >
-                      <Globe className="h-3.5 w-3.5" />
-                      {counselorProfile?.is_public
-                        ? "Dipublikasikan di Direktori"
-                        : "Belum Dipublikasikan Admin"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-6 space-y-3 border-t border-gray-100 pt-5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Email Login</span>
-                    <span className="font-semibold text-gray-900">
-                      {user?.email ?? "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">NIP / Kode Identitas</span>
-                    <span className="font-mono font-semibold text-gray-900">
-                      {accountProfile?.identity_code ?? "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Status Akun</span>
-                    <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-semibold text-[#064E3B]">
-                      {accountProfile?.account_status ?? "active"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Pengalaman Praktik</span>
-                    <span className="font-semibold text-gray-900">
-                      {calculatedYearsExperience} tahun
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-xl border border-gray-100 bg-gray-50 p-3.5 text-xs text-gray-600">
-                  <p className="font-semibold text-gray-800">
-                    Catatan Foto Profil & Publikasi:
-                  </p>
-                  <p className="mt-1 leading-relaxed">
-                    Status publikasi direktori (`is_public`) dikelola oleh Admin LMI.
-                    Unggah foto profil ke layanan penyimpanan belum tersedia pada
-                    endpoint backend saat ini.
-                  </p>
-                </div>
-              </div>
-
-              {/* Batas Kontrak Keamanan & Preferensi */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
-                <div className="flex items-center gap-2.5">
-                  <Lock className="h-5 w-5 text-[#064E3B]" />
-                  <h3 className="text-sm font-bold text-gray-900">
-                    Keamanan Akun & Kontrak Backend
-                  </h3>
-                </div>
-                <div className="mt-3 space-y-3 text-xs leading-relaxed text-gray-600">
-                  <p>
-                    Autentikasi akun konselor dikelola secara terpusat melalui{" "}
-                    <strong className="text-gray-800">Supabase Auth</strong> dan
-                    provisioning Admin LMI.
-                  </p>
-                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-amber-900">
-                    <p className="font-semibold">
-                      Fitur yang Belum Memiliki Endpoint Backend:
-                    </p>
-                    <ul className="mt-1.5 list-disc space-y-1 pl-4">
-                      <li>Ubah kata sandi mandiri & PIN pengunci riwayat lokal.</li>
-                      <li>Daftar riwayat pendidikan terstruktur (`educations`).</li>
-                      <li>Toggle pembatasan layanan Individu/Kelompok per konselor.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Kolom Kanan (8 col): Form Edit Profil Akun & Profil Publik Konselor */}
-            <div className="space-y-6 lg:col-span-8">
-              {counselorRowMissing && (
-                <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                  <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                  <div>
-                    <p className="font-bold">
-                      Baris Profil Direktori Konselor Belum Disiapkan Admin
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed">
-                      Endpoint `/api/v1/counselor/profile` mengembalikan status `404`
-                      (`COUNSELOR_PROFILE_NOT_FOUND`). Anda tetap dapat memperbarui Nama
-                      Lengkap dan Nomor Telepon akun di bawah ini, namun hubungi Admin LMI
-                      untuk mengaktifkan baris `counselor_profiles` Anda.
-                    </p>
-                  </div>
+      {/* Grid Pengaturan */}
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6">
+        {/* Panel Foto Profil */}
+        <Panel
+          icon={<Camera className="h-5 w-5" />}
+          title="Foto Profil"
+          description="Foto ditampilkan dalam rasio 1:1 di direktori konselor."
+        >
+          <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+            <div className="aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-primary-tint">
+              {photoPreview ? (
+                <img
+                  src={photoPreview}
+                  alt="Foto profil konselor"
+                  className="h-full w-full object-cover object-top"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-gray-300">
+                  <UserRound className="h-14 w-14" />
                 </div>
               )}
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:pt-1">
+              <input
+                ref={photoInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handlePhoto}
+              />
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
+                onClick={() => photoInput.current?.click()}
+              >
+                <Camera className="h-4 w-4" />
+                Unggah foto
+              </button>
+              {profile.photo && (
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-red-300 hover:bg-gray-50 hover:text-red-600"
+                  onClick={handleDeletePhoto}
+                >
+                  Hapus foto
+                </button>
+              )}
+              <p className="text-xs leading-relaxed text-gray-500">
+                JPG, PNG, atau WEBP. Maksimal 2 MB. Foto dipotong otomatis menjadi persegi.
+              </p>
+              {photoError && (
+                <p className="text-xs text-red-600">{photoError}</p>
+              )}
+            </div>
+          </div>
+        </Panel>
 
-              {/* Bagian 1: Informasi Akun Dasar (/api/v1/profile) */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
-                <div className="flex items-center gap-2.5 border-b border-gray-100 pb-4">
-                  <User className="h-5 w-5 text-[#064E3B]" />
-                  <div>
-                    <h2 className="text-base font-bold text-gray-900">
-                      Informasi Akun Dasar
-                    </h2>
-                    <p className="text-xs text-gray-500">
-                      Tersimpan pada tabel `profiles` (`PATCH /api/v1/profile`)
-                    </p>
-                  </div>
-                </div>
+        {/* Panel Profil Publik */}
+        <Panel
+          icon={<UserRound className="h-5 w-5" />}
+          title="Profil Publik"
+          description="Informasi yang dilihat klien sebelum memilih konselor."
+        >
+          <div className="flex flex-col gap-5">
+            <Field
+              label="Nama tampil & gelar"
+              required
+              error={showErrors ? errors.displayName : ""}
+            >
+              <input
+                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
+                value={profile.displayName}
+                onChange={(e) => update("displayName", e.target.value)}
+                placeholder="Contoh: Giovanna Yudi, M.Psi"
+              />
+            </Field>
 
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label
-                      htmlFor="fullNameInput"
-                      className="block text-sm font-semibold text-gray-800"
-                    >
-                      Nama Lengkap Akun <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                      id="fullNameInput"
-                      type="text"
-                      maxLength={120}
-                      value={fullName}
-                      onChange={(event) => setFullName(event.target.value)}
-                      placeholder="Nama lengkap beserta gelar"
-                      className="mt-1.5 w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
-                    />
-                    <p className="mt-1 text-xs text-gray-400">
-                      2–120 karakter ({fullName.trim().length}/120).
-                    </p>
-                  </div>
+            <Field label="Headline profesi">
+              <input
+                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
+                value={profile.headline || ""}
+                onChange={(e) => update("headline", e.target.value)}
+                placeholder="Contoh: Psikolog Klinis & Konselor Mahasiswa"
+              />
+            </Field>
 
-                  <div>
-                    <label
-                      htmlFor="phoneE164Input"
-                      className="block text-sm font-semibold text-gray-800"
-                    >
-                      Nomor WhatsApp / Telepon (E.164)
-                    </label>
-                    <div className="relative mt-1.5">
-                      <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                      <input
-                        id="phoneE164Input"
-                        type="tel"
-                        value={phoneInput}
-                        onChange={(event) => setPhoneInput(event.target.value)}
-                        placeholder="+6281234567890"
-                        className="w-full rounded-xl border border-gray-300 py-2.5 pl-10 pr-3.5 text-sm text-gray-900 outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-gray-400">
-                      Awali dengan `+62` atau `08` (otomatis dikonversi ke `+62`).
-                    </p>
-                  </div>
-                </div>
+            <Field
+              label="Tahun mulai praktik"
+              required
+              error={showErrors ? errors.experience : ""}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min="1950"
+                  max={currentYear}
+                  className="w-36 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
+                  value={profile.experienceStartYear}
+                  onChange={(e) => update("experienceStartYear", e.target.value)}
+                  placeholder="Contoh: 2018"
+                />
+                <span className="text-xs text-gray-500">
+                  {validExperience
+                    ? `${currentYear - Number(profile.experienceStartYear)} tahun pengalaman`
+                    : "Masukkan tahun 4 digit"}
+                </span>
               </div>
+            </Field>
 
-              {/* Bagian 2: Profil Publik Konselor (/api/v1/counselor/profile) */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
-                <div className="flex items-center gap-2.5 border-b border-gray-100 pb-4">
-                  <Award className="h-5 w-5 text-[#064E3B]" />
-                  <div>
-                    <h2 className="text-base font-bold text-gray-900">
-                      Profil Direktori Konselor
-                    </h2>
-                    <p className="text-xs text-gray-500">
-                      Tersimpan pada tabel `counselor_profiles` (`PATCH /api/v1/counselor/profile`)
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-5">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label
-                        htmlFor="publicNameInput"
-                        className="block text-sm font-semibold text-gray-800"
-                      >
-                        Nama Publik di Direktori Klien{" "}
-                        <span className="text-red-600">*</span>
-                      </label>
-                      <input
-                        id="publicNameInput"
-                        type="text"
-                        disabled={counselorRowMissing}
-                        maxLength={120}
-                        value={publicName}
-                        onChange={(event) => setPublicName(event.target.value)}
-                        placeholder="Contoh: Dr. Giovanna, M.Psi., Psikolog"
-                        className="mt-1.5 w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15 disabled:bg-gray-100"
-                      />
-                      <p className="mt-1 text-xs text-gray-400">
-                        Nama yang ditampilkan kepada klien saat memilih konselor.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="practiceStartYearInput"
-                        className="block text-sm font-semibold text-gray-800"
-                      >
-                        Tahun Mulai Praktik <span className="text-red-600">*</span>
-                      </label>
-                      <div className="mt-1.5 flex items-center gap-3">
-                        <input
-                          id="practiceStartYearInput"
-                          type="number"
-                          disabled={counselorRowMissing}
-                          min={currentYear - 80}
-                          max={currentYear}
-                          value={practiceStartYear}
-                          onChange={(event) =>
-                            setPracticeStartYear(event.target.value)
-                          }
-                          className="w-36 rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-semibold tabular-nums text-gray-900 outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15 disabled:bg-gray-100"
-                        />
-                        <span className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-[#064E3B]">
-                          = {calculatedYearsExperience} tahun pengalaman
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-400">
-                        Dikonversi otomatis ke kolom `years_experience` (0–80 tahun).
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="headlineInput"
-                      className="block text-sm font-semibold text-gray-800"
+            <Field
+              label="Topik keahlian"
+              required
+              error={showErrors ? errors.topics : ""}
+            >
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {profile.topics.map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700"
                     >
-                      Headline / Peran & Fokus Praktik
-                    </label>
-                    <input
-                      id="headlineInput"
-                      type="text"
-                      disabled={counselorRowMissing}
-                      maxLength={160}
-                      value={headline}
-                      onChange={(event) => setHeadline(event.target.value)}
-                      placeholder="Contoh: Psikolog Klinis Dewasa & Konselor Akademik LMI"
-                      className="mt-1.5 w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15 disabled:bg-gray-100"
-                    />
-                    <p className="mt-1 text-xs text-gray-400">
-                      Opsional, 3–160 karakter ({headline.trim().length}/160).
-                    </p>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="bioTextarea"
-                      className="block text-sm font-semibold text-gray-800"
-                    >
-                      Bio Singkat & Pendekatan Konseling
-                    </label>
-                    <textarea
-                      id="bioTextarea"
-                      rows={4}
-                      disabled={counselorRowMissing}
-                      maxLength={2000}
-                      value={bio}
-                      onChange={(event) => setBio(event.target.value)}
-                      placeholder="Ceritakan pengalaman, latar belakang pendidikan, dan pendekatan konseling Anda (minimal 20 karakter bila diisi)..."
-                      className="mt-1.5 w-full rounded-xl border border-gray-300 p-3.5 text-sm text-gray-900 outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15 disabled:bg-gray-100"
-                    />
-                    <p className="mt-1 text-xs text-gray-400">
-                      Opsional, 20–2000 karakter ({bio.trim().length}/2000). Anda juga
-                      dapat mencantumkan ringkasan latar belakang pendidikan di sini.
-                    </p>
-                  </div>
-
-                  {/* Spesialisasi Konseling */}
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label
-                        htmlFor="newSpecialtyInput"
-                        className="block text-sm font-semibold text-gray-800"
-                      >
-                        Topik Spesialisasi Konseling ({specialties.length}/12)
-                      </label>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {specialties.length === 0 ? (
-                        <span className="text-xs italic text-gray-400">
-                          Belum ada topik spesialisasi yang ditambahkan.
-                        </span>
-                      ) : (
-                        specialties.map((item) => (
-                          <span
-                            key={item}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#064E3B]"
-                          >
-                            {item}
-                            {!counselorRowMissing && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveSpecialty(item)}
-                                aria-label={`Hapus spesialisasi ${item}`}
-                                className="rounded-full p-0.5 hover:bg-emerald-200/60"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            )}
-                          </span>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex gap-2">
-                      <input
-                        id="newSpecialtyInput"
-                        type="text"
-                        disabled={counselorRowMissing || specialties.length >= 12}
-                        maxLength={60}
-                        value={newSpecialty}
-                        onChange={(event) => setNewSpecialty(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            handleAddSpecialty(newSpecialty);
-                          }
-                        }}
-                        placeholder="Ketik spesialisasi baru (2–60 karakter)..."
-                        className="flex-1 rounded-xl border border-gray-300 px-3.5 py-2 text-sm outline-none focus:border-[#064E3B] disabled:bg-gray-100"
-                      />
+                      {t}
                       <button
                         type="button"
-                        disabled={
-                          counselorRowMissing ||
-                          specialties.length >= 12 ||
-                          newSpecialty.trim().length < 2
-                        }
-                        onClick={() => handleAddSpecialty(newSpecialty)}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-45"
+                        onClick={() => removeTopic(t)}
+                        className="rounded-full p-0.5 hover:bg-gray-200"
                       >
-                        <Plus className="h-4 w-4" />
-                        Tambah
+                        <X className="h-3 w-3" />
                       </button>
-                    </div>
-
-                    {/* Pilihan Cepat Spesialisasi */}
-                    <div className="mt-3">
-                      <p className="flex items-center gap-1 text-xs font-medium text-gray-500">
-                        <Sparkles className="h-3.5 w-3.5 text-[#064E3B]" />
-                        Pilihan cepat topik spesialisasi:
-                      </p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {SPECIALTY_PRESETS.map((preset) => {
-                          const exists = specialties.some(
-                            (s) => s.toLowerCase() === preset.toLowerCase(),
-                          );
-                          return (
-                            <button
-                              key={preset}
-                              type="button"
-                              disabled={
-                                counselorRowMissing ||
-                                exists ||
-                                specialties.length >= 12
-                              }
-                              onClick={() => handleAddSpecialty(preset)}
-                              className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:border-emerald-300 hover:bg-emerald-50/50 disabled:opacity-40"
-                            >
-                              + {preset}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex items-center justify-between gap-3 border-t border-gray-100 pt-5">
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Info className="h-4 w-4 shrink-0 text-[#064E3B]" />
-                    <span>
-                      Perubahan akan langsung diperbarui pada direktori publik setelah
-                      disimpan.
                     </span>
+                  ))}
+                </div>
+                {profile.topics.length < MAX_TOPICS && (
+                  <div className="flex gap-2">
+                    <input
+                      value={topicInput}
+                      maxLength={MAX_TOPIC_LEN}
+                      onChange={(e) => setTopicInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addTopic();
+                        }
+                      }}
+                      placeholder="Tambah topik (mis. Manajemen Stres)"
+                      className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    />
+                    <button
+                      type="button"
+                      onClick={addTopic}
+                      className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      Tambah
+                    </button>
                   </div>
+                )}
+              </div>
+            </Field>
+
+            <Field
+              label="Bio ringkas"
+              error={showErrors ? errors.bio : ""}
+            >
+              <div className="relative">
+                <textarea
+                  rows={3}
+                  maxLength={MAX_BIO}
+                  value={profile.bio}
+                  onChange={(e) => update("bio", e.target.value)}
+                  placeholder="Tuliskan pendekatan konseling dan fokus layanan Anda."
+                  className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
+                />
+                <span className="mt-1 block text-right text-xs text-gray-400">
+                  {profile.bio.length}/{MAX_BIO}
+                </span>
+              </div>
+            </Field>
+          </div>
+        </Panel>
+
+        {/* Panel Layanan Konseling */}
+        <Panel
+          icon={<Layers3 className="h-5 w-5" />}
+          title="Layanan Konseling"
+          description="Tentukan jenis layanan konseling yang Anda sediakan untuk klien."
+        >
+          <div className="space-y-4">
+            <SwitchRow
+              title="Konseling Individu"
+              description="Pendampingan tatap muka satu lawan satu dengan klien."
+              checked={profile.services.individual}
+              onChange={(v) => updateToggle("services", "individual", v)}
+            />
+            <SwitchRow
+              title="Konseling Kelompok"
+              description="Sesi kelompok tematik terstruktur untuk beberapa peserta."
+              checked={profile.services.group}
+              onChange={(v) => updateToggle("services", "group", v)}
+            />
+            {showErrors && errors.services && (
+              <p className="text-xs text-red-600">{errors.services}</p>
+            )}
+          </div>
+        </Panel>
+
+        {/* Panel Riwayat Pendidikan */}
+        <Panel
+          icon={<GraduationCap className="h-5 w-5" />}
+          title="Riwayat Pendidikan"
+          description="Pendidikan formal yang mendukung kredensial profesional Anda."
+          action={
+            <button
+              type="button"
+              onClick={() => openEduDraft()}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Tambah
+            </button>
+          }
+        >
+          <div className="space-y-3">
+            {profile.educations.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs"
+              >
+                <div>
+                  <p className="font-bold text-gray-900">
+                    {item.major}
+                  </p>
+                  <p className="text-gray-500">
+                    {item.school} ({item.year})
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => void handleSave()}
-                    disabled={loading || saving || Boolean(validationError)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#064E3B] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => openEduDraft(item)}
+                    className="rounded-lg p-1 text-gray-400 hover:text-gray-700"
                   >
-                    {saving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    Simpan Perubahan
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeEdu(item.id)}
+                    className="rounded-lg p-1 text-gray-400 hover:text-red-600"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
+            ))}
+
+            {profile.educations.length === 0 && (
+              <p className="text-xs text-gray-400">
+                Belum ada riwayat pendidikan yang ditambahkan.
+              </p>
+            )}
+          </div>
+        </Panel>
+
+        {/* Panel Keamanan & Kata Sandi */}
+        <Panel
+          icon={<LockKeyhole className="h-5 w-5" />}
+          title="Keamanan & Kata Sandi"
+          description="Kelola kata sandi akun SiCARE atau kata sandi proteksi riwayat konseling."
+        >
+          <div className="space-y-4">
+            <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => switchPasswordKind("akun")}
+                className={`flex-1 rounded-lg py-1.5 transition ${
+                  passwordKind === "akun"
+                    ? "bg-white text-gray-900 shadow-xs"
+                    : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                Kata Sandi Akun
+              </button>
+              <button
+                type="button"
+                onClick={() => switchPasswordKind("riwayat")}
+                className={`flex-1 rounded-lg py-1.5 transition ${
+                  passwordKind === "riwayat"
+                    ? "bg-white text-gray-900 shadow-xs"
+                    : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                Sandi Riwayat (PIN)
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500">
+              {passwordKind === "akun"
+                ? "Kata sandi yang digunakan saat login ke aplikasi SiCARE."
+                : historyPasswordConfigured
+                ? "PIN khusus tersimpan di database untuk membuka akses halaman riwayat dan catatan rekam medis konseling."
+                : "PIN khusus minimal 4 karakter untuk melindungi rekam medis konseling. Belum dikonfigurasi di database."}
+            </p>
+
+            <div className="space-y-3">
+              {(passwordKind === "akun" || historyPasswordConfigured) && (
+                <Field
+                  label={passwordKind === "akun" ? "Kata sandi akun saat ini" : "PIN riwayat saat ini"}
+                  required
+                >
+                  <input
+                    type="password"
+                    value={pwdCurrent}
+                    onChange={(e) => setPwdCurrent(e.target.value)}
+                    placeholder={passwordKind === "riwayat" ? "Masukkan PIN riwayat saat ini" : "Masukkan kata sandi"}
+                    className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
+                  />
+                </Field>
+              )}
+
+              <Field
+                label={passwordKind === "akun" ? "Kata sandi baru" : historyPasswordConfigured ? "PIN riwayat baru" : "PIN riwayat baru (min. 4 karakter)"}
+                required
+              >
+                <input
+                  type="password"
+                  value={pwdNext}
+                  onChange={(e) => setPwdNext(e.target.value)}
+                  placeholder={passwordKind === "riwayat" ? "Minimal 4 karakter" : "Minimal 8 karakter"}
+                  className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
+                />
+              </Field>
+
+              <Field
+                label={passwordKind === "akun" ? "Ulangi kata sandi baru" : "Ulangi PIN baru"}
+                required
+              >
+                <input
+                  type="password"
+                  value={pwdConfirm}
+                  onChange={(e) => setPwdConfirm(e.target.value)}
+                  className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
+                />
+              </Field>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                disabled={pwdSaving}
+                onClick={changePassword}
+                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              >
+                {pwdSaving
+                  ? "Memproses..."
+                  : passwordKind === "akun"
+                  ? "Ubah kata sandi"
+                  : historyPasswordConfigured
+                  ? "Ubah PIN riwayat"
+                  : "Simpan PIN riwayat"}
+              </button>
             </div>
           </div>
-        )}
+        </Panel>
       </div>
+
+      {/* Modal Tambah/Edit Riwayat Pendidikan */}
+      {eduDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-base font-bold text-gray-900">
+              Riwayat Pendidikan
+            </h3>
+            <div className="mt-4 space-y-3">
+              <Field label="Program Studi / Gelar" required>
+                <input
+                  value={eduDraft.major}
+                  onChange={(e) =>
+                    setEduDraft({ ...eduDraft, major: e.target.value })
+                  }
+                  placeholder="Contoh: Sarjana Psikologi"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none focus:border-primary"
+                />
+              </Field>
+
+              <Field label="Perguruan Tinggi" required>
+                <input
+                  value={eduDraft.school}
+                  onChange={(e) =>
+                    setEduDraft({ ...eduDraft, school: e.target.value })
+                  }
+                  placeholder="Contoh: Universitas Surabaya"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none focus:border-primary"
+                />
+              </Field>
+
+              <Field label="Tahun Kelulusan" required>
+                <input
+                  type="number"
+                  value={eduDraft.year}
+                  onChange={(e) =>
+                    setEduDraft({ ...eduDraft, year: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none focus:border-primary"
+                />
+              </Field>
+
+              {eduError && (
+                <p className="text-xs text-red-600">{eduError}</p>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEduDraft(undefined)}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={saveEdu}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-dark"
+              >
+                Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pemotong Foto */}
+      {cropSource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">
+                  Sesuaikan Foto Profil
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Geser dan atur perbesaran bingkai foto.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCropper}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 flex justify-center">
+              {cropDimensions.width > 0 &&
+                cropDimensions.height > 0 &&
+                (() => {
+                  const stageSize = 280;
+                  const scale = Math.min(
+                    stageSize / cropDimensions.width,
+                    stageSize / cropDimensions.height,
+                  );
+                  const displayWidth = cropDimensions.width * scale;
+                  const displayHeight = cropDimensions.height * scale;
+                  const frameSide =
+                    Math.min(displayWidth, displayHeight) / cropZoom;
+                  const frameLeft =
+                    (displayWidth - frameSide) * (cropX / 100);
+                  const frameTop =
+                    (displayHeight - frameSide) * (cropY / 100);
+
+                  return (
+                    <div
+                      style={{ width: displayWidth, height: displayHeight }}
+                      className="relative select-none overflow-hidden rounded-xl border border-gray-300 bg-black/10"
+                    >
+                      <img
+                        ref={cropImageRef}
+                        src={cropSource}
+                        alt="Pratinjau crop"
+                        style={{ width: displayWidth, height: displayHeight }}
+                        className="pointer-events-none block object-contain"
+                      />
+                      <div
+                        tabIndex={0}
+                        onPointerDown={handleCropPointerDown}
+                        onPointerMove={handleCropPointerMove}
+                        onPointerUp={handleCropPointerUp}
+                        onPointerCancel={handleCropPointerUp}
+                        className="absolute cursor-move touch-none rounded-sm border-2 border-white shadow-[0_0_0_999px_rgba(0,0,0,0.48)] outline-none focus-visible:ring-2 focus-visible:ring-[#36c08f]"
+                        style={{
+                          left: frameLeft,
+                          top: frameTop,
+                          width: frameSide,
+                          height: frameSide,
+                        }}
+                      >
+                        <span className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
+                          {Array.from({ length: 9 }).map((_, idx) => (
+                            <span
+                              key={idx}
+                              className={`${idx % 3 !== 2 ? "border-r border-white/50" : ""} ${idx < 6 ? "border-b border-white/50" : ""}`}
+                            />
+                          ))}
+                        </span>
+                        <span className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-medium text-white">
+                          Geser bingkai
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <label className="block">
+                <span className="mb-2 flex items-center justify-between text-sm font-medium text-gray-700">
+                  <span>Ukuran bingkai / zoom</span>
+                  <span>{cropZoom.toFixed(1)}×</span>
+                </span>
+                <input
+                  type="range"
+                  min="1"
+                  max="3"
+                  step="0.1"
+                  value={cropZoom}
+                  onChange={(e) => setCropZoom(Number(e.target.value))}
+                  className="w-full accent-primary"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeCropper}
+                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={applyCrop}
+                className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+              >
+                Gunakan foto
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Save Bar */}
+      {dirty && (
+        <div className="fixed inset-x-0 bottom-4 z-20 px-4 lg:left-64">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 rounded-2xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold">
+              Ada perubahan profil yang belum disimpan.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={discardChanges}
+                className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:flex-none"
+              >
+                Batalkan
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void saveChanges()}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50 sm:flex-none"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? "Menyimpan..." : "Simpan perubahan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          role="status"
+          className="pointer-events-none fixed left-1/2 top-20 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
+        >
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>{toast}</span>
+        </div>
+      )}
     </PageContainer>
   );
 }
