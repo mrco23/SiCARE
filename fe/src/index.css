@@ -85,6 +85,15 @@ body {
   animation-iteration-count: infinite;
 }
 
+@keyframes hero-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @keyframes auth-bubble-rise {
   0% {
     transform: translate3d(0, 0, 0) scale(0.9);
@@ -150,7 +159,6 @@ body {
   }
 }
 
-
 /* ===== SHARED LAYOUT DIMENSIONS ===== */
 .layout-main-offset {
   padding-top: 72px;
@@ -176,17 +184,99 @@ body {
 }
 
 @keyframes mascot-happy {
-  0% { transform: translateY(0) rotate(0deg) scale(1); }
-  15% { transform: translateY(-14px) rotate(-4deg) scale(1.03); }
-  30% { transform: translateY(0) rotate(3deg) scale(1); }
-  45% { transform: translateY(-10px) rotate(-3deg) scale(1.02); }
-  60% { transform: translateY(0) rotate(0deg) scale(1); }
-  100% { transform: translateY(0) rotate(0deg) scale(1); }
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  15% {
+    transform: translateY(-14px) rotate(-4deg) scale(1.03);
+  }
+  30% {
+    transform: translateY(0) rotate(3deg) scale(1);
+  }
+  45% {
+    transform: translateY(-10px) rotate(-3deg) scale(1.02);
+  }
+  60% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+/* Maskot bingung (section 'Kenapa Layanan Konseling Hadir') */
+.mascot-confused {
+  transform-origin: 50% 92%;
+  animation: mascot-confused 5s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes mascot-confused {
+  0%,
+  100% {
+    transform: rotate(0) translate(0, 0) scale(1);
+  }
+  12% {
+    transform: rotate(-5deg) translate(-2%, 0);
+  }
+  28% {
+    transform: rotate(-5deg) translate(-2%, 0);
+  }
+  40% {
+    transform: rotate(4deg) translate(2%, 0);
+  }
+  56% {
+    transform: rotate(4deg) translate(2%, 0);
+  }
+  66% {
+    transform: rotate(0) translate(0, -4%) scale(1.02);
+  }
+  76% {
+    transform: rotate(0) translate(0, 0) scale(1);
+  }
+}
+.mascot-qmark {
+  opacity: 0;
+  animation: mascot-qmark 3.6s ease-out infinite;
+  animation-delay: var(--d, 0s);
+}
+@keyframes mascot-qmark {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.5) rotate(var(--r, 0deg));
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1.15) rotate(var(--r, 0deg));
+  }
+  28% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1) rotate(var(--r, 0deg));
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1) rotate(var(--r, 0deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.9) rotate(var(--r, 0deg));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mascot-confused {
+    animation: none;
+  }
+  .mascot-qmark {
+    display: none;
+  }
 }
 
 @keyframes session-loading {
-  0% { left: -35%; }
-  100% { left: 100%; }
+  0% {
+    left: -35%;
+  }
+  100% {
+    left: 100%;
+  }
 }
 
 /* Report print rules are activated only when a report page is mounted. */

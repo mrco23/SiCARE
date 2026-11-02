@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   ArrowUpRight,
   CalendarDays,
   ClipboardList,
@@ -115,7 +116,14 @@ function getSentenceSplit(text: string): { prefix: string; highlight: string } {
   };
 }
 
-function MotivationalTyping({ text }: { text: string }) {
+function MotivationalTyping({
+  text,
+  tone = "dark",
+}: {
+  text: string;
+  /** "light" = teks putih + sorotan hijau muda, untuk latar gelap. */
+  tone?: "dark" | "light";
+}) {
   const [displayedCount, setDisplayedCount] = useState(0);
   const [prevText, setPrevText] = useState(text);
   const containerRef = useRef<HTMLSpanElement>(null);
@@ -197,22 +205,149 @@ function MotivationalTyping({ text }: { text: string }) {
         {/* Invisible full text reserving dimensions to prevent layout shifts */}
         <span className="invisible col-start-1 row-start-1 select-none pointer-events-none">
           <span>{prefix}</span>
-          <span className="text-primary">{highlight}</span>
+          <span
+            className={tone === "light" ? "text-emerald-200" : "text-primary"}
+          >
+            {highlight}
+          </span>
         </span>
 
         {/* Sequentially typed text */}
         <span className="col-start-1 row-start-1">
-          <span className="text-[#1b1b1b]">{displayedPrefix}</span>
-          <span className="text-primary">{displayedHighlight}</span>
+          <span className={tone === "light" ? "text-white" : "text-[#1b1b1b]"}>
+            {displayedPrefix}
+          </span>
+          <span
+            className={tone === "light" ? "text-emerald-200" : "text-primary"}
+          >
+            {displayedHighlight}
+          </span>
           {isTyping && (
             <span
-              className="inline-block h-[0.85em] w-[2.5px] translate-y-[2px] bg-primary ml-1 motion-safe:animate-pulse"
+              className={`ml-1 inline-block h-[0.85em] w-[2.5px] translate-y-[2px] motion-safe:animate-pulse ${
+                tone === "light" ? "bg-white" : "bg-primary"
+              }`}
               aria-hidden="true"
             />
           )}
         </span>
       </span>
     </span>
+  );
+}
+
+const HERO_IMAGES = [
+  "/hero/hero-1.webp",
+  "/hero/hero-2.webp",
+  "/hero/hero-3.webp",
+  "/hero/hero-4.webp",
+] as const;
+const HERO_SLIDE_MS = 6500;
+const HERO_FADE_MS = 1400;
+const HERO_ZOOM_MS = 8500;
+
+/**
+ * Latar hero: 4 foto berganti dengan crossfade lambat + zoom halus (Ken Burns).
+ * Ruangan pada keempat foto sama, sehingga crossfade terasa seperti waktu berjalan.
+ */
+function HeroSlideshow() {
+  const [active, setActive] = useState(0);
+  const [reduceMotion] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+
+  // Preload foto berikutnya setelah halaman selesai dimuat.
+  useEffect(() => {
+    HERO_IMAGES.slice(1).forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
+
+  // Auto-play; berhenti saat tab tidak aktif atau pengguna memilih reduce motion.
+  useEffect(() => {
+    if (reduceMotion) return;
+    let timer: number | undefined;
+    const start = () => {
+      window.clearInterval(timer);
+      timer = window.setInterval(
+        () => setActive((index) => (index + 1) % HERO_IMAGES.length),
+        HERO_SLIDE_MS,
+      );
+    };
+    const onVisibility = () => {
+      if (document.hidden) window.clearInterval(timer);
+      else start();
+    };
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [reduceMotion, active]);
+
+  return (
+    <>
+      <div className="absolute inset-0 -z-20" aria-hidden="true">
+        {HERO_IMAGES.map((src, index) => {
+          const isActive = index === active;
+          return (
+            <img
+              key={src}
+              src={src}
+              alt=""
+              loading={index === 0 ? "eager" : "lazy"}
+              fetchPriority={index === 0 ? "high" : "auto"}
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover object-[50%_65%]"
+              style={{
+                opacity: isActive ? 1 : 0,
+                transform:
+                  isActive && !reduceMotion ? "scale(1.06)" : "scale(1)",
+                // Zoom baru di-reset setelah foto selesai memudar, agar tidak "melompat".
+                transition: isActive
+                  ? `opacity ${HERO_FADE_MS}ms ease-in-out, transform ${HERO_ZOOM_MS}ms ease-out`
+                  : `opacity ${HERO_FADE_MS}ms ease-in-out, transform 0s linear ${HERO_FADE_MS}ms`,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Indikator + progres foto */}
+      <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 md:bottom-9 lg:bottom-11">
+        {HERO_IMAGES.map((_, index) => {
+          const isActive = index === active;
+          return (
+            <button
+              key={index}
+              type="button"
+              onClick={() => setActive(index)}
+              aria-label={`Tampilkan foto ${index + 1} dari ${HERO_IMAGES.length}`}
+              aria-current={isActive}
+              className={`relative h-2 cursor-pointer overflow-hidden rounded-full bg-white/35 transition-all duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-900 ${
+                isActive ? "w-9" : "w-2 hover:bg-white/60"
+              }`}
+            >
+              {isActive && (
+                <span
+                  className="absolute inset-0 origin-left rounded-full bg-white"
+                  style={{
+                    animation: reduceMotion
+                      ? undefined
+                      : `hero-progress ${HERO_SLIDE_MS}ms linear forwards`,
+                    transform: reduceMotion ? "scaleX(1)" : undefined,
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -576,6 +711,9 @@ function Counselors({
 
 export default function HomePage() {
   const [heroMotivation, setHeroMotivation] = useState(DEFAULT_HERO_MOTIVATION);
+  // Kalimat baru ditampilkan setelah API menjawab (atau timeout), agar tidak
+  // tampil kalimat bawaan lalu berganti dan mengubah tinggi hero.
+  const [heroReady, setHeroReady] = useState(false);
   const [publicCounselors, setPublicCounselors] = useState<PublicCounselor[]>(
     [],
   );
@@ -622,10 +760,17 @@ export default function HomePage() {
       })
       .catch(() => {
         // The default sentence remains visible if the public API is unavailable.
+      })
+      .finally(() => {
+        if (active) setHeroReady(true);
       });
+    const readyTimeout = window.setTimeout(() => {
+      if (active) setHeroReady(true);
+    }, 1500);
 
     return () => {
       active = false;
+      window.clearTimeout(readyTimeout);
     };
   }, []);
 
@@ -633,33 +778,79 @@ export default function HomePage() {
     <>
       <div className="overflow-x-clip bg-white">
         {/* ================= HERO ================= */}
-        <section className="relative isolate min-h-[420px] overflow-hidden md:min-h-[460px] lg:min-h-[520px]">
-          {/* Foto latar */}
-          <img
-            src="/hero/hero-2.webp"
-            alt=""
-            className="absolute inset-0 -z-20 h-full w-full object-cover object-[70%_30%] md:object-center"
+        <section className="relative isolate flex min-h-[420px] items-center justify-center overflow-hidden md:min-h-[460px] lg:min-h-[480px]">
+          {/* Foto latar bergantian */}
+          <HeroSlideshow />
+
+          {/* Overlay emerald gelap: kontras tinggi untuk teks putih, tetap menyisakan nuansa foto */}
+          <div
+            className="pointer-events-none absolute inset-0 -z-10 [background:linear-gradient(180deg,rgba(4,40,30,.5),rgba(4,40,30,.62)),radial-gradient(ellipse_60%_70%_at_50%_52%,rgba(4,40,30,.35),rgba(4,40,30,0)_75%)]"
+            aria-hidden="true"
           />
 
-          {/* White overlay */}
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-white/40" />
-
-          {/* Konten: selalu di tengah */}
+          {/* Konten */}
           <div
-            className={`relative z-10 flex min-h-[inherit] flex-col items-center justify-center pb-16 pt-24 text-center md:pb-20 md:pt-36 lg:pb-28 ${container}`}
+            className={`relative z-10 flex flex-col items-center pb-16 pt-24 text-center md:pb-20 md:pt-28 lg:pb-20 ${container}`}
           >
-            <div className="mx-auto flex max-w-xl flex-col items-center lg:max-w-2xl">
-              <h1 className="text-2xl font-bold leading-[1.2] text-[#1b1b1b] text-balance sm:text-3xl lg:text-[38px]">
-                <MotivationalTyping text={heroMotivation} />
+            <div className="mx-auto flex max-w-2xl flex-col items-center">
+              <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-emerald-50 backdrop-blur-sm sm:px-3.5 sm:text-xs">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-300" />
+                Layanan Konseling LMI · Unika De La Salle
+              </span>
+
+              {/* Tinggi h1 dikunci setara 2 baris ukuran terbesar (= 3 baris ukuran sedang) (rem tetap, tidak ikut tier font) supaya hero tidak melonjak
+                  saat kalimat berganti; ukuran font menyesuaikan panjang kalimat (maks 180 karakter). */}
+              <h1
+                className={`mt-3 flex min-h-[4.6rem] w-full sm:min-h-[5.4rem] lg:min-h-[7.8rem] items-center justify-center font-extrabold leading-[1.15] tracking-tight text-white text-balance [text-shadow:0_2px_18px_rgba(0,0,0,0.35)] sm:mt-5 ${
+                  heroMotivation.length <= 70
+                    ? "max-w-[26ch] text-[1.9rem] sm:text-4xl lg:text-[3.25rem]"
+                    : heroMotivation.length <= 120
+                      ? "max-w-[28ch] text-2xl sm:text-3xl lg:text-4xl"
+                      : "max-w-[34ch] text-xl sm:text-2xl lg:text-3xl"
+                }`}
+              >
+                {heroReady ? (
+                  <MotivationalTyping text={heroMotivation} tone="light" />
+                ) : (
+                  <span className="sr-only">{heroMotivation}</span>
+                )}
               </h1>
 
-              <Link
-                to="/klien/pesanan"
-                className="mt-5 flex w-fit items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-primary-dark sm:px-5 sm:text-sm md:mt-6"
-              >
-                <CalendarDays className="h-3.5 w-3.5" />
-                Mulai Konseling
-              </Link>
+              <p className="mt-3 max-w-[46ch] text-sm leading-relaxed text-white/90 [text-shadow:0_1px_8px_rgba(0,0,0,0.35)] sm:text-base">
+                Aman, rahasia, dan didampingi konselor profesional. Ceritakan
+                apa yang kamu rasakan, kami siap mendengarkan.
+              </p>
+
+              <div className="mt-5 flex w-full max-w-md gap-2.5 sm:mt-6 sm:w-auto sm:max-w-none sm:gap-3">
+                <Link
+                  to="/klien/pesanan"
+                  className="group inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-white px-4 sm:flex-none sm:gap-2.5 sm:px-7 text-sm font-semibold text-primary shadow-[0_10px_24px_rgba(0,0,0,0.25)] transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-[0_14px_28px_rgba(0,0,0,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-900 sm:h-[52px] sm:text-[15px]"
+                >
+                  Mulai Konseling
+                  <ArrowRight className="h-[18px] w-[18px] transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+                <Link
+                  to="/profil-konselor"
+                  className="inline-flex h-11 flex-1 items-center justify-center rounded-full border-[1.5px] border-white/60 bg-white/10 px-4 sm:flex-none sm:px-7 text-sm font-semibold text-white backdrop-blur-sm transition duration-300 hover:border-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-900 sm:h-[52px] sm:text-[15px]"
+                >
+                  Lihat Konselor
+                </Link>
+              </div>
+
+              <ul className="mt-4 hidden flex-wrap justify-center sm:flex gap-x-5 gap-y-2 text-xs font-medium text-emerald-50 [text-shadow:0_1px_6px_rgba(0,0,0,0.4)] sm:mt-5">
+                <li className="inline-flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5 text-emerald-300" />
+                  Data terjaga rahasia
+                </li>
+                <li className="inline-flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                  Konselor profesional
+                </li>
+                <li className="inline-flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5 text-emerald-300" />
+                  Booking online
+                </li>
+              </ul>
             </div>
           </div>
 
@@ -713,11 +904,41 @@ export default function HomePage() {
 
               {/* Kanan: maskot */}
               <div className="flex justify-center md:justify-end">
-                <img
-                  src="/thinking.png"
-                  alt="Maskot SiCARE"
-                  className="w-full max-w-48 object-contain sm:max-w-56 lg:max-w-64"
-                />
+                <div className="relative w-full max-w-48 sm:max-w-56 lg:max-w-64">
+                  <img
+                    src="/thinking.png"
+                    alt="Maskot SiCARE"
+                    className="mascot-confused block h-auto w-full object-contain"
+                  />
+                  {/* Tanda tanya yang muncul bergantian di sekitar kepala maskot */}
+                  <span
+                    aria-hidden="true"
+                    className="mascot-qmark pointer-events-none absolute left-[16%] top-[2%] font-[Montserrat] text-2xl font-extrabold leading-none text-primary sm:text-3xl"
+                    style={
+                      { "--r": "-14deg", "--d": "0s" } as React.CSSProperties
+                    }
+                  >
+                    ?
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="mascot-qmark pointer-events-none absolute right-[20%] -top-[3%] font-[Montserrat] text-3xl font-extrabold leading-none text-brand-gold sm:text-4xl"
+                    style={
+                      { "--r": "12deg", "--d": "1.2s" } as React.CSSProperties
+                    }
+                  >
+                    ?
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="mascot-qmark pointer-events-none absolute right-[5%] top-[12%] font-[Montserrat] text-xl font-extrabold leading-none text-blue-900 sm:text-2xl"
+                    style={
+                      { "--r": "18deg", "--d": "2.4s" } as React.CSSProperties
+                    }
+                  >
+                    ?
+                  </span>
+                </div>
               </div>
             </div>
 
