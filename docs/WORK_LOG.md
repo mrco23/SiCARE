@@ -1264,3 +1264,37 @@ Mengimplementasikan verifikasi email otomatis berbasis Supabase Auth dengan Brev
    - `npm --prefix fe run lint`: **PASS** (0 errors, 0 warnings).
    - `npm --prefix fe run build`: **PASS** (2468 modul ditransformasi, bundle Vite & PWA sukses).
 
+## 2026-11-02 — Peningkatan Antarmuka Publik (Hero Slideshow, Animasi Maskot, Mood Tracker & Panduan)
+
+### Ringkasan
+Penyempurnaan visual, responsivitas, dan interaktivitas pada halaman publik dan footer SiCARE:
+1. **Hero Section Beranda (`HomePage.tsx` & `index.css`):**
+   - Implementasi slideshow latar hero (4 citra) dengan efek transisi crossfade dan zoom lembut (Ken Burns effect).
+   - Penyesuaian `MotivationalTyping` dengan mode `tone="light"` untuk keterbacaan optimal di atas latar hero dinamis serta stabilisasi tinggi kontainer (`min-h`) guna mencegah Cumulative Layout Shift (CLS).
+   - Penataan ulang CTA utama ("Mulai Konseling" & "Lihat Konselor") dengan tombol rounded-pill dan daftar keunggulan ringkas.
+   - Penambahan animasi maskot interaktif (`.mascot-confused` dan partikel tanda tanya `.mascot-qmark`) pada seksi "Kenapa Layanan Konseling Hadir" dengan dukungan `prefers-reduced-motion`.
+2. **Halaman Refleksi Mood (`MoodTrackerPage.tsx`):**
+   - Header visual baru dengan badge aksen brand SiCARE.
+   - Kartu progress pertanyaan sticky dengan backdrop-blur dan border halus.
+   - Kartu pertanyaan interaktif dengan indikator aksen kiri dan checkmark status.
+   - Pilihan opsi mood dengan micro-interaction hover zoom emoji dan state terpilih kontras tinggi.
+   - Banner hasil penilaian mood dengan gradien dinamis dan maskot responsif.
+3. **Halaman Panduan (`PanduanPage.tsx`):**
+   - Pembaruan kartu audiens "Siapa Saja yang Dapat Menggunakan Layanan" menjadi kartu artikel modern dengan visual gradient header, nomor indeks latar (`01`, `02`, `03`), badge peran pengguna, dan aksen garis brand gold.
+4. **Komponen Footer (`Footer.tsx`):**
+   - Konsolidasi tautan navigasi untuk menghilangkan redundansi antara navigasi dan informasi.
+   - Penataan ulang grid menjadi 3 kolom terstruktur (`lg:grid-cols-[1.25fr_1fr_1.2fr]`) dengan alignment responsif untuk tampilan mobile dan tablet.
+
+### File yang Diubah
+- `fe/src/components/home/Footer.tsx`
+- `fe/src/index.css`
+- `fe/src/pages/public/HomePage.tsx`
+- `fe/src/pages/public/MoodTrackerPage.tsx`
+- `fe/src/pages/public/PanduanPage.tsx`
+- `docs/WORK_LOG.md`
+
+### Bukti Pengujian
+- `npm --prefix fe run lint`: **PASS** (0 errors, 0 warnings).
+- `npm --prefix fe run build`: **PASS** (2468 modul ditransformasi, bundle Vite & PWA sukses).
+
+

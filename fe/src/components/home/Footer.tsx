@@ -1,14 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
 
-const navigasi = [
-  { label: "Beranda", to: "/" },
-  { label: "Tentang Kami", to: "/tentang-kami" },
-  { label: "Panduan", to: "/panduan" },
-  { label: "Konselor", to: "/profil-konselor" },
-  { label: "Mood Tracker", to: "/mood-tracker" },
-  { label: "Feedback", to: "/feedback" },
-];
-
 const informasi = [
   { label: "Beranda", to: "/" },
   { label: "Tentang Kami", to: "/tentang-kami" },
@@ -47,7 +38,7 @@ export default function Footer() {
           gap-8 
           text-center 
           sm:grid-cols-2 
-          lg:grid-cols-[1.25fr_1fr_1fr_1.2fr] 
+          lg:grid-cols-[1.25fr_1fr_1.2fr] 
           lg:gap-10 
           lg:text-left
         "
@@ -147,57 +138,6 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Navigasi */}
-
-          <div>
-            <h3
-              className="
-              text-base 
-              font-bold 
-              uppercase 
-              tracking-wide 
-              text-[#d4a84b]
-            "
-            >
-              Navigasi Halaman
-            </h3>
-
-            <ul
-              className="
-              mt-5 
-              flex 
-              flex-col 
-              gap-3
-            "
-            >
-              {navigasi.map((item) => (
-                <li key={item.label}>
-                  <NavLink
-                    to={item.to}
-                    end={item.to === "/"}
-                    className={({ isActive }) =>
-                      `
-                      text-[14px]
-                      text-white/85
-                      transition
-                      hover:text-white
-
-                      ${
-                        isActive
-                          ? "font-bold underline underline-offset-4 text-white"
-                          : "font-normal"
-                      }
-
-                      `
-                    }
-                  >
-                    {item.label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-
           {/* Informasi */}
 
           <div>
@@ -256,6 +196,8 @@ export default function Footer() {
             flex 
             flex-col 
             items-center 
+            sm:col-span-2
+            lg:col-span-1
             lg:items-start
           "
           >
