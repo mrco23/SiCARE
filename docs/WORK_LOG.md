@@ -1235,3 +1235,32 @@ Memperbaiki bug di mana foto profil yang berhasil diunggah ke Supabase Storage t
    - `npm --prefix fe run build`: **PASS** (2467 modules transformed, build sukses).
    - `npm --prefix be run check`: **PASS** (syntax checks clean).
 
+## 2026-11-02 — Implementasi Verifikasi Email Supabase Auth + Brevo SMTP & Persiapan Vercel
+
+### Ringkasan
+Mengimplementasikan verifikasi email otomatis berbasis Supabase Auth dengan Brevo SMTP, halaman callback terdedikasi `/auth/confirmed`, penegakan login hanya untuk akun terverifikasi (`account_status = active`), endpoint & antarmuka pengiriman ulang (resend confirmation) dengan rate limit/cooldown 60 detik, serta konfigurasi routing SPA Vercel:
+
+1. **Alur Registrasi:**
+   - Menyematkan `emailRedirectTo` terverifikasi berbasis origin tepercaya (`env.frontendOrigins` atau `env.appBaseUrl`, misal `https://si-care.vercel.app/auth/confirmed` atau `http://localhost:5173/auth/confirmed`).
+   - Mencegah open redirect dengan validasi origin tepercaya di backend.
+   - Pesan sukses frontend diarahkan ke `/login` dengan notice: `"Silakan periksa email untuk melakukan verifikasi akun"`.
+   - Menjaga aturan bahwa registrasi publik secara kanonis hanya menghasilkan role `client`.
+2. **Halaman Callback `/auth/confirmed`:**
+   - Komponen callback `fe/src/pages/auth/AuthConfirmedPage.tsx` yang menangani 3 varian flow: PKCE (`?code=...`), token hash OTP (`?token_hash=...`), dan implicit flow (`#access_token=...`).
+   - Membersihkan session lokal pada browser setelah verifikasi sukses (`client.auth.signOut({ scope: "local" })`) agar tidak berbenturan dengan `AuthProvider` dan memungkinkan login eksplisit.
+   - Menampilkan status loading, kartu sukses berstandar brand dengan tombol "Masuk ke SiCARE", serta kartu error dengan form inline kirim ulang jika tautan invalid/kedaluwarsa.
+3. **Fitur Kirim Ulang Email Verifikasi (Resend Confirmation):**
+   - Endpoint backend baru `POST /api/v1/auth/resend-confirmation` dengan validasi Zod (mendukung email atau NIM/NIP), pembersihan cooldown memory 60 detik, proteksi anti-leak enumeration akun, dan audit logging.
+   - Penambahan method `resendConfirmation` pada `AuthContext` dan `AuthProvider`.
+   - Form kirim ulang interaktif pada `Login.tsx` dan `AuthConfirmedPage.tsx` dengan countdown timer cooldown.
+4. **Penegakan Login:**
+   - `POST /api/v1/auth/login` secara ketat menolak pengguna yang belum mengonfirmasi email (`HTTP 403 EMAIL_NOT_CONFIRMED`) baik melalui error `signInWithPassword` maupun verifikasi eksplisit field `email_confirmed_at`/`confirmed_at`.
+   - Mempertahankan penegakan status akun aktif (`account_status === "active"`) dan perlindungan RBAC semua role (Admin, Konselor, Kepala LMI, Klien).
+5. **Kesiapan Vercel:**
+   - Membuat `fe/vercel.json` dengan rewrite rewrite rule `/(.*) -> /index.html` untuk menjamin direct access dan refresh rute React Router di Vercel tanpa 404.
+6. **Hasil Pengujian & Verifikasi:**
+   - In-memory automated tests `be/test/emailVerification.test.js`: **5/5 PASS**.
+   - `npm --prefix be run check`: **PASS** (31 berkas sintaks backend valid).
+   - `npm --prefix fe run lint`: **PASS** (0 errors, 0 warnings).
+   - `npm --prefix fe run build`: **PASS** (2468 modul ditransformasi, bundle Vite & PWA sukses).
+
