@@ -1,21 +1,23 @@
 import { PageContainer, PageHeader } from "../../components/shared";
 import { SettingsField as Field, SettingsPanel as Panel, SettingsSwitchRow as SwitchRow } from "../../components/counselor/settings/SettingsPrimitives";
-import SignOutPanel from "../../features/auth/SignOutPanel";
 import { useAuth } from "../../features/auth/useAuth";
 import { counselorApi } from "../../lib/counselorApi";
 import { sicareApi } from "../../lib/sicareApi";
-import { INITIAL_COUNSELOR_PROFILE as INITIAL } from "../../data/mock/counselorProfile";
+import {
+  uploadProfilePhoto,
+  deleteProfilePhoto,
+  getPublicPhotoUrl,
+  validatePhotoFile,
+} from "../../lib/profilePhotoStorage";
+import { getInitials } from "../../lib/avatarUtils";
 import {
   cloneCounselorProfile as clone,
-  COUNSELOR_PHOTO_TYPES as PHOTO_TYPES,
   MAX_COUNSELOR_BIO_LENGTH as MAX_BIO,
-  MAX_COUNSELOR_PHOTO_BYTES as MAX_PHOTO_BYTES,
   MAX_COUNSELOR_TOPIC_LENGTH as MAX_TOPIC_LEN,
   MAX_COUNSELOR_TOPICS as MAX_TOPICS,
   MIN_ACCOUNT_PASSWORD_LENGTH as PASSWORD_MIN,
   validateCounselorProfile,
 } from "../../features/counselor/profile/profileValidation";
-import { changeCounselorHistoryPassword } from "../../features/history/counselorHistoryAccess";
 import type {
   CounselorEducation as Education,
   CounselorProfile as Profile,
@@ -42,23 +44,36 @@ import {
   Trash2,
 } from "lucide-react";
 
+const EMPTY_COUNSELOR_PROFILE: Profile = {
+  photo: null,
+  displayName: "",
+  headline: "",
+  bio: "",
+  topics: [],
+  experienceStartYear: String(new Date().getFullYear()),
+  phone: "",
+  educations: [],
+  services: { individual: true, group: true },
+};
+
 export default function KonselorPengaturanPage() {
   const currentYear = new Date().getFullYear();
   const { user, profile: authProfile, refreshProfile } = useAuth();
   const profileKey = `sicare_profile_photo_${authProfile?.id || "counselor"}`;
 
   const [saved, setSaved] = useState<Profile>(() => {
-    const base = clone(INITIAL);
-    try {
-      const stored = localStorage.getItem(profileKey);
-      if (stored !== null) base.photo = stored || null;
-    } catch {
-      // ignore
-    }
-    return base;
+    const authAvatar = (authProfile as Record<string, unknown> | null)?.avatar_url || (authProfile as Record<string, unknown> | null)?.photo_path;
+    const initialPhoto = typeof authAvatar === "string" ? authAvatar : null;
+    return {
+      ...EMPTY_COUNSELOR_PROFILE,
+      photo: initialPhoto,
+      displayName: authProfile?.full_name || "",
+      experienceStartYear: String(currentYear),
+    };
   });
 
   const [profile, setProfile] = useState<Profile>(() => clone(saved));
+  const [historyPasswordConfigured, setHistoryPasswordConfigured] = useState<boolean>(false);
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
@@ -101,16 +116,13 @@ export default function KonselorPengaturanPage() {
     Promise.all([
       counselorApi.getProfile().catch(() => null),
       sicareApi.getProfile().catch(() => null),
-    ]).then(([couns, me]) => {
+      counselorApi.getHistoryPasswordStatus().catch(() => ({ configured: false })),
+    ]).then(([couns, me, historyStatus]) => {
       if (!active) return;
+      if (historyStatus) {
+        setHistoryPasswordConfigured(historyStatus.configured);
+      }
       setSaved((prev) => {
-        let photoVal = prev.photo;
-        try {
-          const stored = localStorage.getItem(profileKey);
-          if (stored !== null) photoVal = stored || null;
-        } catch {
-          // ignore
-        }
         const next: Profile = {
           ...prev,
           displayName: couns?.public_name || me?.full_name || prev.displayName,
@@ -120,7 +132,7 @@ export default function KonselorPengaturanPage() {
           experienceStartYear: couns?.years_experience
             ? String(currentYear - couns.years_experience)
             : prev.experienceStartYear,
-          photo: photoVal || couns?.photo_path || prev.photo,
+          photo: couns?.photo_path || (me as Record<string, unknown> | null)?.avatar_url as string || prev.photo,
           phone: me?.phone_e164 || prev.phone,
         };
         setProfile(clone(next));
@@ -131,7 +143,7 @@ export default function KonselorPengaturanPage() {
     return () => {
       active = false;
     };
-  }, [profileKey, currentYear]);
+  }, [currentYear]);
 
   const errors = useMemo<Errors>(
     () => validateCounselorProfile(profile, currentYear),
@@ -171,14 +183,13 @@ export default function KonselorPengaturanPage() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!PHOTO_TYPES.includes(file.type)) {
-      setPhotoError("Format harus JPG, PNG, atau WEBP.");
+
+    const validation = validatePhotoFile(file);
+    if (!validation.valid) {
+      setPhotoError(validation.error || "Berkas foto tidak valid.");
       return;
     }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setPhotoError("Ukuran foto maksimal 2 MB.");
-      return;
-    }
+
     const source = URL.createObjectURL(file);
     const image = new Image();
     image.onload = () => {
@@ -268,13 +279,7 @@ export default function KonselorPengaturanPage() {
 
   function handleDeletePhoto() {
     update("photo", null);
-    try {
-      localStorage.removeItem(profileKey);
-      window.dispatchEvent(new Event("sicare:photo-updated"));
-    } catch {
-      // ignore
-    }
-    setToast("Foto profil dihapus. Menggunakan inisial nama.");
+    setToast("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
   }
 
   function addTopic() {
@@ -356,6 +361,24 @@ export default function KonselorPengaturanPage() {
       );
       const cleanedPhone = profile.phone.replace(/[\s()-]/g, "").trim();
 
+      let nextPhotoPath = profile.photo;
+      if (profile.photo !== saved.photo) {
+        if (profile.photo && profile.photo.startsWith("data:image/")) {
+          const uploadResult = await uploadProfilePhoto(profile.photo);
+          nextPhotoPath = uploadResult.storage_path;
+        } else if (!profile.photo && saved.photo) {
+          await deleteProfilePhoto();
+          nextPhotoPath = null;
+        }
+
+        try {
+          localStorage.removeItem(profileKey);
+          window.dispatchEvent(new Event("sicare:photo-updated"));
+        } catch {
+          // ignore
+        }
+      }
+
       // Update backend profile
       await Promise.all([
         counselorApi
@@ -365,7 +388,7 @@ export default function KonselorPengaturanPage() {
             bio: profile.bio.trim() || null,
             specialties: profile.topics,
             years_experience: expYears,
-            photo_path: profile.photo && profile.photo.length < 1000 ? profile.photo : null,
+            photo_path: nextPhotoPath,
           })
           .catch(() => null),
         sicareApi
@@ -376,20 +399,13 @@ export default function KonselorPengaturanPage() {
           .catch(() => null),
       ]);
 
-      // Save photo locally for instant app-wide reflection
-      try {
-        if (profile.photo) {
-          localStorage.setItem(profileKey, profile.photo);
-        } else {
-          localStorage.removeItem(profileKey);
-        }
-        window.dispatchEvent(new Event("sicare:photo-updated"));
-      } catch {
-        // ignore
-      }
-
       await refreshProfile().catch(() => null);
-      setSaved(clone(profile));
+      const nextSaved: Profile = {
+        ...clone(profile),
+        photo: nextPhotoPath,
+      };
+      setSaved(nextSaved);
+      setProfile(nextSaved);
       setShowErrors(false);
       setToast("Perubahan profil berhasil disimpan.");
     } catch (err) {
@@ -419,6 +435,37 @@ export default function KonselorPengaturanPage() {
   async function changePassword() {
     if (pwdSaving) return;
     const minimumLength = passwordKind === "riwayat" ? 4 : PASSWORD_MIN;
+
+    if (passwordKind === "riwayat" && !historyPasswordConfigured) {
+      if (pwdNext.length < minimumLength) {
+        setToast(`Kata sandi riwayat baru minimal ${minimumLength} karakter.`);
+        return;
+      }
+      if (pwdConfirm !== pwdNext) {
+        setToast("Konfirmasi kata sandi riwayat tidak sama.");
+        return;
+      }
+
+      setPwdSaving(true);
+      try {
+        const res = await counselorApi.initHistoryPassword(pwdNext);
+        if (res.success) {
+          setHistoryPasswordConfigured(true);
+          setPwdCurrent("");
+          setPwdNext("");
+          setPwdConfirm("");
+          setToast("Kata sandi riwayat konseling berhasil disimpan di database.");
+        } else {
+          setToast(res.message || "Gagal mengatur kata sandi riwayat.");
+        }
+      } catch (err: unknown) {
+        setToast(err instanceof Error ? err.message : "Gagal mengatur kata sandi riwayat pada server.");
+      } finally {
+        setPwdSaving(false);
+      }
+      return;
+    }
+
     const issues = [
       !pwdCurrent ? "Masukkan kata sandi saat ini." : "",
       pwdNext.length < minimumLength
@@ -441,21 +488,21 @@ export default function KonselorPengaturanPage() {
 
     setPwdSaving(true);
     try {
-      const changed = await changeCounselorHistoryPassword(pwdCurrent, pwdNext);
-      if (!changed) {
-        setToast("Kata sandi riwayat saat ini salah.");
-        return;
+      const res = await counselorApi.changeHistoryPassword({
+        current_password: pwdCurrent,
+        new_password: pwdNext,
+        confirm_password: pwdConfirm,
+      });
+      if (res.success) {
+        setPwdCurrent("");
+        setPwdNext("");
+        setPwdConfirm("");
+        setToast("Kata sandi riwayat berhasil diperbarui di database.");
+      } else {
+        setToast(res.message || "Kata sandi riwayat saat ini salah.");
       }
-      setPwdCurrent("");
-      setPwdNext("");
-      setPwdConfirm("");
-      setToast(
-        "Kata sandi riwayat berhasil diubah. Akses riwayat sebelumnya dicabut.",
-      );
-    } catch {
-      setToast(
-        "Perubahan kata sandi gagal. Periksa dukungan penyimpanan browser.",
-      );
+    } catch (err: unknown) {
+      setToast(err instanceof Error ? err.message : "Perubahan kata sandi riwayat gagal pada server.");
     } finally {
       setPwdSaving(false);
     }
@@ -466,13 +513,8 @@ export default function KonselorPengaturanPage() {
     Number(profile.experienceStartYear) >= 1950 &&
     Number(profile.experienceStartYear) <= currentYear;
 
-  const initials = profile.displayName
-    .split(/\s+/)
-    .filter((w) => /[A-Za-z]/.test(w[0] ?? ""))
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase() || "K";
+  const initials = getInitials(profile.displayName || "Konselor");
+  const photoPreview = getPublicPhotoUrl(profile.photo);
 
   return (
     <PageContainer role="counselor" spacing="none">
@@ -485,9 +527,9 @@ export default function KonselorPengaturanPage() {
       <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-[#f3faf5] text-primary shadow-xs">
-            {profile.photo ? (
+            {photoPreview ? (
               <img
-                src={profile.photo}
+                src={photoPreview}
                 alt="Foto profil konselor"
                 className="h-full w-full object-cover"
               />
@@ -523,9 +565,9 @@ export default function KonselorPengaturanPage() {
         >
           <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
             <div className="aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-primary-tint">
-              {profile.photo ? (
+              {photoPreview ? (
                 <img
-                  src={profile.photo}
+                  src={photoPreview}
                   alt="Foto profil konselor"
                   className="h-full w-full object-cover object-top"
                 />
@@ -810,25 +852,29 @@ export default function KonselorPengaturanPage() {
             <p className="text-xs text-gray-500">
               {passwordKind === "akun"
                 ? "Kata sandi yang digunakan saat login ke aplikasi SiCARE."
-                : "PIN khusus 4 digit untuk membuka akses halaman riwayat dan catatan rekam medis konseling."}
+                : historyPasswordConfigured
+                ? "PIN khusus tersimpan di database untuk membuka akses halaman riwayat dan catatan rekam medis konseling."
+                : "PIN khusus minimal 4 karakter untuk melindungi rekam medis konseling. Belum dikonfigurasi di database."}
             </p>
 
             <div className="space-y-3">
-              <Field
-                label={passwordKind === "akun" ? "Kata sandi akun saat ini" : "PIN riwayat saat ini"}
-                required
-              >
-                <input
-                  type="password"
-                  value={pwdCurrent}
-                  onChange={(e) => setPwdCurrent(e.target.value)}
-                  placeholder={passwordKind === "riwayat" ? "Default: 1234" : "Masukkan kata sandi"}
-                  className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
-                />
-              </Field>
+              {(passwordKind === "akun" || historyPasswordConfigured) && (
+                <Field
+                  label={passwordKind === "akun" ? "Kata sandi akun saat ini" : "PIN riwayat saat ini"}
+                  required
+                >
+                  <input
+                    type="password"
+                    value={pwdCurrent}
+                    onChange={(e) => setPwdCurrent(e.target.value)}
+                    placeholder={passwordKind === "riwayat" ? "Masukkan PIN riwayat saat ini" : "Masukkan kata sandi"}
+                    className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
+                  />
+                </Field>
+              )}
 
               <Field
-                label={passwordKind === "akun" ? "Kata sandi baru" : "PIN riwayat baru"}
+                label={passwordKind === "akun" ? "Kata sandi baru" : historyPasswordConfigured ? "PIN riwayat baru" : "PIN riwayat baru (min. 4 karakter)"}
                 required
               >
                 <input
@@ -860,16 +906,17 @@ export default function KonselorPengaturanPage() {
                 onClick={changePassword}
                 className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
               >
-                {pwdSaving ? "Memproses..." : passwordKind === "akun" ? "Ubah kata sandi" : "Ubah PIN riwayat"}
+                {pwdSaving
+                  ? "Memproses..."
+                  : passwordKind === "akun"
+                  ? "Ubah kata sandi"
+                  : historyPasswordConfigured
+                  ? "Ubah PIN riwayat"
+                  : "Simpan PIN riwayat"}
               </button>
             </div>
           </div>
         </Panel>
-      </div>
-
-      {/* Sesi & Logout */}
-      <div className="mt-8">
-        <SignOutPanel />
       </div>
 
       {/* Modal Tambah/Edit Riwayat Pendidikan */}

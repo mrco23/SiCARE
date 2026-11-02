@@ -1,7 +1,12 @@
 import { PageHeader } from "../../components/shared";
-import SignOutPanel from "../../features/auth/SignOutPanel";
 import { useAuth } from "../../features/auth/useAuth";
 import { sicareApi } from "../../lib/sicareApi";
+import {
+  uploadProfilePhoto,
+  deleteProfilePhoto,
+  getPublicPhotoUrl,
+  validatePhotoFile,
+} from "../../lib/profilePhotoStorage";
 import type { ProfileDto } from "../../types/api";
 import {
   type ChangeEvent,
@@ -30,8 +35,6 @@ import {
 } from "../../features/client/profile/profileValidation";
 
 const PASSWORD_MIN = 8;
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
-const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const INITIAL_PROFILE: ClientProfile = {
   phone: "081298765432",
@@ -50,20 +53,11 @@ export default function KlienPengaturanPage() {
   const [saved, setSaved] = useState<ClientProfile>(() => clone(INITIAL_PROFILE));
   const [profile, setProfile] = useState<ClientProfile>(() => clone(INITIAL_PROFILE));
 
-  const [photo, setPhoto] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(profileKey);
-    } catch {
-      return null;
-    }
-  });
-  const [savedPhoto, setSavedPhoto] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(profileKey);
-    } catch {
-      return null;
-    }
-  });
+  const authAvatar = (authProfile as Record<string, unknown> | null)?.avatar_url;
+  const initialPhoto: string | null = typeof authAvatar === "string" ? authAvatar : null;
+
+  const [photo, setPhoto] = useState<string | null>(initialPhoto);
+  const [savedPhoto, setSavedPhoto] = useState<string | null>(initialPhoto);
 
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
   const [savedWhatsappOptIn, setSavedWhatsappOptIn] = useState(true);
@@ -126,6 +120,10 @@ export default function KlienPengaturanPage() {
         setProfile(clone(next));
         setWhatsappOptIn(Boolean(data.whatsapp_opt_in));
         setSavedWhatsappOptIn(Boolean(data.whatsapp_opt_in));
+        if (data.avatar_url) {
+          setPhoto(data.avatar_url);
+          setSavedPhoto(data.avatar_url);
+        }
       })
       .catch(() => {
         // Fallback to auth profile
@@ -173,12 +171,9 @@ export default function KlienPengaturanPage() {
     event.target.value = "";
     if (!file) return;
 
-    if (!PHOTO_TYPES.includes(file.type)) {
-      setPhotoError("Format harus JPG, PNG, atau WEBP.");
-      return;
-    }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setPhotoError("Ukuran foto maksimal 2 MB.");
+    const validation = validatePhotoFile(file);
+    if (!validation.valid) {
+      setPhotoError(validation.error || "Berkas foto tidak valid.");
       return;
     }
 
@@ -280,13 +275,7 @@ export default function KlienPengaturanPage() {
 
   function handleDeletePhoto() {
     setPhoto(null);
-    try {
-      localStorage.removeItem(profileKey);
-      window.dispatchEvent(new Event("sicare:photo-updated"));
-    } catch {
-      // ignore
-    }
-    setToast("Foto profil dihapus. Menggunakan inisial nama.");
+    setToast("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
   }
 
   async function saveChanges() {
@@ -306,21 +295,28 @@ export default function KlienPengaturanPage() {
         .setWhatsAppConsent({ opted_in: whatsappOptIn })
         .catch(() => null);
 
-      // Save photo locally for instant app-wide reflection
-      try {
-        if (photo) {
-          localStorage.setItem(profileKey, photo);
-        } else {
-          localStorage.removeItem(profileKey);
+      let nextPhotoPath = photo;
+      if (photo !== savedPhoto) {
+        if (photo && photo.startsWith("data:image/")) {
+          const uploadResult = await uploadProfilePhoto(photo);
+          nextPhotoPath = uploadResult.storage_path;
+        } else if (!photo && savedPhoto) {
+          await deleteProfilePhoto();
+          nextPhotoPath = null;
         }
-        window.dispatchEvent(new Event("sicare:photo-updated"));
-      } catch {
-        // ignore
+
+        try {
+          localStorage.removeItem(profileKey);
+          window.dispatchEvent(new Event("sicare:photo-updated"));
+        } catch {
+          // ignore
+        }
       }
 
       await refreshProfile().catch(() => null);
       setSaved(clone(profile));
-      setSavedPhoto(photo);
+      setSavedPhoto(nextPhotoPath);
+      setPhoto(nextPhotoPath);
       setSavedWhatsappOptIn(whatsappOptIn);
       setShowErrors(false);
       setToast("Perubahan berhasil disimpan.");
@@ -381,6 +377,8 @@ export default function KlienPengaturanPage() {
         ? "Staff / Umum"
         : "Mahasiswa";
 
+  const photoPreview = getPublicPhotoUrl(photo);
+
   return (
     <div className="pb-28 text-gray-800">
       <PageHeader
@@ -392,9 +390,9 @@ export default function KlienPengaturanPage() {
       <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-primary text-base font-bold text-white shadow-xs">
-            {photo ? (
+            {photoPreview ? (
               <img
-                src={photo}
+                src={photoPreview}
                 alt="Foto profil klien"
                 className="h-full w-full object-cover"
               />
@@ -638,11 +636,6 @@ export default function KlienPengaturanPage() {
             </p>
           </div>
         </Panel>
-      </div>
-
-      {/* Sesi & Logout */}
-      <div className="mt-8">
-        <SignOutPanel />
       </div>
 
       {/* Modal Pemotong Foto */}

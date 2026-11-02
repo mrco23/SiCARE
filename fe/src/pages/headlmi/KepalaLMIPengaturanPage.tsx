@@ -1,7 +1,13 @@
 import { PageContainer, PageHeader, SettingsField as Field, SettingsPanel as Panel } from "../../components/shared";
-import SignOutPanel from "../../features/auth/SignOutPanel";
 import { useAuth } from "../../features/auth/useAuth";
 import { sicareApi } from "../../lib/sicareApi";
+import {
+  uploadProfilePhoto,
+  deleteProfilePhoto,
+  getPublicPhotoUrl,
+  validatePhotoFile,
+} from "../../lib/profilePhotoStorage";
+import { getInitials } from "../../lib/avatarUtils";
 import {
   useEffect,
   useMemo,
@@ -31,15 +37,13 @@ type Profile = {
 };
 
 const INITIAL_PROFILE: Profile = {
-  photo: "/gio.jpeg",
+  photo: null,
   displayName: "Kepala LMI",
   email: "kepala.lmi@kampus.ac.id",
   phone: "",
 };
 
 const PASSWORD_MIN = 8;
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
-const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function cloneProfile(p: Profile): Profile {
   return { ...p };
@@ -50,13 +54,8 @@ export default function KepalaLMIPengaturanPage() {
   const profileKey = `sicare_profile_photo_${authProfile?.id || "head_lmi"}`;
 
   const [savedProfile, setSavedProfile] = useState<Profile>(() => {
-    let initialPhoto: string | null = INITIAL_PROFILE.photo;
-    try {
-      const stored = localStorage.getItem(profileKey);
-      if (stored !== null) initialPhoto = stored || null;
-    } catch {
-      // ignore
-    }
+    const authAvatar = (authProfile as Record<string, unknown> | null)?.avatar_url;
+    const initialPhoto: string | null = typeof authAvatar === "string" ? authAvatar : null;
     return {
       photo: initialPhoto,
       displayName: authProfile?.full_name || INITIAL_PROFILE.displayName,
@@ -103,15 +102,8 @@ export default function KepalaLMIPengaturanPage() {
       .then((data) => {
         if (!active) return;
         setSavedProfile((prev) => {
-          let photoVal = prev.photo;
-          try {
-            const stored = localStorage.getItem(profileKey);
-            if (stored !== null) photoVal = stored || null;
-          } catch {
-            // ignore
-          }
           const loaded: Profile = {
-            photo: photoVal,
+            photo: data.avatar_url || prev.photo,
             displayName: data.full_name || "Kepala LMI",
             email: user?.email || data.identity_code || "kepala.lmi@kampus.ac.id",
             phone: data.phone_e164 || "",
@@ -127,7 +119,7 @@ export default function KepalaLMIPengaturanPage() {
     return () => {
       active = false;
     };
-  }, [profileKey, user]);
+  }, [user]);
 
   const errors = useMemo(() => {
     const result: Record<string, string> = {};
@@ -185,12 +177,9 @@ export default function KepalaLMIPengaturanPage() {
     event.target.value = "";
     if (!file) return;
 
-    if (!PHOTO_TYPES.includes(file.type)) {
-      setPhotoError("Format harus JPG, PNG, atau WEBP.");
-      return;
-    }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setPhotoError("Ukuran foto maksimal 2 MB.");
+    const validation = validatePhotoFile(file);
+    if (!validation.valid) {
+      setPhotoError(validation.error || "Berkas foto tidak valid.");
       return;
     }
 
@@ -292,13 +281,7 @@ export default function KepalaLMIPengaturanPage() {
 
   function handleDeletePhoto() {
     updateProfile("photo", null);
-    try {
-      localStorage.removeItem(profileKey);
-      window.dispatchEvent(new Event("sicare:photo-updated"));
-    } catch {
-      // ignore
-    }
-    setToast("Foto profil dihapus. Menggunakan inisial nama.");
+    setToast("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
   }
 
   async function saveChanges() {
@@ -316,20 +299,31 @@ export default function KepalaLMIPengaturanPage() {
         phone_e164: cleanedPhone || null,
       });
 
-      // Save photo to localStorage & notify navbar
-      try {
-        if (profile.photo) {
-          localStorage.setItem(profileKey, profile.photo);
-        } else {
-          localStorage.removeItem(profileKey);
+      let nextPhotoPath = profile.photo;
+      if (profile.photo !== savedProfile.photo) {
+        if (profile.photo && profile.photo.startsWith("data:image/")) {
+          const uploadResult = await uploadProfilePhoto(profile.photo);
+          nextPhotoPath = uploadResult.storage_path;
+        } else if (!profile.photo && savedProfile.photo) {
+          await deleteProfilePhoto();
+          nextPhotoPath = null;
         }
-        window.dispatchEvent(new Event("sicare:photo-updated"));
-      } catch {
-        // ignore
+
+        try {
+          localStorage.removeItem(profileKey);
+          window.dispatchEvent(new Event("sicare:photo-updated"));
+        } catch {
+          // ignore
+        }
       }
 
       await refreshProfile().catch(() => null);
-      setSavedProfile(cloneProfile(profile));
+      const nextSaved: Profile = {
+        ...cloneProfile(profile),
+        photo: nextPhotoPath,
+      };
+      setProfile(nextSaved);
+      setSavedProfile(nextSaved);
       setShowErrors(false);
       setToast("Profil Kepala LMI berhasil disimpan.");
     } catch (err) {
@@ -371,6 +365,9 @@ export default function KepalaLMIPengaturanPage() {
     setToast("Perubahan kata sandi disimpan untuk sesi ini.");
   }
 
+  const photoPreview = getPublicPhotoUrl(profile.photo);
+  const initials = getInitials(profile.displayName || "Kepala LMI");
+
   return (
     <PageContainer role="headlmi" spacing="none" className="text-gray-800">
       <PageHeader
@@ -382,14 +379,16 @@ export default function KepalaLMIPengaturanPage() {
       <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-[#f3faf5] text-primary shadow-xs">
-            {profile.photo ? (
+            {photoPreview ? (
               <img
-                src={profile.photo}
+                src={photoPreview}
                 alt="Foto profil Kepala LMI"
                 className="h-full w-full object-cover"
               />
             ) : (
-              <UserRound className="h-7 w-7 text-primary" />
+              <span className="flex h-full w-full items-center justify-center bg-primary text-base font-bold text-white">
+                {initials}
+              </span>
             )}
           </div>
           <div className="min-w-0">
@@ -422,9 +421,9 @@ export default function KepalaLMIPengaturanPage() {
         >
           <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
             <div className="aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-primary-tint">
-              {profile.photo ? (
+              {photoPreview ? (
                 <img
-                  src={profile.photo}
+                  src={photoPreview}
                   alt="Foto profil Kepala LMI"
                   className="h-full w-full object-cover"
                 />
@@ -599,11 +598,6 @@ export default function KepalaLMIPengaturanPage() {
             </p>
           </div>
         </Panel>
-      </div>
-
-      {/* Sesi & Logout */}
-      <div className="mt-8">
-        <SignOutPanel />
       </div>
 
       {/* Modal Pemotong Foto (Interactive Cropper) */}

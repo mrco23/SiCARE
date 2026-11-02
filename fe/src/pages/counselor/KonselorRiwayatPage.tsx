@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  AlertCircle,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -10,7 +11,9 @@ import {
   Eye,
   EyeOff,
   FileSignature,
+  KeyRound,
   Lock,
+  RefreshCw,
   Search,
   ShieldAlert,
   X,
@@ -21,7 +24,6 @@ import {
   sortPeriods,
   toISO,
 } from "../../lib/academicPeriods";
-import { clients as mockClients, type Client } from "../../data/mock/counselorHistory";
 import type { CounselingFormat as Format } from "../../types/counseling";
 import {
   formatBookingClientTitle,
@@ -37,8 +39,27 @@ import {
   matchesCounselorHistoryFilter as matches,
   type CounselorHistoryPeriod as PeriodKey,
 } from "../../features/counselor/history/historySelectors";
-import { sicareApi } from "../../lib/sicareApi";
-import type { BookingRecordBaseDto, SessionListItemDto } from "../../types/api";
+import { counselorApi } from "../../lib/counselorApi";
+import type { BookingRecordBaseDto } from "../../types/api";
+
+export interface ClientSession {
+  id: number;
+  topic: string;
+  format: Format;
+  date: string;
+  time: string;
+  summary: string;
+  note: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  password?: string;
+  sessions: ClientSession[];
+}
 
 const PERIOD_OPTIONS: [PeriodKey, string][] = [
   ["hari", "Hari"],
@@ -98,38 +119,46 @@ export default function KonselorRiwayatPage() {
   const {
     attemptState,
     hasAccess,
+    grantToken,
     timerText,
     isPasswordLocked: pwLocked,
+    isConfigured,
     maxAttempts: MAX_ATTEMPTS,
     unlock: unlockHistory,
     lock: lockHistory,
+    initPassword,
   } = useCounselorHistoryAccess(handleAccessExpired, handleCooldownExpired);
 
   // Live session and booking data from backend API
   const [apiClients, setApiClients] = useState<Client[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([
-      sicareApi.sessions(100).catch(() => [] as SessionListItemDto[]),
-      sicareApi.bookings(100).catch(() => [] as BookingRecordBaseDto[]),
-    ]).then(([sessionsRes, bookingsRes]) => {
-      if (!active) return;
-      if (!sessionsRes || sessionsRes.length === 0) return;
+  const loadClientsFromResponse = useCallback(
+    (res: { configured: boolean; bookings?: BookingRecordBaseDto[]; clients?: Array<{ id: string; full_name: string; phone_e164?: string | null }>; sessions?: Array<{ id: string; booking_id: string; starts_at: string; status: string; room?: string | null }> }) => {
+      if (!res.configured) {
+        setApiClients([]);
+        return;
+      }
 
+      const clientMap = new Map<string, Client>();
       const bookingMap = new Map<string, BookingRecordBaseDto>();
-      for (const b of bookingsRes) {
+      for (const b of res.bookings || []) {
         bookingMap.set(b.id, b);
       }
 
-      // Group completed sessions by client
-      const clientMap = new Map<string, Client>();
-      for (const s of sessionsRes) {
+      const profileMap = new Map<string, { full_name: string; phone_e164?: string | null }>();
+      for (const p of res.clients || []) {
+        profileMap.set(p.id, p);
+      }
+
+      for (const s of res.sessions || []) {
         if (s.status !== "completed" && s.status !== "cancelled") continue;
         const b = bookingMap.get(s.booking_id);
         const clientId = b?.client_id || b?.id || s.id;
+        const profileInfo = profileMap.get(b?.client_id || "");
         const repName = formatBookingRepresentative(b);
-        const clientName = repName || formatBookingClientTitle(b);
+        const clientName = profileInfo?.full_name || repName || formatBookingClientTitle(b);
         const clientRole = "Mahasiswa";
 
         if (!clientMap.has(clientId)) {
@@ -162,22 +191,52 @@ export default function KonselorRiwayatPage() {
         });
       }
 
-      if (clientMap.size > 0) {
-        setApiClients(Array.from(clientMap.values()));
-      }
-    });
+      setApiClients(Array.from(clientMap.values()));
+    },
+    [today],
+  );
+
+  const fetchHistoryData = useCallback(async (token: string) => {
+    setLoadingHistory(true);
+    setHistoryError(null);
+    try {
+      const res = await counselorApi.getHistory(token);
+      loadClientsFromResponse(res);
+    } catch (err: unknown) {
+      setHistoryError(err instanceof Error ? err.message : "Gagal memuat riwayat konseling dari server.");
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [loadClientsFromResponse]);
+
+  useEffect(() => {
+    if (!hasAccess || !grantToken) {
+      return;
+    }
+
+    let active = true;
+    counselorApi
+      .getHistory(grantToken)
+      .then((res) => {
+        if (!active) return;
+        loadClientsFromResponse(res);
+        setHistoryError(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setHistoryError(
+          err instanceof Error
+            ? err.message
+            : "Gagal memuat riwayat konseling dari server.",
+        );
+      });
 
     return () => {
       active = false;
     };
-  }, [today]);
+  }, [hasAccess, grantToken, loadClientsFromResponse]);
 
-  const allClients = useMemo(() => {
-    if (apiClients.length === 0) return mockClients;
-    const existingIds = new Set(apiClients.map((c) => c.id));
-    const supplemental = mockClients.filter((c) => !existingIds.has(c.id));
-    return [...apiClients, ...supplemental];
-  }, [apiClients]);
+  const allClients = useMemo(() => apiClients, [apiClients]);
 
   const allSessions = useMemo(
     () => allClients.flatMap((c) => c.sessions),
@@ -279,7 +338,20 @@ export default function KonselorRiwayatPage() {
     e.preventDefault();
     if (verifying) return;
     setVerifying(true);
+    setPwError("");
     try {
+      if (isConfigured === false) {
+        if (pwInput.length < 4) {
+          setPwError("Kata sandi riwayat minimal 4 karakter.");
+          return;
+        }
+        const initRes = await initPassword(pwInput);
+        if (!initRes.success) {
+          setPwError(initRes.message || "Gagal mengatur kata sandi riwayat.");
+          return;
+        }
+      }
+
       const result = await unlockHistory(pwInput);
       if (result.status === "success") {
         setPwInput("");
@@ -289,15 +361,17 @@ export default function KonselorRiwayatPage() {
       }
       if (result.status === "locked") {
         setPwInput("");
-        setPwError("Terlalu banyak percobaan. Coba lagi dalam 5 menit.");
+        setPwError(result.message || "Terlalu banyak percobaan. Akses dikunci sementara.");
         return;
       }
       if (result.status === "invalid") {
         setPwInput("");
-        setPwError(`Kata sandi salah. Sisa percobaan: ${result.remainingAttempts}`);
+        setPwError(result.message || `Kata sandi salah. Sisa percobaan: ${result.remainingAttempts}`);
         return;
       }
-      setPwError("Penyimpanan browser tidak tersedia. Periksa pengaturan browser lalu coba lagi.");
+      setPwError(result.message || "Gagal membuka riwayat konseling.");
+    } catch (err: unknown) {
+      setPwError(err instanceof Error ? err.message : "Terjadi kesalahan sistem saat memverifikasi kata sandi.");
     } finally {
       setVerifying(false);
     }
@@ -459,51 +533,106 @@ export default function KonselorRiwayatPage() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs text-gray-500">
-              Menampilkan {rows.length} klien · {format} · {label}
-            </p>
-
-            <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {rows.map(({ client, count, latest }) => (
-                <li key={client.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenClient(client.id)}
-                    className="flex w-full flex-col rounded-2xl border border-gray-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-[#36c08f]/60 hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">
-                        {initials(client.name)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold text-gray-900">
-                          {client.name}
-                        </p>
-                        <p className="truncate text-xs text-gray-500">
-                          {client.role}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 text-sm">
-                      <span className="text-gray-600">
-                        {count} sesi {format.toLowerCase()}
-                      </span>
-                      <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary">
-                        Selesai
-                      </span>
-                    </div>
-                    <p className="mt-3 text-xs text-gray-400">
-                      Terakhir: {fmtDate(latest)}
-                    </p>
-                  </button>
-                </li>
-              ))}
-            </ul>
-
-            {rows.length === 0 && (
-              <div className="mt-5 rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
-                Tidak ada klien yang cocok dengan filter ini.
+            {historyError && (
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
+                  <span>{historyError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => grantToken && void fetchHistoryData(grantToken)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Coba Lagi
+                </button>
               </div>
+            )}
+
+            {loadingHistory && (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-full bg-gray-200" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-3/4 rounded bg-gray-200" />
+                        <div className="h-3 w-1/2 rounded bg-gray-100" />
+                      </div>
+                    </div>
+                    <div className="mt-4 border-t border-gray-100 pt-4 flex justify-between">
+                      <div className="h-3 w-20 rounded bg-gray-100" />
+                      <div className="h-5 w-14 rounded-full bg-gray-200" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!loadingHistory && allClients.length === 0 && (
+              <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-[#064E3B]">
+                  <FileSignature className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 text-base font-bold text-gray-900">
+                  Belum ada riwayat konseling.
+                </h3>
+                <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
+                  Riwayat sesi konseling yang telah selesai atau dibatalkan akan tercatat secara otomatis di sini.
+                </p>
+              </div>
+            )}
+
+            {!loadingHistory && allClients.length > 0 && (
+              <>
+                <p className="mt-4 text-xs text-gray-500">
+                  Menampilkan {rows.length} klien · {format} · {label}
+                </p>
+
+                <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {rows.map(({ client, count, latest }) => (
+                    <li key={client.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenClient(client.id)}
+                        className="flex w-full flex-col rounded-2xl border border-gray-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-[#36c08f]/60 hover:shadow-md"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">
+                            {initials(client.name)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-semibold text-gray-900">
+                              {client.name}
+                            </p>
+                            <p className="truncate text-xs text-gray-500">
+                              {client.role}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 text-sm">
+                          <span className="text-gray-600">
+                            {count} sesi {format.toLowerCase()}
+                          </span>
+                          <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary">
+                            Selesai
+                          </span>
+                        </div>
+                        <p className="mt-3 text-xs text-gray-400">
+                          Terakhir: {fmtDate(latest)}
+                        </p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+
+                {rows.length === 0 && (
+                  <div className="mt-5 rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
+                    Tidak ada klien yang cocok dengan filter ini.
+                  </div>
+                )}
+              </>
             )}
           </>
         ) : (
@@ -641,23 +770,25 @@ export default function KonselorRiwayatPage() {
             onSubmit={handleUnlock}
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
           >
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary">
-              <Lock className="h-6 w-6" />
+            <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${
+              isConfigured === false ? "bg-amber-50 text-amber-600" : "bg-primary-soft text-primary"
+            }`}>
+              {isConfigured === false ? <KeyRound className="h-6 w-6" /> : <Lock className="h-6 w-6" />}
             </div>
-            <h2 className="text-lg font-bold">Buka Riwayat Konseling</h2>
+            <h2 className="text-lg font-bold">
+              {isConfigured === false ? "Atur Sandi Riwayat Konseling" : "Buka Riwayat Konseling"}
+            </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Masukkan kata sandi khusus untuk membuka{" "}
-              <span className="font-semibold text-gray-700">
-                seluruh riwayat dan catatan konseling
-              </span>
-              . Ini berbeda dari kata sandi login Anda.
+              {isConfigured === false
+                ? "Kata sandi riwayat belum dikonfigurasi di database. Buat kata sandi khusus (minimal 4 karakter) untuk melindungi rekam medis konseling Anda."
+                : "Masukkan kata sandi khusus untuk membuka seluruh riwayat dan catatan konseling. Ini berbeda dari kata sandi login Anda."}
             </p>
 
             <label
               htmlFor="pwInput"
               className="mt-5 block text-sm font-medium text-gray-700"
             >
-              Kata sandi
+              {isConfigured === false ? "Kata sandi riwayat baru" : "Kata sandi"}
             </label>
             <div className="relative mt-1.5">
               <input
@@ -668,7 +799,7 @@ export default function KonselorRiwayatPage() {
                 value={pwInput}
                 onChange={(e) => setPwInput(e.target.value)}
                 disabled={pwLocked || verifying}
-                placeholder="Masukkan 4 digit sandi riwayat"
+                placeholder={isConfigured === false ? "Buat kata sandi baru (min. 4 karakter)" : "Masukkan kata sandi riwayat"}
                 className="w-full rounded-xl border border-gray-300 py-2.5 pl-4 pr-20 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:bg-gray-100"
               />
               <button
@@ -691,7 +822,7 @@ export default function KonselorRiwayatPage() {
                 <span>{pwError}</span>
               </div>
             )}
-            {!pwError && pwUsed > 0 && !pwLocked && (
+            {!pwError && pwUsed > 0 && !pwLocked && isConfigured !== false && (
               <p className="mt-1 text-xs text-gray-500">
                 Sisa percobaan: {MAX_ATTEMPTS - pwUsed}
               </p>
@@ -710,7 +841,11 @@ export default function KonselorRiwayatPage() {
                 disabled={pwLocked || verifying || pwInput.length === 0}
                 className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
               >
-                {verifying ? "Memverifikasi..." : "Buka"}
+                {verifying
+                  ? "Memproses..."
+                  : isConfigured === false
+                  ? "Simpan & Buka"
+                  : "Buka"}
               </button>
             </div>
           </form>

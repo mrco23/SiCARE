@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { LogOut, Settings, Loader2 } from "lucide-react";
 import { useAuth } from "../../features/auth/useAuth";
 import { getInitials } from "../../lib/avatarUtils";
+import { getPublicPhotoUrl } from "../../lib/publicApi";
 
 export interface NavbarProfileDropdownProps {
   role: "admin" | "head_lmi" | "counselor" | "client";
@@ -19,7 +20,7 @@ export default function NavbarProfileDropdown({
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imageError, setImageError] = useState(false);
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Ambil nama lengkap pengguna
@@ -51,7 +52,7 @@ export default function NavbarProfileDropdown({
       try {
         const key = `sicare_profile_photo_${profile?.id || role}`;
         setLocalPhoto(localStorage.getItem(key));
-        setImageError(false);
+        setFailedPhotoUrl(null);
       } catch {
         // ignore
       }
@@ -64,13 +65,16 @@ export default function NavbarProfileDropdown({
     if (role === "admin") {
       return "/icon-512x512.png";
     }
-    if (photoUrl) return photoUrl;
-    if (localPhoto) return localPhoto;
     const p = profile as Record<string, unknown> | null;
-    if (typeof p?.avatar_url === "string" && p.avatar_url) return p.avatar_url;
-    if (typeof p?.photo_path === "string" && p.photo_path) return p.photo_path;
-    return null;
+    const raw =
+      photoUrl ||
+      (typeof p?.avatar_url === "string" && p.avatar_url ? p.avatar_url : null) ||
+      (typeof p?.photo_path === "string" && p.photo_path ? p.photo_path : null) ||
+      localPhoto;
+    return getPublicPhotoUrl(raw);
   }, [role, photoUrl, localPhoto, profile]);
+
+  const imageError = Boolean(resolvedPhoto && failedPhotoUrl === resolvedPhoto);
 
   // Konfigurasi tautan pengaturan & label peran
   const { roleLabel, settingsPath } = useMemo(() => {
@@ -147,7 +151,7 @@ export default function NavbarProfileDropdown({
         <img
           src={resolvedPhoto}
           alt={fullName}
-          onError={() => setImageError(true)}
+          onError={() => setFailedPhotoUrl(resolvedPhoto)}
           className={`${sizeClass} rounded-full object-cover`}
         />
       );

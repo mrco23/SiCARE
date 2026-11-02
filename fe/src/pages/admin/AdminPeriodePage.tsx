@@ -25,7 +25,6 @@ import {
   Plus,
   RefreshCw,
   SquarePen,
-  Trash2,
   TriangleAlert,
 } from "lucide-react";
 
@@ -126,10 +125,6 @@ export default function AdminPeriodePage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Modal hapus
-  const [deleting, setDeleting] = useState<ManagedPeriod | null>(null);
-  const [deleteError, setDeleteError] = useState("");
-  const [deletingLoading, setDeletingLoading] = useState(false);
   const [togglingPublishId, setTogglingPublishId] = useState<string | null>(null);
 
   // Toast
@@ -186,15 +181,13 @@ export default function AdminPeriodePage() {
   // Tutup modal dengan tombol Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !submitting && !deletingLoading) {
+      if (e.key === "Escape" && !submitting) {
         setModalOpen(false);
-        setDeleting(null);
-        setDeleteError("");
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [submitting, deletingLoading]);
+  }, [submitting]);
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
@@ -282,7 +275,7 @@ export default function AdminPeriodePage() {
     }
     const clash = others.find((p) => p.start <= d.end && d.start <= p.end);
     if (clash) {
-      return `Tanggal bertabrakan dengan ${clash.label} (${fmtDate(clash.start)} sampai ${fmtDate(clash.end)}). Periode tidak boleh tumpang tindih.`;
+      return `Rentang tanggal bertabrakan dengan periode akademik yang sudah ada (${clash.label}: ${fmtDate(clash.start)} sampai ${fmtDate(clash.end)}).`;
     }
     return "";
   };
@@ -347,32 +340,6 @@ export default function AdminPeriodePage() {
       );
     } finally {
       setTogglingPublishId(null);
-    }
-  };
-
-  /* ===== HAPUS ===== */
-  const openDeleteModal = (p: ManagedPeriod) => {
-    setDeleting(p);
-    setDeleteError("");
-  };
-
-  const confirmDelete = async () => {
-    if (!deleting) return;
-    setDeletingLoading(true);
-    setDeleteError("");
-    try {
-      await adminApi.deleteAcademicPeriod(deleting.id);
-      setPeriods((prev) => prev.filter((p) => p.id !== deleting.id));
-      toast(`Periode ${deleting.label} dihapus.`);
-      setDeleting(null);
-    } catch (err) {
-      setDeleteError(
-        err instanceof Error
-          ? err.message
-          : "Periode akademik tidak dapat dihapus.",
-      );
-    } finally {
-      setDeletingLoading(false);
     }
   };
 
@@ -582,7 +549,7 @@ export default function AdminPeriodePage() {
                         </button>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center">
                           <button
                             type="button"
                             title="Ubah"
@@ -590,14 +557,6 @@ export default function AdminPeriodePage() {
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary"
                           >
                             <SquarePen className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Hapus"
-                            onClick={() => openDeleteModal(p)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -748,59 +707,6 @@ export default function AdminPeriodePage() {
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {submitting ? "Menyimpan..." : "Simpan"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL KONFIRMASI HAPUS ================= */}
-      {deleting && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !deletingLoading) {
-              setDeleting(null);
-              setDeleteError("");
-            }
-          }}
-        >
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold">
-              Hapus periode {deleting.label}?
-            </h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Periode hanya dapat dihapus jika belum memiliki slot ketersediaan
-              jadwal konselor. Data sesi konseling historis tidak dihapus.
-            </p>
-            {deleteError && (
-              <p
-                role="alert"
-                className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
-              >
-                {deleteError}
-              </p>
-            )}
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={deletingLoading}
-                onClick={() => {
-                  setDeleting(null);
-                  setDeleteError("");
-                }}
-                className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={deletingLoading}
-                onClick={() => void confirmDelete()}
-                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {deletingLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                {deletingLoading ? "Menghapus..." : "Ya, hapus"}
               </button>
             </div>
           </div>

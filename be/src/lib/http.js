@@ -41,5 +41,6 @@ export function supabaseError(error, fallback = "Operasi database gagal.") {
     throw new HttpError(400, "INVALID_DATA", "Data tidak memenuhi aturan database.");
   }
   if (error.code === "PGRST116") throw new HttpError(404, "NOT_FOUND", "Data tidak ditemukan.");
+  console.error("[supabaseError]", error?.message || error);
   throw new HttpError(500, "DATABASE_ERROR", fallback);
 }

@@ -27,6 +27,20 @@ export const authenticate = asyncHandler(async (request, _response, next) => {
     throw new HttpError(403, "ACCOUNT_INACTIVE", "Akun belum aktif atau telah dinonaktifkan.");
   }
 
+  let avatarUrl = authData.user.user_metadata?.avatar_url || null;
+  if (profile.app_role === "counselor") {
+    const { data: cp } = await supabase
+      .from("counselor_profiles")
+      .select("photo_path")
+      .eq("profile_id", profile.id)
+      .maybeSingle();
+    if (cp?.photo_path) {
+      avatarUrl = cp.photo_path;
+      profile.photo_path = cp.photo_path;
+    }
+  }
+  profile.avatar_url = avatarUrl;
+
   request.auth = { user: authData.user, profile, token: match[1] };
   next();
 });
@@ -50,6 +64,20 @@ export const optionalAuthenticate = asyncHandler(async (request, _response, next
       .maybeSingle();
 
     if (profile && profile.account_status === "active") {
+      let avatarUrl = authData.user.user_metadata?.avatar_url || null;
+      if (profile.app_role === "counselor") {
+        const { data: cp } = await supabase
+          .from("counselor_profiles")
+          .select("photo_path")
+          .eq("profile_id", profile.id)
+          .maybeSingle();
+        if (cp?.photo_path) {
+          avatarUrl = cp.photo_path;
+          profile.photo_path = cp.photo_path;
+        }
+      }
+      profile.avatar_url = avatarUrl;
+
       request.auth = { user: authData.user, profile, token: match[1] };
     }
   } catch {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase.js";
+import { env } from "../config/env.js";
 import { authenticate } from "../middleware/auth.js";
 import { asyncHandler, HttpError, parseBody, sendData, supabaseError } from "../lib/http.js";
 import { writeAudit } from "../lib/audit.js";
@@ -188,6 +189,174 @@ router.patch("/profile/whatsapp-consent", authenticate, asyncHandler(async (requ
     metadata: { status: input.opted_in ? "opted_in" : "opted_out" },
   });
   return sendData(response, data);
+}));
+
+const ALLOWED_PHOTO_MIMES = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+]);
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024; // 2 MB
+
+const photoUploadSchema = z.object({
+  image_data: z.string().min(1, "Data foto tidak boleh kosong."),
+}).strict();
+
+function parseImageDataUrl(dataUrl) {
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/is.exec(dataUrl.trim());
+  if (!match) {
+    throw new HttpError(400, "INVALID_PHOTO_FORMAT", "Format foto harus JPG, PNG, atau WebP.");
+  }
+  const mimeType = match[1].toLowerCase();
+  const base64Data = match[2].replace(/\s+/g, "");
+  const buffer = Buffer.from(base64Data, "base64");
+  if (buffer.length > MAX_PHOTO_BYTES) {
+    throw new HttpError(400, "PHOTO_TOO_LARGE", "Ukuran foto maksimal 2 MB.");
+  }
+  const ext = ALLOWED_PHOTO_MIMES.get(mimeType) || "jpg";
+  return { mimeType, buffer, ext };
+}
+
+router.post("/profile/photo", authenticate, asyncHandler(async (request, response) => {
+  const userRole = request.auth.profile.app_role;
+  if (userRole === "admin") {
+    throw new HttpError(403, "FORBIDDEN", "Foto profil administrator SiCARE menggunakan logo resmi dan tidak dapat diubah.");
+  }
+
+  const input = parseBody(photoUploadSchema, request.body);
+  const { mimeType, buffer, ext } = parseImageDataUrl(input.image_data);
+  const userId = request.auth.user.id;
+  const admin = supa();
+
+  // Find previous photo path to clean up after upload
+  let oldPath = null;
+  if (userRole === "counselor") {
+    const { data: cp } = await admin
+      .from("counselor_profiles")
+      .select("photo_path")
+      .eq("profile_id", userId)
+      .maybeSingle();
+    oldPath = cp?.photo_path || null;
+  }
+  if (!oldPath) {
+    oldPath = request.auth.user.user_metadata?.avatar_url || null;
+  }
+
+  const filename = `${userId}/avatar-${Date.now()}.${ext}`;
+  const { error: uploadError } = await admin.storage
+    .from("avatars")
+    .upload(filename, buffer, { contentType: mimeType, upsert: true });
+
+  if (uploadError) {
+    throw new HttpError(500, "STORAGE_UPLOAD_FAILED", "Gagal mengunggah foto profil ke penyimpanan.");
+  }
+
+  // Remove old photo object if it belonged to this user in avatars bucket
+  if (oldPath && typeof oldPath === "string") {
+    const cleanOld = oldPath.replace(/^avatars\//, "").replace(/^\/+/, "");
+    if (cleanOld.startsWith(`${userId}/`) && cleanOld !== filename) {
+      await admin.storage.from("avatars").remove([cleanOld]).catch(() => null);
+    }
+  }
+
+  // Persist storage path in counselor_profiles if counselor
+  if (userRole === "counselor") {
+    const { error: cpError } = await admin.from("counselor_profiles").upsert({
+      profile_id: userId,
+      photo_path: filename,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "profile_id" });
+    if (cpError) {
+      console.error("Failed to update counselor_profiles photo_path", cpError);
+    }
+  }
+
+  // Update Supabase Auth user_metadata for all roles
+  const currentUserMeta = request.auth.user.user_metadata || {};
+  await admin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      ...currentUserMeta,
+      avatar_url: filename,
+    },
+  }).catch((err) => {
+    console.error("Failed to update user_metadata avatar_url", err);
+  });
+
+  await writeAudit({
+    actorUserId: userId,
+    action: "profile.photo_upload",
+    entityType: "profile",
+    entityId: userId,
+    metadata: { filename },
+  });
+
+  const baseUrl = (env.SUPABASE_URL || "").replace(/\/+$/, "");
+  const photoUrl = `${baseUrl}/storage/v1/object/public/avatars/${filename}`;
+
+  return sendData(response, {
+    storage_path: filename,
+    photo_url: photoUrl,
+  });
+}));
+
+router.delete("/profile/photo", authenticate, asyncHandler(async (request, response) => {
+  const userRole = request.auth.profile.app_role;
+  if (userRole === "admin") {
+    throw new HttpError(403, "FORBIDDEN", "Foto profil administrator SiCARE tidak dapat diubah.");
+  }
+
+  const userId = request.auth.user.id;
+  const admin = supa();
+
+  let oldPath = null;
+  if (userRole === "counselor") {
+    const { data: cp } = await admin
+      .from("counselor_profiles")
+      .select("photo_path")
+      .eq("profile_id", userId)
+      .maybeSingle();
+    oldPath = cp?.photo_path || null;
+  }
+  if (!oldPath) {
+    oldPath = request.auth.user.user_metadata?.avatar_url || null;
+  }
+
+  if (oldPath && typeof oldPath === "string") {
+    const cleanOld = oldPath.replace(/^avatars\//, "").replace(/^\/+/, "");
+    if (cleanOld.startsWith(`${userId}/`)) {
+      await admin.storage.from("avatars").remove([cleanOld]).catch(() => null);
+    }
+  }
+
+  if (userRole === "counselor") {
+    await admin.from("counselor_profiles").update({
+      photo_path: null,
+      updated_at: new Date().toISOString(),
+    }).eq("profile_id", userId);
+  }
+
+  const currentUserMeta = request.auth.user.user_metadata || {};
+  await admin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      ...currentUserMeta,
+      avatar_url: null,
+    },
+  }).catch((err) => {
+    console.error("Failed to clear user_metadata avatar_url", err);
+  });
+
+  await writeAudit({
+    actorUserId: userId,
+    action: "profile.photo_delete",
+    entityType: "profile",
+    entityId: userId,
+    metadata: { deleted_path: oldPath },
+  });
+
+  return sendData(response, {
+    success: true,
+    message: "Foto profil berhasil dihapus.",
+  });
 }));
 
 export default router;

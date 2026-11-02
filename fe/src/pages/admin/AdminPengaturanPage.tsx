@@ -1,4 +1,3 @@
-import SignOutPanel from "../../features/auth/SignOutPanel";
 import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
 import { sicareApi } from "../../lib/sicareApi";
@@ -513,7 +512,6 @@ export default function AdminPengaturanPage() {
       <p className="mt-8 pb-3 text-center text-[11px] leading-relaxed text-gray-400">
         Profil akun administrator dan kalimat motivasi tersinkron dengan database SiCARE.
       </p>
-      <SignOutPanel />
     </PageContainer>
   );
 }

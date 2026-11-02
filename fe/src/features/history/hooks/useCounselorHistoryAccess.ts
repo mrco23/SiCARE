@@ -1,22 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  checkCounselorHistoryPasswordConfigured,
   clearCounselorHistoryAccess,
   clearCounselorHistoryAttempts,
   COUNSELOR_HISTORY_ACCESS_DURATION_MS,
-  COUNSELOR_HISTORY_MAX_ATTEMPTS,
-  grantCounselorHistoryAccess,
+  initCounselorHistoryPassword,
   readCounselorHistoryAccess,
   readCounselorHistoryAttempts,
-  recordCounselorHistoryFailedAttempt,
-  verifyCounselorHistoryPassword,
+  readCounselorHistoryGrantToken,
+  recordClientFailedAttempt,
+  verifyCounselorHistoryPasswordWithServer,
   type CounselorHistoryAttemptState,
 } from "../counselorHistoryAccess";
 
+export const COUNSELOR_HISTORY_MAX_ATTEMPTS = 5;
+
 export type CounselorHistoryUnlockResult =
-  | { status: "success"; expiresAt: number }
-  | { status: "invalid"; remainingAttempts: number }
-  | { status: "locked" }
-  | { status: "error" };
+  | { status: "success"; expiresAt: number; grantToken: string }
+  | { status: "invalid"; remainingAttempts: number; message?: string }
+  | { status: "locked"; message?: string }
+  | { status: "not_configured"; message?: string }
+  | { status: "error"; message?: string };
 
 /** Keeps the 30-minute history access window absolute, including route changes and tab suspension. */
 export function useCounselorHistoryAccess(
@@ -24,9 +28,12 @@ export function useCounselorHistoryAccess(
   onCooldownExpired?: () => void,
 ) {
   const [accessUntil, setAccessUntil] = useState(readCounselorHistoryAccess);
+  const [grantToken, setGrantToken] = useState(readCounselorHistoryGrantToken);
   const [attemptState, setAttemptState] = useState<CounselorHistoryAttemptState>(
     readCounselorHistoryAttempts,
   );
+  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
+  const [checkingConfig, setCheckingConfig] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const onExpiredRef = useRef(onExpired);
   const onCooldownExpiredRef = useRef(onCooldownExpired);
@@ -38,6 +45,39 @@ export function useCounselorHistoryAccess(
     onCooldownExpiredRef.current = onCooldownExpired;
   }, [onCooldownExpired]);
 
+  // Check password configuration status on mount
+  const checkConfigStatus = useCallback(async () => {
+    try {
+      const configured = await checkCounselorHistoryPasswordConfigured();
+      setIsConfigured(configured);
+    } catch {
+      setIsConfigured(false);
+    } finally {
+      setCheckingConfig(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    checkCounselorHistoryPasswordConfigured()
+      .then((configured) => {
+        if (active) {
+          setIsConfigured(configured);
+          setCheckingConfig(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setIsConfigured(false);
+          setCheckingConfig(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const refreshClock = useCallback(() => {
     const currentTime = Date.now();
     setNow(currentTime);
@@ -45,6 +85,7 @@ export function useCounselorHistoryAccess(
     if (accessUntil > 0 && currentTime >= accessUntil) {
       clearCounselorHistoryAccess();
       setAccessUntil(0);
+      setGrantToken(null);
       onExpiredRef.current?.();
     }
 
@@ -84,40 +125,57 @@ export function useCounselorHistoryAccess(
         const latestAttempts = readCounselorHistoryAttempts();
         setAttemptState(latestAttempts);
         if (latestAttempts.lockedUntil > Date.now()) {
-          return { status: "locked" };
+          return { status: "locked", message: "Akses terkunci sementara karena terlalu banyak percobaan." };
         }
 
-        if (await verifyCounselorHistoryPassword(password)) {
-          const expiresAt = grantCounselorHistoryAccess();
-          setAccessUntil(expiresAt);
+        const result = await verifyCounselorHistoryPasswordWithServer(password);
+
+        if (result.status === "success") {
+          setAccessUntil(result.expiresAt);
+          setGrantToken(result.grantToken);
           setNow(Date.now());
           setAttemptState({ count: 0, lockedUntil: 0 });
-          return { status: "success", expiresAt };
+          clearCounselorHistoryAttempts();
+          return { status: "success", expiresAt: result.expiresAt, grantToken: result.grantToken };
         }
 
-        const nextAttempts = recordCounselorHistoryFailedAttempt();
-        setAttemptState(nextAttempts);
-        if (nextAttempts.lockedUntil > Date.now()) {
-          return { status: "locked" };
+        if (result.status === "locked") {
+          const nextAttempts = recordClientFailedAttempt();
+          setAttemptState(nextAttempts);
+          return { status: "locked", message: result.message };
         }
-        return {
-          status: "invalid",
-          remainingAttempts: COUNSELOR_HISTORY_MAX_ATTEMPTS - nextAttempts.count,
-        };
-      } catch {
-        return { status: "error" };
+
+        if (result.status === "invalid") {
+          const nextAttempts = readCounselorHistoryAttempts();
+          setAttemptState(nextAttempts);
+          const remaining = Math.max(0, COUNSELOR_HISTORY_MAX_ATTEMPTS - nextAttempts.count);
+          return { status: "invalid", remainingAttempts: remaining, message: result.message };
+        }
+
+        return { status: "error", message: result.message };
+      } catch (err: unknown) {
+        return { status: "error", message: err instanceof Error ? err.message : "Terjadi kesalahan." };
       }
     },
     [],
   );
 
+  const initPassword = useCallback(async (password: string) => {
+    const res = await initCounselorHistoryPassword(password);
+    if (res.success) {
+      setIsConfigured(true);
+    }
+    return res;
+  }, []);
+
   const lock = useCallback(() => {
     clearCounselorHistoryAccess();
     setAccessUntil(0);
+    setGrantToken(null);
     onExpiredRef.current?.();
   }, []);
 
-  const hasAccess = accessUntil > now;
+  const hasAccess = accessUntil > now && Boolean(grantToken);
   const timeLeft = Math.max(0, accessUntil - now);
   const timerText = `${Math.floor(timeLeft / 60000)}:${String(
     Math.floor((timeLeft % 60000) / 1000),
@@ -125,15 +183,20 @@ export function useCounselorHistoryAccess(
 
   return {
     accessUntil,
+    grantToken,
     attemptState,
     now,
     hasAccess,
     timeLeft,
     timerText,
     isPasswordLocked: attemptState.lockedUntil > now,
+    isConfigured,
+    checkingConfig,
     maxAttempts: COUNSELOR_HISTORY_MAX_ATTEMPTS,
     accessDurationMs: COUNSELOR_HISTORY_ACCESS_DURATION_MS,
     unlock,
     lock,
+    initPassword,
+    refetchConfigStatus: checkConfigStatus,
   };
 }

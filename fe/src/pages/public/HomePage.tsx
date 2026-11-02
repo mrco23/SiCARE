@@ -413,6 +413,40 @@ function Testimonials({ testimonials }: { testimonials: PublicFeedback[] }) {
   );
 }
 
+function PublicCounselorPhoto({
+  photoPath,
+  name,
+}: {
+  photoPath: string | null | undefined;
+  name: string;
+}) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const photoUrl = getPublicPhotoUrl(photoPath);
+  const initial = name.trim().charAt(0).toUpperCase();
+  const failed = Boolean(photoUrl && failedUrl === photoUrl);
+
+  if (!photoUrl || failed) {
+    return (
+      <span
+        className="font-[Montserrat] text-5xl font-bold text-primary"
+        aria-label={`Foto ${name} belum tersedia`}
+      >
+        {initial}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={photoUrl}
+      alt={`Foto ${name}`}
+      loading="lazy"
+      onError={() => setFailedUrl(photoUrl)}
+      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 group-focus-within:scale-105"
+    />
+  );
+}
+
 function Counselors({
   counselors,
   periods,
@@ -460,21 +494,10 @@ function Counselors({
                 }`}
               >
                 <div className="flex aspect-square items-center justify-center overflow-hidden bg-[#e8f4ec]">
-                  {getPublicPhotoUrl(counselor.photo_path) ? (
-                    <img
-                      src={getPublicPhotoUrl(counselor.photo_path) ?? undefined}
-                      alt={`Foto ${counselor.public_name}`}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 group-focus-within:scale-105"
-                    />
-                  ) : (
-                    <span
-                      className="font-[Montserrat] text-5xl font-bold text-primary"
-                      aria-label={`Foto ${counselor.public_name} belum tersedia`}
-                    >
-                      {counselor.public_name.trim().charAt(0).toUpperCase()}
-                    </span>
-                  )}
+                  <PublicCounselorPhoto
+                    photoPath={counselor.photo_path}
+                    name={counselor.public_name}
+                  />
                 </div>
 
                 <div className="min-h-[142px] p-5">

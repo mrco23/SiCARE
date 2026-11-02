@@ -3,6 +3,9 @@ import { buildQueryString } from "./apiQuery";
 import type {
   CounselorAvailabilitySlotDto,
   CounselorFeedbackDto,
+  CounselorHistoryPasswordStatusDto,
+  CounselorHistoryResponseDto,
+  CounselorHistoryVerifyResultDto,
   CounselorProfileDto,
   CounselorProfilePatchApi,
   CounselorAvailabilityStatusApi,
@@ -57,5 +60,44 @@ export const counselorApi = {
       rating: options.rating,
       limit: options.limit,
     })}`, { auth: true });
+  },
+
+  getHistoryPasswordStatus(): Promise<CounselorHistoryPasswordStatusDto> {
+    return apiRequest<CounselorHistoryPasswordStatusDto>("/counselor/history-password/status", { auth: true });
+  },
+
+  initHistoryPassword(password: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>("/counselor/history-password/init", {
+      method: "POST",
+      auth: true,
+      body: { password },
+    });
+  },
+
+  verifyHistoryPassword(password: string): Promise<CounselorHistoryVerifyResultDto> {
+    return apiRequest<CounselorHistoryVerifyResultDto>("/counselor/history-password/verify", {
+      method: "POST",
+      auth: true,
+      body: { password },
+    });
+  },
+
+  changeHistoryPassword(input: {
+    current_password: string;
+    new_password: string;
+    confirm_password: string;
+  }): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>("/counselor/history-password/change", {
+      method: "POST",
+      auth: true,
+      body: input,
+    });
+  },
+
+  getHistory(grantToken?: string): Promise<CounselorHistoryResponseDto> {
+    return apiRequest<CounselorHistoryResponseDto>("/counselor/history", {
+      auth: true,
+      headers: grantToken ? { "x-counselor-history-grant": grantToken } : undefined,
+    });
   },
 };

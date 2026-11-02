@@ -178,6 +178,16 @@ function Navbar() {
         </span>
       </Link>
 
+      {/* Ikon Notifikasi di sebelah kiri dekorasi Tiga Gunung (tanpa background/border/shadow/ring) */}
+      <div className="absolute right-[174px] top-1/2 -translate-y-1/2 z-40 flex items-center">
+        <NotificationBell
+          role="headlmi"
+          recipientId={DEMO_NOTIFICATION_RECIPIENTS.headlmi}
+          wrapperClassName="relative shrink-0"
+          buttonClassName="flex h-9 w-9 items-center justify-center rounded-full text-slate-700 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        />
+      </div>
+
       {/* Dekorasi gunung hijau */}
       <svg
         className="pointer-events-none absolute right-0 top-0 z-0 h-[72px] w-[162px]"
@@ -200,14 +210,8 @@ function Navbar() {
         />
       </svg>
 
-      {/* Kontainer Aksi Navbar Kanan: Notifikasi & Avatar Profil di atas Tiga Gunung */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex items-center gap-3">
-        <NotificationBell
-          role="headlmi"
-          recipientId={DEMO_NOTIFICATION_RECIPIENTS.headlmi}
-          wrapperClassName="relative shrink-0"
-          buttonClassName="flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md ring-1 ring-slate-200/80 transition hover:bg-white hover:text-primary hover:ring-brand-gold focus:outline-none"
-        />
+      {/* Avatar Profil di sisi kanan (di atas area Tiga Gunung) */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex items-center">
         <NavbarProfileDropdown role="head_lmi" wrapperClassName="shrink-0" />
       </div>
     </header>
