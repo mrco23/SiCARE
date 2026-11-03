@@ -25,7 +25,14 @@ const loginSchema = z.object({
   message: "Email atau kode identitas wajib diisi.",
 });
 
+let testPublicAuthClient = null;
+
+export function setPublicAuthClientForTests(client = null) {
+  testPublicAuthClient = client;
+}
+
 function getPublicAuthClient() {
+  if (testPublicAuthClient) return testPublicAuthClient;
   const key = env.SUPABASE_PUBLISHABLE_KEY ?? env.SUPABASE_ANON_KEY;
   if (!env.SUPABASE_URL || !key) {
     throw new HttpError(503, "AUTH_NOT_CONFIGURED", "SUPABASE_PUBLISHABLE_KEY belum dikonfigurasi pada backend.");
@@ -255,7 +262,7 @@ router.post("/login", asyncHandler(async (request, response) => {
       throw new HttpError(503, "IDENTITY_LOOKUP_FAILED", "Kode identitas tidak dapat diverifikasi.");
     }
     if (!identityProfile) {
-      throw new HttpError(401, "INVALID_CREDENTIALS", "Email/kode identitas atau kata sandi tidak benar, atau email belum dikonfirmasi.");
+      throw new HttpError(401, "INVALID_CREDENTIALS", "NIM/NIP/email atau kata sandi tidak benar.");
     }
 
     const { data: authUserData, error: authUserError } = await admin.auth.admin.getUserById(identityProfile.id);
@@ -263,7 +270,7 @@ router.post("/login", asyncHandler(async (request, response) => {
       throw new HttpError(503, "AUTH_USER_LOOKUP_FAILED", "Akun tidak dapat diverifikasi saat ini.");
     }
     if (!authUserData.user?.email) {
-      throw new HttpError(401, "INVALID_CREDENTIALS", "Email/kode identitas atau kata sandi tidak benar, atau email belum dikonfirmasi.");
+      throw new HttpError(401, "INVALID_CREDENTIALS", "NIM/NIP/email atau kata sandi tidak benar.");
     }
     email = authUserData.user.email;
   }
@@ -276,7 +283,7 @@ router.post("/login", asyncHandler(async (request, response) => {
     if (error && /email not confirmed/i.test(error.message)) {
       throw new HttpError(403, "EMAIL_NOT_CONFIRMED", "Email akun Anda belum diverifikasi. Silakan periksa kotak masuk atau spam email Anda untuk mengonfirmasi akun sebelum masuk.");
     }
-    throw new HttpError(401, "INVALID_CREDENTIALS", "Email/kode identitas atau kata sandi tidak benar, atau email belum dikonfirmasi.");
+    throw new HttpError(401, "INVALID_CREDENTIALS", "NIM/NIP/email atau kata sandi tidak benar.");
   }
 
   // Explicit verification: reject login if email has not been confirmed

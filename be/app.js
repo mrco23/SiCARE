@@ -33,7 +33,7 @@ app.use(
       callback(error);
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id", "X-Counselor-History-Grant"],
     maxAge: 600,
   }),
 );

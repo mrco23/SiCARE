@@ -10,10 +10,7 @@ import type {
   MemberCategoryApi,
 } from "../../types/api";
 import type { Role } from "../../data/mock/adminAccounts";
-import {
-  defaultAccountRoleForTab,
-  type AdminAccountTab,
-} from "../../features/admin/accounts/accountSelectors";
+import type { AdminAccountTab } from "../../features/admin/accounts/accountSelectors";
 import {
   Loader2,
   RefreshCw,
@@ -54,14 +51,7 @@ type FormState = {
   status: AccountStatusApi;
 };
 
-const ROLES: Role[] = [
-  "Konselor",
-  "Mahasiswa",
-  "Dosen",
-  "Staff",
-  "Kepala LMI",
-  "Admin",
-];
+const ROLES: Role[] = ["Konselor", "Kepala LMI"];
 const TABS: Tab[] = ["Semua", "Konselor", "Klien", "Kepala LMI", "Admin"];
 
 const ROLE_STYLE: Record<Role, string> = {
@@ -90,25 +80,13 @@ function mapDtoToUiRole(dto: AdminAccountRecordDto): Role {
 }
 
 function mapUiRoleToApi(role: Role): {
-  app_role: AppRoleApi;
-  member_category: MemberCategoryApi | null;
+  app_role: "counselor" | "head_lmi";
+  member_category: null;
 } {
-  if (role === "Konselor") {
-    return { app_role: "counselor", member_category: null };
-  }
   if (role === "Kepala LMI") {
     return { app_role: "head_lmi", member_category: null };
   }
-  if (role === "Admin") {
-    return { app_role: "admin", member_category: null };
-  }
-  if (role === "Dosen") {
-    return { app_role: "client", member_category: "faculty_staff" };
-  }
-  if (role === "Staff") {
-    return { app_role: "client", member_category: "other" };
-  }
-  return { app_role: "client", member_category: "student" };
+  return { app_role: "counselor", member_category: null };
 }
 
 function mapAccountDto(
@@ -162,13 +140,18 @@ const fmtDate = (iso: string) => {
   });
 };
 
-const emptyForm = (tab: Tab): FormState => ({
+const defaultAccountRoleForCreation = (currentTab: Tab): Role => {
+  if (currentTab === "Kepala LMI") return "Kepala LMI";
+  return "Konselor";
+};
+
+const emptyForm = (currentTab: Tab): FormState => ({
   name: "",
   code: "",
   email: "",
   password: "",
   phone: "",
-  role: defaultAccountRoleForTab(tab),
+  role: defaultAccountRoleForCreation(currentTab),
   status: "active",
 });
 
@@ -189,6 +172,14 @@ export default function AdminAkunPage() {
   // Modal tambah / ubah
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const editingAccount = useMemo(
+    () => (editingId !== null ? accounts.find((a) => a.id === editingId) ?? null : null),
+    [editingId, accounts],
+  );
+  const isEditingRestrictedAccount =
+    editingAccount !== null &&
+    (editingAccount.appRole === "client" || editingAccount.appRole === "admin");
   const [form, setForm] = useState<FormState>(emptyForm("Semua"));
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -340,27 +331,43 @@ export default function AdminAkunPage() {
       return;
     }
 
-    const { app_role, member_category } = mapUiRoleToApi(form.role);
-
     setSubmitting(true);
     setFormError("");
     try {
       if (editingId !== null) {
-        const updated = await adminApi.updateAccount(editingId, {
-          full_name: name,
-          identity_code: code || null,
-          member_category,
-          phone_e164: phone || null,
-          app_role,
-          account_status: form.status,
-        });
-        const mapped = mapAccountDto(updated, email);
-        setAccounts((prev) =>
-          prev.map((a) => (a.id === editingId ? mapped : a)),
-        );
-        setModalOpen(false);
-        showToast(`Akun ${mapped.name} diperbarui.`);
+        if (isEditingRestrictedAccount) {
+          const updated = await adminApi.updateAccount(editingId, {
+            full_name: name,
+            identity_code: code || null,
+            member_category: editingAccount?.memberCategory ?? null,
+            phone_e164: phone || null,
+            account_status: form.status,
+          });
+          const mapped = mapAccountDto(updated, email);
+          setAccounts((prev) =>
+            prev.map((a) => (a.id === editingId ? mapped : a)),
+          );
+          setModalOpen(false);
+          showToast(`Akun ${mapped.name} diperbarui.`);
+        } else {
+          const { app_role, member_category } = mapUiRoleToApi(form.role);
+          const updated = await adminApi.updateAccount(editingId, {
+            full_name: name,
+            identity_code: code || null,
+            member_category,
+            phone_e164: phone || null,
+            app_role,
+            account_status: form.status,
+          });
+          const mapped = mapAccountDto(updated, email);
+          setAccounts((prev) =>
+            prev.map((a) => (a.id === editingId ? mapped : a)),
+          );
+          setModalOpen(false);
+          showToast(`Akun ${mapped.name} diperbarui.`);
+        }
       } else {
+        const { app_role, member_category } = mapUiRoleToApi(form.role);
         const created = await adminApi.createAccount({
           email,
           password,
@@ -742,20 +749,38 @@ export default function AdminAkunPage() {
                   <label className="text-xs font-semibold text-slate-600">
                     Peran
                   </label>
-                  <select
-                    value={form.role}
-                    disabled={submitting}
-                    onChange={(e) =>
-                      setForm({ ...form, role: e.target.value as Role })
-                    }
-                    className={`${inputClass} bg-white`}
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
+                  {isEditingRestrictedAccount ? (
+                    <div>
+                      <div className="mt-1 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                        <span
+                          className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-xs font-semibold ${ROLE_STYLE[form.role]}`}
+                        >
+                          {form.role}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {editingAccount?.appRole === "admin" ? "Admin" : "Klien"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-amber-700">
+                        Role akun ini tidak dapat diubah dari halaman admin.
+                      </p>
+                    </div>
+                  ) : (
+                    <select
+                      value={form.role}
+                      disabled={submitting}
+                      onChange={(e) =>
+                        setForm({ ...form, role: e.target.value as Role })
+                      }
+                      className={`${inputClass} bg-white`}
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-600">

@@ -46,6 +46,33 @@ test("browser origins outside the allowlist are rejected", async () => {
   assert.equal(response.status, 403);
 });
 
+test("preflight OPTIONS /api/v1/counselor/history returns X-Counselor-History-Grant for allowed origins and rejects untrusted origins", async () => {
+  const allowedOrigin = "http://localhost:5173";
+  const resAllowed = await fetch(`${baseUrl}/api/v1/counselor/history`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: allowedOrigin,
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "authorization,x-counselor-history-grant",
+    },
+  });
+
+  assert.equal(resAllowed.status, 204);
+  const allowHeaders = resAllowed.headers.get("access-control-allow-headers") ?? "";
+  assert.match(allowHeaders, /x-counselor-history-grant/i);
+
+  const resUntrusted = await fetch(`${baseUrl}/api/v1/counselor/history`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: "https://untrusted.example",
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "authorization,x-counselor-history-grant",
+    },
+  });
+
+  assert.equal(resUntrusted.status, 403);
+});
+
 test("protected profile endpoint requires a bearer token", async () => {
   const response = await fetch(`${baseUrl}/api/v1/profile`);
   const body = await response.json();

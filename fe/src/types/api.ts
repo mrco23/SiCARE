@@ -361,13 +361,15 @@ export interface DeactivatedAdminAccountDto {
   deactivated: true;
 }
 
+export type AdminAccountAssignableRoleApi = "counselor" | "head_lmi";
+
 export interface CreateAdminAccountApi {
   email: string;
   password: string;
   full_name: string;
   identity_code?: string | null;
   member_category?: MemberCategoryApi | null;
-  app_role?: AppRoleApi;
+  app_role: AdminAccountAssignableRoleApi;
   account_status?: AccountStatusApi;
 }
 
@@ -376,7 +378,7 @@ export interface UpdateAdminAccountApi {
   identity_code?: string | null;
   member_category?: MemberCategoryApi | null;
   phone_e164?: string | null;
-  app_role?: AppRoleApi;
+  app_role?: AdminAccountAssignableRoleApi;
   account_status?: AccountStatusApi;
 }
 

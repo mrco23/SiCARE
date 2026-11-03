@@ -1162,6 +1162,7 @@ Setelah implementasi Batch 1.5g.2, posisi avatar profil pada layout portal (`Adm
 - `npm --prefix be test`: **184/184 PASS** (0 failed, 0 skipped).
 - `git diff --check`: **PASS** (bersih dari whitespace error).
 
+
 ---
 
 ## 2026-11-02 — Integrasi Foto Profil Supabase Storage, Pemulihan Scroll Global & Pembersihan Pengaturan
@@ -1297,4 +1298,174 @@ Penyempurnaan visual, responsivitas, dan interaktivitas pada halaman publik dan 
 - `npm --prefix fe run lint`: **PASS** (0 errors, 0 warnings).
 - `npm --prefix fe run build`: **PASS** (2468 modul ditransformasi, bundle Vite & PWA sukses).
 
+
+
+## 2026-11-03 — Pembatasan Pembuatan & Perubahan Role Akun oleh Admin (Hanya Counselor & Head LMI)
+
+### Ringkasan
+Membatasi pembuatan dan perubahan role akun oleh admin pada backend dan frontend agar hanya role `counselor` dan `head_lmi` yang dapat dibuat atau diberikan lewat halaman admin:
+1. **Backend (`be/src/routes/admin.routes.js`):**
+   - Skema `createAccountSchema.app_role` dan `patchAccountSchema.app_role` dibatasi secara ketat hanya menerima `"counselor"` dan `"head_lmi"`.
+   - `email_confirm: true` pada `POST /admin/accounts` tetap terjaga khusus bagi akun konselor dan kepala LMI yang dibuat admin.
+   - Pada `PATCH /admin/accounts/:id`: jika `input.app_role` dikirimkan pada akun target yang bukan counselor/head_lmi (misal client atau admin), server menolak dengan `400 ROLE_CHANGE_NOT_ALLOWED`.
+   - Zod schema menolak role `client` dan `admin` dengan `400 VALIDATION_ERROR`, mencegah admin menurunkan role konselor/kepala LMI menjadi client/admin.
+2. **Backend Tests (`be/test/adminRoutesLoad.test.js` & `be/test/ownershipGuards.test.js`):**
+   - Menambahkan 7 automated test di `be/test/adminRoutesLoad.test.js` untuk memastikan:
+     - `POST /admin/accounts` dengan `app_role: "client"` ditolak (400).
+     - `POST /admin/accounts` dengan `app_role: "admin"` ditolak (400).
+     - `POST /admin/accounts` dengan `app_role: "counselor"` dan `"head_lmi"` berhasil (201).
+     - `PATCH /admin/accounts/:id` dengan `app_role: "client"` atau `"admin"` ditolak (400).
+     - `PATCH /admin/accounts/:id` untuk akun client ditolak jika mencoba mengubah role (400).
+     - `PATCH /admin/accounts/:id` berhasil mentransisikan akun counselor ke head_lmi (200).
+   - Menyelaraskan tes self-demotion di `be/test/ownershipGuards.test.js` untuk menguji payload `app_role: "counselor"` yang lolos schema namun diblokir dengan 409 `SELF_ADMIN_CHANGE_BLOCKED`.
+3. **Frontend (`fe/src/pages/admin/AdminAkunPage.tsx` & `fe/src/types/api.ts`):**
+   - Konstanta `ROLES` hanya berisi `"Konselor"` dan `"Kepala LMI"`. Opsi Mahasiswa, Dosen, Staff, dan Admin dihapus dari pilihan pembuatan akun.
+   - Memisahkan antara tab filter tampilan (`TABS = ["Semua", "Konselor", "Klien", "Kepala LMI", "Admin"]`) agar admin tetap dapat memonitor dan mengelola akun klien dan admin yang sudah ada, dengan form pembuatan (`emptyForm`) yang selalu default ke `"Konselor"` atau `"Kepala LMI"`.
+   - `mapUiRoleToApi` disederhanakan hanya memetakan "Konselor" dan "Kepala LMI".
+   - Saat mengedit akun yang sudah berstatus client atau admin, form mengunci role sebagai teks (tanpa dropdown), menampilkan pesan penjelasan bahwa role akun tidak dapat diubah dari halaman admin, dan tidak mengirim `app_role` pada payload PATCH.
+   - Mempersempit tipe `CreateAdminAccountApi.app_role` dan `UpdateAdminAccountApi.app_role` menjadi `AdminAccountAssignableRoleApi = "counselor" | "head_lmi"`.
+4. **Dokumentasi:**
+   - Memperbarui `docs/integration/API_ENDPOINT_MATRIX.md` untuk endpoint `POST /admin/accounts` dan `PATCH /admin/accounts/:id`.
+
+### File yang Diubah
+- `be/src/routes/admin.routes.js`
+- `be/test/adminRoutesLoad.test.js`
+- `be/test/ownershipGuards.test.js`
+- `fe/src/pages/admin/AdminAkunPage.tsx`
+- `fe/src/types/api.ts`
+- `docs/integration/API_ENDPOINT_MATRIX.md`
+- `docs/PROJECT_STATUS.md`
+- `docs/WORK_LOG.md`
+
+### Bukti Pengujian
+- `be: npm run check`: **PASS** (32 berkas sintaks backend valid).
+- `be: npm test`: **201/201 PASS** (0 gagal, 0 skipped).
+- `fe: npm run lint`: **PASS** (0 errors, 0 warnings).
+- `fe: npm run build`: **PASS** (2466 modul ditransformasi, build Vite & PWA sukses).
+
+
+---
+
+## 2026-11-03 — Batch Perencanaan & Spike: Real-Time Synchronization & Frontend Caching Architecture
+
+### Scope & Tujuan
+Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spike Document*) untuk arsitektur sinkronisasi real-time dan mekanisme caching di SiCARE tanpa melakukan modifikasi pada kode produksi frontend/backend, tanpa migrasi database, dan tanpa menambah dependensi eksternal:
+1. Memetakan konteks arsitektur saat ini di mana frontend berkomunikasi via REST Express (`fe/src/lib/api.ts`), Supabase client di browser (`fe/src/lib/supabase.ts`) hanya menangani autentikasi berbasis `sessionStorage`, dan Express backend memproses data via service role (`be/src/config/supabase.js`) dengan bypass RLS PostgREST.
+2. Membandingkan 3 opsi real-time:
+   - **Opsi A:** `postgres_changes` via Supabase Client dengan user JWT (CDC WAL).
+   - **Opsi B:** Supabase Broadcast via Backend Service Role pada private channel per user (`private:user:${user.id}`).
+   - **Opsi C:** Controlled Polling dengan ETag / If-Modified-Since atau versioning data.
+3. Menyusun tabel risiko menyeluruh: dampak RLS, migrasi yang dibutuhkan, risiko kebocoran data sensitif klinis/PII, estimasi diff baris kode.
+4. Memberikan 1 rekomendasi pendekatan terbaik yang dapat dipertanggungjawabkan secara teknis.
+5. Mengevaluasi perbandingan TanStack Query (`@tanstack/react-query`) vs In-Memory Caching ringan berbasis TTL & invalidasi otomatis per-mutasi di wrapper `api.ts`.
+6. Menginventarisasi migrasi prospektif dan daftar keputusan yang memerlukan persetujuan pemilik produk (*Product Owner*).
+7. Menyusun rencana tahapan implementasi bertahap (*phased rollout plan*) dengan acceptance criteria dan estimasi cakupan pada 6 tabel utama (`bookings`, `counseling_sessions`, `consent_invitations`, `informed_consents`, `notifications`, `feedback`).
+
+### Dokumen yang Dibuat / Diperbarui
+- **`docs/refactor/REALTIME_CACHE_DECISION.md`** (Baru): Architectural Decision Record & Spike Document lengkap memuat 9 bab evaluasi teknis, tabel risiko, mitigasi privasi data klinis, desain cache in-memory, dan tahapan peluncuran.
+- **`docs/PROJECT_STATUS.md`** (Diperbarui): Pencatatan status Spike Real-Time & Caching sebagai **Belum Dikerjakan (Tahap Perancangan & ADR Selesai)**.
+- **`docs/WORK_LOG.md`** (Diperbarui): Entri append-only ini.
+
+### Kesimpulan & Rekomendasi Utama
+- **Rekomendasi Utama:** Mengadopsi **Opsi B (Supabase Broadcast via Backend)** yang dipadukan dengan **In-Memory Caching ringan berbasis TTL dan Invalidasi Otomatis per Mutasi di `fe/src/lib/api.ts`**.
+- **Alasan Keamanan & Kepatuhan:**
+  - Opsi A (`postgres_changes`) ditolak karena memancarkan data baris mentah via WAL ke WebSocket browser, menuntut pembukaan RLS `SELECT` publik/authenticated yang berisiko membocorkan rekam klinis, data kelompok, atau snapshot identitas, serta tidak mendukung peserta tamu tanpa akun.
+  - Opsi B menjamin *zero-risk* data leak karena pesan broadcast hanya berupa sinyal operasional ringan (`entity`, `action`, `entityId`). Data aktual tetap diambil melalui API Express yang menerapkan RBAC, penyamaran privasi Kepala LMI, dan audit log.
+  - Opsi B tidak memerlukan migrasi SQL atau perubahan RLS pada PostgreSQL.
+  - In-memory cache ringan di `api.ts` bersifat zero-dependency, menjaga ukuran bundle frontend tetap hemat (<1,4 MB), transparan bagi komponen, dan otomatis mengosongkan entri saat mutasi dijalankan.
+
+### Status Verifikasi Faktual
+- Tidak ada file kode produksi (`fe/src/*` atau `be/src/*`) yang dimodifikasi dalam batch ini.
+- Tidak ada skrip migrasi baru yang dibuat atau dijalankan ke database.
+- Tidak ada dependensi baru yang ditambahkan ke `package.json` (`fe` maupun `be`).
+- `git diff --check`: **PASS** (tidak ada whitespace error atau marker konflik).
+
+
+---
+
+## 2026-11-03 — Perbaikan Konsol Browser & Keandalan Dashboard Admin
+
+### Scope & Masalah yang Diselesaikan
+1. **CORS Preflight Header Riwayat Konselor (`be/app.js` & `be/test/health.test.js`):**
+   - Menambahkan `"X-Counselor-History-Grant"` ke dalam `allowedHeaders` pada konfigurasi CORS Express di `be/app.js`.
+   - Mengatasi penolakan preflight `OPTIONS /api/v1/counselor/history` di browser yang sebelumnya memblokir pemuatan halaman riwayat konselor (`KonselorRiwayatPage.tsx`).
+   - Tidak membuka CORS untuk origin atau method di luar allowlist yang telah ditentukan.
+   - Menambahkan test di `be/test/health.test.js` untuk memvalidasi bahwa preflight `OPTIONS` dengan origin yang diizinkan mengembalikan header `access-control-allow-headers` memuat `x-counselor-history-grant`, serta origin tidak tepercaya tetap ditolak dengan HTTP 403.
+2. **Normalisasi Relasi `counseling_sessions` di `GET /admin/counseling` (`be/src/routes/admin.routes.js` & `be/test/adminRoutesLoad.test.js`):**
+   - Mengatasi akar masalah crash dashboard di mana PostgREST mengembalikan embed `counseling_sessions` sebagai objek atau `null` (karena foreign key `booking_id` pada tabel `counseling_sessions` memiliki constraint `unique`, merepresentasikan relasi 1-to-1).
+   - Backend menormalisasi setiap record booking sebelum dikirim: jika `counseling_sessions` berupa objek, dibungkus menjadi array satu elemen `[{ ... }]`; jika `null` atau `undefined`, dinormalisasi menjadi array kosong `[]`. Seluruh field lain dipertahankan.
+   - Menambahkan test di `be/test/adminRoutesLoad.test.js` yang memverifikasi normalisasi array untuk ketiga kondisi (objek, null, missing/undefined embed).
+   - Kontrak DTO `AdminCounselingDto` pada `fe/src/types/api.ts` tetap konsisten (`counseling_sessions: Array<{ ... }>`).
+3. **Pengecekan Defensif Frontend (`fe/src/components/admin/dashboard/DashboardSections.tsx`):**
+   - Pada komponen `RecentClientBookings` (sekitar baris 428), menambahkan proteksi defensif `Array.isArray` sebelum memanggil `.some(...)` untuk menentukan status selesai sesi konseling.
+4. **Pembaruan Meta Tag PWA (`fe/index.html`):**
+   - Menambahkan `<meta name="mobile-web-app-capable" content="yes" />` di `fe/index.html` untuk menghilangkan peringatan usang (*deprecation warning*) di konsol browser modern, dengan tetap mempertahankan `<meta name="apple-mobile-web-app-capable" content="yes" />`.
+5. **Komponen Section Error Boundary (`fe/src/components/shared/SectionErrorBoundary.tsx` & `AdminBerandaPage.tsx`):**
+   - Membuat komponen error boundary umum berbasis Class Component di `fe/src/components/shared/SectionErrorBoundary.tsx` dengan fallback pesan berbahasa Indonesia yang informatif dan tombol "Muat ulang bagian ini".
+   - Mematuhi aturan keamanan `AGENTS.md` Bagian 3: `componentDidCatch` tidak mencatat data pribadi mahasiswa/klien (nama, NIM, isi konseling) ke console atau layanan log.
+   - Membungkus seluruh seksi data di `AdminBerandaPage.tsx` (`MetricCards`, `RecentClientBookings`, `SessionTrend`, `ServiceDistribution`, `CounselorWorkload`) secara terpisah sehingga kegagalan satu komponen tidak membuat area dashboard lain crash atau menjadi blank.
+
+### File yang Diubah / Dibuat
+- `be/app.js` (Menambahkan `X-Counselor-History-Grant` ke `allowedHeaders` CORS)
+- `be/test/health.test.js` (Menambahkan test verifikasi CORS preflight)
+- `be/src/routes/admin.routes.js` (Normalisasi `counseling_sessions` menjadi array pada `GET /counseling`)
+- `be/test/adminRoutesLoad.test.js` (Menambahkan test normalisasi array 3 kondisi pada `GET /counseling`)
+- `fe/src/components/admin/dashboard/DashboardSections.tsx` (Pengecekan defensif `Array.isArray`)
+- `fe/index.html` (Menambahkan meta tag `mobile-web-app-capable`)
+- `fe/src/components/shared/SectionErrorBoundary.tsx` (Baru: komponen error boundary seksi)
+- `fe/src/components/shared/index.ts` (Ekspor `SectionErrorBoundary`)
+- `fe/src/pages/admin/AdminBerandaPage.tsx` (Pembungkusan seksi dashboard dengan `SectionErrorBoundary`)
+- `docs/integration/API_ENDPOINT_MATRIX.md` (Catatan normalisasi respons `GET /admin/counseling`)
+- `docs/PROJECT_STATUS.md` (Pembaruan status kanonis)
+- `docs/WORK_LOG.md` (Entri append-only ini)
+
+### Hasil Verifikasi Faktual
+- `npm run check` di `be/`: **PASS** (32 berkas backend valid tanpa syntax error).
+- `node --test` di `be/`: **203/203 PASS** (0 failed, 0 skipped; durasi ~1,6s).
+- `npm run lint` di `fe/`: **PASS** (0 errors, 0 warnings).
+- `npm run build` di `fe/`: **PASS** (2467 modul ditransformasikan, PWA dist siap produksi dalam 5.5s).
+- `git diff --check`: **PASS** (bersih dari whitespace error).
+
+---
+
+## 2026-11-03 — Pemisahan Pesan Error Login & Penanganan Verifikasi Email
+
+### Scope & Masalah yang Diselesaikan
+1. **Pemisahan Kredensial Salah vs Status Verifikasi Email:**
+   - Sebelumnya, saat pengguna gagal login, pesan error dapat memicu kebingungan apakah kredensial salah atau akun belum diverifikasi/dikonfirmasi.
+   - Di `be/src/routes/auth.routes.js`, pesan error 401 `INVALID_CREDENTIALS` distandardisasi menjadi `"NIM/NIP/email atau kata sandi tidak benar."` untuk semua kondisi kegagalan kredensial (pengguna tidak ditemukan maupun kata sandi salah). Dilarang keras memuat kata "dikonfirmasi" atau "verifikasi" pada respons 401 agar tidak membingungkan pengguna dan mencegah enumerasi akun (karena pesan untuk akun terdaftar yang salah password dan akun tidak terdaftar adalah identik).
+2. **Penanganan Akun Belum Diverifikasi (`EMAIL_NOT_CONFIRMED`):**
+   - Saat kata sandi benar tetapi email belum dikonfirmasi oleh pengguna (Supabase Auth melempar error `email not confirmed` atau `email_confirmed_at: null`), backend mengembalikan HTTP 403 dengan kode `EMAIL_NOT_CONFIRMED` baik melalui login email maupun lookup NIM.
+   - Di frontend (`fe/src/pages/auth/Login.tsx`), status ini ditampilkan dalam panel informasi edukatif berlatar hijau lembut/emerald (`bg-emerald-50/70 border-primary/25`) sesuai warna identitas brand `#064E3B`, bukan kotak error merah menyala. Panel dilengkapi instruksi pengecekan folder Kotak Masuk dan Spam, serta tombol "Kirim ulang email verifikasi".
+   - Tombol kirim ulang mengimplementasikan client-side cooldown 60 detik dengan hitung mundur (`${cooldown}d`) dan penanganan HTTP 429 dari server.
+3. **Penanganan Akun Dinonaktifkan (`ACCOUNT_INACTIVE`):**
+   - HTTP 403 `ACCOUNT_INACTIVE` menampilkan pesan jelas bahwa akun belum aktif atau telah dinonaktifkan oleh institusi, mengarahkan pengguna menghubungi administrator LMI Unika De La Salle Manado tanpa menampilkan tombol kirim ulang verifikasi.
+4. **Penanganan Kesalahan Jaringan / Server (503 / Network Error):**
+   - Kesalahan koneksi jaringan atau server 503 dipetakan ke pesan terpisah yang mengarahkan pengguna memeriksa koneksi internet atau mencoba beberapa saat lagi, tanpa tertukar dengan kesalahan kredensial.
+5. **Pembaruan Payload Resend Confirmation (`fe/src/features/auth/AuthProvider.tsx`):**
+   - Fungsi `resendConfirmation(target)` diselaraskan dengan schema backend `resendConfirmationSchema`: bila input berupa NIM/NIP (bukan email valid), dikirim sebagai `{ identifier: trimmed }`; bila berupa email, dikirim sebagai `{ email: trimmed.toLowerCase() }`, sehingga backend dapat me-resolve NIM ke alamat email tujuan tanpa kegagalan validasi Zod.
+6. **Automated Testing (`be/test/emailVerification.test.js`):**
+   - Menambahkan hook pengujian `setPublicAuthClientForTests` di `be/src/routes/auth.routes.js` untuk injeksi mock Supabase Auth client tanpa menyentuh network remote.
+   - Menambahkan 3 test baru di `be/test/emailVerification.test.js`:
+     a. NIM tidak terdaftar dan kata sandi salah menghasilkan 401 dengan pesan sama persis tanpa kata "verifikasi" atau "dikonfirmasi" (mencegah enumerasi akun).
+     b. Kata sandi benar dengan email belum dikonfirmasi mengembalikan 403 `EMAIL_NOT_CONFIRMED` baik untuk input email maupun NIM.
+     c. Akun dinonaktifkan dengan kata sandi benar mengembalikan 403 `ACCOUNT_INACTIVE`.
+   - Total tes di `be/test/emailVerification.test.js` bertambah dari 5 menjadi 8 (8/8 PASS).
+
+### File yang Diubah
+- `be/src/routes/auth.routes.js`: Standardisasi pesan 401 `INVALID_CREDENTIALS` dan hook `setPublicAuthClientForTests`.
+- `be/test/emailVerification.test.js`: Penambahan 3 pengujian automated security & error classification.
+- `fe/src/features/auth/AuthProvider.tsx`: Penyelarasan payload `identifier` vs `email` pada `resendConfirmation`.
+- `fe/src/pages/auth/Login.tsx`: Klasifikasi `errorKind`, panel edukatif hijau/emerald untuk `EMAIL_NOT_CONFIRMED`, tombol resend + cooldown 60s, isolasi pesan akun nonaktif & jaringan.
+- `docs/integration/API_ENDPOINT_MATRIX.md`: Catatan pembaruan respons `POST /api/v1/auth/login`.
+- `docs/PROJECT_STATUS.md`: Pembaruan status kanonis dan jumlah automated test (206/206).
+- `docs/WORK_LOG.md`: Entri append-only ini.
+
+### Hasil Verifikasi Faktual
+- `npm run check` di `be/`: **PASS** (32 berkas backend valid tanpa syntax error).
+- `node --test` di `be/`: **206/206 PASS** (0 failed, 0 skipped; durasi ~1,5s).
+- `node --test be/test/emailVerification.test.js`: **8/8 PASS** (0 failed, 0 skipped).
+- `npm run lint` di `fe/`: **PASS** (0 errors, 0 warnings).
+- `npm run build` di `fe/`: **PASS** (2467 modul ditransformasikan, PWA dist siap produksi dalam 5.9s).
+- `git diff --check`: **PASS** (bersih dari whitespace error).
 
