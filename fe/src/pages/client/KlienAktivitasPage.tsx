@@ -478,15 +478,14 @@ export default function KlienAktivitasPage() {
 
       const filteredSlots = slotRows.filter(
         (slot) =>
-          slot.status === "available" && Date.parse(slot.starts_at) > Date.now(),
+          slot.status === "available" &&
+          Date.parse(slot.starts_at) > Date.now(),
       );
 
       const counselorMap = new Map(
         counselors.map((c) => [c.profile_id, c.public_name]),
       );
-      const feedbackMap = new Map(
-        feedbackRows.map((f) => [f.session_id, f]),
-      );
+      const feedbackMap = new Map(feedbackRows.map((f) => [f.session_id, f]));
 
       const dynSchedule: Record<string, Record<number, string[]>> = {};
       for (const slot of slotRows) {
@@ -496,7 +495,8 @@ export default function KlienAktivitasPage() {
         const day = start.getDay();
         const label = `${formatTime(start)}-${formatTime(new Date(slot.ends_at))}`;
         if (!dynSchedule[counselorName]) dynSchedule[counselorName] = {};
-        if (!dynSchedule[counselorName][day]) dynSchedule[counselorName][day] = [];
+        if (!dynSchedule[counselorName][day])
+          dynSchedule[counselorName][day] = [];
         if (!dynSchedule[counselorName][day].includes(label)) {
           dynSchedule[counselorName][day].push(label);
         }
@@ -560,7 +560,11 @@ export default function KlienAktivitasPage() {
           counselor: counselorName,
           initials,
           service,
-          room: s.room || (s.format === "online" ? "Online Meeting" : "Ruang Konseling 01"),
+          room:
+            s.room ||
+            (s.format === "online"
+              ? "Online Meeting"
+              : "Ruang Konseling 01"),
           start: new Date(s.starts_at),
           end: new Date(s.ends_at),
           rescheduleCount: isRescheduled ? 1 : 0,
@@ -568,7 +572,8 @@ export default function KlienAktivitasPage() {
           rating: fb?.rating ?? 0,
           pendingSlot: isRescheduled
             ? {
-                reason: booking?.reschedule_reason || "Perlu penjadwalan ulang",
+                reason:
+                  booking?.reschedule_reason || "Perlu penjadwalan ulang",
                 note: "",
                 label: booking?.starts_at
                   ? `${new Date(booking.starts_at).toLocaleDateString("id-ID", {
@@ -581,7 +586,9 @@ export default function KlienAktivitasPage() {
             : null,
           consentSigned: consent?.status === "signed",
           consentSignature: consent?.signature_storage_path ?? null,
-          consentSignedAt: consent?.signed_at ? new Date(consent.signed_at) : null,
+          consentSignedAt: consent?.signed_at
+            ? new Date(consent.signed_at)
+            : null,
           bookingId: s.booking_id,
           counselorId: s.counselor_id,
           consentId: consent?.id,
@@ -593,7 +600,8 @@ export default function KlienAktivitasPage() {
         if (processedBookingIds.has(b.id)) continue;
         if (b.status === "cancelled" || b.status === "rejected") continue;
 
-        const counselorName = counselorMap.get(b.counselor_id) || "Konselor LMI";
+        const counselorName =
+          counselorMap.get(b.counselor_id) || "Konselor LMI";
         const initials =
           counselorName
             .split(" ")
@@ -633,7 +641,9 @@ export default function KlienAktivitasPage() {
             : null,
           consentSigned: consent?.status === "signed",
           consentSignature: consent?.signature_storage_path ?? null,
-          consentSignedAt: consent?.signed_at ? new Date(consent.signed_at) : null,
+          consentSignedAt: consent?.signed_at
+            ? new Date(consent.signed_at)
+            : null,
           bookingId: b.id,
           counselorId: b.counselor_id,
           consentId: consent?.id,

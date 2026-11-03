@@ -425,8 +425,14 @@ export function RecentClientBookings({
             hour: "2-digit",
             minute: "2-digit",
           });
-          const isCompletedSession = booking.counseling_sessions?.some(
-            (s) => s.status === "completed",
+          const rawSessions = booking.counseling_sessions as unknown;
+          const sessions = Array.isArray(rawSessions)
+            ? rawSessions
+            : rawSessions && typeof rawSessions === "object"
+              ? [rawSessions]
+              : [];
+          const isCompletedSession = sessions.some(
+            (s) => (s as { status?: string }).status === "completed",
           );
           const displayStatusLabel = isCompletedSession
             ? "Selesai"

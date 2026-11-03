@@ -243,11 +243,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const resendConfirmation = useCallback(async (email: string) => {
+  const resendConfirmation = useCallback(async (target: string) => {
+    const trimmed = target.trim();
+    const isEmail = trimmed.includes("@");
     return await apiRequest<{ sent: boolean; message: string }>("/auth/resend-confirmation", {
       method: "POST",
       auth: false,
-      body: { email: email.trim().toLowerCase() },
+      body: isEmail ? { email: trimmed.toLowerCase() } : { identifier: trimmed },
     });
   }, []);
 

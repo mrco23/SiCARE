@@ -1100,7 +1100,7 @@ test("runtime admin & head_lmi authorization: role boundaries are enforced and A
     method: "PATCH",
     path: `/api/v1/admin/accounts/${IDS.ADMIN}`,
     token: TOKENS.ADMIN,
-    body: { app_role: "client" },
+    body: { app_role: "counselor" },
   });
   assert.equal(selfDemote.status, 409);
   assert.equal(selfDemote.body.error.code, "SELF_ADMIN_CHANGE_BLOCKED");

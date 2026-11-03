@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { PageContainer, PageHeader } from "../../components/shared";
+import { PageContainer, PageHeader, SectionErrorBoundary } from "../../components/shared";
 import {
   CounselorWorkload,
   MetricCards,
@@ -425,13 +425,26 @@ export default function AdminBerandaPage() {
         </div>
       ) : (
         <>
-          <MetricCards stats={stats} />
-          <RecentClientBookings bookings={filteredBookings} />
+          <SectionErrorBoundary title="Metrik Utama" onReset={() => void handleRefresh()}>
+            <MetricCards stats={stats} />
+          </SectionErrorBoundary>
+
+          <SectionErrorBoundary title="Permintaan Konseling Terbaru" onReset={() => void handleRefresh()}>
+            <RecentClientBookings bookings={filteredBookings} />
+          </SectionErrorBoundary>
+
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <SessionTrend buckets={trendBuckets} periodLabel={period} />
-            <ServiceDistribution distribution={distribution} />
+            <SectionErrorBoundary title="Tren Sesi Konseling" onReset={() => void handleRefresh()}>
+              <SessionTrend buckets={trendBuckets} periodLabel={period} />
+            </SectionErrorBoundary>
+            <SectionErrorBoundary title="Distribusi Layanan" onReset={() => void handleRefresh()}>
+              <ServiceDistribution distribution={distribution} />
+            </SectionErrorBoundary>
           </div>
-          <CounselorWorkload counselors={counselorWorkloadRows} />
+
+          <SectionErrorBoundary title="Beban Kerja Konselor" onReset={() => void handleRefresh()}>
+            <CounselorWorkload counselors={counselorWorkloadRows} />
+          </SectionErrorBoundary>
         </>
       )}
     </PageContainer>
