@@ -1,4 +1,4 @@
-import { CANCEL_REASONS } from "../../../data/mock/counselorActivity";
+import { CANCEL_REASONS } from "../../../constants/counseling";
 
 export { CANCEL_REASONS };
 

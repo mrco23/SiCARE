@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
-import { CANCEL_REASONS, type CounselingSession } from "../../../data/mock/counselorActivity";
+import { CANCEL_REASONS } from "../../../constants/counseling";
+import type { CounselingSession } from "../../../types/counseling";
 
 export type DialogState = { type: "start" | "finish"; id: number };
 

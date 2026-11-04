@@ -1,5 +1,5 @@
 import { formatIndonesianDate, parseLocalISODate } from "../../../lib/dateUtils";
-import type { BookingCounselor } from "../../../data/mock/clientCounselors";
+import type { BookingCounselor } from "../../../types/clientCounselor";
 
 export interface BookingSlot {
   date: string;

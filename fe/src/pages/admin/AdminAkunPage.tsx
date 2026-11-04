@@ -9,7 +9,7 @@ import type {
   AppRoleApi,
   MemberCategoryApi,
 } from "../../types/api";
-import type { Role } from "../../data/mock/adminAccounts";
+import type { Role } from "../../types/admin";
 import type { AdminAccountTab } from "../../features/admin/accounts/accountSelectors";
 import {
   Loader2,

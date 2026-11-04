@@ -35,7 +35,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id", "X-Counselor-History-Grant"],
     maxAge: 600,
-  }),
+  })
 );
 app.use(express.json({ limit: "5mb", strict: true }));
 

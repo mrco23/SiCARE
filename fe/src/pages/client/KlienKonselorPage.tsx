@@ -6,7 +6,7 @@ import {
   Search,
   UsersRound,
 } from "lucide-react";
-import type { ClientDirectoryCounselor } from "../../data/mock/clientCounselors";
+import type { ClientDirectoryCounselor } from "../../types/clientCounselor";
 import { CounselorCard } from "../../components/client/counselors/CounselorCard";
 import { filterClientDirectoryCounselors } from "../../features/client/counselors/filterClientCounselors";
 import {

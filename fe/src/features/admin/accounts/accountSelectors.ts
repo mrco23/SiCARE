@@ -1,4 +1,4 @@
-import type { Account, Role } from "../../../data/mock/adminAccounts";
+import type { Account, Role } from "../../../types/admin";
 
 export type AdminAccountTab = "Semua" | "Konselor" | "Klien" | "Kepala LMI" | "Admin";
 

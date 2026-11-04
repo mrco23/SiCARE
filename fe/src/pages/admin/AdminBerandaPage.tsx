@@ -197,13 +197,13 @@ export default function AdminBerandaPage() {
   const stats: DashboardMetricValues = useMemo(() => {
     if (period === "Semua" && dashboard) {
       return {
-        totalRequests: dashboard.bookings.total,
-        completedSessions: dashboard.sessions.completed,
-        cancelledSessions: report?.totals.cancelled_sessions ?? 0,
-        waitingConfirmation: dashboard.bookings.waiting_confirmation,
-        pendingModerationFeedback: dashboard.feedback.pending_moderation,
-        activeClients: dashboard.users.active_clients,
-        activeCounselors: dashboard.users.active_counselors,
+        totalRequests: dashboard.bookings?.total ?? 0,
+        completedSessions: dashboard.sessions?.completed ?? 0,
+        cancelledSessions: report?.totals?.cancelled_sessions ?? 0,
+        waitingConfirmation: dashboard.bookings?.waiting_confirmation ?? 0,
+        pendingModerationFeedback: dashboard.feedback?.pending_moderation ?? 0,
+        activeClients: dashboard.users?.active_clients ?? 0,
+        activeCounselors: dashboard.users?.active_counselors ?? 0,
       };
     }
 
@@ -250,7 +250,7 @@ export default function AdminBerandaPage() {
   }, [filteredBookings]);
 
   const trendBuckets: TrendBucketItem[] = useMemo(() => {
-    if (period === "Semua" && report) {
+    if (period === "Semua" && report?.monthly) {
       const entries = [...report.monthly].sort((a, b) =>
         a.month.localeCompare(b.month),
       );

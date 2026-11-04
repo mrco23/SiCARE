@@ -1,4 +1,4 @@
-import type { ClientDirectoryCounselor } from "../../../data/mock/clientCounselors";
+import type { ClientDirectoryCounselor } from "../../../types/clientCounselor";
 
 /** Pure search projection for the client directory; it does not mutate the mock dataset. */
 export function filterClientDirectoryCounselors(

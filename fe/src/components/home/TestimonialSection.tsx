@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
 import { Quote, ChevronLeft, ChevronRight } from 'lucide-react';
-import { TESTIMONIALS } from "../../data/mock/publicShowcases";
+import { TESTIMONIALS } from "../../features/public/constants/publicShowcases";
 
 function StarRating({ rating }: { rating: number }) {
   return (

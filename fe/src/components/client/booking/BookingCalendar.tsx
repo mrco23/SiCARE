@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { BookingCounselor } from "../../../data/mock/clientCounselors";
+import type { BookingCounselor } from "../../../types/clientCounselor";
 import { toISODate } from "../../../lib/dateUtils";
 import {
   addDays,

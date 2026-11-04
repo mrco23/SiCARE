@@ -330,13 +330,13 @@ export default function AdminLaporanPage() {
   );
 
   const totalSessionsDisplay = unfilteredGlobal
-    ? (report?.totals.bookings ?? rows.length)
+    ? (report?.totals?.bookings ?? rows.length)
     : rows.length;
   const doneDisplay = unfilteredGlobal
-    ? (report?.totals.completed_sessions ?? done.length)
+    ? (report?.totals?.completed_sessions ?? done.length)
     : done.length;
   const cancelledDisplay = unfilteredGlobal
-    ? (report?.totals.cancelled_sessions ?? cancelled.length)
+    ? (report?.totals?.cancelled_sessions ?? cancelled.length)
     : cancelled.length;
 
   const filteredFeedback = useMemo(() => {
@@ -352,7 +352,7 @@ export default function AdminLaporanPage() {
   }, [feedbackList, selectedSemester, counselorFilter, counselorMap]);
 
   const ratingSummary = useMemo(() => {
-    if (unfilteredGlobal && report) {
+    if (unfilteredGlobal && report?.totals) {
       return {
         avg: report.totals.average_rating ?? 0,
         total: report.totals.feedback,
@@ -383,7 +383,7 @@ export default function AdminLaporanPage() {
       string,
       { done: number; cancelled: number; bookings: number }
     >();
-    if (unfilteredGlobal && report) {
+    if (unfilteredGlobal && report?.monthly) {
       for (const m of report.monthly) {
         map.set(m.month, {
           done: m.completed_sessions,
@@ -439,7 +439,7 @@ export default function AdminLaporanPage() {
       let totalDone = individualDone + groupDone;
       const totalCancelled = individualCancelled + groupCancelled;
 
-      if (unfilteredGlobal && report) {
+      if (unfilteredGlobal && report?.counselors) {
         for (const [cId, cName] of counselorMap.entries()) {
           const rc = reportByCounselor.get(cId);
           if (cName === counselorName && rc) {

@@ -1,4 +1,5 @@
-import type { BookingStatus } from "../constants/status";
+import type { BookingStatus, CounselingRequestStatus } from "../constants/status";
+import type { CounselingFormat, IntakeAnswer } from "./counseling";
 
 export type BookingServiceType = "INDIVIDUAL" | "GROUP";
 
@@ -26,3 +27,35 @@ export type CreateBookingInput = Omit<
   BookingRecord,
   "id" | "status" | "createdAt" | "room"
 >;
+
+export type CounselingRequest = {
+  id: number;
+  name: string;
+  format: CounselingFormat;
+  time: string;
+  waitMin: number;
+  status: CounselingRequestStatus;
+  isNew: boolean;
+  pastSessions: number;
+  topic: string;
+  room?: string;
+};
+
+export type IntakeData = {
+  date: string;
+  selfHarm: IntakeAnswer;
+  distress: IntakeAnswer;
+  abuse: IntakeAnswer;
+  substance: IntakeAnswer;
+  sleep: number;
+  finance: number;
+  topics: string[];
+  other: string;
+  complaint: string;
+  history: string;
+  reason: string;
+  efforts: string;
+  goal: string;
+  strengths: string;
+  weaknesses: string;
+};

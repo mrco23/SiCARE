@@ -35,7 +35,7 @@ import {
   MapPin,
   Search,
 } from "lucide-react";
-import type { BookingCounselor } from "../../data/mock/clientCounselors";
+import type { BookingCounselor } from "../../types/clientCounselor";
 import { sicareApi } from "../../lib/sicareApi";
 import {
   getPublicAvailability,
@@ -50,7 +50,7 @@ import {
   INTAKE_YESNO_OPTIONS as YESNO,
   INTAKE_SCALE_OPTIONS as SCALES,
   INTAKE_ESSAY_OPTIONS as ESSAYS,
-} from "../../data/mock/intakeOptions";
+} from "../../constants/intakeOptions";
 import {
   createEmptyClientIntakeForm,
   validateClientIntakeForm,
