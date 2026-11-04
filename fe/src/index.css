@@ -301,3 +301,130 @@ body {
     box-shadow: none !important;
   }
 }
+
+/* ===== LAPORAN ADMIN: ANIMASI CHART (dipanggil saat halaman dibuka) ===== */
+/* Nilai dinamis (persentase, delay, tinggi) dikirim dari TSX lewat CSS custom property. */
+
+@property --report-sweep {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+/* Sapuan searah jarum jam dari jam 12 kembali ke jam 12 (conic-gradient mulai dari atas). */
+.report-sweep {
+  position: relative;
+  background: none;
+}
+
+.report-sweep::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  -webkit-mask: conic-gradient(
+    #000 var(--report-sweep),
+    transparent var(--report-sweep)
+  );
+  mask: conic-gradient(
+    #000 var(--report-sweep),
+    transparent var(--report-sweep)
+  );
+  animation: report-sweep-clock 1.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Donut ringkasan: hijau selesai, merah dibatalkan, abu-abu terjadwal. */
+.report-donut::before {
+  background: conic-gradient(
+    #16a34a 0 var(--pa, 0%),
+    #ef4444 var(--pa, 0%) var(--pb, 0%),
+    #e2e8f0 var(--pb, 0%) 100%
+  );
+}
+
+@keyframes report-sweep-clock {
+  from {
+    --report-sweep: 0%;
+  }
+  to {
+    --report-sweep: 100%;
+  }
+}
+
+/* Kolom batang per bulan tumbuh dari dasar. */
+.report-col-grow {
+  height: var(--report-h, 0%);
+  transform-origin: bottom;
+  animation: report-grow-y 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--report-delay, 0s);
+}
+
+.report-stack-cancel {
+  flex: 0 0 var(--report-cancel, 0%);
+}
+
+/* Bar horizontal per konselor dan bar alasan tumbuh dari kiri. */
+.report-bar-grow {
+  width: var(--report-w, 0%);
+  transform-origin: left;
+  animation: report-grow-x 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--report-delay, 0s);
+}
+
+.report-bar-grow-late {
+  animation-delay: calc(var(--report-delay, 0s) + 0.25s);
+}
+
+.report-fill-grow {
+  width: var(--report-w, 0%);
+  transform-origin: left;
+  animation: report-grow-x 1s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* Label dan teks di tengah donut/cincin muncul setelah sapuan selesai. */
+.report-fade-in {
+  animation: report-fade 0.6s ease both;
+  animation-delay: var(--report-delay, 0.9s);
+}
+
+@keyframes report-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes report-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes report-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-sweep::before,
+  .report-col-grow,
+  .report-bar-grow,
+  .report-fill-grow,
+  .report-fade-in {
+    animation: none !important;
+  }
+
+  /* Tanpa animasi, sapuan langsung penuh supaya lingkaran tetap tampil. */
+  .report-sweep::before {
+    --report-sweep: 100%;
+  }
+}

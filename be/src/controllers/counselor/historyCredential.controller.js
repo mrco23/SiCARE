@@ -21,7 +21,7 @@ const supa = () => {
     throw new HttpError(
       503,
       "SUPABASE_NOT_CONFIGURED",
-      "Supabase belum dikonfigurasi pada backend.",
+      "Supabase belum dikonfigurasi pada backend."
     );
   return getSupabaseAdminClient();
 };
@@ -55,7 +55,7 @@ export const counselorHistoryCredentialController = {
       throw new HttpError(
         409,
         "CREDENTIAL_ALREADY_CONFIGURED",
-        "Kata sandi riwayat sudah dikonfigurasi. Gunakan menu ganti kata sandi.",
+        "Kata sandi riwayat sudah dikonfigurasi. Gunakan menu ganti kata sandi."
       );
     }
 
@@ -77,7 +77,11 @@ export const counselorHistoryCredentialController = {
       metadata: { role: "counselor" },
     });
 
-    return sendData(res, { success: true, message: "Kata sandi riwayat berhasil dikonfigurasi." }, 201);
+    return sendData(
+      res,
+      { success: true, message: "Kata sandi riwayat berhasil dikonfigurasi." },
+      201
+    );
   },
 
   async verifyPassword(req, res) {
@@ -92,13 +96,21 @@ export const counselorHistoryCredentialController = {
 
     if (error) supabaseError(error, "Gagal memverifikasi kata sandi riwayat.");
     if (!cred) {
-      throw new HttpError(404, "CREDENTIAL_NOT_CONFIGURED", "Kata sandi riwayat belum dikonfigurasi.");
+      throw new HttpError(
+        404,
+        "CREDENTIAL_NOT_CONFIGURED",
+        "Kata sandi riwayat belum dikonfigurasi."
+      );
     }
 
     const valid = await comparePassword(input.password, cred.password_hash);
     if (!valid) {
       const remaining = recordFailedAttempt(req.auth.user.id);
-      throw new HttpError(401, "INVALID_CREDENTIALS", `Kata sandi riwayat salah. Sisa percobaan: ${remaining}`);
+      throw new HttpError(
+        401,
+        "INVALID_CREDENTIALS",
+        `Kata sandi riwayat salah. Sisa percobaan: ${remaining}`
+      );
     }
 
     resetFailedAttempts(req.auth.user.id);
@@ -130,7 +142,7 @@ export const counselorHistoryCredentialController = {
       throw new HttpError(
         404,
         "CREDENTIAL_NOT_CONFIGURED",
-        "Kata sandi riwayat belum dikonfigurasi. Silakan atur kata sandi terlebih dahulu.",
+        "Kata sandi riwayat belum dikonfigurasi. Silakan atur kata sandi terlebih dahulu."
       );
     }
 
@@ -182,25 +194,31 @@ export const counselorHistoryCredentialController = {
       throw new HttpError(
         403,
         "HISTORY_ACCESS_LOCKED",
-        "Akses riwayat konseling terkunci. Masukkan kata sandi riwayat untuk membuka.",
+        "Akses riwayat konseling terkunci. Masukkan kata sandi riwayat untuk membuka."
       );
     }
 
     const { data: sessions, error: sessionError } = await client
       .from("counseling_sessions")
-      .select("id,booking_id,counselor_id,starts_at,ends_at,status,format,room,started_at,completed_at,created_at,updated_at")
+      .select(
+        "id,booking_id,counselor_id,starts_at,ends_at,status,format,room,started_at,completed_at,created_at,updated_at"
+      )
       .eq("counselor_id", req.auth.user.id)
       .order("starts_at", { ascending: false })
       .limit(200);
 
     if (sessionError) supabaseError(sessionError, "Riwayat sesi tidak dapat dibaca.");
 
-    const bookingIds = Array.from(new Set((sessions ?? []).map((s) => s.booking_id).filter(Boolean)));
+    const bookingIds = Array.from(
+      new Set((sessions ?? []).map((s) => s.booking_id).filter(Boolean))
+    );
     let bookings = [];
     if (bookingIds.length > 0) {
       const { data: bData, error: bError } = await client
         .from("bookings")
-        .select("id,client_id,counselor_id,service_type,group_name,participant_count,starts_at,ends_at,status,booking_participants(id,display_name,is_representative)")
+        .select(
+          "id,client_id,counselor_id,service_type,group_name,participant_count,starts_at,ends_at,status,booking_participants(id,display_name,is_representative)"
+        )
         .in("id", bookingIds);
 
       if (bError) supabaseError(bError, "Data booking riwayat tidak dapat dibaca.");
@@ -212,7 +230,7 @@ export const counselorHistoryCredentialController = {
     if (clientIds.length > 0) {
       const { data: pData, error: pError } = await client
         .from("profiles")
-        .select("id,full_name,student_id,faculty,study_program,phone_e164")
+        .select("id,full_name,identity_code,phone_e164")
         .in("id", clientIds);
 
       if (pError) supabaseError(pError, "Data profil klien riwayat tidak dapat dibaca.");
@@ -235,4 +253,3 @@ export const counselorHistoryCredentialController = {
     });
   },
 };
-
