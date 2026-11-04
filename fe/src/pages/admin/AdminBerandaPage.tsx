@@ -4,6 +4,8 @@ import {
   PageContainer,
   PageHeader,
   SectionErrorBoundary,
+  SkeletonBlock,
+  SkeletonStatGrid,
 } from "../../components/shared";
 import {
   CounselorWorkload,
@@ -34,7 +36,7 @@ import type {
   AdminDashboardDto,
   AdminReportDto,
 } from "../../types/api";
-import { Calendar, Loader2, RefreshCw } from "lucide-react";
+import { Calendar, RefreshCw } from "lucide-react";
 
 type PeriodFilter = (typeof periodFilters)[number];
 
@@ -464,9 +466,12 @@ export default function AdminBerandaPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-3xl border border-slate-200 bg-white py-16 text-sm text-slate-500 shadow-sm">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          Memuat ringkasan dashboard dari server...
+        <div className="space-y-5">
+          <SkeletonStatGrid label="Memuat ringkasan dashboard dari server..." />
+          <div className="grid gap-5 lg:grid-cols-2">
+            <SkeletonBlock lines={6} />
+            <SkeletonBlock lines={6} />
+          </div>
         </div>
       ) : (
         <>

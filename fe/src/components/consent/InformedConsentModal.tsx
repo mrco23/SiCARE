@@ -1,3 +1,4 @@
+import { SkeletonBlock } from "../shared/Skeleton";
 import React, { useEffect, useState } from "react";
 import {
   FileText,
@@ -184,10 +185,7 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
         {/* Modal Body */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1 text-slate-700">
           {loading ? (
-            <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-800" />
-              <p className="text-sm">Memuat formulir Informed Consent...</p>
-            </div>
+            <SkeletonBlock bare lines={8} label="Memuat formulir Informed Consent..." />
           ) : error && !consent ? (
             <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3 text-sm">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />

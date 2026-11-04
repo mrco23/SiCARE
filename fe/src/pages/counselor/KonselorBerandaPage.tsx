@@ -4,18 +4,19 @@ import {
   AlertCircle,
   ArrowRight,
   Calendar,
-  CalendarClock,
   CheckCircle2,
   Clock,
   Inbox,
-  Loader2,
   MapPin,
   RefreshCw,
   Star,
-  X,
-  XCircle,
 } from "lucide-react";
-import { PageContainer } from "../../components/shared";
+import {
+  PageContainer,
+  Skeleton,
+  SkeletonList,
+  useToast,
+} from "../../components/shared";
 import {
   BookingDecisionModal,
   type BookingDecisionAction,
@@ -71,10 +72,7 @@ export default function KonselorBerandaPage() {
     action: BookingDecisionAction;
   } | null>(null);
 
-  const [toast, setToast] = useState<{
-    type: "approve" | "reject" | "reschedule";
-    message: string;
-  } | null>(null);
+  const toast = useToast();
 
   const fetchDashboardData = useCallback(async () => {
     const [profileRes, counselorProfileRes, bookingsRes, sessionsRes, feedbackRes] =
@@ -123,12 +121,6 @@ export default function KonselorBerandaPage() {
       active = false;
     };
   }, [fetchDashboardData]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 4500);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
 
   const handleManualRefresh = async () => {
     setLoading(true);
@@ -248,20 +240,11 @@ export default function KonselorBerandaPage() {
     setDecisionModal(null);
 
     if (action === "approve") {
-      setToast({
-        type: "approve",
-        message: `Permintaan ${title} diterima dan sesi baru telah dijadwalkan.`,
-      });
+      toast.success(`Permintaan ${title} diterima dan sesi baru telah dijadwalkan.`);
     } else if (action === "reschedule") {
-      setToast({
-        type: "reschedule",
-        message: `Permintaan jadwal ulang untuk ${title} telah dikirim ke klien.`,
-      });
+      toast.info(`Permintaan jadwal ulang untuk ${title} telah dikirim ke klien.`);
     } else {
-      setToast({
-        type: "reject",
-        message: `Permintaan ${title} telah ditolak.`,
-      });
+      toast.info(`Permintaan ${title} telah ditolak.`);
     }
 
     try {
@@ -302,37 +285,6 @@ export default function KonselorBerandaPage() {
           </button>
         </div>
 
-        {toast && (
-          <div
-            role="status"
-            className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${
-              toast.type === "approve"
-                ? "border-emerald-200 bg-emerald-50 text-[#064E3B]"
-                : toast.type === "reschedule"
-                  ? "border-amber-200 bg-amber-50 text-amber-900"
-                  : "border-red-200 bg-red-50 text-red-800"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              {toast.type === "approve" ? (
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-              ) : toast.type === "reschedule" ? (
-                <CalendarClock className="h-4 w-4 shrink-0" />
-              ) : (
-                <XCircle className="h-4 w-4 shrink-0" />
-              )}
-              <span>{toast.message}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setToast(null)}
-              aria-label="Tutup notifikasi"
-              className="rounded-lg p-1 hover:bg-black/5"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
 
         {errorMessage && (
           <div
@@ -407,7 +359,7 @@ export default function KonselorBerandaPage() {
               </span>
             </div>
             <p className="mt-3 text-3xl font-bold text-gray-900">
-              {loading ? "—" : pendingRequests.length}
+              {loading ? <Skeleton className="h-9 w-12" /> : pendingRequests.length}
             </p>
             <p className="mt-1 text-xs font-medium text-amber-600">
               {pendingRequests.length > 0
@@ -430,7 +382,7 @@ export default function KonselorBerandaPage() {
               </span>
             </div>
             <p className="mt-3 text-3xl font-bold text-gray-900">
-              {loading ? "—" : todaySessions.length}
+              {loading ? <Skeleton className="h-9 w-12" /> : todaySessions.length}
             </p>
             <p className="mt-1 text-xs text-gray-500">
               {ongoingSession ? "1 sedang berlangsung" : "Terjadwal hari ini"}
@@ -451,7 +403,7 @@ export default function KonselorBerandaPage() {
               </span>
             </div>
             <p className="mt-3 text-3xl font-bold text-gray-900">
-              {loading ? "—" : sessionsThisWeek}
+              {loading ? <Skeleton className="h-9 w-12" /> : sessionsThisWeek}
             </p>
             <p className="mt-1 text-xs text-gray-500">Senin – Minggu ini</p>
           </button>
@@ -471,7 +423,7 @@ export default function KonselorBerandaPage() {
             </div>
             <div className="mt-3 flex items-baseline gap-1.5">
               <p className="text-3xl font-bold text-gray-900">
-                {loading ? "—" : ratingStats.avg}
+                {loading ? <Skeleton className="h-9 w-12" /> : ratingStats.avg}
               </p>
               <span className="text-xs text-gray-400">/ 5.0</span>
             </div>
@@ -504,12 +456,7 @@ export default function KonselorBerandaPage() {
             </div>
 
             {loading ? (
-              <div className="mt-6 flex flex-col items-center justify-center py-10 text-center">
-                <Loader2 className="h-6 w-6 animate-spin text-[#064E3B]" />
-                <p className="mt-2 text-xs text-gray-500">
-                  Memuat antrean permintaan konseling...
-                </p>
-              </div>
+              <SkeletonList bare rows={3} label="Memuat antrean permintaan konseling..." className="mt-4" />
             ) : pendingRequests.length === 0 ? (
               <div className="mt-5 rounded-xl border border-dashed border-gray-200 p-8 text-center">
                 <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
@@ -626,9 +573,7 @@ export default function KonselorBerandaPage() {
               </div>
 
               {loading ? (
-                <div className="mt-5 flex justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#064E3B]" />
-                </div>
+                <SkeletonList bare rows={2} label="Memuat sesi hari ini..." className="mt-4" />
               ) : todaySessions.length === 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-gray-200 p-6 text-center text-xs text-gray-500">
                   Belum ada sesi konseling terjadwal untuk hari ini.

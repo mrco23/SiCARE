@@ -16,7 +16,13 @@ import {
   Star,
   Users,
 } from "lucide-react";
-import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  SkeletonBlock,
+  SkeletonStatGrid,
+  SkeletonTable,
+} from "../../components/shared";
 import { MetricCard } from "../../components/headlmi/MetricCard";
 import { reportingApi } from "../../lib/reportingApi";
 import type { AdminReportDto } from "../../types/api";
@@ -169,9 +175,10 @@ export default function KepalaLMILaporanPage() {
           title="Laporan Layanan Konseling"
           description="Rekapitulasi pelaksanaan layanan, pembatalan, dan distribusi sesi per konselor untuk mendukung evaluasi LMI."
         />
-        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm font-medium text-slate-600">Memuat laporan dari server…</p>
+        <div className="space-y-5">
+          <SkeletonStatGrid label="Memuat laporan dari server…" />
+          <SkeletonBlock lines={6} />
+          <SkeletonTable rows={5} columns={5} />
         </div>
       </PageContainer>
     );

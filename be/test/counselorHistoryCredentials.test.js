@@ -378,3 +378,46 @@ test("full lifecycle: init, status, verify, change password and protected histor
   assert.equal(clientAccess.status, 403);
 });
 
+
+test("history response attaches clients[].photo_url from auth metadata and tolerates lookup failure", async () => {
+  const counselorId = "55555555-5555-5555-5555-555555555555";
+  const mockDb = createMockSupabaseForCredentials(counselorId);
+  mockDb.auth.admin = {
+    getUserById: async (id) => {
+      if (id === "99999999-9999-9999-9999-999999999999") {
+        return {
+          data: { user: { id, user_metadata: { avatar_url: "https://cdn.example.test/avatar.png" } } },
+          error: null,
+        };
+      }
+      throw new Error("lookup failed");
+    },
+  };
+
+  await requestApp(mockDb, {
+    method: "POST",
+    path: "/api/v1/counselor/history-password/init",
+    token: "valid-counselor-token",
+    body: { password: "securePIN1234" },
+  });
+  const verify = await requestApp(mockDb, {
+    method: "POST",
+    path: "/api/v1/counselor/history-password/verify",
+    token: "valid-counselor-token",
+    body: { password: "securePIN1234" },
+  });
+
+  const history = await requestApp(mockDb, {
+    method: "GET",
+    path: "/api/v1/counselor/history",
+    token: "valid-counselor-token",
+    headers: { "x-counselor-history-grant": verify.body.data.grant_token },
+  });
+
+  assert.equal(history.status, 200);
+  const byId = new Map(history.body.data.clients.map((c) => [c.id, c]));
+  assert.equal(byId.get("99999999-9999-9999-9999-999999999999").photo_url, "https://cdn.example.test/avatar.png");
+  // Lookup failure for another profile must not break the response.
+  assert.equal(byId.get(counselorId).photo_url, null);
+  resetFailedAttempts(counselorId);
+});

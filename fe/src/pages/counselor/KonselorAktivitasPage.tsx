@@ -15,9 +15,13 @@ import {
   Search,
   Users,
   X,
-  XCircle,
 } from "lucide-react";
-import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  SkeletonList,
+  useToast,
+} from "../../components/shared";
 import {
   formatBookingClientTitle,
   formatBookingRepresentative,
@@ -91,10 +95,7 @@ export default function KonselorAktivitasPage() {
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [consentModalBookingId, setConsentModalBookingId] = useState<string | null>(null);
 
-  const [toast, setToast] = useState<{
-    type: "success" | "cancel";
-    message: string;
-  } | null>(null);
+  const toast = useToast();
 
   const fetchActivityData = useCallback(async () => {
     const [sessionsRes, bookingsRes] = await Promise.all([
@@ -132,12 +133,6 @@ export default function KonselorAktivitasPage() {
       active = false;
     };
   }, [fetchActivityData]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 4500);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
 
   const handleManualRefresh = async () => {
     setLoading(true);
@@ -302,21 +297,12 @@ export default function KonselorAktivitasPage() {
       setTransitionDialog(null);
 
       if (targetStatus === "ongoing") {
-        setToast({
-          type: "success",
-          message: `Sesi dengan ${clientTitle} telah dimulai.`,
-        });
+        toast.success(`Sesi dengan ${clientTitle} telah dimulai.`);
         setSelectedSessionId(result.id);
       } else if (targetStatus === "completed") {
-        setToast({
-          type: "success",
-          message: `Sesi dengan ${clientTitle} telah diselesaikan.`,
-        });
+        toast.success(`Sesi dengan ${clientTitle} telah diselesaikan.`);
       } else {
-        setToast({
-          type: "cancel",
-          message: `Sesi dengan ${clientTitle} telah dibatalkan dan slot jadwal dibuka kembali.`,
-        });
+        toast.info(`Sesi dengan ${clientTitle} telah dibatalkan dan slot jadwal dibuka kembali.`);
       }
 
       const fresh = await fetchActivityData();
@@ -352,33 +338,6 @@ export default function KonselorAktivitasPage() {
           </button>
         </div>
 
-        {toast && (
-          <div
-            role="status"
-            className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${
-              toast.type === "success"
-                ? "border-emerald-200 bg-emerald-50 text-[#064E3B]"
-                : "border-red-200 bg-red-50 text-red-800"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              {toast.type === "success" ? (
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-              ) : (
-                <XCircle className="h-4 w-4 shrink-0" />
-              )}
-              <span>{toast.message}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setToast(null)}
-              aria-label="Tutup notifikasi"
-              className="rounded-lg p-1 hover:bg-black/5"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
 
         {errorMessage && (
           <div
@@ -763,12 +722,7 @@ export default function KonselorAktivitasPage() {
             </div>
 
             {loading ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white py-16 text-center shadow-xs">
-                <Loader2 className="h-7 w-7 animate-spin text-[#064E3B]" />
-                <p className="mt-3 text-sm font-medium text-gray-600">
-                  Memuat daftar sesi konseling dari server...
-                </p>
-              </div>
+              <SkeletonList rows={5} label="Memuat daftar sesi konseling dari server..." />
             ) : filteredSessions.length === 0 ? (
               <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-xs">
                 <FileText className="mx-auto h-10 w-10 text-gray-300" />

@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PageContainer, PageHeader } from "../../components/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  PageContainer,
+  PageHeader,
+  SkeletonTable,
+  useToast,
+} from "../../components/shared";
 import { adminApi } from "../../lib/adminApi";
 import {
   fmtDate,
@@ -127,10 +132,7 @@ export default function AdminPeriodePage() {
 
   const [togglingPublishId, setTogglingPublishId] = useState<string | null>(null);
 
-  // Toast
-  const [toastMsg, setToastMsg] = useState("");
-  const [toastShow, setToastShow] = useState(false);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const toast = useToast();
 
   const fetchPeriods = useCallback(async () => {
     const dtos = await adminApi.listAcademicPeriods();
@@ -189,14 +191,6 @@ export default function AdminPeriodePage() {
     return () => document.removeEventListener("keydown", onKey);
   }, [submitting]);
 
-  useEffect(() => () => clearTimeout(toastTimer.current), []);
-
-  const toast = (msg: string) => {
-    setToastMsg(msg);
-    setToastShow(true);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToastShow(false), 2600);
-  };
 
   /* ===== DATA TURUNAN ===== */
   const active = periods.find((p) => today >= p.start && today <= p.end);
@@ -302,13 +296,13 @@ export default function AdminPeriodePage() {
         const mapped = mapAcademicPeriodDto(updated);
         setPeriods((prev) => prev.map((p) => (p.id === editingId ? mapped : p)));
         setModalOpen(false);
-        toast(`Periode ${mapped.label} diperbarui.`);
+        toast.success(`Periode ${mapped.label} diperbarui.`);
       } else {
         const created = await adminApi.createAcademicPeriod(payload);
         const mapped = mapAcademicPeriodDto(created);
         setPeriods((prev) => [...prev, mapped]);
         setModalOpen(false);
-        toast(`Periode ${mapped.label} ditambahkan.`);
+        toast.success(`Periode ${mapped.label} ditambahkan.`);
       }
     } catch (err) {
       setError(
@@ -327,13 +321,13 @@ export default function AdminPeriodePage() {
       });
       const mapped = mapAcademicPeriodDto(updated);
       setPeriods((prev) => prev.map((p) => (p.id === period.id ? mapped : p)));
-      toast(
+      toast.success(
         mapped.isPublished
           ? `Periode ${mapped.label} dipublikasikan.`
           : `Periode ${mapped.label} disembunyikan dari publikasi.`,
       );
     } catch (err) {
-      toast(
+      toast.error(
         err instanceof Error
           ? err.message
           : "Status publikasi periode tidak dapat diubah.",
@@ -477,10 +471,7 @@ export default function AdminPeriodePage() {
 
         {/* Tabel */}
         {loading ? (
-          <div className="mt-6 flex items-center justify-center gap-2 border-t border-slate-100 py-14 text-sm text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            Memuat periode akademik dari server...
-          </div>
+          <SkeletonTable bare rows={4} columns={5} label="Memuat periode akademik dari server..." className="mt-6 border-t border-slate-100" />
         ) : rows.length > 0 ? (
           <div className="mt-6 overflow-x-auto border-t border-slate-100">
             <table className="w-full text-left text-sm">
@@ -713,14 +704,6 @@ export default function AdminPeriodePage() {
         </div>
       )}
 
-      {/* ================= TOAST ================= */}
-      <div
-        className={`pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg transition duration-300 ${
-          toastShow ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-        }`}
-      >
-        {toastMsg}
-      </div>
     </PageContainer>
   );
 }

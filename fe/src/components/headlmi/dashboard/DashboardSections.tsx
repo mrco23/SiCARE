@@ -1,3 +1,4 @@
+import { SkeletonBlock } from "../../shared/Skeleton";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
@@ -5,7 +6,6 @@ import {
   CheckCircle2,
   Clock3,
   Inbox,
-  Loader2,
   MessageSquareWarning,
   RefreshCw,
   Star,
@@ -38,10 +38,7 @@ function SectionState({
 }) {
   if (loading) {
     return (
-      <div className={`flex ${minHeight} items-center justify-center gap-2 text-sm text-slate-400`}>
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Memuat data…
-      </div>
+      <SkeletonBlock bare lines={4} label="Memuat data…" className={minHeight} />
     );
   }
   if (error) {

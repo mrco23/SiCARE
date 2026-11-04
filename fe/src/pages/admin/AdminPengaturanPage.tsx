@@ -2,15 +2,16 @@ import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
 import { sicareApi } from "../../lib/sicareApi";
 import type { HeroMotivationAdminDto } from "../../types/api";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PageContainer,
   PageHeader,
   SettingsField as Field,
   SettingsPanel as Panel,
+  SkeletonList,
+  useToast,
 } from "../../components/shared";
 import {
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -77,8 +78,7 @@ export default function AdminPengaturanPage() {
   const [heroLoadError, setHeroLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
-  const [toast, setToast] = useState("");
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useToast();
 
   const [heroQuery, setHeroQuery] = useState("");
   const [heroFilter, setHeroFilter] = useState<HeroFilter>("all");
@@ -237,15 +237,6 @@ export default function AdminPengaturanPage() {
     setHeroModal(null);
   }
 
-  useEffect(() => {
-    if (!toast) return;
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 3200);
-    return () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    };
-  }, [toast]);
-
   function updateProfile<K extends keyof AdminProfile>(
     key: K,
     value: AdminProfile[K],
@@ -268,18 +259,18 @@ export default function AdminPengaturanPage() {
 
   async function saveChanges() {
     if (!heroLoadError && heroLoading) {
-      setToast("Tunggu sampai kalimat motivasi selesai dimuat.");
+      toast.error("Tunggu sampai kalimat motivasi selesai dimuat.");
       return;
     }
     if (heroLoadError && heroDirty) {
-      setToast(
+      toast.error(
         "Kalimat motivasi belum berhasil dimuat. Muat ulang halaman sebelum menyimpan.",
       );
       return;
     }
     if (Object.keys(errors).length > 0) {
       setShowErrors(true);
-      setToast("Periksa kembali isian yang ditandai.");
+      toast.error("Periksa kembali isian yang ditandai.");
       return;
     }
 
@@ -344,7 +335,7 @@ export default function AdminPengaturanPage() {
       }
 
       setShowErrors(false);
-      setToast(
+      toast.success(
         "Perubahan profil dan kalimat motivasi berhasil disimpan ke database.",
       );
     } catch (error) {
@@ -352,7 +343,7 @@ export default function AdminPengaturanPage() {
         error instanceof Error
           ? error.message
           : "Pengaturan tidak dapat disimpan.";
-      setToast(message);
+      toast.error(message);
       try {
         const refreshed = await adminApi.listHeroMotivations();
         setHeroMotivations(refreshed);
@@ -483,9 +474,7 @@ export default function AdminPengaturanPage() {
           }
         >
           {heroLoading && (
-            <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
-              Memuat kalimat motivasi dari database...
-            </p>
+            <SkeletonList bare rows={3} label="Memuat kalimat motivasi dari database..." />
           )}
 
           {heroLoadError && (
@@ -842,15 +831,6 @@ export default function AdminPengaturanPage() {
         </div>
       )}
 
-      {toast && (
-        <div
-          role="status"
-          className="pointer-events-none fixed left-1/2 top-20 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
-        >
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{toast}</span>
-        </div>
-      )}
 
       <p className="mt-8 pb-3 text-center text-[11px] leading-relaxed text-gray-400">
         Profil akun administrator dan kalimat motivasi tersinkron dengan

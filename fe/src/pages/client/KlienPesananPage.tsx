@@ -1,4 +1,7 @@
-import { PageHeader } from "../../components/shared";
+import {
+  PageHeader,
+  SkeletonCardGrid,
+} from "../../components/shared";
 import {
   BackButton,
   CheckRow,
@@ -421,9 +424,7 @@ export default function KlienPesananPage() {
         </p>
       )}
       {directoryLoading && (
-        <p className="mt-4 rounded-xl bg-white p-3 text-sm text-slate-600">
-          Memuat konselor dan jadwal dari backend...
-        </p>
+        <SkeletonCardGrid count={3} label="Memuat konselor dan jadwal dari backend..." className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" />
       )}
 
       {step <= 5 && <Stepper step={step} steps={STEPS} />}

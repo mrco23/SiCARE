@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  SkeletonList,
+} from "../../components/shared";
 import { adminApi } from "../../lib/adminApi";
 import type { AdminActivityDto } from "../../types/api";
 import {
@@ -8,7 +12,6 @@ import {
   ArrowUpRight,
   CalendarClock,
   ClipboardList,
-  Loader2,
   MessageSquareText,
   RefreshCw,
   Search,
@@ -420,10 +423,7 @@ export default function AdminActivityPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            Memuat log aktivitas dari server...
-          </div>
+          <SkeletonList bare rows={6} label="Memuat log aktivitas dari server..." />
         ) : filteredRows.length > 0 ? (
           <div className="divide-y divide-slate-100">
             {filteredRows.map((item) => {

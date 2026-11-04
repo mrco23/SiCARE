@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../../config/supabase.js";
+import { env } from "../../config/env.js";
 import { HttpError, parseBody, sendData, supabaseError } from "../../lib/http.js";
 import { writeAudit } from "../../lib/audit.js";
 import {
@@ -24,6 +25,32 @@ const supa = () => {
       "Supabase belum dikonfigurasi pada backend."
     );
   return getSupabaseAdminClient();
+};
+
+// Foto klien disimpan sebagai path bucket `avatars` di user_metadata.avatar_url
+// (lihat POST /profile/photo); URL eksternal (mis. OAuth) diteruskan apa adanya.
+const toAvatarPublicUrl = (value) => {
+  if (typeof value !== "string" || !value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  const baseUrl = (env.SUPABASE_URL || "").replace(/\/+$/, "");
+  if (!baseUrl) return null;
+  const path = value.replace(/^avatars\//, "").replace(/^\/+/, "");
+  return `${baseUrl}/storage/v1/object/public/avatars/${path}`;
+};
+
+const loadClientPhotoUrls = async (client, clientIds) => {
+  const entries = await Promise.all(
+    clientIds.map(async (id) => {
+      try {
+        const { data, error } = await client.auth.admin.getUserById(id);
+        if (error) return [id, null];
+        return [id, toAvatarPublicUrl(data?.user?.user_metadata?.avatar_url)];
+      } catch {
+        return [id, null];
+      }
+    })
+  );
+  return new Map(entries);
 };
 
 export const counselorHistoryCredentialController = {
@@ -234,7 +261,11 @@ export const counselorHistoryCredentialController = {
         .in("id", clientIds);
 
       if (pError) supabaseError(pError, "Data profil klien riwayat tidak dapat dibaca.");
-      clientProfiles = pData ?? [];
+      const photoUrls = await loadClientPhotoUrls(client, clientIds);
+      clientProfiles = (pData ?? []).map((p) => ({
+        ...p,
+        photo_url: photoUrls.get(p.id) ?? null,
+      }));
     }
 
     await writeAudit({

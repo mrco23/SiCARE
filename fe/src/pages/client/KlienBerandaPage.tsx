@@ -1,3 +1,4 @@
+import { SkeletonBlock } from "../../components/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -99,6 +100,7 @@ export default function BerandaKlienPage() {
   const [bookings, setBookings] = useState<BookingListItemDto[]>([]);
   const [sessions, setSessions] = useState<SessionListItemDto[]>([]);
   const [counselorNames, setCounselorNames] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
 
   const today = useMemo(() => new Date(), []);
   const tomorrow = useMemo(() => addDays(today, 1), [today]);
@@ -133,12 +135,16 @@ export default function BerandaKlienPage() {
 
   useEffect(() => {
     let active = true;
-    void fetchDashboard().then((res) => {
-      if (!active || !res) return;
-      setBookings(res.bookingRows);
-      setSessions(res.sessionRows);
-      setCounselorNames(res.counselorNameMap);
-    });
+    void fetchDashboard()
+      .then((res) => {
+        if (!active || !res) return;
+        setBookings(res.bookingRows);
+        setSessions(res.sessionRows);
+        setCounselorNames(res.counselorNameMap);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
       active = false;
     };
@@ -288,7 +294,9 @@ export default function BerandaKlienPage() {
             </h2>
           </div>
 
-          {!upcoming ? (
+          {loading ? (
+            <SkeletonBlock bare lines={4} label="Memuat jadwal konseling..." className="mt-5" />
+          ) : !upcoming ? (
             <div className="mt-5 rounded-2xl border border-dashed border-gray-300 p-6 text-center">
               <p className="text-sm font-semibold text-gray-700">
                 Belum ada jadwal konseling
@@ -365,7 +373,9 @@ export default function BerandaKlienPage() {
             </h2>
           </div>
 
-          {!lastBooking ? (
+          {loading ? (
+            <SkeletonBlock bare lines={3} label="Memuat status booking..." className="mt-5" />
+          ) : !lastBooking ? (
             <div className="mt-5 rounded-2xl border border-dashed border-gray-300 p-5 text-center text-sm text-gray-500">
               Belum ada booking.
             </div>

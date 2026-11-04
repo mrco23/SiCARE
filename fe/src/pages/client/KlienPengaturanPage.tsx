@@ -1,4 +1,8 @@
-import { PageHeader } from "../../components/shared";
+import {
+  PageHeader,
+  SkeletonFormGrid,
+  useToast,
+} from "../../components/shared";
 import { useAuth } from "../../features/auth/useAuth";
 import { sicareApi } from "../../lib/sicareApi";
 import {
@@ -19,7 +23,6 @@ import {
 } from "react";
 import {
   Camera,
-  CheckCircle2,
   IdCard,
   LockKeyhole,
   Phone,
@@ -65,7 +68,7 @@ export default function KlienPengaturanPage() {
   const [serverProfile, setServerProfile] = useState<ProfileDto | null>(null);
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
-  const [toast, setToast] = useState("");
+  const toast = useToast();
   const [photoError, setPhotoError] = useState("");
 
   // Cropper states
@@ -89,7 +92,6 @@ export default function KlienPengaturanPage() {
   const [pwdConfirm, setPwdConfirm] = useState("");
 
   const photoInput = useRef<HTMLInputElement>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dirty =
     JSON.stringify(profile) !== JSON.stringify(saved) ||
@@ -97,6 +99,7 @@ export default function KlienPengaturanPage() {
     whatsappOptIn !== savedWhatsappOptIn;
 
   const errors = useMemo<Errors>(() => validateClientProfile(profile), [profile]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -127,21 +130,15 @@ export default function KlienPengaturanPage() {
       })
       .catch(() => {
         // Fallback to auth profile
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
 
     return () => {
       active = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (!toast) return;
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 3000);
-    return () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    };
-  }, [toast]);
 
   useEffect(() => {
     return () => {
@@ -275,13 +272,13 @@ export default function KlienPengaturanPage() {
 
   function handleDeletePhoto() {
     setPhoto(null);
-    setToast("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
+    toast.info("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
   }
 
   async function saveChanges() {
     if (Object.keys(errors).length) {
       setShowErrors(true);
-      setToast("Periksa kembali isian yang ditandai.");
+      toast.error("Periksa kembali isian yang ditandai.");
       return;
     }
 
@@ -319,9 +316,9 @@ export default function KlienPengaturanPage() {
       setPhoto(nextPhotoPath);
       setSavedWhatsappOptIn(whatsappOptIn);
       setShowErrors(false);
-      setToast("Perubahan berhasil disimpan.");
+      toast.success("Perubahan berhasil disimpan.");
     } catch (err) {
-      setToast(
+      toast.error(
         err instanceof Error
           ? err.message
           : "Gagal menyimpan perubahan profil ke server.",
@@ -348,13 +345,13 @@ export default function KlienPengaturanPage() {
       pwdConfirm !== pwdNext ? "Konfirmasi kata sandi tidak sama." : "",
     ].filter(Boolean);
     if (issues.length) {
-      setToast(issues.join(" "));
+      toast.error(issues.join(" "));
       return;
     }
     setPwdCurrent("");
     setPwdNext("");
     setPwdConfirm("");
-    setToast("Perubahan kata sandi disimpan untuk sesi browser ini.");
+    toast.success("Perubahan kata sandi disimpan untuk sesi browser ini.");
   }
 
   const activeProfile = serverProfile ?? authProfile;
@@ -433,6 +430,9 @@ export default function KlienPengaturanPage() {
         onChange={handlePhoto}
       />
 
+{loading ? (
+        <SkeletonFormGrid className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6" />
+      ) : (
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6">
         {/* Data pribadi dan akademik (read-only) */}
         <Panel
@@ -637,6 +637,7 @@ export default function KlienPengaturanPage() {
           </div>
         </Panel>
       </div>
+      )}
 
       {/* Modal Pemotong Foto */}
       {cropSource && (
@@ -788,16 +789,6 @@ export default function KlienPengaturanPage() {
         </div>
       )}
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          role="status"
-          className="pointer-events-none fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
-        >
-          <CheckCircle2 className="h-4 w-4" />
-          {toast}
-        </div>
-      )}
     </div>
   );
 }

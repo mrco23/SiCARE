@@ -115,7 +115,7 @@
 2. **Tidak ada mutasi remote dalam pemeriksaan terakhir.** Query yang dijalankan hanya membaca metadata. Tidak ada migrasi baru yang didorong atau data yang dibuat/diubah.
 3. **Frontend bundle cukup besar.** Build berhasil, tetapi bundle JS utama sekitar 1,30 MB sebelum gzip. Catat sebagai optimasi terpisah; jangan menunda integrasi API hanya karena warning ini.
 4. **Frontend memiliki 4 low-severity npm audit findings.** Jangan menjalankan `npm audit fix --force` tanpa memeriksa perubahan dependency dan potensi breaking changes. Backend melaporkan 0 vulnerabilities.
-5. **Data sensitif belum memiliki model backend yang terverifikasi.** Intake, informed consent, tanda tangan, dan catatan konseling belum memiliki model/API yang terkonfirmasi terhadap SOP resmi.
+5. **Data sensitif belum memiliki model backend yang terverifikasi.** Intake, informed consent, tanda tangan, dan catatan konseling belum memiliki model/API yang terkonfirmasi terhadap SOP resmi. Riwayat konselor (`GET /counselor/history`) kini mengirim `clients[].photo_url`; `session_notes` dan `intake_answers` masih berupa usulan migrasi yang belum diterapkan (`backend/PROPOSAL_COUNSELOR_HISTORY_NOTES_INTAKE.md`, 2026-11-04) dan menunggu jawaban SOP.
 6. **Pengunci riwayat konselor masih sisi browser.** `sessionStorage` atau password UI bukan pengganti otorisasi server.
 7. **Data master dan alur konselor belum terhubung menyeluruh.** Pengelolaan akun/periode, profil dan jadwal konselor, keputusan booking, transisi sesi, moderasi feedback, dashboard, dan laporan masih memerlukan integrasi UI.
 8. **WhatsApp belum menjadi pengiriman lengkap.** Outbox atau opt-in/out tidak membuktikan pesan terkirim; worker pengiriman belum tersedia pada scope saat ini.

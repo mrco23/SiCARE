@@ -1,3 +1,7 @@
+import {
+  SkeletonList,
+  useToast,
+} from "../../components/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Link } from "react-router-dom";
@@ -437,6 +441,7 @@ function ConsentDialog({
 
 export default function KlienAktivitasPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dynamicSlots, setDynamicSlots] = useState<PublicAvailabilitySlot[]>([]);
   const [counselorsList, setCounselorsList] = useState<PublicCounselor[]>([]);
   const [counselorSchedule, setCounselorSchedule] = useState<
@@ -451,12 +456,9 @@ export default function KlienAktivitasPage() {
   const [consentSessionId, setConsentSessionId] = useState<
     number | string | null
   >(null);
-  const [toast, setToast] = useState("");
+  const toast = useToast();
   const [view, setView] = useState<"main" | "reschedule">("main");
   const [reschedule, setReschedule] = useState<RescheduleState | null>(null);
-  const toastTimeout = useRef<ReturnType<typeof window.setTimeout> | null>(
-    null,
-  );
 
   void SESSION_MIN;
 
@@ -673,13 +675,17 @@ export default function KlienAktivitasPage() {
 
   useEffect(() => {
     let active = true;
-    void fetchActivity().then((res) => {
-      if (!active || !res) return;
-      setCounselorsList(res.counselors);
-      setDynamicSlots(res.filteredSlots);
-      setCounselorSchedule((prev) => ({ ...prev, ...res.dynSchedule }));
-      setSessions(res.mappedSessions);
-    });
+    void fetchActivity()
+      .then((res) => {
+        if (!active || !res) return;
+        setCounselorsList(res.counselors);
+        setDynamicSlots(res.filteredSlots);
+        setCounselorSchedule((prev) => ({ ...prev, ...res.dynSchedule }));
+        setSessions(res.mappedSessions);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
       active = false;
     };
@@ -690,20 +696,6 @@ export default function KlienAktivitasPage() {
     return () => window.clearInterval(interval);
   }, []);
 
-  useEffect(
-    () => () => {
-      if (toastTimeout.current !== null)
-        window.clearTimeout(toastTimeout.current);
-    },
-    [],
-  );
-
-  const showToast = (message: string) => {
-    setToast(message);
-    if (toastTimeout.current !== null)
-      window.clearTimeout(toastTimeout.current);
-    toastTimeout.current = window.setTimeout(() => setToast(""), 2600);
-  };
 
   const ongoing = useMemo(
     () =>
@@ -842,12 +834,12 @@ export default function KlienAktivitasPage() {
         ),
       );
       closeFeedback();
-      showToast("Terima kasih! Penilaianmu sudah kami terima.");
+      toast.info("Terima kasih! Penilaianmu sudah kami terima.");
       void refreshActivity();
     } catch (cause) {
       const msg =
         cause instanceof Error ? cause.message : "Penilaian tidak dapat dikirim.";
-      showToast(msg);
+      toast.error(msg);
     }
   };
 
@@ -883,14 +875,14 @@ export default function KlienAktivitasPage() {
         ),
       );
       setConsentSessionId(null);
-      showToast("Informed consent berhasil ditandatangani.");
+      toast.success("Informed consent berhasil ditandatangani.");
       void refreshActivity();
     } catch (cause) {
       const msg =
         cause instanceof Error
           ? cause.message
           : "Tanda tangan gagal disimpan.";
-      showToast(msg);
+      toast.error(msg);
     }
   };
 
@@ -988,7 +980,7 @@ export default function KlienAktivitasPage() {
 
       setReschedule(null);
       setView("main");
-      showToast(
+      toast.success(
         "Pengajuan ubah jadwal dikirim. Kami kabari begitu konselor menyetujuinya.",
       );
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1465,7 +1457,9 @@ export default function KlienAktivitasPage() {
           />
         </div>
 
-        {upcoming.length > 0 ? (
+        {loading ? (
+          <SkeletonList rows={3} label="Memuat aktivitas konseling..." />
+        ) : upcoming.length > 0 ? (
           <div className="space-y-3">
             {upcoming.map((session, index) =>
               renderUpcomingCard(session, index === 0),
@@ -1621,17 +1615,6 @@ export default function KlienAktivitasPage() {
         </div>
       )}
 
-      {toast && (
-        <div
-          role="status"
-          className="pointer-events-none fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-lg"
-        >
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-[#8fe3bf]" />
-            {toast}
-          </span>
-        </div>
-      )}
     </>
   );
 }

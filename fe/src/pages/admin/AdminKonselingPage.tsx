@@ -5,6 +5,7 @@ import {
   PageContainer,
   PageHeader,
   AcademicPeriodFilter,
+  SkeletonTable,
 } from "../../components/shared";
 import { adminApi } from "../../lib/adminApi";
 import { getPublicCounselors } from "../../lib/publicApi";
@@ -24,7 +25,6 @@ import {
   Clock,
   FolderOpen,
   List,
-  Loader2,
   Lock,
   RefreshCw,
   Star,
@@ -1031,10 +1031,7 @@ export default function AdminKonselingPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            Memuat data monitoring konseling dari server...
-          </div>
+          <SkeletonTable bare rows={6} columns={6} label="Memuat data monitoring konseling dari server..." />
         ) : view === "daftar" ? (
           <>
             <div className="overflow-x-auto">

@@ -47,7 +47,7 @@ Matriks ini dibuat dari deklarasi route di `be/src/routes/*.js`, mount path di `
 | 18 | `POST` | `/api/v1/auth/login` | public | Login.tsx melalui AuthProvider | **Terhubung** | Login diverifikasi backend lalu sesi disimpan melalui Supabase Auth; pemisahan kredensial salah (401 INVALID_CREDENTIALS, pesan identik tanpa kata verifikasi/dikonfirmasi untuk cegah enumerasi akun) vs email belum dikonfirmasi (403 EMAIL_NOT_CONFIRMED saat kata sandi benar, dilengkapi panel verifikasi edukatif dan kirim ulang ber-cooldown 60 detik) vs akun dinonaktifkan (403 ACCOUNT_INACTIVE). |
 | 19 | `GET` | `/api/v1/auth/me` | authenticated | AuthProvider | **Terhubung** | Memuat profil server saat sesi dipulihkan atau diperbarui. |
 | 20 | `POST` | `/api/v1/auth/logout` | authenticated | AuthProvider | **Terhubung** | Backend logout dicoba; sesi lokal tetap dihapus bila API gagal. |
-| 21 | `GET` | `/api/v1/bookings` | client, counselor | KlienBerandaPage, KlienAktivitasPage, KonselorPermintaanPage, KonselorBerandaPage, KonselorAktivitasPage, KonselorJadwalPage, KonselorRiwayatPage | **Terhubung** | Dipakai oleh halaman klien dan konselor untuk daftar/konteks booking. |
+| 21 | `GET` | `/api/v1/bookings` | client, counselor | KlienBerandaPage, KlienAktivitasPage, KlienRiwayatPage, KonselorPermintaanPage, KonselorBerandaPage, KonselorAktivitasPage, KonselorJadwalPage, KonselorRiwayatPage | **Terhubung** | Dipakai oleh halaman klien dan konselor untuk daftar/konteks booking. |
 | 22 | `POST` | `/api/v1/bookings` | client | KlienPesananPage | **Terhubung sebagian** | Booking tersimpan, tetapi jawaban intake tidak ikut dikirim/disimpan. |
 | 23 | `PATCH` | `/api/v1/bookings/:id/reschedule` | client | KlienAktivitasPage | **Terhubung** | Klien mengusulkan slot pengganti setelah status reschedule_requested. |
 | 24 | `GET` | `/api/v1/bookings/:id` | client, counselor | Belum ada halaman | **Wrapper ada, UI belum** | Endpoint detail booking belum dipakai langsung karena proyeksi list & detail identik. |
@@ -100,6 +100,7 @@ Matriks ini dibuat dari deklarasi route di `be/src/routes/*.js`, mount path di `
 | 71 | `PATCH` | `/api/v1/consents/guest/me/identity` | guest | GuestConsentPage | **Terhubung** | Memperbarui identitas draft peserta tamu sebelum penandatanganan. |
 | 72 | `POST` | `/api/v1/consents/guest/me/sign` | guest | GuestConsentPage | **Terhubung** | Menandatangani consent peserta tamu secara mandiri dan membangkitkan PDF resmi individual. |
 | 73 | `GET` | `/api/v1/consents/guest/me/document` | guest | GuestConsentPage | **Terhubung** | Mengambil presigned URL berumur pendek untuk mengunduh PDF bertandatangan resmi milik tamu. |
+| 74 | `GET` | `/api/v1/counselor/history` | counselor (+ header `X-Counselor-History-Grant`) | KonselorRiwayatPage | **Terhubung sebagian** | Mengembalikan `sessions`, `bookings`, `clients` (`id`, `full_name`, `identity_code`, `phone_e164`, `photo_url`). `photo_url` diturunkan dari `user_metadata.avatar_url` (bucket `avatars`), `null` jika tidak ada/gagal dibaca (2026-11-04). `session_notes` dan `intake_answers` **belum dikirim**: tabel belum ada dan menunggu SOP; lihat `../backend/PROPOSAL_COUNSELOR_HISTORY_NOTES_INTAKE.md`. |
 
 ## Catatan lintas endpoint
 

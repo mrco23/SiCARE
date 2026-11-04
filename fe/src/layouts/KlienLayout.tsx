@@ -117,7 +117,7 @@ export default function KlienLayout() {
       </nav>
 
       {/* ================= KONTEN HALAMAN ================= */}
-      <main className="mx-auto w-[92%] max-w-7xl pb-12 pt-6 sm:w-[88%] sm:pt-8 lg:w-[86%]">
+      <main className="mx-auto w-[92%] max-w-6xl pb-12 pt-6 sm:w-[88%] sm:pt-8 lg:w-[84%]">
         <Outlet />
       </main>
     </div>
