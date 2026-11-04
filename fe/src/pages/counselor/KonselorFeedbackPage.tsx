@@ -3,14 +3,18 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  Loader2,
   MessageSquareQuote,
   RefreshCw,
   Search,
   Star,
   X,
 } from "lucide-react";
-import { PageContainer, PageHeader, AcademicPeriodFilter } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  AcademicPeriodFilter,
+  SkeletonList,
+} from "../../components/shared";
 import {
   formatAcademicPeriodLabel,
   formatIsoShortDateId,
@@ -546,12 +550,7 @@ export default function KonselorFeedbackPage() {
 
         {/* Daftar Ulasan */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white py-16 text-center shadow-xs">
-            <Loader2 className="h-7 w-7 animate-spin text-[#064E3B]" />
-            <p className="mt-3 text-sm font-medium text-gray-600">
-              Memuat ulasan klien dari server...
-            </p>
-          </div>
+          <SkeletonList rows={5} label="Memuat ulasan klien dari server..." />
         ) : visibleFeedback.length === 0 ? (
           <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-xs">
             <MessageSquareQuote className="mx-auto h-10 w-10 text-gray-300" />

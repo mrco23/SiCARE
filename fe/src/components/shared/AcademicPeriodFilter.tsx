@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Check, ChevronDown } from "lucide-react";
 import {
   fmtDate,
@@ -42,6 +49,9 @@ interface NormalizedPeriod<T> extends AcademicPeriod {
   original: T;
 }
 
+const PANEL_MAX_WIDTH = 560;
+const VIEWPORT_GUTTER = 8;
+
 const STATUS_STYLE: Record<PeriodStatus, string> = {
   Aktif: "bg-emerald-50 text-primary border-emerald-200",
   Mendatang: "bg-sky-50 text-sky-700 border-sky-200",
@@ -62,6 +72,7 @@ export default function AcademicPeriodFilter<T extends AcademicPeriodLike>({
 }: AcademicPeriodFilterProps<T>) {
   const [open, setOpen] = useState(false);
   const [ta, setTa] = useState<string | null>(null);
+  const [panelOffset, setPanelOffset] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const todayDate = useMemo(() => today ?? toISO(new Date()), [today]);
@@ -112,6 +123,26 @@ export default function AcademicPeriodFilter<T extends AcademicPeriodLike>({
     normalizedPeriods
       .filter((p) => p.ta === year)
       .sort((a, b) => a.start.localeCompare(b.start));
+
+  // Panel default memanjang ke kanan; geser ke kiri bila akan melewati tepi
+  // kanan layar agar tidak memunculkan scroll horizontal.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const root = rootRef.current;
+      if (!root) return;
+      const viewport = document.documentElement.clientWidth;
+      const width = Math.min(PANEL_MAX_WIDTH, viewport * 0.94);
+      const { left } = root.getBoundingClientRect();
+      const overflowRight = left + width - (viewport - VIEWPORT_GUTTER);
+      const shift = Math.max(0, overflowRight);
+      // Jangan sampai bergeser melewati tepi kiri layar.
+      setPanelOffset(-Math.min(shift, Math.max(0, left - VIEWPORT_GUTTER)));
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -185,7 +216,9 @@ export default function AcademicPeriodFilter<T extends AcademicPeriodLike>({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-40 mt-2 w-[min(560px,94vw)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-100">
+        <div
+          style={{ left: panelOffset }}
+          className="absolute top-full z-40 mt-2 w-[min(560px,94vw)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-100">
           {showAllOption && (
             <div className="border-b border-slate-100 p-2.5">
               <button

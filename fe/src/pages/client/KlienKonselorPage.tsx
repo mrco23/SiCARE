@@ -1,4 +1,7 @@
-import { PageHeader } from "../../components/shared";
+import {
+  PageHeader,
+  SkeletonCardGrid,
+} from "../../components/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
@@ -6,7 +9,7 @@ import {
   Search,
   UsersRound,
 } from "lucide-react";
-import type { ClientDirectoryCounselor } from "../../data/mock/clientCounselors";
+import type { ClientDirectoryCounselor } from "../../types/clientCounselor";
 import { CounselorCard } from "../../components/client/counselors/CounselorCard";
 import { filterClientDirectoryCounselors } from "../../features/client/counselors/filterClientCounselors";
 import {
@@ -237,13 +240,7 @@ export default function KlienKonselorPage() {
       )}
 
       {loading ? (
-        <section
-          role="status"
-          aria-label="Memuat daftar konselor"
-          className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500"
-        >
-          Memuat daftar konselor dan jadwal tersedia...
-        </section>
+        <SkeletonCardGrid label="Memuat daftar konselor dan jadwal tersedia..." />
       ) : filteredCounselors.length > 0 ? (
         <section
           aria-label="Daftar konselor"

@@ -1,4 +1,9 @@
-import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  SkeletonFormGrid,
+  useToast,
+} from "../../components/shared";
 import { SettingsField as Field, SettingsPanel as Panel, SettingsSwitchRow as SwitchRow } from "../../components/counselor/settings/SettingsPrimitives";
 import { useAuth } from "../../features/auth/useAuth";
 import { counselorApi } from "../../lib/counselorApi";
@@ -32,7 +37,6 @@ import {
 } from "react";
 import {
   Camera,
-  CheckCircle2,
   GraduationCap,
   Layers3,
   LockKeyhole,
@@ -76,7 +80,7 @@ export default function KonselorPengaturanPage() {
   const [historyPasswordConfigured, setHistoryPasswordConfigured] = useState<boolean>(false);
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState("");
+  const toast = useToast();
   const [photoError, setPhotoError] = useState("");
 
   // Cropper states
@@ -107,8 +111,8 @@ export default function KonselorPengaturanPage() {
   const [pwdConfirm, setPwdConfirm] = useState("");
 
   const photoInput = useRef<HTMLInputElement>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = JSON.stringify(profile) !== JSON.stringify(saved);
+  const [loading, setLoading] = useState(true);
 
   // Load from backend on mount
   useEffect(() => {
@@ -138,6 +142,8 @@ export default function KonselorPengaturanPage() {
         setProfile(clone(next));
         return next;
       });
+    }).finally(() => {
+      if (active) setLoading(false);
     });
 
     return () => {
@@ -149,15 +155,6 @@ export default function KonselorPengaturanPage() {
     () => validateCounselorProfile(profile, currentYear),
     [profile, currentYear],
   );
-
-  useEffect(() => {
-    if (!toast) return;
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 3000);
-    return () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    };
-  }, [toast]);
 
   function update<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile((prev) => ({ ...prev, [key]: value }));
@@ -279,18 +276,18 @@ export default function KonselorPengaturanPage() {
 
   function handleDeletePhoto() {
     update("photo", null);
-    setToast("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
+    toast.info("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
   }
 
   function addTopic() {
     const raw = topicInput.trim();
     if (!raw) return;
     if (profile.topics.length >= MAX_TOPICS) {
-      setToast(`Maksimal ${MAX_TOPICS} topik keahlian.`);
+      toast.error(`Maksimal ${MAX_TOPICS} topik keahlian.`);
       return;
     }
     if (profile.topics.some((t) => t.toLowerCase() === raw.toLowerCase())) {
-      setToast("Topik tersebut sudah ada.");
+      toast.error("Topik tersebut sudah ada.");
       return;
     }
     update("topics", [...profile.topics, raw]);
@@ -349,7 +346,7 @@ export default function KonselorPengaturanPage() {
   async function saveChanges() {
     if (Object.keys(errors).length) {
       setShowErrors(true);
-      setToast("Periksa kembali isian yang ditandai.");
+      toast.error("Periksa kembali isian yang ditandai.");
       return;
     }
 
@@ -407,9 +404,9 @@ export default function KonselorPengaturanPage() {
       setSaved(nextSaved);
       setProfile(nextSaved);
       setShowErrors(false);
-      setToast("Perubahan profil berhasil disimpan.");
+      toast.success("Perubahan profil berhasil disimpan.");
     } catch (err) {
-      setToast(
+      toast.error(
         err instanceof Error
           ? err.message
           : "Gagal menyimpan perubahan profil ke server.",
@@ -438,11 +435,11 @@ export default function KonselorPengaturanPage() {
 
     if (passwordKind === "riwayat" && !historyPasswordConfigured) {
       if (pwdNext.length < minimumLength) {
-        setToast(`Kata sandi riwayat baru minimal ${minimumLength} karakter.`);
+        toast.error(`Kata sandi riwayat baru minimal ${minimumLength} karakter.`);
         return;
       }
       if (pwdConfirm !== pwdNext) {
-        setToast("Konfirmasi kata sandi riwayat tidak sama.");
+        toast.error("Konfirmasi kata sandi riwayat tidak sama.");
         return;
       }
 
@@ -454,12 +451,12 @@ export default function KonselorPengaturanPage() {
           setPwdCurrent("");
           setPwdNext("");
           setPwdConfirm("");
-          setToast("Kata sandi riwayat konseling berhasil disimpan di database.");
+          toast.success("Kata sandi riwayat konseling berhasil disimpan di database.");
         } else {
-          setToast(res.message || "Gagal mengatur kata sandi riwayat.");
+          toast.error(res.message || "Gagal mengatur kata sandi riwayat.");
         }
       } catch (err: unknown) {
-        setToast(err instanceof Error ? err.message : "Gagal mengatur kata sandi riwayat pada server.");
+        toast.error(err instanceof Error ? err.message : "Gagal mengatur kata sandi riwayat pada server.");
       } finally {
         setPwdSaving(false);
       }
@@ -474,7 +471,7 @@ export default function KonselorPengaturanPage() {
       pwdConfirm !== pwdNext ? "Konfirmasi kata sandi tidak sama." : "",
     ].filter(Boolean);
     if (issues.length) {
-      setToast(issues.join(" "));
+      toast.error(issues.join(" "));
       return;
     }
 
@@ -482,7 +479,7 @@ export default function KonselorPengaturanPage() {
       setPwdCurrent("");
       setPwdNext("");
       setPwdConfirm("");
-      setToast("Permintaan ubah kata sandi akun diterima.");
+      toast.info("Permintaan ubah kata sandi akun diterima.");
       return;
     }
 
@@ -497,12 +494,12 @@ export default function KonselorPengaturanPage() {
         setPwdCurrent("");
         setPwdNext("");
         setPwdConfirm("");
-        setToast("Kata sandi riwayat berhasil diperbarui di database.");
+        toast.success("Kata sandi riwayat berhasil diperbarui di database.");
       } else {
-        setToast(res.message || "Kata sandi riwayat saat ini salah.");
+        toast.error(res.message || "Kata sandi riwayat saat ini salah.");
       }
     } catch (err: unknown) {
-      setToast(err instanceof Error ? err.message : "Perubahan kata sandi riwayat gagal pada server.");
+      toast.error(err instanceof Error ? err.message : "Perubahan kata sandi riwayat gagal pada server.");
     } finally {
       setPwdSaving(false);
     }
@@ -556,6 +553,9 @@ export default function KonselorPengaturanPage() {
       </section>
 
       {/* Grid Pengaturan */}
+{loading ? (
+        <SkeletonFormGrid className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6" />
+      ) : (
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6">
         {/* Panel Foto Profil */}
         <Panel
@@ -918,6 +918,7 @@ export default function KonselorPengaturanPage() {
           </div>
         </Panel>
       </div>
+      )}
 
       {/* Modal Tambah/Edit Riwayat Pendidikan */}
       {eduDraft && (
@@ -1136,16 +1137,6 @@ export default function KonselorPengaturanPage() {
         </div>
       )}
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          role="status"
-          className="pointer-events-none fixed left-1/2 top-20 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
-        >
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{toast}</span>
-        </div>
-      )}
     </PageContainer>
   );
 }

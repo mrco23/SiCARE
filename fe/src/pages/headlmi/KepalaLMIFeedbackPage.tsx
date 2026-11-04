@@ -20,7 +20,13 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  SkeletonList,
+  SkeletonStatGrid,
+  useToast,
+} from "../../components/shared";
 import { MetricCard } from "../../components/headlmi/MetricCard";
 import { adminApi } from "../../lib/adminApi";
 import { getPublicCounselors } from "../../lib/publicApi";
@@ -117,23 +123,16 @@ export default function KepalaLMIFeedbackPage() {
   const [selectedFeedback, setSelectedFeedback] = useState<AdminFeedbackDto | null>(null);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useToast();
 
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, []);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 3500);
-  }, []);
 
   const counselorNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -206,7 +205,7 @@ export default function KepalaLMIFeedbackPage() {
         prev.map((item) => (item.id === updated.id ? { ...item, review_status: updated.review_status } : item)),
       );
       setSelectedFeedback(updated);
-      showToast(`Status peninjauan berhasil diubah menjadi "${REVIEW_LABEL[targetStatus]}".`);
+      toast.success(`Status peninjauan berhasil diubah menjadi "${REVIEW_LABEL[targetStatus]}".`);
 
       // Refresh statistics in background
       adminApi.getFeedbackStatistics().then((freshStats) => {
@@ -303,9 +302,9 @@ export default function KepalaLMIFeedbackPage() {
           title="Feedback & Evaluasi"
           description="Ringkasan pengalaman pengguna terhadap layanan konseling untuk membantu LMI mengevaluasi mutu layanan secara agregat."
         />
-        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm font-medium text-slate-600">Memuat data feedback & evaluasi…</p>
+        <div className="space-y-5">
+          <SkeletonStatGrid label="Memuat data feedback & evaluasi…" />
+          <SkeletonList rows={4} />
         </div>
       </PageContainer>
     );
@@ -342,16 +341,6 @@ export default function KepalaLMIFeedbackPage() {
 
   return (
     <PageContainer role="headlmi" className="report-print-page space-y-6 text-slate-800">
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          role="status"
-          className="fixed left-1/2 top-20 z-50 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl"
-        >
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-          <span>{toast}</span>
-        </div>
-      )}
 
       <PageHeader
         eyebrow="Panel Pimpinan"

@@ -1,3 +1,4 @@
+import { SkeletonList } from "../shared/Skeleton";
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Users,
@@ -108,10 +109,7 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
         {/* Content */}
         <div className="max-h-[75vh] overflow-y-auto p-6 space-y-6">
           {loading && (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-              <Loader2 className="h-8 w-8 animate-spin text-emerald-700" />
-              <p className="mt-2 text-sm">Memuat status persetujuan peserta...</p>
-            </div>
+            <SkeletonList bare rows={3} label="Memuat status persetujuan peserta..." />
           )}
 
           {error && (

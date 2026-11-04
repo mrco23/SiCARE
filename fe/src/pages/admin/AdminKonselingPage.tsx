@@ -5,6 +5,7 @@ import {
   PageContainer,
   PageHeader,
   AcademicPeriodFilter,
+  SkeletonTable,
 } from "../../components/shared";
 import { adminApi } from "../../lib/adminApi";
 import { getPublicCounselors } from "../../lib/publicApi";
@@ -24,7 +25,6 @@ import {
   Clock,
   FolderOpen,
   List,
-  Loader2,
   Lock,
   RefreshCw,
   Star,
@@ -902,44 +902,6 @@ export default function AdminKonselingPage() {
         description="Pantau sesi konseling individu dan kelompok, serta pembatalan."
         actions={
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <SegmentTabs
-              options={PERIOD_OPTS}
-              value={period}
-              onChange={handlePeriodChange}
-            />
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => step(-1)}
-                disabled={!canPrev}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="min-w-[190px] text-center text-sm font-bold">
-                {label}
-              </span>
-              <button
-                type="button"
-                onClick={() => step(1)}
-                disabled={!canNext}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-
-            {period === "semester" && (
-              <AcademicPeriodFilter
-                periods={periods}
-                selectedId={semId ?? ""}
-                onSelect={(id) => handleSemIdChange(id === "all" ? "" : id)}
-                showAllOption={false}
-                className="relative w-full sm:w-72"
-              />
-            )}
-
             <button
               type="button"
               onClick={() => void handleRefresh()}
@@ -993,6 +955,56 @@ export default function AdminKonselingPage() {
         />
       </div>
 
+      {/* ================= FILTER WAKTU ================= */}
+      <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            Rentang waktu
+          </p>
+          <SegmentTabs
+            options={PERIOD_OPTS}
+            value={period}
+            onChange={handlePeriodChange}
+          />
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex items-center justify-between gap-2 sm:justify-start">
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              disabled={!canPrev}
+              aria-label="Sebelumnya"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="min-w-[190px] text-center text-sm font-bold">
+              {label}
+            </span>
+            <button
+              type="button"
+              onClick={() => step(1)}
+              disabled={!canNext}
+              aria-label="Berikutnya"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          {period === "semester" && (
+            <AcademicPeriodFilter
+              periods={periods}
+              selectedId={semId ?? ""}
+              onSelect={(id) => handleSemIdChange(id === "all" ? "" : id)}
+              showAllOption={false}
+              className="relative w-full sm:w-72"
+            />
+          )}
+        </div>
+      </div>
+
       {/* ================= SECTION UTAMA ================= */}
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-6 lg:flex-row lg:items-center lg:justify-between">
@@ -1019,10 +1031,7 @@ export default function AdminKonselingPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            Memuat data monitoring konseling dari server...
-          </div>
+          <SkeletonTable bare rows={6} columns={6} label="Memuat data monitoring konseling dari server..." />
         ) : view === "daftar" ? (
           <>
             <div className="overflow-x-auto">

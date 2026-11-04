@@ -1,6 +1,6 @@
 import type { AcademicPeriod, PeriodStatus, Semester } from "../types/academicPeriod";
 import type { AcademicPeriodRecordDto } from "../types/api";
-import { DEFAULT_ACADEMIC_PERIODS } from "../data/mock/academicPeriods";
+import { DEFAULT_ACADEMIC_PERIODS } from "../constants/academicPeriods";
 import {
   formatIndonesianDate,
   parseLocalISODate,

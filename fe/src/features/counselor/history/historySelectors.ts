@@ -1,11 +1,17 @@
 import type { AcademicPeriod } from "../../../lib/academicPeriods";
 import type { CounselingFormat } from "../../../types/counseling";
-import type { Session } from "../../../data/mock/counselorHistory";
 
 const DAY_MS = 86_400_000;
 
 export type CounselorHistoryPeriod = "hari" | "minggu" | "bulan" | "semester";
 export type CounselorHistoryDateRange = { start: Date; end: Date };
+
+export interface CounselorHistorySessionLike {
+  id?: number | string;
+  date: string;
+  time: string;
+  format: CounselingFormat;
+}
 
 export function parseCounselorHistoryDate(iso: string): Date {
   const [year, month, day] = iso.split("-").map(Number);
@@ -70,12 +76,12 @@ export function isCounselorHistoryDateInRange(
   return value >= range.start.getTime() && value < range.end.getTime();
 }
 
-export function counselorHistorySessionKey(session: Session): string {
+export function counselorHistorySessionKey(session: CounselorHistorySessionLike): string {
   return `${session.date} ${session.time}`;
 }
 
 export function matchesCounselorHistoryFilter(
-  session: Session,
+  session: CounselorHistorySessionLike,
   format: CounselingFormat,
   range: CounselorHistoryDateRange,
 ): boolean {
@@ -89,3 +95,4 @@ export function formatCounselorHistoryDate(isoDate: string): string {
     year: "numeric",
   });
 }
+

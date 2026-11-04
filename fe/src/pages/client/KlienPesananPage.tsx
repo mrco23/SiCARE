@@ -1,4 +1,7 @@
-import { PageHeader } from "../../components/shared";
+import {
+  PageHeader,
+  SkeletonCardGrid,
+} from "../../components/shared";
 import {
   BackButton,
   CheckRow,
@@ -35,7 +38,7 @@ import {
   MapPin,
   Search,
 } from "lucide-react";
-import type { BookingCounselor } from "../../data/mock/clientCounselors";
+import type { BookingCounselor } from "../../types/clientCounselor";
 import { sicareApi } from "../../lib/sicareApi";
 import {
   getPublicAvailability,
@@ -50,7 +53,7 @@ import {
   INTAKE_YESNO_OPTIONS as YESNO,
   INTAKE_SCALE_OPTIONS as SCALES,
   INTAKE_ESSAY_OPTIONS as ESSAYS,
-} from "../../data/mock/intakeOptions";
+} from "../../constants/intakeOptions";
 import {
   createEmptyClientIntakeForm,
   validateClientIntakeForm,
@@ -421,9 +424,7 @@ export default function KlienPesananPage() {
         </p>
       )}
       {directoryLoading && (
-        <p className="mt-4 rounded-xl bg-white p-3 text-sm text-slate-600">
-          Memuat konselor dan jadwal dari backend...
-        </p>
+        <SkeletonCardGrid count={3} label="Memuat konselor dan jadwal dari backend..." className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" />
       )}
 
       {step <= 5 && <Stepper step={step} steps={STEPS} />}

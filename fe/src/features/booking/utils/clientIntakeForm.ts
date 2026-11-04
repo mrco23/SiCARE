@@ -3,7 +3,7 @@ import {
   INTAKE_ESSAY_OPTIONS,
   INTAKE_SCALE_OPTIONS,
   INTAKE_YESNO_OPTIONS,
-} from "../../../data/mock/intakeOptions";
+} from "../../../constants/intakeOptions";
 
 /** Intake answers intentionally remain local to the booking form and are not stored in Zustand. */
 export interface ClientIntakeForm {

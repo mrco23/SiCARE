@@ -6,7 +6,7 @@ import {
   SectionTitle,
   StarShape,
 } from "../../components/public/guide/GuideSections";
-import { audiences, faqs } from "../../data/mock/guideContent";
+import { audiences, faqs } from "../../features/public/constants/guideContent";
 
 const audienceTags: Record<string, string> = {
   "Mahasiswa Aktif": "Mahasiswa",

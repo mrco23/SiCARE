@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { User, Users } from "lucide-react";
-import { steps, type GuideStep } from "../../../data/mock/guideContent";
+import { steps, type GuideStep } from "../../../features/public/constants/guideContent";
 
 // Hook: true saat elemen masuk viewport (hanya sekali)
 function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.3) {

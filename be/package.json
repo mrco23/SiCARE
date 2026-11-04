@@ -11,7 +11,7 @@
     "dev": "node --watch server.js",
     "start": "node server.js",
     "test": "node --test",
-    "check": "node --check app.js && node --check server.js && node --check src/config/env.js && node --check src/config/supabase.js && node --check src/middleware/auth.js && node --check src/middleware/errorHandler.js && node --check src/lib/http.js && node --check src/lib/audit.js && node --check src/routes/health.routes.js && node --check src/routes/auth.routes.js && node --check src/routes/domain.routes.js && node --check src/routes/booking.routes.js && node --check src/routes/session.routes.js && node --check src/routes/feedback.routes.js && node --check src/routes/notification.routes.js && node --check src/routes/admin.routes.js && node --check src/routes/counselor.routes.js && node --check src/routes/reporting.routes.js && node --check src/routes/webhook.routes.js && node --check src/routes/consent.routes.js && node --check src/services/fonnte.service.js && node --check src/services/whatsappOutbox.service.js && node --check src/services/consent.service.js && node --check src/services/consentPdf.service.js && node --check src/services/tokenEncryption.service.js && node --check src/services/counselorCredential.service.js && node --check src/templates/whatsapp/index.js && node --check src/workers/whatsapp.worker.js && node --check src/workers/whatsapp.scheduler.js && node --check src/lib/domainRpc.js && node --check scripts/verify-live-api.js && node --check scripts/verify-live-ownership.js",
+    "check": "node scripts/check-syntax.js",
     "whatsapp:worker": "node src/workers/whatsapp.worker.js",
     "whatsapp:scheduler": "node src/workers/whatsapp.scheduler.js",
     "verify:live": "node scripts/verify-live-api.js",

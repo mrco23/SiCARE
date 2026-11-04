@@ -1,5 +1,5 @@
 
-import { COUNSELOR_SECTION_SHOWCASE as counselors } from "../../data/mock/publicShowcases";
+import { COUNSELOR_SECTION_SHOWCASE as counselors } from "../../features/public/constants/publicShowcases";
 
 export default function CounselorSection() {
   return (

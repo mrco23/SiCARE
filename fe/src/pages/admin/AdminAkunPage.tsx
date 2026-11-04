@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PageContainer, PageHeader } from "../../components/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  PageContainer,
+  PageHeader,
+  SkeletonTable,
+  useToast,
+} from "../../components/shared";
 import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
 import type {
@@ -9,7 +14,7 @@ import type {
   AppRoleApi,
   MemberCategoryApi,
 } from "../../types/api";
-import type { Role } from "../../data/mock/adminAccounts";
+import type { Role } from "../../types/admin";
 import type { AdminAccountTab } from "../../features/admin/accounts/accountSelectors";
 import {
   Loader2,
@@ -187,22 +192,7 @@ export default function AdminAkunPage() {
   // Per-row action state
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Toast
-  const [toastMsg, setToastMsg] = useState("");
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showToast = useCallback((msg: string) => {
-    setToastMsg(msg);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToastMsg(""), 2800);
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    },
-    [],
-  );
+  const toast = useToast();
 
   const fetchAccounts = useCallback(async () => {
     const dtos = await adminApi.listAccounts({ limit: 100 });
@@ -348,7 +338,7 @@ export default function AdminAkunPage() {
             prev.map((a) => (a.id === editingId ? mapped : a)),
           );
           setModalOpen(false);
-          showToast(`Akun ${mapped.name} diperbarui.`);
+          toast.success(`Akun ${mapped.name} diperbarui.`);
         } else {
           const { app_role, member_category } = mapUiRoleToApi(form.role);
           const updated = await adminApi.updateAccount(editingId, {
@@ -364,7 +354,7 @@ export default function AdminAkunPage() {
             prev.map((a) => (a.id === editingId ? mapped : a)),
           );
           setModalOpen(false);
-          showToast(`Akun ${mapped.name} diperbarui.`);
+          toast.success(`Akun ${mapped.name} diperbarui.`);
         }
       } else {
         const { app_role, member_category } = mapUiRoleToApi(form.role);
@@ -380,7 +370,7 @@ export default function AdminAkunPage() {
         const mapped = mapAccountDto(created, email);
         setAccounts((prev) => [...prev, mapped]);
         setModalOpen(false);
-        showToast(`Akun ${mapped.name} berhasil dibuat.`);
+        toast.success(`Akun ${mapped.name} berhasil dibuat.`);
       }
     } catch (err) {
       setFormError(
@@ -393,7 +383,7 @@ export default function AdminAkunPage() {
 
   const toggleActive = async (account: ManagedAccount) => {
     if (account.id === currentUser?.id && account.active) {
-      showToast("Akun admin yang sedang digunakan tidak dapat dinonaktifkan.");
+      toast.error("Akun admin yang sedang digunakan tidak dapat dinonaktifkan.");
       return;
     }
 
@@ -408,7 +398,7 @@ export default function AdminAkunPage() {
               : a,
           ),
         );
-        showToast(`Akun ${account.name} dinonaktifkan.`);
+        toast.success(`Akun ${account.name} dinonaktifkan.`);
       } else {
         const updated = await adminApi.updateAccount(account.id, {
           account_status: "active",
@@ -417,10 +407,10 @@ export default function AdminAkunPage() {
         setAccounts((prev) =>
           prev.map((a) => (a.id === account.id ? mapped : a)),
         );
-        showToast(`Akun ${mapped.name} diaktifkan.`);
+        toast.success(`Akun ${mapped.name} diaktifkan.`);
       }
     } catch (err) {
-      showToast(
+      toast.error(
         err instanceof Error ? err.message : "Status akun tidak dapat diubah.",
       );
     } finally {
@@ -527,10 +517,7 @@ export default function AdminAkunPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            Memuat daftar akun dari server...
-          </div>
+          <SkeletonTable bare rows={6} columns={5} label="Memuat daftar akun dari server..." />
         ) : rows.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -836,15 +823,6 @@ export default function AdminAkunPage() {
         </div>
       )}
 
-      {/* Toast */}
-      {toastMsg && (
-        <div
-          role="status"
-          className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"
-        >
-          {toastMsg}
-        </div>
-      )}
     </PageContainer>
   );
 }

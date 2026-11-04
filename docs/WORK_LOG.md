@@ -1469,3 +1469,165 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - `npm run build` di `fe/`: **PASS** (2467 modul ditransformasikan, PWA dist siap produksi dalam 5.9s).
 - `git diff --check`: **PASS** (bersih dari whitespace error).
 
+
+## 2026-11-04 — Refactoring & Optimasi Arsitektur Project SiCARE (Frontend & Backend)
+
+### Scope & Perubahan Arsitektur
+
+1. **Frontend Architecture & Mock Clean-Up:**
+   - **Pembersihan Folder `fe/src/data/mock/`:** Menghapus seluruh 24 file mock fixtures dan direktori `fe/src/data/`. Menghapus selector mati (`features/admin/reports/selectors.ts`, `clientBookingSelectors.ts`, `sessionRules.ts`, `sessionSelectors.ts`, `useCounselorDashboard.ts`, `requestSelectors.ts`, `clientActivityFeedbackSelectors.ts`, `features/headlmi/reports/selectors.ts`, `features/public/feedback/selectors.ts`) dan store legacy mati (`bookingStore.ts`, `feedbackStore.ts`).
+   - **Konstanta Aplikasi & Domain Types:** Membuat `fe/src/constants/intakeOptions.ts`, `fe/src/constants/academicPeriods.ts`, `fe/src/constants/counseling.ts`; membuat `fe/src/types/clientCounselor.ts`, `fe/src/types/admin.ts`; melengkapi `fe/src/types/counseling.ts` dan `fe/src/types/booking.ts`.
+   - **Static Content & Reusable Showcases:** Memindahkan data statis ke `fe/src/features/public/constants/publicShowcases.ts` dan `guideContent.tsx`. Menulis ulang `historySelectors.ts` menjadi kalkulasi tanggal murni tanpa mock data.
+   - **Domain API & Shared Services:** Membuat `fe/src/services/api/apiClient.ts`, `fe/src/services/api/apiQuery.ts`, dan `fe/src/services/supabase/supabaseClient.ts`. Mengelompokkan domain API di `fe/src/features/*/api/` (`adminApi.ts`, `counselorApi.ts`, `publicApi.ts`, `reportingApi.ts`, `consentApi.ts`, `bookingApi.ts`). Mempertahankan facade di `fe/src/lib/` untuk backward compatibility.
+   - **Pembersihan Komponen:** Menghapus duplikat usang `AlurSistem.tsx` dan `fe/src/pages/public/components/`, serta mock card `BookingRequestCard.tsx`.
+
+2. **Backend Separation of Concerns (Routes -> Controllers -> Services -> Repositories):**
+   - **Layer Validators (`be/src/validators/`):** Zod request validation schemas (`auth.validator.js`, `booking.validator.js`, `session.validator.js`, `feedback.validator.js`, `counselor.validator.js`, `admin.validator.js`, `consent.validator.js`).
+   - **Layer Repositories (`be/src/repositories/`):** Isolasi query database (`booking.repository.js`, `session.repository.js`, `feedback.repository.js`).
+   - **Layer Services (`be/src/services/`):** Business logic (`auth.service.js`, `booking.service.js`, `session.service.js`, `feedback.service.js`, `notification.service.js`, `reporting.service.js`, `admin/accounts.service.js`, `admin/periods.service.js`, `admin/counseling.service.js`, `admin/hero.service.js`, `counselor/profile.service.js`, `counselor/availability.service.js`).
+   - **Layer Controllers (`be/src/controllers/`):** HTTP request/response orchestration (`health.controller.js`, `auth.controller.js`, `booking.controller.js`, `session.controller.js`, `feedback.controller.js`, `notification.controller.js`, `reporting.controller.js`, `webhook.controller.js`, `consent.controller.js`, `admin/accounts.controller.js`, `admin/periods.controller.js`, `admin/counseling.controller.js`, `admin/hero.controller.js`, `admin/whatsapp.controller.js`, `counselor/profile.controller.js`, `counselor/availability.controller.js`, `counselor/historyCredential.controller.js`).
+   - **Thin Express Routes (`be/src/routes/`):** Seluruh 11 route backend disederhanakan murni untuk routing, middleware, dan delegasi ke controller, dengan tetap menjaga named test exports (`setPublicAuthClientForTests`, `timingSafeEqualString`, `verifyWebhookSecret`) dan ownership assertions.
+   - **Pembaruan Script Syntax Check:** `be/package.json` `"check"` script dialihkan ke `node scripts/check-syntax.js` untuk memverifikasi seluruh 75 berkas `.js` secara dinamis dan rekursif.
+
+### File yang Dibuat, Diubah, dan Dihapus
+
+- **File Baru (Backend):**
+  - `be/src/validators/` (7 files)
+  - `be/src/repositories/` (3 files)
+  - `be/src/services/` (`auth.service.js`, `booking.service.js`, `session.service.js`, `feedback.service.js`, `notification.service.js`, `reporting.service.js`, `admin/*.service.js`, `counselor/*.service.js`)
+  - `be/src/controllers/` (15 files)
+- **File Baru (Frontend):**
+  - `fe/src/constants/` (`intakeOptions.ts`, `academicPeriods.ts`, `counseling.ts`)
+  - `fe/src/types/` (`clientCounselor.ts`, `admin.ts`)
+  - `fe/src/features/public/constants/` (`publicShowcases.ts`, `guideContent.tsx`)
+  - `fe/src/services/api/` (`apiClient.ts`, `apiQuery.ts`)
+  - `fe/src/services/supabase/` (`supabaseClient.ts`)
+  - `fe/src/features/*/api/` (`adminApi.ts`, `counselorApi.ts`, `publicApi.ts`, `reportingApi.ts`, `consentApi.ts`, `bookingApi.ts`)
+- **File Dihapus (Frontend):**
+  - `fe/src/data/mock/` (24 mock data files)
+  - `fe/src/data/` (direktori data)
+  - `fe/src/pages/public/components/AlurSistem.tsx` dan folder `fe/src/pages/public/components/`
+  - `fe/src/components/client/activity/BookingRequestCard.tsx`
+  - Selector mati & store legacy: `bookingStore.ts`, `feedbackStore.ts`, `decideCounselorRequest.ts`, `features/admin/reports/selectors.ts`, `clientBookingSelectors.ts`, `sessionRules.ts`, `sessionSelectors.ts`, `useCounselorDashboard.ts`, `requestSelectors.ts`, `clientActivityFeedbackSelectors.ts`, `features/headlmi/reports/selectors.ts`, `features/public/feedback/selectors.ts`.
+
+### Hasil Verifikasi Faktual
+
+- `be: npm run check` (`node scripts/check-syntax.js`): **PASS** (75 berkas JavaScript backend valid tanpa syntax error).
+- `be: node --test`:
+  - `test/ownershipGuards.test.js`: **20/20 PASS**.
+  - `test/adminRoutesLoad.test.js`: **1/1 PASS**.
+  - `test/emailVerification.test.js`: **8/8 PASS**.
+  - `test/heroMotivations.test.js`: **5/5 PASS**.
+  - `test/adminAvailabilityMigration.test.js`: **1/1 PASS**.
+  - `test/consentFoundation.test.js`: **8/8 PASS**.
+  - `test/domainMigration.test.js`: **5/5 PASS**.
+  - `test/audit.test.js`: **3/3 PASS**.
+  - `test/domainRpc.test.js`: **6/6 PASS**.
+  - `test/whatsappMigration.test.js`: **1/1 PASS**.
+  - `test/whatsappTemplates.test.js`: **7/7 PASS**.
+  - `test/consentMigration.test.js`: **2/2 PASS**.
+  - `test/consentSecurity.test.js`: **16/16 PASS**.
+  - `test/consentSigning.test.js`: **12/12 PASS**.
+  - `test/groupConsent.test.js`: **11/11 PASS**.
+  - `test/groupConsentClosure.test.js`: **19/19 PASS**.
+  - `test/whatsappScheduler.test.js`: **5/5 PASS**.
+  - `test/whatsappWorker.test.js`: **6/6 PASS**.
+  - `test/whatsappOutbox.test.js`: **2/2 PASS**.
+  - `test/fonnteService.test.js`: **7/7 PASS**.
+- `fe: npm run lint`: **PASS** (0 errors, 0 warnings).
+- `fe: npm run build` (`tsc -b && vite build`): **PASS** (2475 modul ditransformasi, bundle PWA dihasilkan).
+
+
+## 2026-11-04 — Perbaikan Kontrak DTO Reporting Backend & Resiliensi Dashboard Admin
+
+### Scope & Perbaikan
+1. **Penyelarasan Kontrak DTO Reporting Backend (`be/src/services/reporting.service.js`):**
+   - Mengembalikan struktur kanonis `getReport()` sesuai DTO `AdminReportDto` dan matriks endpoint (`docs/integration/API_ENDPOINT_MATRIX.md` #54 & #55): properti `period: { from, to }`, `totals` (`bookings`, `completed_sessions`, `cancelled_sessions`, `feedback`, `shown_feedback`, `average_rating`), `monthly`, `counselors` (`counselor_id`, `counselor_name`, `bookings`, `completed_sessions`, `feedback_count`, `average_rating`), dan `truncated`.
+   - Mengatasi akar masalah crash runtime `TypeError: Cannot read properties of undefined (reading 'cancelled_sessions')` pada `AdminBerandaPage.tsx:202`.
+2. **Defensive Null-Safety pada Frontend Dashboard & Laporan Admin:**
+   - Memperbaiki `AdminBerandaPage.tsx` dengan optional chaining bertingkat pada `report?.totals?.cancelled_sessions`, `report?.monthly`, serta safe access untuk seluruh metrik `dashboard?.bookings?.total`, `dashboard?.sessions?.completed`, `dashboard?.feedback?.pending_moderation`, `dashboard?.users?.active_clients`, dan `dashboard?.users?.active_counselors`.
+   - Memperbaiki `AdminLaporanPage.tsx` dengan optional chaining pada `report?.totals?.bookings`, `report?.totals?.completed_sessions`, `report?.totals?.cancelled_sessions`, serta penjagaan kondisional `report?.totals`, `report?.monthly`, dan `report?.counselors`.
+3. **Klarifikasi Endpoint Auth Login (`127.0.0.1:3000/api/v1/auth/login: 404 Not Found`):**
+   - Menjelaskan bahwa route backend `/api/v1/auth/login` didefinisikan khusus untuk method HTTP `POST`.
+   - Akses browser langsung (navigasi URL bar / GET) atau proses backend yang belum di-restart dengan arsitektur route terbaru akan menghasilkan respon 404 dari `notFoundHandler`.
+
+### File yang Diubah
+- `be/src/services/reporting.service.js`
+- `fe/src/pages/admin/AdminBerandaPage.tsx`
+- `fe/src/pages/admin/AdminLaporanPage.tsx`
+- `docs/WORK_LOG.md`
+
+### Hasil Verifikasi Faktual
+- `be: npm run check` (`node scripts/check-syntax.js`): **PASS** (75 berkas JavaScript backend lolos uji sintaks).
+- `be: node --test` (unit tests: `adminRoutesLoad.test.js`, `heroMotivations.test.js`, `emailVerification.test.js`, `ownershipGuards.test.js`): **42/42 PASS**.
+- `fe: npm run lint`: **PASS** (0 errors, 0 warnings).
+- `fe: npm run build` (`tsc -b && vite build`): **PASS** (2475 modul ditransformasi, bundle PWA berhasil dibuat).
+
+## 2026-11-04 — Riwayat Konselor: `photo_url` klien & usulan catatan sesi/intake
+
+### Scope
+- `GET /counselor/history` kini menambahkan `clients[].photo_url` dari `auth.users.user_metadata.avatar_url` (path bucket `avatars` diubah menjadi URL publik; URL absolut diteruskan; kegagalan lookup menghasilkan `null` tanpa menggagalkan respons). Tidak butuh migrasi.
+- `session_notes` dan `intake_answers` **tidak diimplementasikan**: tidak ada tabel di skema dan SOP #13/#16 belum disahkan. Draf migrasi, draf controller, dan daftar pertanyaan SOP ditulis di `docs/backend/PROPOSAL_COUNSELOR_HISTORY_NOTES_INTAKE.md`. Tidak ada file di `supabase/migrations/` dan tidak ada mutasi remote.
+
+### File yang diubah
+- `be/src/controllers/counselor/historyCredential.controller.js`
+- `be/test/counselorHistoryCredentials.test.js` (tes baru `photo_url`)
+- `docs/backend/PROPOSAL_COUNSELOR_HISTORY_NOTES_INTAKE.md` (baru)
+- `docs/integration/API_ENDPOINT_MATRIX.md` (#74), `docs/PROJECT_STATUS.md`, `docs/WORK_LOG.md`
+- Perubahan frontend yang sudah ada sebelumnya (`KonselorRiwayatPage.tsx`, `types/api.ts`) tidak disentuh.
+
+### Hasil verifikasi
+- `be: npm run check`: **PASS** (75 berkas).
+- `be: node --test test/counselorHistoryCredentials.test.js`: **6/6 PASS**.
+- `be: npm test`: **205/207**. Gagal: `heroMotivations.test.js` (baseline — asersi `type="text"` pada `AdminPengaturanPage.tsx` sejak commit 9f849da) dan `groupConsentClosure.test.js` A5 (flaky; 3/3 PASS saat dijalankan ulang terpisah).
+- `be: npx eslint`: 13 error baseline; file controller yang diubah bersih; error di file tes (`parsedBody`, baris 112) sudah ada di HEAD.
+- `fe: npx tsc -b`: **PASS**. `fe: npm run lint`: **PASS**.
+- Belum diuji: live Supabase / browser.
+
+## 2026-11-04 — Layout Klien: margin konten diperlebar
+
+- `fe/src/layouts/KlienLayout.tsx`: `<main>` dari `max-w-7xl` → `max-w-6xl` dan `lg:w-[86%]` → `lg:w-[84%]` agar konten selalu lebih sempit dari navbar (navbar tetap `max-w-7xl`). Mobile (`w-[92%]`) dan `sm:w-[88%]` tidak berubah. Berlaku untuk semua halaman `/klien/*`.
+- `fe: npx tsc -b`: **PASS**. `fe: npm run lint`: **PASS**.
+- Browser: **NOT RUN** — `/klien` mengarah ke `/login`, tidak ada akun uji klien di sesi ini.
+
+## 2026-11-04 — Klien Riwayat: riwayat booking + sesi, detail, catatan 2 tab
+
+- `fe/src/pages/client/KlienRiwayatPage.tsx` ditulis ulang:
+  - Daftar satu item per booking (`sicareApi.bookings(100)`), dipasangkan dengan sesi lewat `session.booking_id` (`sicareApi.sessions(100)`). Menampilkan status booking (Menunggu konfirmasi, Dikonfirmasi, Ditolak, Jadwal ulang diminta, Dibatalkan) dan status sesi bila ada.
+  - Filter: pencarian nama konselor, `AcademicPeriodFilter` (berdasarkan `starts_on`–`ends_on`), dan status (Semua, Menunggu, Terjadwal, Selesai, Batal/Ditolak).
+  - Detail in-page dengan breadcrumb (pola Riwayat Konselor): layanan, format, ruang, alasan pembatalan/jadwal ulang, peserta kelompok.
+  - Catatan hanya 2 tab (Untuk klien, Tindak lanjut); catatan konselor tidak ditampilkan. Karena tabel `session_notes` belum ada, isi berupa empty state "Catatan belum tersedia." tanpa data palsu.
+  - Form feedback dipindah ke detail sesi selesai; endpoint, validasi, dan penanganan 409 sama seperti sebelumnya.
+- Aturan akses catatan klien dicatat di `docs/backend/PROPOSAL_COUNSELOR_HISTORY_NOTES_INTAKE.md` (pertanyaan SOP #1). Matriks endpoint #21 menambah KlienRiwayatPage sebagai pemanggil.
+- `fe: npx tsc -b`: **PASS**. `fe: eslint`: **PASS**. Browser: **NOT RUN** (butuh login klien).
+
+## 2026-11-04 — Revisi: filter periode, Riwayat Klien per layanan, loading skeleton
+
+- `fe/src/components/shared/AcademicPeriodFilter.tsx`: panel dropdown diukur saat dibuka/resize; bila akan melewati tepi kanan viewport, panel digeser ke kiri (tetap tidak melewati tepi kiri, gutter 8px). Berlaku di semua pemakai komponen.
+- `fe/src/pages/client/KlienRiwayatPage.tsx`: toggle Individu/Kelompok (default Individu); nama dan foto konselor dihapus dari kartu dan detail (judul kartu = "Konseling Individu" / nama kelompok, badge tanggal); pencarian menjadi kode pesanan/nama kelompok; data konselor publik tidak lagi diambil; skeleton daftar.
+- `fe/src/components/shared/Skeleton.tsx` (baru, diekspor dari `components/shared`): `Skeleton`, `SkeletonList`, `SkeletonTable`, `SkeletonStatGrid`, `SkeletonCardGrid`, `SkeletonBlock` (varian `bare` untuk di dalam panel; `role="status"` + label sr-only).
+- Spinner/teks "Memuat..." diganti skeleton di: Admin Aktivitas, Akun, Beranda, Feedback, Konseling, Pengaturan (Hero), Periode; Konselor Aktivitas, Beranda (antrean, sesi hari ini, angka KPI), Feedback, Jadwal (slot), Permintaan; Klien Konselor, Pesanan; Kepala LMI Feedback, Laporan, dan `DashboardSections` (Beranda Kepala LMI); modal Group Consent dan Informed Consent.
+- Tidak diubah: Admin Laporan dan Konselor Riwayat (sudah punya skeleton); Klien Beranda/Aktivitas dan halaman Pengaturan semua role (tidak punya state loading; form diisi dari sesi auth) — perlu state loading baru bila ingin skeleton.
+- `fe: npx tsc -b`: **PASS**. `fe: npm run lint`: **PASS**. Browser: **NOT RUN** (semua halaman butuh login).
+
+## 2026-11-04 — Loading skeleton untuk halaman tanpa state loading
+
+- Menambah state `loading` (selesai di `.finally`, dengan guard `active`) dan skeleton pada:
+  - `KlienBerandaPage.tsx`: kartu "Jadwal konseling berikutnya" dan "Status Booking Terakhir" (`SkeletonBlock`) — sebelumnya sempat menampilkan empty state sebelum data datang.
+  - `KlienAktivitasPage.tsx`: daftar "Sesi mendatang" (`SkeletonList`).
+  - `KlienPengaturanPage.tsx`, `KonselorPengaturanPage.tsx`, `KepalaLMIPengaturanPage.tsx`: grid panel formulir diganti `SkeletonFormGrid` sampai profil dari server dimuat, sehingga isian tidak tertimpa data server saat pengguna sudah mulai mengetik. Banner akun (dari sesi auth) tetap tampil.
+- `components/shared/Skeleton.tsx`: tambah `SkeletonFormGrid` (diekspor dari `components/shared`).
+- Tidak diubah: bagian profil `AdminPengaturanPage` (sudah diisi dari sesi auth; bagian Hero sudah ber-skeleton).
+- `fe: npx tsc -b`: **PASS**. `fe: npm run lint`: **PASS**. Browser: **NOT RUN** (butuh login).
+
+## 2026-11-04 — Refactor: satu toast global di atas layar
+
+- Baru: `fe/src/components/shared/Toast.tsx` (`ToastProvider`, default export) dan `fe/src/components/shared/useToast.ts` (`useToast`, `ToastApi`, `ToastVariant`; dipisah agar react-refresh tetap aktif). Diekspor dari `components/shared`. Provider dipasang sekali di `fe/src/main.tsx` (di dalam `AuthProvider`, membungkus `BrowserRouter`; `router.tsx` tidak diubah).
+  - Posisi: fixed di atas layar, tengah, tepat di bawah navbar (`top-20`/`sm:top-24`, `z-[70]`), lebar maks `max-w-md`.
+  - Varian `success` / `error` / `info`; durasi 3,5 s (error 5 s); maksimal 3 tampil; pesan identik tidak menumpuk; tombol tutup; `role="status"`/`role="alert"` + `aria-live`. Animasi `toast-enter` di `fe/src/index.css` (mati saat `prefers-reduced-motion`).
+  - React Context, bukan Zustand (state UI sementara, sesuai AGENTS.md §2.7).
+- 14 halaman dimigrasikan: state/timer/markup toast lokal dihapus, panggilan diganti `toast.success|error|info(...)`. Teks pesan tidak diubah.
+  - Admin: Akun, Feedback, Pengaturan, Periode. Konselor: Aktivitas, Beranda, Jadwal, Pengaturan, Permintaan, Riwayat. Klien: Aktivitas, Pengaturan. Kepala LMI: Feedback, Pengaturan.
+  - Varian: hasil sukses dari server → `success`; error API/validasi → `error`; status netral (mis. "Foto profil ditandai untuk dihapus", status kunci riwayat, tolak/jadwal ulang booking oleh konselor, pembatalan sesi) → `info`. Sebelumnya toast konselor "reject"/"cancel" berwarna merah; kini netral karena aksinya berhasil.
+- Catatan, tidak diubah (di luar scope): beberapa pesan menyatakan perubahan kata sandi akun "disimpan untuk sesi browser ini" / "permintaan ... diterima" tanpa endpoint backend; perlu ditinjau terpisah.
+- `fe: npx tsc -b`: **PASS**. `fe: npm run lint`: **PASS**. `fe: npm run build`: **PASS**. `be: npm test`: **206/207** (gagal: `heroMotivations.test.js`, baseline yang sama). Browser: **NOT RUN** (halaman pemicu toast butuh login).

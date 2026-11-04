@@ -1,13 +1,8 @@
 import { Router } from "express";
+import { healthController } from "../controllers/health.controller.js";
 
 const router = Router();
 
-router.get("/health", (_request, response) => {
-  response.status(200).json({
-    status: "ok",
-    service: "sicare-backend",
-    timestamp: new Date().toISOString(),
-  });
-});
+router.get("/health", healthController.getHealth);
 
 export default router;

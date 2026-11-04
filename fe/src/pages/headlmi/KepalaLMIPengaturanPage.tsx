@@ -1,4 +1,11 @@
-import { PageContainer, PageHeader, SettingsField as Field, SettingsPanel as Panel } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  SettingsField as Field,
+  SettingsPanel as Panel,
+  SkeletonFormGrid,
+  useToast,
+} from "../../components/shared";
 import { useAuth } from "../../features/auth/useAuth";
 import { sicareApi } from "../../lib/sicareApi";
 import {
@@ -19,7 +26,6 @@ import {
 } from "react";
 import {
   Camera,
-  CheckCircle2,
   LockKeyhole,
   Mail,
   Phone,
@@ -67,7 +73,7 @@ export default function KepalaLMIPengaturanPage() {
   const [profile, setProfile] = useState<Profile>(() => cloneProfile(savedProfile));
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState("");
+  const toast = useToast();
   const [photoError, setPhotoError] = useState("");
 
   // Cropper states
@@ -91,9 +97,9 @@ export default function KepalaLMIPengaturanPage() {
   const [pwdConfirm, setPwdConfirm] = useState("");
 
   const photoInput = useRef<HTMLInputElement>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dirty = JSON.stringify(profile) !== JSON.stringify(savedProfile);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -114,6 +120,9 @@ export default function KepalaLMIPengaturanPage() {
       })
       .catch(() => {
         // Fallback to auth profile
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
 
     return () => {
@@ -142,15 +151,6 @@ export default function KepalaLMIPengaturanPage() {
 
     return result;
   }, [profile]);
-
-  useEffect(() => {
-    if (!toast) return;
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 3200);
-    return () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    };
-  }, [toast]);
 
   useEffect(() => {
     return () => {
@@ -281,13 +281,13 @@ export default function KepalaLMIPengaturanPage() {
 
   function handleDeletePhoto() {
     updateProfile("photo", null);
-    setToast("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
+    toast.info("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
   }
 
   async function saveChanges() {
     if (Object.keys(errors).length > 0) {
       setShowErrors(true);
-      setToast("Periksa kembali isian yang ditandai.");
+      toast.error("Periksa kembali isian yang ditandai.");
       return;
     }
 
@@ -325,9 +325,9 @@ export default function KepalaLMIPengaturanPage() {
       setProfile(nextSaved);
       setSavedProfile(nextSaved);
       setShowErrors(false);
-      setToast("Profil Kepala LMI berhasil disimpan.");
+      toast.success("Profil Kepala LMI berhasil disimpan.");
     } catch (err) {
-      setToast(
+      toast.error(
         err instanceof Error
           ? err.message
           : "Gagal menyimpan perubahan profil ke server.",
@@ -355,14 +355,14 @@ export default function KepalaLMIPengaturanPage() {
     ].filter(Boolean);
 
     if (issues.length > 0) {
-      setToast(issues.join(" "));
+      toast.error(issues.join(" "));
       return;
     }
 
     setPwdCurrent("");
     setPwdNext("");
     setPwdConfirm("");
-    setToast("Perubahan kata sandi disimpan untuk sesi ini.");
+    toast.success("Perubahan kata sandi disimpan untuk sesi ini.");
   }
 
   const photoPreview = getPublicPhotoUrl(profile.photo);
@@ -411,6 +411,9 @@ export default function KepalaLMIPengaturanPage() {
       </section>
 
       {/* Grid Pengaturan */}
+{loading ? (
+        <SkeletonFormGrid className="mt-6 grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2 lg:gap-6" />
+      ) : (
       <div className="mt-6 grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2 lg:gap-6">
         {/* Panel Foto Profil */}
         <Panel
@@ -599,6 +602,7 @@ export default function KepalaLMIPengaturanPage() {
           </div>
         </Panel>
       </div>
+      )}
 
       {/* Modal Pemotong Foto (Interactive Cropper) */}
       {cropSource && (
@@ -757,16 +761,6 @@ export default function KepalaLMIPengaturanPage() {
         </div>
       )}
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          role="status"
-          className="pointer-events-none fixed left-1/2 top-20 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
-        >
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{toast}</span>
-        </div>
-      )}
     </PageContainer>
   );
 }

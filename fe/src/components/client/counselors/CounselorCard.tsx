@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Briefcase, GraduationCap } from "lucide-react";
-import type { ClientDirectoryCounselor } from "../../../data/mock/clientCounselors";
+import type { ClientDirectoryCounselor } from "../../../types/clientCounselor";
 
 const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"] as const;
 

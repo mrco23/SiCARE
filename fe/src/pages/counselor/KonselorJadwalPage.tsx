@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Info,
@@ -12,7 +11,12 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { PageContainer, PageHeader } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  SkeletonList,
+  useToast,
+} from "../../components/shared";
 import {
   formatAcademicPeriodLabel,
   formatBookingClientTitle,
@@ -120,10 +124,7 @@ export default function KonselorJadwalPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mutating, setMutating] = useState(false);
 
-  const [toast, setToast] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const toast = useToast();
 
   const [selected, setSelected] = useState(todayKey);
   const [weekStart, setWeekStart] = useState(today);
@@ -200,12 +201,6 @@ export default function KonselorJadwalPage() {
       active = false;
     };
   }, [fetchScheduleData]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 4500);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
 
   const handleManualRefresh = async () => {
     setLoading(true);
@@ -391,19 +386,13 @@ export default function KonselorJadwalPage() {
       if (editor.mode === "new") {
         const created = await counselorApi.createAvailability(payload);
         setRawSlots((prev) => [...prev, created]);
-        setToast({
-          type: "success",
-          message: `Slot ketersediaan ${dateLabel(editor.dateKey)} (${fmt(parsed)} – ${fmt(parsed + SESSION)}) berhasil ditambahkan.`,
-        });
+        toast.success(`Slot ketersediaan ${dateLabel(editor.dateKey)} (${fmt(parsed)} – ${fmt(parsed + SESSION)}) berhasil ditambahkan.`);
       } else if (editor.slotId) {
         const updated = await counselorApi.updateAvailability(editor.slotId, payload);
         setRawSlots((prev) =>
           prev.map((s) => (s.id === editor.slotId ? updated : s)),
         );
-        setToast({
-          type: "success",
-          message: `Slot ketersediaan berhasil diperbarui ke ${fmt(parsed)} – ${fmt(parsed + SESSION)}.`,
-        });
+        toast.success(`Slot ketersediaan berhasil diperbarui ke ${fmt(parsed)} – ${fmt(parsed + SESSION)}.`);
       }
       setEditor(null);
     } catch (err: unknown) {
@@ -429,10 +418,7 @@ export default function KonselorJadwalPage() {
           s.id === cancelled.id ? { ...s, status: "cancelled" } : s,
         ),
       );
-      setToast({
-        type: "success",
-        message: "Slot ketersediaan berhasil dibatalkan/dihapus.",
-      });
+      toast.success("Slot ketersediaan berhasil dibatalkan/dihapus.");
       setEditor(null);
     } catch (err: unknown) {
       setEditorError(
@@ -453,22 +439,15 @@ export default function KonselorJadwalPage() {
         status: "cancelled",
       });
       setCancelSessionTarget(null);
-      setToast({
-        type: "success",
-        message: `Sesi dengan ${cancelSessionTarget.clientLabel} berhasil dibatalkan dan slot telah dibuka kembali.`,
-      });
+      toast.success(`Sesi dengan ${cancelSessionTarget.clientLabel} berhasil dibatalkan dan slot telah dibuka kembali.`);
       const fresh = await fetchScheduleData();
       setRawSlots(fresh.slots);
       setBookings(fresh.bookings);
       setSessions(fresh.sessions);
     } catch (err: unknown) {
-      setToast({
-        type: "error",
-        message:
-          err instanceof ApiError
+      toast.error(err instanceof ApiError
             ? err.message
-            : "Gagal membatalkan sesi konseling.",
-      });
+            : "Gagal membatalkan sesi konseling.");
     } finally {
       setCancelSubmitting(false);
     }
@@ -509,10 +488,7 @@ export default function KonselorJadwalPage() {
       if (isPast(cur.toDate)) return;
       if (cur.fromDate === cur.toDate && cur.origStart === cur.start) return;
       if (findConflict(cur.toDate, cur.start, cur.slotId)) {
-        setToast({
-          type: "error",
-          message: "Tidak dapat memindahkan jadwal karena berbenturan dengan slot lain.",
-        });
+        toast.error("Tidak dapat memindahkan jadwal karena berbenturan dengan slot lain.");
         return;
       }
 
@@ -524,19 +500,12 @@ export default function KonselorJadwalPage() {
           setRawSlots((prev) =>
             prev.map((s) => (s.id === cur.slotId ? updated : s)),
           );
-          setToast({
-            type: "success",
-            message: `Jadwal berhasil dipindahkan ke ${dateLabel(cur.toDate)} (${fmt(cur.start)} – ${fmt(cur.start + SESSION)}).`,
-          });
+          toast.success(`Jadwal berhasil dipindahkan ke ${dateLabel(cur.toDate)} (${fmt(cur.start)} – ${fmt(cur.start + SESSION)}).`);
         })
         .catch((err: unknown) => {
-          setToast({
-            type: "error",
-            message:
-              err instanceof ApiError
+          toast.error(err instanceof ApiError
                 ? err.message
-                : "Gagal memindahkan jadwal ketersediaan.",
-          });
+                : "Gagal memindahkan jadwal ketersediaan.");
         })
         .finally(() => {
           setMutating(false);
@@ -549,7 +518,7 @@ export default function KonselorJadwalPage() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, findConflict, isPast, periods]);
+  }, [drag, findConflict, isPast, periods, toast]);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -614,33 +583,6 @@ export default function KonselorJadwalPage() {
           </div>
         </div>
 
-        {toast && (
-          <div
-            role="status"
-            className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${
-              toast.type === "success"
-                ? "border-emerald-200 bg-emerald-50 text-[#064E3B]"
-                : "border-red-200 bg-red-50 text-red-700"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              {toast.type === "success" ? (
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-              ) : (
-                <AlertCircle className="h-4 w-4 shrink-0" />
-              )}
-              <span>{toast.message}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setToast(null)}
-              aria-label="Tutup pesan"
-              className="rounded-lg p-1 hover:bg-black/5"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
 
         {errorMessage && (
           <div
@@ -1053,9 +995,7 @@ export default function KonselorJadwalPage() {
               </div>
 
               {loading ? (
-                <div className="mt-6 flex justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#064E3B]" />
-                </div>
+                <SkeletonList bare rows={3} label="Memuat slot ketersediaan..." className="mt-4" />
               ) : selectedSlots.length === 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-gray-200 p-6 text-center text-xs text-gray-500">
                   Belum ada slot ketersediaan pada tanggal ini.

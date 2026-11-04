@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { PageContainer, PageHeader, SectionErrorBoundary } from "../../components/shared";
+import {
+  PageContainer,
+  PageHeader,
+  SectionErrorBoundary,
+  SkeletonBlock,
+  SkeletonStatGrid,
+} from "../../components/shared";
 import {
   CounselorWorkload,
   MetricCards,
@@ -30,7 +36,7 @@ import type {
   AdminDashboardDto,
   AdminReportDto,
 } from "../../types/api";
-import { Calendar, Loader2, RefreshCw } from "lucide-react";
+import { Calendar, RefreshCw } from "lucide-react";
 
 type PeriodFilter = (typeof periodFilters)[number];
 
@@ -48,6 +54,35 @@ const MONTH_SHORT = [
   "Nov",
   "Des",
 ];
+
+/** Semua bulan dari startKey sampai endKey (format "YYYY-MM"), termasuk bulan tanpa data. */
+function monthKeysBetween(startKey: string, endKey: string): string[] {
+  const keys: string[] = [];
+  let [year, month] = startKey.split("-").map(Number);
+  const [endYear, endMonth] = endKey.split("-").map(Number);
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    keys.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return keys;
+}
+
+/** `count` bulan terakhir, berakhir pada bulan dari todayIso. */
+function recentMonthKeys(todayIso: string, count: number): string[] {
+  const [year, month] = todayIso.slice(0, 7).split("-").map(Number);
+  const keys: string[] = [];
+  for (let offset = count - 1; offset >= 0; offset -= 1) {
+    const d = new Date(year, month - 1 - offset, 1);
+    keys.push(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+    );
+  }
+  return keys;
+}
 
 function isBookingInFilter(
   startsAtIso: string,
@@ -74,15 +109,20 @@ export default function AdminBerandaPage() {
   const [report, setReport] = useState<AdminReportDto | null>(null);
   const [bookings, setBookings] = useState<AdminCounselingDto[]>([]);
   const [periods, setPeriods] = useState<AcademicPeriod[]>([]);
-  const [counselorAccounts, setCounselorAccounts] = useState<
-    AdminAccountDto[]
-  >([]);
+  const [counselorAccounts, setCounselorAccounts] = useState<AdminAccountDto[]>(
+    [],
+  );
   const [publicNames, setPublicNames] = useState<Map<string, string>>(
     () => new Map(),
   );
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const currentSemester = useMemo(
+    () => periods.find((p) => isInPeriod(today, p)) ?? null,
+    [periods, today],
+  );
 
   const fetchDashboardData = useCallback(async () => {
     const [
@@ -189,21 +229,20 @@ export default function AdminBerandaPage() {
   );
 
   const filteredBookings = useMemo(
-    () =>
-      bookings.filter((b) => isBookingInFilter(b.starts_at, period, today)),
+    () => bookings.filter((b) => isBookingInFilter(b.starts_at, period, today)),
     [bookings, period, today],
   );
 
   const stats: DashboardMetricValues = useMemo(() => {
     if (period === "Semua" && dashboard) {
       return {
-        totalRequests: dashboard.bookings.total,
-        completedSessions: dashboard.sessions.completed,
-        cancelledSessions: report?.totals.cancelled_sessions ?? 0,
-        waitingConfirmation: dashboard.bookings.waiting_confirmation,
-        pendingModerationFeedback: dashboard.feedback.pending_moderation,
-        activeClients: dashboard.users.active_clients,
-        activeCounselors: dashboard.users.active_counselors,
+        totalRequests: dashboard.bookings?.total ?? 0,
+        completedSessions: dashboard.sessions?.completed ?? 0,
+        cancelledSessions: report?.totals?.cancelled_sessions ?? 0,
+        waitingConfirmation: dashboard.bookings?.waiting_confirmation ?? 0,
+        pendingModerationFeedback: dashboard.feedback?.pending_moderation ?? 0,
+        activeClients: dashboard.users?.active_clients ?? 0,
+        activeCounselors: dashboard.users?.active_counselors ?? 0,
       };
     }
 
@@ -237,7 +276,8 @@ export default function AdminBerandaPage() {
       (b) => b.service_type === "group",
     ).length;
     const individuCount = total - kelompokCount;
-    const individuPct = total > 0 ? Math.round((individuCount / total) * 100) : 0;
+    const individuPct =
+      total > 0 ? Math.round((individuCount / total) * 100) : 0;
     const kelompokPct = total > 0 ? 100 - individuPct : 0;
 
     return {
@@ -250,19 +290,25 @@ export default function AdminBerandaPage() {
   }, [filteredBookings]);
 
   const trendBuckets: TrendBucketItem[] = useMemo(() => {
-    if (period === "Semua" && report) {
-      const entries = [...report.monthly].sort((a, b) =>
-        a.month.localeCompare(b.month),
+    if (period === "Semua" && report?.monthly) {
+      // Backend hanya mengirim bulan yang punya data, jadi bulan kosong diisi 0 di sini.
+      const bookingsByMonth = new Map(
+        report.monthly.map((m) => [m.month, m.bookings]),
       );
-      if (entries.length > 0) {
-        return entries.slice(-6).map((m) => {
-          const monthIdx = Number(m.month.slice(5, 7)) - 1;
-          return {
-            label: `${MONTH_SHORT[monthIdx] ?? m.month} '${m.month.slice(2, 4)}`,
-            value: m.bookings,
-          };
-        });
-      }
+      const monthKeys = currentSemester
+        ? monthKeysBetween(
+            currentSemester.start.slice(0, 7),
+            currentSemester.end.slice(0, 7),
+          )
+        : recentMonthKeys(today, 6);
+
+      return monthKeys.map((key) => {
+        const monthIdx = Number(key.slice(5, 7)) - 1;
+        return {
+          label: MONTH_SHORT[monthIdx] ?? key,
+          value: bookingsByMonth.get(key) ?? 0,
+        };
+      });
     }
 
     const grouped = new Map<string, number>();
@@ -279,7 +325,7 @@ export default function AdminBerandaPage() {
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-7)
       .map(([label, value]) => ({ label, value }));
-  }, [period, report, filteredBookings]);
+  }, [period, report, filteredBookings, currentSemester, today]);
 
   const counselorWorkloadRows: CounselorWorkloadRow[] = useMemo(() => {
     const map = new Map<string, CounselorWorkloadRow>();
@@ -296,7 +342,8 @@ export default function AdminBerandaPage() {
       map.set(acc.id, {
         id: acc.id,
         name,
-        completedSessions: reportByCounselor.get(acc.id)?.completed_sessions ?? 0,
+        completedSessions:
+          reportByCounselor.get(acc.id)?.completed_sessions ?? 0,
         activeBookings: 0,
         isActiveAccount: acc.account_status === "active",
       });
@@ -419,30 +466,55 @@ export default function AdminBerandaPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-3xl border border-slate-200 bg-white py-16 text-sm text-slate-500 shadow-sm">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          Memuat ringkasan dashboard dari server...
+        <div className="space-y-5">
+          <SkeletonStatGrid label="Memuat ringkasan dashboard dari server..." />
+          <div className="grid gap-5 lg:grid-cols-2">
+            <SkeletonBlock lines={6} />
+            <SkeletonBlock lines={6} />
+          </div>
         </div>
       ) : (
         <>
-          <SectionErrorBoundary title="Metrik Utama" onReset={() => void handleRefresh()}>
+          <SectionErrorBoundary
+            title="Metrik Utama"
+            onReset={() => void handleRefresh()}
+          >
             <MetricCards stats={stats} />
           </SectionErrorBoundary>
 
-          <SectionErrorBoundary title="Permintaan Konseling Terbaru" onReset={() => void handleRefresh()}>
+          <SectionErrorBoundary
+            title="Permintaan Konseling Terbaru"
+            onReset={() => void handleRefresh()}
+          >
             <RecentClientBookings bookings={filteredBookings} />
           </SectionErrorBoundary>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <SectionErrorBoundary title="Tren Sesi Konseling" onReset={() => void handleRefresh()}>
-              <SessionTrend buckets={trendBuckets} periodLabel={period} />
+            <SectionErrorBoundary
+              title="Tren Sesi Konseling"
+              onReset={() => void handleRefresh()}
+            >
+              <SessionTrend
+                buckets={trendBuckets}
+                periodLabel={
+                  period === "Semua" && currentSemester
+                    ? `TA ${currentSemester.ta} ${currentSemester.sem}`
+                    : period
+                }
+              />
             </SectionErrorBoundary>
-            <SectionErrorBoundary title="Distribusi Layanan" onReset={() => void handleRefresh()}>
+            <SectionErrorBoundary
+              title="Distribusi Layanan"
+              onReset={() => void handleRefresh()}
+            >
               <ServiceDistribution distribution={distribution} />
             </SectionErrorBoundary>
           </div>
 
-          <SectionErrorBoundary title="Beban Kerja Konselor" onReset={() => void handleRefresh()}>
+          <SectionErrorBoundary
+            title="Beban Kerja Konselor"
+            onReset={() => void handleRefresh()}
+          >
             <CounselorWorkload counselors={counselorWorkloadRows} />
           </SectionErrorBoundary>
         </>

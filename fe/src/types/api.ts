@@ -4,6 +4,8 @@
  * UI-only view models belong in feature/page modules, not in this file.
  */
 
+import type { ClientIntake as ClientIntakeAnswersDto } from "./counseling";
+
 export type AppRoleApi = "client" | "counselor" | "admin" | "head_lmi";
 export type AccountStatusApi = "pending" | "active" | "disabled";
 export type MemberCategoryApi = "student" | "faculty_staff" | "other";
@@ -15,11 +17,18 @@ export type BookingStatusApi =
   | "reschedule_requested"
   | "cancelled";
 
-export type SessionStatusApi = "scheduled" | "ongoing" | "completed" | "cancelled";
+export type SessionStatusApi =
+  | "scheduled"
+  | "ongoing"
+  | "completed"
+  | "cancelled";
 export type FeedbackModerationStatusApi = "pending" | "shown" | "disabled";
 export type FeedbackReviewStatusApi = "new" | "reviewed" | "resolved";
 export type AcademicSemesterApi = "Ganjil" | "Genap";
-export type CounselorAvailabilityStatusApi = "available" | "blocked" | "cancelled";
+export type CounselorAvailabilityStatusApi =
+  | "available"
+  | "blocked"
+  | "cancelled";
 
 // Public directory DTOs
 export interface PublicCounselorDto {
@@ -166,10 +175,19 @@ export interface CounselorHistoryResponseDto {
   clients: Array<{
     id: string;
     full_name: string;
-    student_id?: string | null;
-    faculty?: string | null;
-    study_program?: string | null;
+    identity_code?: string | null;
     phone_e164?: string | null;
+    photo_url?: string | null;
+  }>;
+  session_notes?: Array<{
+    session_id: string;
+    counselor_note: string | null;
+    client_note: string | null;
+    follow_up: string | null;
+  }>;
+  intake_answers?: Array<{
+    booking_id: string;
+    answers: ClientIntakeAnswersDto;
   }>;
   message?: string;
 }
@@ -501,7 +519,12 @@ export interface ConsentIdentityDto {
   phone_e164: string;
 }
 
-export type ConsentStatusApi = "pending" | "viewed" | "signed" | "revoked" | "expired";
+export type ConsentStatusApi =
+  | "pending"
+  | "viewed"
+  | "signed"
+  | "revoked"
+  | "expired";
 
 export interface InformedConsentDto {
   id: string;
@@ -595,7 +618,14 @@ export interface GroupConsentSummaryParticipantDto {
   is_primary: boolean;
   consent_status: ConsentStatusApi;
   consent_id: string | null;
-  invitation_status: "pending" | "sent" | "claimed" | "completed" | "expired" | "revoked" | null;
+  invitation_status:
+    | "pending"
+    | "sent"
+    | "claimed"
+    | "completed"
+    | "expired"
+    | "revoked"
+    | null;
   invitation_id: string | null;
   signed_at: string | null;
 }

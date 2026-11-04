@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PageContainer, PageHeader, AcademicPeriodFilter } from "../../components/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  PageContainer,
+  PageHeader,
+  AcademicPeriodFilter,
+  SkeletonList,
+  useToast,
+} from "../../components/shared";
 import {
   FEEDBACK_MODERATION_STATUS,
   type FeedbackModerationStatus,
@@ -160,18 +166,7 @@ export default function AdminFeedbackPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     FEEDBACK_MODERATION_STATUS.PENDING,
   );
-  const [toast, setToast] = useState("");
-  const toastTimeout = useRef<ReturnType<typeof window.setTimeout> | null>(
-    null,
-  );
-
-  useEffect(
-    () => () => {
-      if (toastTimeout.current !== null)
-        window.clearTimeout(toastTimeout.current);
-    },
-    [],
-  );
+  const toast = useToast();
 
   useEffect(() => {
     if (disableId === null) return;
@@ -182,12 +177,6 @@ export default function AdminFeedbackPage() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [disableId, moderatingId]);
 
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    if (toastTimeout.current !== null)
-      window.clearTimeout(toastTimeout.current);
-    toastTimeout.current = window.setTimeout(() => setToast(""), 2400);
-  }, []);
 
   const fetchData = useCallback(async () => {
     const [
@@ -332,7 +321,7 @@ export default function AdminFeedbackPage() {
         .getFeedbackStatistics()
         .catch(() => null);
       if (nextStats) setStats(nextStats);
-      showToast(
+      toast.success(
         status === FEEDBACK_MODERATION_STATUS.SHOWN
           ? "Feedback ditampilkan."
           : status === FEEDBACK_MODERATION_STATUS.DISABLED
@@ -341,7 +330,7 @@ export default function AdminFeedbackPage() {
       );
       return true;
     } catch (err) {
-      showToast(
+      toast.error(
         err instanceof Error
           ? err.message
           : "Moderasi feedback tidak dapat disimpan.",
@@ -670,10 +659,7 @@ export default function AdminFeedbackPage() {
 
         {/* List */}
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            Memuat feedback dari server...
-          </div>
+          <SkeletonList bare rows={5} label="Memuat feedback dari server..." />
         ) : rows.length > 0 ? (
           <div className="divide-y divide-slate-100">
             {rows.map((f) => {
@@ -883,17 +869,6 @@ export default function AdminFeedbackPage() {
         </div>
       )}
 
-      {toast && (
-        <div
-          role="status"
-          className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"
-        >
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" />
-            {toast}
-          </span>
-        </div>
-      )}
     </PageContainer>
   );
 }
