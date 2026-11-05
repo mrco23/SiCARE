@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -15,6 +16,7 @@ import {
   Search,
   Users,
   X,
+  XCircle,
 } from "lucide-react";
 import {
   PageContainer,
@@ -320,7 +322,7 @@ export default function KonselorAktivitasPage() {
   };
 
   return (
-    <PageContainer className="py-6 lg:py-8">
+    <PageContainer>
       <div className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <PageHeader
@@ -435,7 +437,7 @@ export default function KonselorAktivitasPage() {
                             }}
                             className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                           >
-                            Batalkan Sesi
+                            <IconLabel icon={XCircle}>Batalkan Sesi</IconLabel>
                           </button>
                           <button
                             type="button"
@@ -475,7 +477,7 @@ export default function KonselorAktivitasPage() {
                             }}
                             className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                           >
-                            Batalkan Sesi
+                            <IconLabel icon={XCircle}>Batalkan Sesi</IconLabel>
                           </button>
                           <button
                             type="button"
@@ -835,7 +837,7 @@ export default function KonselorAktivitasPage() {
                                 }}
                                 className="rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 sm:text-sm"
                               >
-                                Batalkan
+                                <IconLabel icon={X}>Batalkan</IconLabel>
                               </button>
                               <button
                                 type="button"
@@ -875,7 +877,7 @@ export default function KonselorAktivitasPage() {
                                 }}
                                 className="rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 sm:text-sm"
                               >
-                                Batalkan
+                                <IconLabel icon={X}>Batalkan</IconLabel>
                               </button>
                               <button
                                 type="button"
@@ -990,8 +992,14 @@ export default function KonselorAktivitasPage() {
                     : "bg-[#064E3B] hover:bg-[#053e2f]"
                 }`}
               >
-                {transitionSubmitting && (
+                {transitionSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
+                ) : transitionDialog.targetStatus === "ongoing" ? (
+                  <Play className="h-4 w-4" />
+                ) : transitionDialog.targetStatus === "completed" ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <XCircle className="h-4 w-4" />
                 )}
                 {transitionDialog.targetStatus === "ongoing"
                   ? "Ya, Mulai Sesi"

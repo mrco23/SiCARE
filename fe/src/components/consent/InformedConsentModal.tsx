@@ -1,3 +1,4 @@
+import IconLabel from "../shared/IconLabel";
 import { SkeletonBlock } from "../shared/Skeleton";
 import React, { useEffect, useState } from "react";
 import {
@@ -43,6 +44,9 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
     date_of_birth: "",
     gender: "Laki-laki",
     phone_e164: "",
+    religion: "",
+    education: "",
+    address: "",
   });
 
   // Agreement and Signature State
@@ -75,6 +79,9 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
           date_of_birth: snap.date_of_birth || (part?.date_of_birth ? String(part.date_of_birth).split("T")[0] : ""),
           gender: (snap.gender || part?.gender || "Laki-laki") as "Laki-laki" | "Perempuan",
           phone_e164: snap.phone_e164 || part?.phone_e164 || "",
+          religion: snap.religion || part?.religion || "",
+          education: snap.education || part?.education || "",
+          address: snap.address || part?.address || "",
         });
         setError(null);
       } catch (err: unknown) {
@@ -112,6 +119,9 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
     if (!identity.birthplace.trim()) return setError("Tempat lahir wajib diisi.");
     if (!identity.date_of_birth) return setError("Tanggal lahir wajib diisi.");
     if (!identity.phone_e164.trim()) return setError("Nomor telepon wajib diisi.");
+    if (!identity.religion.trim()) return setError("Agama wajib diisi.");
+    if (!identity.education.trim()) return setError("Pendidikan wajib diisi.");
+    if (!identity.address.trim()) return setError("Alamat rumah wajib diisi.");
     if (!agreementAccepted) return setError("Anda wajib menyetujui pernyataan persetujuan sebelum menandatangani.");
     if (!signatureDataUrl) return setError("Tanda tangan digital wajib dibubuhkan.");
 
@@ -329,6 +339,43 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
                   </div>
 
                   <div>
+                    <label className="block text-slate-600 font-medium mb-1">Agama *</label>
+                    <input
+                      type="text"
+                      value={identity.religion}
+                      maxLength={50}
+                      onChange={(e) => handleIdentityChange("religion", e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-800 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-medium mb-1">Pendidikan *</label>
+                    <input
+                      type="text"
+                      value={identity.education}
+                      maxLength={100}
+                      onChange={(e) => handleIdentityChange("education", e.target.value)}
+                      placeholder="Contoh: S1 Teknik Industri"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-800 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-600 font-medium mb-1">Alamat Rumah *</label>
+                    <input
+                      type="text"
+                      value={identity.address}
+                      maxLength={300}
+                      onChange={(e) => handleIdentityChange("address", e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-800 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-slate-600 font-medium mb-1">Tempat Lahir *</label>
                     <input
                       type="text"
@@ -440,7 +487,7 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
                   onClick={onClose}
                   className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition"
                 >
-                  Batal
+                  <IconLabel icon={X}>Batal</IconLabel>
                 </button>
                 <button
                   type="submit"

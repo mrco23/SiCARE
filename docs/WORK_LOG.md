@@ -1631,3 +1631,120 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - Varian: hasil sukses dari server → `success`; error API/validasi → `error`; status netral (mis. "Foto profil ditandai untuk dihapus", status kunci riwayat, tolak/jadwal ulang booking oleh konselor, pembatalan sesi) → `info`. Sebelumnya toast konselor "reject"/"cancel" berwarna merah; kini netral karena aksinya berhasil.
 - Catatan, tidak diubah (di luar scope): beberapa pesan menyatakan perubahan kata sandi akun "disimpan untuk sesi browser ini" / "permintaan ... diterima" tanpa endpoint backend; perlu ditinjau terpisah.
 - `fe: npx tsc -b`: **PASS**. `fe: npm run lint`: **PASS**. `fe: npm run build`: **PASS**. `be: npm test`: **206/207** (gagal: `heroMotivations.test.js`, baseline yang sama). Browser: **NOT RUN** (halaman pemicu toast butuh login).
+
+## 2026-11-04 — Beranda Kepala LMI: kartu ringkasan diringkas
+
+- `fe/src/components/headlmi/dashboard/DashboardSections.tsx` (`MetricCards`, hanya dipakai `KepalaLMIBerandaPage`): 7 kartu (2 baris) → 4 kartu satu baris (2 kolom di HP): Total Booking, Sesi Selesai (dari total sesi), Klien Aktif, Konselor Aktif. Dihapus dari beranda: Menunggu Konfirmasi, Feedback Menunggu Moderasi, Booking Terkonfirmasi. Catatan kartu dipersingkat. `ActivitySummary` dan `CounselorSummary` tidak diubah; data/endpoint tidak berubah.
+- `fe: npx tsc -b`: **PASS**. `fe: eslint` (headlmi): **PASS**. Browser: **NOT RUN** (butuh login).
+
+## 2026-11-05 — Laporan & Feedback Kepala LMI mengikuti Admin, popup notifikasi, data konselor
+
+- **Grafik bulanan:** batang tidak tampil karena tinggi persen batang berada di wrapper tanpa tinggi; wrapper kini `h-full`. Filter periode default ke periode akademik berjalan (Admin dan Kepala LMI), sehingga bulan mengikuti semester; "Semua periode" menampilkan tahun pada label.
+- **Laporan:** isi `AdminLaporanPage` dipindah ke `fe/src/components/reports/CounselingReportView.tsx`; Admin dan Kepala LMI hanya menyuplai sumber data. Ekspor CSV Kepala LMI dihapus, tersisa Unduh Laporan PDF.
+- **Feedback:** isi `AdminFeedbackPage` dipindah ke `fe/src/components/feedback/FeedbackModerationView.tsx` dengan `readOnly`. Kepala LMI hanya melihat: tanpa Tampilkan/Nonaktifkan/Periksa ulang dan tanpa ubah status peninjauan.
+- **Privasi:** `GET /admin/counseling` kini mengosongkan `client_id`, `client`, `group_name`, `booking_participants` untuk `head_lmi`. `cancellation_reason` tetap terkirim karena dipakai Analisis pembatalan.
+- **Notifikasi:** `NotificationBell` dirender lewat portal ke body (navbar `backdrop-blur` membuat `fixed` mengacu ke navbar), posisi dihitung dari tombol dan dijaga dalam layar; klik luar dan Escape menutup panel.
+- **Data akun:** migrasi `20261105000000_sicare_profile_gender_counselor_license.sql` (kolom `gender`, `siap_number`, `sipp_silp_number` di `profiles`, bukan `counselor_profiles` yang terbaca publik). **BELUM diterapkan.** Backend membaca kolom ini, jadi halaman akun admin gagal sampai migrasi diterapkan. Wajib saat membuat konselor (backend + form `AdminAkunPage`). Konselor lama bernilai null dan tetap bisa diubah statusnya.
+- **Bug yang ikut diperbaiki:** `patchAccountSchema` (strict) tidak menerima `phone_e164` padahal form selalu mengirimnya, sehingga simpan Ubah Akun ditolak 400.
+- Dihapus karena tidak terpakai: `fe/src/features/headlmi/feedback/selectors.ts`, `fe/src/components/headlmi/MetricCard.tsx`.
+- Periode untuk Kepala LMI berasal dari endpoint publik (hanya yang dipublikasikan). Angka per periode dihitung dari maksimal 100 booking/feedback terbaru (batas API).
+- Verifikasi harness sementara (mock data, sudah dihapus): batang 98/196/98 px, label Agu–Jan, popup 12–363 px pada lebar 375 tanpa scroll horizontal, feedback hanya-lihat tanpa tombol aksi.
+- Hasil: `fe: npx tsc -b` **PASS**, `fe: npm run lint` **PASS**, `fe: npm run build` **PASS**; `be: npm run check` **PASS**, `be: npm test` **211/212** (gagal: `heroMotivations.test.js`, baseline). Belum diuji dengan akun sungguhan dan database live.
+
+## 2026-11-05 — Pemeriksaan sebelum menerapkan migrasi profil (belum diterapkan)
+
+- Target tertaut `tfzgztrvonkqsqmesmjy` berlabel **production**. Riwayat migrasi remote berhenti di `20261029100000`; `db push --remote --dry-run` akan menerapkan 7 migrasi (`20261031120000` s.d. `20261105000000`), bukan hanya migrasi profil.
+- Query baca-saja: tabel consent (`informed_consents`, `consent_templates`, `consent_invitations`, `consent_audit_logs`, `consent_invitation_secrets`) belum ada di remote, sedangkan `counselor_history_credentials` sudah ada walau tidak tercatat di riwayat migrasi. Data: 5 profil, 2 booking, 0 outbox. Kolom `gender`/`siap_number`/`sipp_silp_number` belum ada.
+- Tidak ada perubahan pada database. Menunggu keputusan pengguna soal cakupan.
+
+## 2026-11-05 — Tujuh migrasi diterapkan ke production
+
+- Atas persetujuan eksplisit pengguna, `supabase db push --remote` menerapkan `20261031120000` s.d. `20261105000000` ke `tfzgztrvonkqsqmesmjy` (production).
+- Percobaan pertama gagal pada `20261102000000` karena file memanggil `public.handle_updated_at()` yang tidak ada; lima migrasi sebelumnya sudah masuk, dan migrasi yang gagal ter-rollback (trigger, RLS, dan 1 baris `counselor_history_credentials` utuh). File diperbaiki menjadi `public.set_updated_at()`, lalu dua migrasi sisanya diterapkan.
+- Menggantikan catatan "BELUM diterapkan" pada entri sebelumnya.
+
+## 2026-11-05 — Izin praktik di Pengaturan Konselor, sapaan beranda
+
+- `GET /profile` (lewat `authenticate`) kini membawa `gender`, `siap_number`, `sipp_silp_number` milik pengguna sendiri. Tidak ada perubahan skema.
+- `KonselorPengaturanPage`: panel "Izin Praktik" hanya-baca untuk No. SIAP dan No. SIPP/SILP; perubahan dilakukan Admin.
+- `AdminAkunPage`: label "(opsional)" pada jenis kelamin dihapus. Jenis kelamin kini wajib saat membuat akun apa pun (form dan `createAccountSchema`); saat mengubah akun tetap wajib hanya untuk konselor.
+- `KonselorBerandaPage`: sapaan "Halo ma'am, ..." / "Halo Sir, ..." dari `profile.gender`, netral "Halo, ..." bila kosong; lambaian 👋 (`.wave-hand` di `index.css`, dua kali lalu berhenti, mati saat `prefers-reduced-motion`).
+
+## 2026-11-05 — SIPP/SILP diperbarui konselor, masa berlaku dan pengingat
+
+- Keputusan: SIAP dikelola Admin; SIPP/SILP dan tanggal berlakunya diperbarui konselor, tanpa persetujuan Admin, dengan audit. Kebijakan saat izin kedaluwarsa menunggu pemilik SOP; saat ini hanya peringatan, tidak memblokir booking.
+- Migrasi `20261105120000_sicare_counselor_license_validity.sql`: `sipp_silp_valid_until`, `sipp_silp_updated_at` di `profiles`. **BELUM diterapkan.** `middleware/auth.js` sengaja tidak membaca kolom ini agar login tidak terdampak; `/admin/accounts` dan `/counselor/license` akan gagal sampai migrasi diterapkan.
+- Backend: `GET`/`PATCH /counselor/license`, audit `counselor.license.update` (metadata hanya tanggal berlaku), `sipp_silp_valid_until` opsional pada akun Admin.
+- Frontend: panel Izin Praktik di `KonselorPengaturanPage` dapat disunting (SIAP hanya-baca), pengingat 30 hari di Beranda dan Pengaturan konselor, lencana kedaluwarsa di daftar `AdminAkunPage`, tanggal berlaku dan waktu pembaruan terakhir di modal akun. Helper `features/counselor/profile/licenseStatus.ts`.
+- Pengingat hanya tampil di UI; belum ada notifikasi atau WhatsApp.
+- Audit tidak terlihat di halaman Aktivitas Admin; Admin melihat perubahan lewat modal akun.
+- `fe: tsc`, `lint`, `build`: **PASS**. `be: check` **PASS**, `be: npm test` **213/214** (gagal: `heroMotivations.test.js`, baseline). Browser dan API live: **NOT RUN**.
+
+## 2026-11-05 — Migrasi masa berlaku SIPP/SILP diterapkan
+
+- Atas persetujuan pengguna, `20261105120000` diterapkan ke production (`tfzgztrvonkqsqmesmjy`) lewat `supabase db push --remote`. Hanya migrasi ini yang tertunda (dry run). Menggantikan catatan "BELUM diterapkan" pada entri sebelumnya.
+
+## 2026-11-05 — Ikon pada tombol aksi CRUD
+
+- Baru: `fe/src/components/shared/IconLabel.tsx` (ikon mengikuti ukuran teks tombol). 59 tombol aksi tanpa ikon di admin, konselor, klien, kepala LMI, tamu, dan modal consent kini berikon. Pemetaan: Simpan `Save`, Hapus `Trash2`, Tambah `Plus`, Ubah `Pencil`, Kirim `Send`, Batal/Tutup `X`, Batalkan sesi/Tolak `XCircle`, Terima `Check`, Kata sandi `KeyRound`.
+- Tombol yang hanya menampilkan `Loader2` saat memproses kini menampilkan ikon aksi saat diam.
+- Dilewati karena bukan aksi CRUD: tombol langkah "Lanjut..." dan tautan "Kirim ulang" di Login. Teks dan perilaku tombol tidak berubah.
+- `fe: tsc`, `lint`, `build`: **PASS**. Browser: **NOT RUN** (butuh login).
+
+## 2026-11-05 — Template PDF Laporan Bimbingan & Konseling (Admin dan Kepala LMI)
+
+- Baru: `fe/src/components/reports/CounselingReportPrint.tsx`, dokumen A4 khusus cetak mengikuti template LMI: sampul, stempel CONFIDENTIAL, footer bernomor halaman, Kesimpulan dan Saran, tanda tangan. Halaman 2 template (lembar pribadi konselor) tidak dipakai. CSS di `fe/src/index.css` (`@page sicare-report`, kelas `rp-*`). Logo `public/kampus.png` (220px).
+- Struktur: A Identitas Laporan, B Ringkasan Layanan, C Perkembangan per Bulan, D Layanan per Konselor, E Analisis Pembatalan, F Evaluasi Layanan, G Rincian Sesi (Admin saja, semua baris), lalu Kesimpulan dan Saran.
+- Kesimpulan diisi di kotak isian halaman laporan; tidak disimpan. Kosong = ruang tulis tangan.
+- Tanda tangan: Admin "Disusun oleh" (nama dari akun) dan "Mengetahui, Kepala LMI" (garis kosong); Kepala LMI satu tanda tangan (nama dari akun).
+- Analisis pembatalan di PDF dan layar Kepala LMI memakai kategori dari status data (Ditolak konselor, Sesi dibatalkan, Booking dibatalkan), bukan teks alasan. `GET /admin/counseling` kini mengosongkan `cancellation_reason` dan `reschedule_reason` untuk `head_lmi`.
+- Batas baca laporan dinaikkan: `/admin/counseling` dan `/admin/feedback` hingga 1000 baris; PDF menampilkan peringatan bila batas tercapai.
+- Verifikasi: PDF nyata dari Edge headless 156 dengan data contoh (harness sudah dihapus), kedua peran. 60 baris tercetak, header tabel berulang, teks rahasia contoh tidak muncul. `@page` margin box butuh Chrome/Edge 131+; browser lain dapat kehilangan stempel dan footer.
+
+## 2026-11-05 — Catatan sesi dan laporan per sesi konselor
+
+- Keputusan pengguna: tambah agama, pendidikan, alamat; laporan per sesi untuk konselor; akses hanya konselor penangan, sesi selesai, memakai kata sandi riwayat; syarat consent bertanda tangan; audit cetak belum diperlukan. Kelompok: data mengikuti peserta yang dipilih.
+- Migrasi `20261105140000_sicare_session_notes_client_identity.sql`: kolom `religion`, `education`, `address` di `booking_participants`; tabel `session_notes` (RLS, hanya service_role). **BELUM diterapkan.** Retensi dan penghapusan belum ditetapkan SOP.
+- Backend: `PUT /counselor/sessions/:id/notes`, `GET /counselor/sessions/:id/report`, `session_notes` pada `GET /counselor/history`; tiga field identitas pada alur consent (opsional di backend agar data lama valid, wajib di form).
+- Frontend: form agama/pendidikan/alamat di `InformedConsentModal` dan `GuestConsentPage`; catatan dapat diedit di detail sesi selesai `KonselorRiwayatPage`; tombol Cetak Laporan (nonaktif bila catatan belum disimpan), pilihan peserta untuk kelompok, peringatan SIPP kedaluwarsa. Dokumen `components/reports/CounselorSessionReportPrint.tsx`.
+- Isi laporan: identitas, data sesi, Catatan untuk Klien, Tindak Lanjut, tanda tangan dan No. SIPP. Catatan Konselor tidak dimuat; Uraian Permasalahan template tidak dipakai. Consent yang sudah ditandatangani sebelumnya menampilkan "-" untuk tiga field baru.
+- Belum dibuat: endpoint klien untuk membaca catatan; tab catatan Riwayat Klien masih kosong. Intake belum dimuat.
+- `fe: tsc`, `lint`, `build`: **PASS**. `be: check` **PASS**, `be: npm test` **216/217** (gagal: `heroMotivations.test.js`, baseline). PDF diverifikasi lewat Edge headless dengan data contoh. Alur live: **NOT RUN**.
+
+## 2026-11-05 — Migrasi catatan sesi diterapkan
+
+- Atas persetujuan pengguna, `20261105140000` diterapkan ke production (`tfzgztrvonkqsqmesmjy`). Hanya migrasi ini yang tertunda (dry run). Menggantikan catatan "BELUM diterapkan" pada entri sebelumnya.
+- Verifikasi baca-saja: tiga kolom identitas ada; `session_notes` RLS aktif, tanpa grant anon/authenticated, 1 trigger, 0 baris. Data tetap 5 profil dan 2 booking.
+- Temuan: `booking_participants` production kosong karena 2 booking lama dibuat sebelum alur consent; baris peserta baru dibuat saat consent dibuka. Laporan untuk booking seperti ini kini mengembalikan `409 CONSENT_NOT_SIGNED`, bukan `404`.
+
+## 2026-11-05 — Panduan: revisi Alur Sistem dibatalkan pengguna, perbaikan angka mobile
+
+- Pengguna mengembalikan perubahan Alur Sistem sebelumnya ke versi awal; entri di atas tidak lagi berlaku.
+- Hanya angka ganjil 01/03/05 di mobile yang diubah: pindah ke atas kartu (72px) agar tidak tertimpa. Desktop tetap sama (posisi 150px diverifikasi).
+- `fe: tsc`, `eslint` (public): **PASS**. Dicek di browser pada 375px dan 1280px.
+- Kartu Alur Sistem memakai Style A pilihan pengguna: putih, garis hijau di atas, label "Langkah 0X", tanpa sudut membulat dan bayangan. `fe: tsc`, `lint`, `build`: **PASS**. Dicek di browser pada 1280px dan 375px.
+- Angka genap 02/04 di mobile mengikuti angka ganjil: 72px di atas kartu, rata kanan. Terukur tidak ada angka menimpa kartu pada 375px; posisi desktop tidak berubah. `fe: tsc`, `lint`, `build`: **PASS**.
+- Style A dibatalkan atas permintaan pengguna: kartu Alur Sistem kembali ke gaya awal (sudut membulat, border tipis, tanpa garis atas dan label "Langkah"). Perbaikan posisi angka di mobile tetap dipertahankan. `fe: tsc`, `lint`, `build`: **PASS**.
+
+## 2026-11-05 — Konselor: jarak navbar dan isi halaman
+
+- Padding ganda dihapus: `py-6 lg:py-8` pada `PageContainer` halaman Konselor Aktivitas, Beranda, Feedback, Jadwal, Permintaan. Jarak atas kini hanya dari layout (16px mobile, 24px desktop), sama dengan Pengaturan, Riwayat, dan halaman Admin. `fe: tsc`, `lint`, `build`: **PASS**. Browser: **NOT RUN** (butuh login).
+- Riwayat Konselor: lebar konten dari `max-w-6xl` ke `max-w-7xl` agar sama dengan Beranda, Aktivitas, Permintaan, Jadwal, dan Feedback (ruang kosong samping berkurang pada layar di atas sekitar 1530px). Pengukuran harness (sudah dihapus) pada 1280px dan 1920px: jarak navbar ke konten 24px di semua halaman konselor; Feedback tidak berbeda dari halaman lain. `fe: tsc`, `lint`, `build`: **PASS**.
+- `KonselorLayout`: padding atas konten dari 24px ke 16px di semua ukuran (`p-4 sm:px-6 sm:pb-6`), berlaku untuk seluruh halaman konselor; layout role lain tidak berubah. `fe: tsc`, `lint`, `build`: **PASS**. Browser: **NOT RUN** (butuh login).
+- Koreksi pengguna: yang dimaksud jarak ke sidebar, bukan navbar. `KonselorLayout` dikembalikan ke `p-4 sm:p-6`. Riwayat dan Feedback konselor memakai `maxWidth="full"`, sehingga konten menempel pada padding layout (24px dari sidebar) di layar lebar. `fe: tsc`, `lint`, `build`: **PASS**. Browser: **NOT RUN** (butuh login).
+
+## 2026-11-05 — Navbar: sudut kanan bawah
+
+- `AdminLayout`, `KonselorLayout`, `KepalaLMILayout`: navbar mendapat `rounded-br-[20px]` agar mengikuti lengkung gunung ketiga (radius 28 pada viewBox 234, setara sekitar 20px). Dicek di browser pada layout Konselor; ketiga layout memakai bentuk gunung yang sama. `fe: tsc`, `lint`, `build`: **PASS**.
+
+## 2026-11-05 — Tipe database untuk backend
+
+- Baru: `be/src/types/database.types.ts` (hasil `npm run db:types`, hanya struktur skema, tanpa data), `be/tsconfig.json`, skrip `npm run typecheck` dan `db:types`. `getSupabaseAdminClient()` kini bertipe `SupabaseClient<Database>`.
+- Pemeriksaan bertahap lewat `// @ts-check` (`checkJs` mati): `config/supabase.js`, seluruh service admin, counselor (profile, availability, sessionReport), `feedback`, `notification`, `reporting`, dan `historyCredential.controller.js`. Belum: `consent.service.js`, `auth.service.js`, `whatsappOutbox.service.js`, repositories (parameter client belum bertipe), routes, workers.
+- JSDoc pada `supabaseError` (`@returns {never}`) dan `writeAudit`. `reporting.service.js`: perulangan per konselor ditulis tanpa non-null, perilaku sama. Bukti: kolom salah pada `.select()` gagal di typecheck dengan pesan `column ... does not exist`.
+- **Koreksi audit:** `writeAudit` membuang aksi di luar `SAFE_ACTIONS`, sehingga `counselor.license.update` dan `counselor.session_notes.update` yang dilaporkan tercatat ternyata tidak pernah tertulis, dan `sipp_silp_valid_until` terbuang. Keduanya ditambahkan ke daftar, dengan tes. Masih terbuang (sudah ada sebelumnya, belum diubah): `counselor.history.read`, `counselor.history_password.init|verify|change`, `counselor.publication`, `profile.photo_upload`, `profile.photo_delete`.
+- `eslint`, `@eslint/js`, `globals` kini dideklarasikan sebagai devDependencies backend; sebelumnya tidak tercatat dan terhapus saat `npm install`. `be/package-lock.json` berubah.
+- Bila skema berubah, jalankan `npm run db:types` setelah migrasi diterapkan.
+- `be: typecheck` **PASS**, `check` **PASS**, `npm test` **217/218** (gagal: `heroMotivations.test.js`, baseline).
+- Lanjutan audit: `counselor.history.read`, `counselor.history_password.init|verify|change`, `profile.photo_upload`, `profile.photo_delete` ditambahkan ke `SAFE_ACTIONS`; `counselor.publication` disamakan dengan nama daftar `admin.counselor.publication`; kunci metadata `is_public` diizinkan. `filename`/`deleted_path` tetap terbuang karena memuat path berisi ID pengguna. Tes baru memindai `src/` agar setiap aksi `writeAudit` ada di daftar.
+- Hasil lanjutan audit: `be: typecheck` **PASS**, `check` **PASS**, `npm test` **218/219** (gagal: `heroMotivations.test.js`, baseline). Aktif setelah backend di-restart.

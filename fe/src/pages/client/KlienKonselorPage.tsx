@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import {
   PageHeader,
   SkeletonCardGrid,
@@ -8,6 +9,7 @@ import {
   RefreshCw,
   Search,
   UsersRound,
+  X,
 } from "lucide-react";
 import type { ClientDirectoryCounselor } from "../../types/clientCounselor";
 import { CounselorCard } from "../../components/client/counselors/CounselorCard";
@@ -278,7 +280,7 @@ export default function KlienKonselorPage() {
             onClick={() => setSearchQuery("")}
             className="mt-4 rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary-soft"
           >
-            Hapus pencarian
+            <IconLabel icon={X}>Hapus pencarian</IconLabel>
           </button>
         </section>
       ) : null}

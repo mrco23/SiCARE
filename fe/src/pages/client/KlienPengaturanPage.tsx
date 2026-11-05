@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import {
   PageHeader,
   SkeletonFormGrid,
@@ -28,6 +29,9 @@ import {
   Phone,
   ShieldCheck,
   X,
+  KeyRound,
+  Save,
+  Trash2,
 } from "lucide-react";
 import { EDUCATION_LEVELS } from "../../constants/registerOptions";
 import {
@@ -511,7 +515,7 @@ export default function KlienPengaturanPage() {
                     onClick={handleDeletePhoto}
                     className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
                   >
-                    Hapus Foto
+                    <IconLabel icon={Trash2}>Hapus Foto</IconLabel>
                   </button>
                 )}
                 <span className="text-[11px] text-gray-400">
@@ -616,7 +620,7 @@ export default function KlienPengaturanPage() {
               onClick={changePassword}
               className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:w-auto"
             >
-              Ubah kata sandi
+              <IconLabel icon={KeyRound}>Ubah kata sandi</IconLabel>
             </button>
           </div>
         </Panel>
@@ -746,7 +750,7 @@ export default function KlienPengaturanPage() {
                 onClick={closeCropper}
                 className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
-                Batal
+                <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="button"
@@ -774,7 +778,7 @@ export default function KlienPengaturanPage() {
                 onClick={discardChanges}
                 className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:flex-none disabled:opacity-50"
               >
-                Batalkan
+                <IconLabel icon={X}>Batalkan</IconLabel>
               </button>
               <button
                 type="button"
@@ -782,7 +786,7 @@ export default function KlienPengaturanPage() {
                 onClick={() => void saveChanges()}
                 className="inline-flex flex-1 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark sm:flex-none disabled:opacity-50"
               >
-                {saving ? "Menyimpan..." : "Simpan perubahan"}
+                <IconLabel icon={Save}>{saving ? "Menyimpan..." : "Simpan perubahan"}</IconLabel>
               </button>
             </div>
           </div>

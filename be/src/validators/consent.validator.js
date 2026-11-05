@@ -9,6 +9,9 @@ export const identitySchema = z.object({
   date_of_birth: z.string().trim().min(8).max(30),
   gender: z.enum(["Laki-laki", "Perempuan"]),
   phone_e164: z.string().trim().min(8).max(25),
+  religion: z.string().trim().min(1).max(50),
+  education: z.string().trim().min(1).max(100),
+  address: z.string().trim().min(1).max(300),
 }).partial();
 
 export const signPayloadSchema = z.object({

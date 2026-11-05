@@ -4,6 +4,23 @@ const uuid = z.string().uuid();
 export const roles = ["client", "counselor", "admin", "head_lmi"];
 export const adminManageableRoles = ["counselor", "head_lmi"];
 
+const genderField = z.enum(["male", "female"]).nullable().optional();
+const licenseNumberField = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .regex(/^[A-Za-z0-9./_\- ]+$/)
+  .nullable()
+  .optional();
+
+const validUntilField = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
+  .nullable()
+  .optional();
+
 export const accountQuerySchema = z
   .object({
     role: z.enum(roles).optional(),
@@ -32,8 +49,23 @@ export const createAccountSchema = z
       .optional(),
     app_role: z.enum(adminManageableRoles),
     account_status: z.enum(["pending", "active", "disabled"]).default("active"),
+    gender: genderField,
+    siap_number: licenseNumberField,
+    sipp_silp_number: licenseNumberField,
+    sipp_silp_valid_until: validUntilField,
   })
-  .strict();
+  .strict()
+  .superRefine((input, ctx) => {
+    if (!input.gender) {
+      ctx.addIssue({ code: "custom", path: ["gender"], message: "Jenis kelamin wajib diisi." });
+    }
+    if (input.app_role !== "counselor") return;
+    for (const field of ["siap_number", "sipp_silp_number"]) {
+      if (!input[field]) {
+        ctx.addIssue({ code: "custom", path: [field], message: "Wajib diisi untuk akun konselor." });
+      }
+    }
+  });
 
 export const patchAccountSchema = z
   .object({
@@ -50,8 +82,13 @@ export const patchAccountSchema = z
       .enum(["student", "faculty_staff", "other"])
       .nullable()
       .optional(),
+    phone_e164: z.string().trim().min(8).max(20).nullable().optional(),
     app_role: z.enum(adminManageableRoles).optional(),
     account_status: z.enum(["pending", "active", "disabled"]).optional(),
+    gender: genderField,
+    siap_number: licenseNumberField,
+    sipp_silp_number: licenseNumberField,
+    sipp_silp_valid_until: validUntilField,
   })
   .strict()
   .refine(
@@ -59,8 +96,13 @@ export const patchAccountSchema = z
       input.full_name !== undefined ||
       input.identity_code !== undefined ||
       input.member_category !== undefined ||
+      input.phone_e164 !== undefined ||
       input.app_role !== undefined ||
-      input.account_status !== undefined,
+      input.account_status !== undefined ||
+      input.gender !== undefined ||
+      input.siap_number !== undefined ||
+      input.sipp_silp_number !== undefined ||
+      input.sipp_silp_valid_until !== undefined,
     { message: "Setidaknya satu field harus diisi." },
   );
 

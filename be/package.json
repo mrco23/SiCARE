@@ -12,6 +12,8 @@
     "start": "node server.js",
     "test": "node --test",
     "check": "node scripts/check-syntax.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "db:types": "supabase --workdir .. gen types typescript --remote --schema public > src/types/database.types.ts",
     "whatsapp:worker": "node src/workers/whatsapp.worker.js",
     "whatsapp:scheduler": "node src/workers/whatsapp.scheduler.js",
     "verify:live": "node scripts/verify-live-api.js",
@@ -26,5 +28,12 @@
     "helmet": "^8.1.0",
     "pdf-lib": "^1.17.1",
     "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "typescript": "~6.0.2"
   }
 }

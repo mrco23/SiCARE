@@ -13,7 +13,7 @@ export const counselorFeedbackQuerySchema = z.object({
 export const adminFeedbackQuerySchema = z.object({
   moderation_status: z.enum(["pending", "shown", "disabled"]).optional(),
   review_status: z.enum(["new", "reviewed", "resolved"]).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  limit: z.coerce.number().int().min(1).max(1000).default(50),
 }).strict();
 
 export const moderationSchema = z.object({

@@ -1,3 +1,4 @@
+// @ts-check
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../../config/supabase.js";
 import { env } from "../../config/env.js";
 import { HttpError, parseBody, sendData, supabaseError } from "../../lib/http.js";
@@ -268,6 +269,19 @@ export const counselorHistoryCredentialController = {
       }));
     }
 
+    const sessionIds = (sessions ?? []).map((s) => s.id);
+    let sessionNotes = [];
+    if (sessionIds.length > 0) {
+      const { data: nData, error: nError } = await client
+        .from("session_notes")
+        .select("session_id,counselor_note,client_note,follow_up")
+        .eq("counselor_id", req.auth.user.id)
+        .in("session_id", sessionIds);
+
+      if (nError) supabaseError(nError, "Catatan sesi riwayat tidak dapat dibaca.");
+      sessionNotes = nData ?? [];
+    }
+
     await writeAudit({
       actorUserId: req.auth.user.id,
       action: "counselor.history.read",
@@ -281,6 +295,7 @@ export const counselorHistoryCredentialController = {
       sessions: sessions ?? [],
       bookings,
       clients: clientProfiles,
+      session_notes: sessionNotes,
     });
   },
 };

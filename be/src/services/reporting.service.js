@@ -1,3 +1,4 @@
+// @ts-check
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase.js";
 import { HttpError, supabaseError } from "../lib/http.js";
 
@@ -96,12 +97,20 @@ export const reportingService = {
         },
       ])
     );
-    for (const row of bookings) if (byCounselor.has(row.counselor_id)) byCounselor.get(row.counselor_id).bookings += 1;
-    for (const row of sessions) if (row.status === "completed" && byCounselor.has(row.counselor_id)) byCounselor.get(row.counselor_id).completed_sessions += 1;
-    for (const row of feedback) if (byCounselor.has(row.counselor_id)) {
+    for (const row of bookings) {
       const item = byCounselor.get(row.counselor_id);
-      item.feedback_count += 1;
-      item.rating_total += row.rating;
+      if (item) item.bookings += 1;
+    }
+    for (const row of sessions) {
+      const item = byCounselor.get(row.counselor_id);
+      if (item && row.status === "completed") item.completed_sessions += 1;
+    }
+    for (const row of feedback) {
+      const item = byCounselor.get(row.counselor_id);
+      if (item) {
+        item.feedback_count += 1;
+        item.rating_total += row.rating;
+      }
     }
 
     return {

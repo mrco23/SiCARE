@@ -1,3 +1,5 @@
+import IconLabel from "../../components/shared/IconLabel";
+import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,6 +12,8 @@ import {
   MapPin,
   RefreshCw,
   Star,
+  Check,
+  XCircle,
 } from "lucide-react";
 import {
   PageContainer,
@@ -30,6 +34,7 @@ import {
   getCounselorInitials,
   toLocalDateKey,
 } from "../../features/counselor/shared/presentation";
+import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import { useAuth } from "../../features/auth/useAuth";
 import { ApiError } from "../../lib/api";
 import { counselorApi } from "../../lib/counselorApi";
@@ -60,6 +65,7 @@ export default function KonselorBerandaPage() {
   const { profile: authProfile } = useAuth();
 
   const [profile, setProfile] = useState<ProfileDto | null>(null);
+  const [licenseValidUntil, setLicenseValidUntil] = useState<string | null>(null);
   const [counselorProfile, setCounselorProfile] = useState<CounselorProfileDto | null>(null);
   const [bookings, setBookings] = useState<BookingRecordBaseDto[]>([]);
   const [sessions, setSessions] = useState<SessionListItemDto[]>([]);
@@ -90,6 +96,21 @@ export default function KonselorBerandaPage() {
       bookings: bookingsRes,
       sessions: sessionsRes,
       feedback: feedbackRes,
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void counselorApi
+      .getLicense()
+      .then((license) => {
+        if (active) setLicenseValidUntil(license.sipp_silp_valid_until);
+      })
+      .catch(() => {
+        // Pengingat izin tidak boleh mengganggu beranda.
+      });
+    return () => {
+      active = false;
     };
   }, []);
 
@@ -148,6 +169,18 @@ export default function KonselorBerandaPage() {
     profile?.full_name?.trim() ||
     authProfile?.full_name?.trim() ||
     "Konselor";
+
+  const licenseExpiry = getLicenseExpiry(licenseValidUntil);
+  const showLicenseReminder =
+    licenseExpiry?.state === "expiring" || licenseExpiry?.state === "expired";
+
+  // Akun lama bisa belum punya jenis kelamin; gunakan sapaan netral.
+  const greeting =
+    profile?.gender === "female"
+      ? "Halo ma'am"
+      : profile?.gender === "male"
+        ? "Halo Sir"
+        : "Halo";
 
   const bookingMap = useMemo(() => {
     const map = new Map<string, BookingRecordBaseDto>();
@@ -264,14 +297,17 @@ export default function KonselorBerandaPage() {
   };
 
   return (
-    <PageContainer className="py-6 lg:py-8">
+    <PageContainer>
       <div className="space-y-6">
         {/* Header Sambutan */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-gray-500">{todayLabel}</p>
             <h1 className="mt-0.5 text-2xl font-bold text-gray-900">
-              Halo, {counselorName}
+              {greeting}, {counselorName}{" "}
+              <span aria-hidden="true" className="wave-hand">
+                👋
+              </span>
             </h1>
           </div>
           <button
@@ -284,6 +320,22 @@ export default function KonselorBerandaPage() {
             Muat Ulang
           </button>
         </div>
+
+        {showLicenseReminder && licenseExpiry && (
+          <div
+            role="status"
+            className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${
+              licenseExpiry.state === "expired"
+                ? "border-red-200 bg-red-50 text-red-800"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            <p className="font-semibold">{licenseExpiry.label}</p>
+            <Link to="/konselor/pengaturan" className="font-semibold underline">
+              Perbarui di Pengaturan
+            </Link>
+          </div>
+        )}
 
 
         {errorMessage && (
@@ -521,7 +573,7 @@ export default function KonselorBerandaPage() {
                             }
                             className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
                           >
-                            Tolak
+                            <IconLabel icon={XCircle}>Tolak</IconLabel>
                           </button>
                           <button
                             type="button"
@@ -539,7 +591,7 @@ export default function KonselorBerandaPage() {
                             }
                             className="rounded-lg bg-[#064E3B] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#053e2f]"
                           >
-                            Terima
+                            <IconLabel icon={Check}>Terima</IconLabel>
                           </button>
                         </div>
                       </div>

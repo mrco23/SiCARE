@@ -2,11 +2,8 @@ import { SkeletonBlock } from "../../shared/Skeleton";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
-  CalendarCheck2,
   CheckCircle2,
-  Clock3,
   Inbox,
-  MessageSquareWarning,
   RefreshCw,
   Star,
   UserCheck,
@@ -62,62 +59,38 @@ function SectionState({
   return <>{children}</>;
 }
 
-function buildMetrics(dashboard: AdminDashboardDto): { primary: Metric[]; secondary: Metric[] } {
-  return {
-    primary: [
-      {
-        label: "Total Booking",
-        value: dashboard.bookings.total,
-        note: "Seluruh booking yang tercatat",
-        icon: Inbox,
-        iconClass: "bg-emerald-50 text-emerald-700",
-      },
-      {
-        label: "Sesi Selesai",
-        value: dashboard.sessions.completed,
-        note: `Dari ${dashboard.sessions.total} sesi konseling tercatat`,
-        icon: CheckCircle2,
-        iconClass: "bg-blue-50 text-blue-700",
-      },
-      {
-        label: "Menunggu Konfirmasi",
-        value: dashboard.bookings.waiting_confirmation,
-        note: "Booking menunggu keputusan konselor",
-        icon: Clock3,
-        iconClass: "bg-amber-50 text-amber-700",
-      },
-      {
-        label: "Feedback Menunggu Moderasi",
-        value: dashboard.feedback.pending_moderation,
-        note: "Menunggu moderasi Admin",
-        icon: MessageSquareWarning,
-        iconClass: "bg-red-50 text-red-700",
-      },
-    ],
-    secondary: [
-      {
-        label: "Booking Terkonfirmasi",
-        value: dashboard.bookings.confirmed,
-        note: "Booking berstatus terkonfirmasi",
-        icon: CalendarCheck2,
-        iconClass: "bg-emerald-50 text-emerald-700",
-      },
-      {
-        label: "Client Aktif",
-        value: dashboard.users.active_clients,
-        note: "Akun client berstatus aktif",
-        icon: Users,
-        iconClass: "bg-blue-50 text-blue-700",
-      },
-      {
-        label: "Counselor Aktif",
-        value: dashboard.users.active_counselors,
-        note: "Akun counselor berstatus aktif",
-        icon: UserCheck,
-        iconClass: "bg-amber-50 text-amber-700",
-      },
-    ],
-  };
+// Beranda hanya menampilkan ringkasan utama; rincian status ada di halaman Laporan.
+function buildMetrics(dashboard: AdminDashboardDto): Metric[] {
+  return [
+    {
+      label: "Total Booking",
+      value: dashboard.bookings.total,
+      note: "Seluruh booking tercatat",
+      icon: Inbox,
+      iconClass: "bg-emerald-50 text-emerald-700",
+    },
+    {
+      label: "Sesi Selesai",
+      value: dashboard.sessions.completed,
+      note: `Dari ${dashboard.sessions.total} sesi`,
+      icon: CheckCircle2,
+      iconClass: "bg-blue-50 text-blue-700",
+    },
+    {
+      label: "Klien Aktif",
+      value: dashboard.users.active_clients,
+      note: "Akun klien aktif",
+      icon: Users,
+      iconClass: "bg-amber-50 text-amber-700",
+    },
+    {
+      label: "Konselor Aktif",
+      value: dashboard.users.active_counselors,
+      note: "Akun konselor aktif",
+      icon: UserCheck,
+      iconClass: "bg-violet-50 text-violet-700",
+    },
+  ];
 }
 
 function MetricTile({ label, value, note, icon: Icon, iconClass }: Metric) {
@@ -163,19 +136,14 @@ export function MetricCards({
     );
   }
 
-  const { primary, secondary } = buildMetrics(dashboard);
   return (
-    <section aria-label="Ringkasan statistik" className="space-y-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {primary.map((metric) => (
-          <MetricTile key={metric.label} {...metric} />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {secondary.map((metric) => (
-          <MetricTile key={metric.label} {...metric} />
-        ))}
-      </div>
+    <section
+      aria-label="Ringkasan statistik"
+      className="grid grid-cols-2 gap-3 xl:grid-cols-4"
+    >
+      {buildMetrics(dashboard).map((metric) => (
+        <MetricTile key={metric.label} {...metric} />
+      ))}
     </section>
   );
 }

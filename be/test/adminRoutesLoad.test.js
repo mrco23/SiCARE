@@ -284,6 +284,9 @@ test("POST /admin/accounts with app_role: 'counselor' succeeds (201)", async () 
         email: "konselor.baru@sicare.test",
         password: "password123",
         full_name: "Konselor Baru",
+        gender: "female",
+        siap_number: "SIAP-001",
+        sipp_silp_number: "SIPP-001",
         app_role: "counselor",
       },
     });
@@ -308,6 +311,7 @@ test("POST /admin/accounts with app_role: 'head_lmi' succeeds (201)", async () =
         email: "headlmi.baru@sicare.test",
         password: "password123",
         full_name: "Pimpinan LMI Baru",
+        gender: "male",
         app_role: "head_lmi",
       },
     });

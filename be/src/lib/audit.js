@@ -1,4 +1,4 @@
-const SAFE_ACTIONS = new Set([
+export const SAFE_ACTIONS = new Set([
   "auth.register",
   "profile.update",
   "profile.whatsapp_consent",
@@ -23,12 +23,36 @@ const SAFE_ACTIONS = new Set([
   "counselor.availability.create",
   "counselor.availability.update",
   "counselor.availability.cancel",
+  "counselor.license.update",
+  "counselor.session_notes.update",
+  "counselor.history.read",
+  "counselor.history_password.init",
+  "counselor.history_password.verify",
+  "counselor.history_password.change",
+  "profile.photo_upload",
+  "profile.photo_delete",
 ]);
-const SAFE_METADATA_KEYS = new Set(["status", "role", "field", "count"]);
+const SAFE_METADATA_KEYS = new Set([
+  "status",
+  "role",
+  "field",
+  "count",
+  "is_public",
+  "sipp_silp_valid_until",
+]);
 
 /**
  * Best-effort audit logging. Audit failures are reported without changing the
  * primary API response. The optional client argument makes failure handling testable.
+ *
+ * @param {{
+ *   actorUserId?: string | null,
+ *   action: string,
+ *   entityType: string,
+ *   entityId?: string | null,
+ *   metadata?: Record<string, unknown>,
+ * }} entry
+ * @param {any} [clientOverride]
  */
 export async function writeAudit(
   { actorUserId = null, action, entityType, entityId = null, metadata = {} },

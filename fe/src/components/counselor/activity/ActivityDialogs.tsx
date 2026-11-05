@@ -1,4 +1,8 @@
-import { X } from "lucide-react";
+import IconLabel from "../../shared/IconLabel";
+import {
+  X,
+  XCircle,
+} from "lucide-react";
 import { CANCEL_REASONS } from "../../../constants/counseling";
 import type { CounselingSession } from "../../../types/counseling";
 
@@ -200,7 +204,7 @@ export function CancelActivitySessionDialog({
                 disabled={!cancelValid}
                 className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Ya, batalkan sesi
+                <IconLabel icon={XCircle}>Ya, batalkan sesi</IconLabel>
               </button>
             </div>
           </div>

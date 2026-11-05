@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PageContainer,
@@ -31,6 +32,8 @@ import {
   RefreshCw,
   SquarePen,
   TriangleAlert,
+  X,
+  Save,
 } from "lucide-react";
 
 /* ========================= TIPE & DATA ========================= */
@@ -445,7 +448,7 @@ export default function AdminPeriodePage() {
                   onClick={() => openModal(null, suggestion)}
                   className="shrink-0 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
                 >
-                  Tambah {suggestion.label}
+                  <IconLabel icon={Plus}>Tambah {suggestion.label}</IconLabel>
                 </button>
               </div>
             )}
@@ -688,7 +691,7 @@ export default function AdminPeriodePage() {
                 onClick={() => setModalOpen(false)}
                 className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
               >
-                Batal
+                <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="button"
@@ -696,7 +699,11 @@ export default function AdminPeriodePage() {
                 onClick={() => void handleSave()}
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
               >
-                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting ? (
+<Loader2 className="h-4 w-4 animate-spin" />
+) : (
+<Save className="h-4 w-4" />
+)}
                 {submitting ? "Menyimpan..." : "Simpan"}
               </button>
             </div>

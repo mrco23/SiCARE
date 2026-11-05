@@ -1,5 +1,11 @@
+import IconLabel from "../../shared/IconLabel";
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import {
+  X,
+  Save,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import type { CancelReason, CancelTarget, EditorState, Slot } from "../../../types/counselorSchedule";
 import { CANCEL_REASONS, dateLabel, fmt, LAST_START, parseTime, SESSION, START } from "../../../features/counselor/schedule/scheduleUtils";
 
@@ -151,7 +157,7 @@ export function CancelSessionDialog({
             disabled={!valid}
             className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Ya, batalkan sesi
+            <IconLabel icon={XCircle}>Ya, batalkan sesi</IconLabel>
           </button>
         </div>
       </div>
@@ -307,7 +313,7 @@ export function SlotDialog({
                 onClick={onDelete}
                 className="rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
               >
-                Hapus
+                <IconLabel icon={Trash2}>Hapus</IconLabel>
               </button>
             )}
             {isSesi && !past && (
@@ -316,7 +322,7 @@ export function SlotDialog({
                 onClick={onCancelSession}
                 className="rounded-xl border border-red-300 px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
               >
-                Batalkan sesi
+                <IconLabel icon={XCircle}>Batalkan sesi</IconLabel>
               </button>
             )}
           </div>
@@ -326,7 +332,7 @@ export function SlotDialog({
               onClick={onClose}
               className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-text-base hover:bg-gray-50"
             >
-              {readonly ? "Tutup" : "Batal"}
+              <IconLabel icon={X}>{readonly ? "Tutup" : "Batal"}</IconLabel>
             </button>
             {!readonly && (
               <button
@@ -335,7 +341,7 @@ export function SlotDialog({
                 onClick={() => parsed !== null && onSave(parsed)}
                 className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-40"
               >
-                Simpan
+                <IconLabel icon={Save}>Simpan</IconLabel>
               </button>
             )}
           </div>

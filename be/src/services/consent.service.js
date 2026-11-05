@@ -281,6 +281,9 @@ export async function initializeConsentForParticipant({
     date_of_birth: participant.date_of_birth || null,
     gender: participant.gender || null,
     phone_e164: participant.phone_e164 || null,
+    religion: participant.religion || null,
+    education: participant.education || null,
+    address: participant.address || null,
   };
 
   const row = {
@@ -777,6 +780,9 @@ export async function updateDraftConsentIdentity({
       date_of_birth: validated.date_of_birth,
       gender: validated.gender,
       phone_e164: validated.phone_e164,
+      religion: validated.religion,
+      education: validated.education,
+      address: validated.address,
       updated_at: new Date().toISOString(),
     })
     .eq("id", consent.booking_participant_id);
@@ -876,6 +882,9 @@ export async function signInformedConsent({
     date_of_birth: identityData.date_of_birth || consent.booking_participants?.date_of_birth,
     gender: identityData.gender || consent.booking_participants?.gender,
     phone_e164: identityData.phone_e164 || consent.booking_participants?.phone_e164,
+    religion: identityData.religion || consent.booking_participants?.religion,
+    education: identityData.education || consent.booking_participants?.education,
+    address: identityData.address || consent.booking_participants?.address,
   };
   const validIdentity = validateConsentIdentity(rawIdentity);
 
@@ -1799,6 +1808,9 @@ export async function claimGuestInvitation({
       birthplace: consent.identity_snapshot?.birthplace || null,
       date_of_birth: consent.identity_snapshot?.date_of_birth || null,
       gender: consent.identity_snapshot?.gender || null,
+      religion: consent.identity_snapshot?.religion || null,
+      education: consent.identity_snapshot?.education || null,
+      address: consent.identity_snapshot?.address || null,
     };
     await supa
       .from("informed_consents")

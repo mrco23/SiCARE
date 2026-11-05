@@ -1,3 +1,4 @@
+// @ts-check
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../../config/supabase.js";
 import { HttpError, supabaseError } from "../../lib/http.js";
 
@@ -11,8 +12,21 @@ const supa = () => {
   return getSupabaseAdminClient();
 };
 
+/** Kepala LMI hanya melihat data agregat; identitas klien dan teks bebas tidak dikirim. */
+export function redactClientIdentity(booking) {
+  return {
+    ...booking,
+    client_id: null,
+    client: null,
+    group_name: null,
+    cancellation_reason: null,
+    reschedule_reason: null,
+    booking_participants: [],
+  };
+}
+
 export const adminCounselingService = {
-  async listCounseling(limit = 50) {
+  async listCounseling(limit = 50, { redactClient = false } = {}) {
     const { data, error } = await supa()
       .from("bookings")
       .select(
@@ -39,7 +53,7 @@ export const adminCounselingService = {
       };
     });
 
-    return normalized;
+    return redactClient ? normalized.map(redactClientIdentity) : normalized;
   },
 
   async listActivity(limit = 50) {

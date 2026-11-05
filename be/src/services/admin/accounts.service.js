@@ -1,3 +1,4 @@
+// @ts-check
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../../config/supabase.js";
 import { HttpError, supabaseError } from "../../lib/http.js";
 import { writeAudit } from "../../lib/audit.js";
@@ -17,7 +18,7 @@ export const adminAccountsService = {
     let query = supa()
       .from("profiles")
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,whatsapp_opt_in,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,whatsapp_opt_in,created_at,updated_at",
       )
       .order("created_at", { ascending: false })
       .limit(filters.limit);
@@ -47,7 +48,7 @@ export const adminAccountsService = {
     const { data, error } = await supa()
       .from("profiles")
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,whatsapp_opt_in,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,whatsapp_opt_in,created_at,updated_at",
       )
       .eq("id", id)
       .maybeSingle();
@@ -88,6 +89,11 @@ export const adminAccountsService = {
       member_category: input.member_category ?? null,
       app_role: input.app_role,
       account_status: input.account_status,
+      gender: input.gender ?? null,
+      siap_number: input.app_role === "counselor" ? input.siap_number : null,
+      sipp_silp_number: input.app_role === "counselor" ? input.sipp_silp_number : null,
+      sipp_silp_valid_until:
+        input.app_role === "counselor" ? (input.sipp_silp_valid_until ?? null) : null,
     };
 
     const { data, error } = await supa()
@@ -95,7 +101,7 @@ export const adminAccountsService = {
       .update(profilePatch)
       .eq("id", created.user.id)
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
       )
       .single();
 
@@ -151,7 +157,7 @@ export const adminAccountsService = {
 
     const { data: current, error: currentError } = await supa()
       .from("profiles")
-      .select("id,app_role,account_status")
+      .select("id,app_role,account_status,gender,siap_number,sipp_silp_number")
       .eq("id", id)
       .maybeSingle();
 
@@ -167,6 +173,23 @@ export const adminAccountsService = {
         "ROLE_CHANGE_NOT_ALLOWED",
         "Role akun ini tidak dapat diubah dari halaman admin.",
       );
+    }
+
+    // Akun konselor lama boleh belum lengkap (mis. saat hanya mengubah status), tetapi
+    // menjadi konselor atau mengubah data ini harus menghasilkan data yang lengkap.
+    const finalRole = input.app_role ?? current.app_role;
+    const touchesCounselorData = ["gender", "siap_number", "sipp_silp_number"].some(
+      (field) => input[field] !== undefined,
+    );
+    if (finalRole === "counselor" && (current.app_role !== "counselor" || touchesCounselorData)) {
+      const merged = { ...current, ...input };
+      if (!merged.gender || !merged.siap_number || !merged.sipp_silp_number) {
+        throw new HttpError(
+          400,
+          "COUNSELOR_DATA_REQUIRED",
+          "Jenis kelamin, No. SIAP, dan No. SIPP/SILP wajib diisi untuk akun konselor.",
+        );
+      }
     }
 
     const losingAdmin =
@@ -196,7 +219,7 @@ export const adminAccountsService = {
       .update(input)
       .eq("id", id)
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,whatsapp_opt_in,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,whatsapp_opt_in,created_at,updated_at",
       )
       .maybeSingle();
 
@@ -322,7 +345,7 @@ export const adminAccountsService = {
 
     await writeAudit({
       actorUserId,
-      action: "counselor.publication",
+      action: "admin.counselor.publication",
       entityType: "counselor_profile",
       entityId: counselorId,
       metadata: { is_public: isPublic },

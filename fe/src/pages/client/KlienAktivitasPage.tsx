@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import {
   SkeletonList,
   useToast,
@@ -14,6 +15,10 @@ import {
   FileSignature,
   Star,
   X,
+  Pencil,
+  Save,
+  Send,
+  Trash2,
 } from "lucide-react";
 import { sicareApi } from "../../lib/sicareApi";
 import { consentApi } from "../../lib/consentApi";
@@ -297,7 +302,7 @@ function SignaturePad({
         onClick={clear}
         className="mt-2 text-xs font-semibold text-gray-500 hover:text-gray-800 hover:underline"
       >
-        Hapus & ulangi
+        <IconLabel icon={Trash2}>Hapus & ulangi</IconLabel>
       </button>
     </div>
   );
@@ -429,7 +434,7 @@ function ConsentDialog({
                 onClick={() => signature && onSigned(signature)}
                 className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Simpan tanda tangan
+                <IconLabel icon={Save}>Simpan tanda tangan</IconLabel>
               </button>
             </div>
           </>
@@ -1133,7 +1138,7 @@ export default function KlienAktivitasPage() {
                 onClick={() => openReschedule(session.id)}
                 className="rounded-xl border border-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0] disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent"
               >
-                Ubah jadwal
+                <IconLabel icon={Pencil}>Ubah jadwal</IconLabel>
               </button>
             )}
           </div>
@@ -1380,7 +1385,7 @@ export default function KlienAktivitasPage() {
             onClick={backToActivity}
             className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
           >
-            Batal
+            <IconLabel icon={X}>Batal</IconLabel>
           </button>
           <button
             type="button"
@@ -1394,7 +1399,7 @@ export default function KlienAktivitasPage() {
             onClick={submitReschedule}
             className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Kirim pengajuan
+            <IconLabel icon={Send}>Kirim pengajuan</IconLabel>
           </button>
         </div>
       </div>
@@ -1608,7 +1613,7 @@ export default function KlienAktivitasPage() {
                 onClick={submitFeedback}
                 className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Kirim penilaian
+                <IconLabel icon={Send}>Kirim penilaian</IconLabel>
               </button>
             </div>
           </section>

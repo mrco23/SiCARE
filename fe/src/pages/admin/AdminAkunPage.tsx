@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PageContainer,
@@ -5,6 +6,7 @@ import {
   SkeletonTable,
   useToast,
 } from "../../components/shared";
+import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
 import type {
@@ -12,6 +14,7 @@ import type {
   AdminAccountDto,
   AdminAccountRecordDto,
   AppRoleApi,
+  GenderApi,
   MemberCategoryApi,
 } from "../../types/api";
 import type { Role } from "../../types/admin";
@@ -25,6 +28,8 @@ import {
   UserCheck,
   UserPlus,
   UserX,
+  X,
+  Save,
 } from "lucide-react";
 
 /* ========================= TIPE & DATA ========================= */
@@ -44,6 +49,11 @@ type ManagedAccount = {
   status: AccountStatusApi;
   active: boolean;
   created: string;
+  gender: GenderApi | "";
+  siapNumber: string;
+  sippSilpNumber: string;
+  sippSilpValidUntil: string;
+  sippSilpUpdatedAt: string | null;
 };
 
 type FormState = {
@@ -54,7 +64,13 @@ type FormState = {
   phone: string;
   role: Role;
   status: AccountStatusApi;
+  gender: GenderApi | "";
+  siapNumber: string;
+  sippSilpNumber: string;
+  sippSilpValidUntil: string;
 };
+
+const LICENSE_NUMBER_RE = /^[A-Za-z0-9./_\- ]+$/;
 
 const ROLES: Role[] = ["Konselor", "Kepala LMI"];
 const TABS: Tab[] = ["Semua", "Konselor", "Klien", "Kepala LMI", "Admin"];
@@ -115,6 +131,11 @@ function mapAccountDto(
     status: dto.account_status,
     active: dto.account_status === "active",
     created: dto.created_at,
+    gender: dto.gender ?? "",
+    siapNumber: dto.siap_number ?? "",
+    sippSilpNumber: dto.sipp_silp_number ?? "",
+    sippSilpValidUntil: dto.sipp_silp_valid_until ?? "",
+    sippSilpUpdatedAt: dto.sipp_silp_updated_at ?? null,
   };
 }
 
@@ -158,7 +179,27 @@ const emptyForm = (currentTab: Tab): FormState => ({
   phone: "",
   role: defaultAccountRoleForCreation(currentTab),
   status: "active",
+  gender: "",
+  siapNumber: "",
+  sippSilpNumber: "",
+  sippSilpValidUntil: "",
 });
+
+function LicenseBadge({ validUntil }: { validUntil: string }) {
+  const expiry = getLicenseExpiry(validUntil);
+  if (!expiry || expiry.state === "valid") return null;
+  return (
+    <span
+      className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+        expiry.state === "expired"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : "border-amber-200 bg-amber-50 text-amber-800"
+      }`}
+    >
+      {expiry.label}
+    </span>
+  );
+}
 
 const inputClass =
   "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-accent/30";
@@ -269,6 +310,10 @@ export default function AdminAkunPage() {
       phone: a.phone,
       role: a.role,
       status: a.status,
+      gender: a.gender,
+      siapNumber: a.siapNumber,
+      sippSilpNumber: a.sippSilpNumber,
+      sippSilpValidUntil: a.sippSilpValidUntil,
     });
     setFormError("");
     setModalOpen(true);
@@ -288,6 +333,10 @@ export default function AdminAkunPage() {
         phone: mapped.phone,
         role: mapped.role,
         status: mapped.status,
+        gender: mapped.gender,
+        siapNumber: mapped.siapNumber,
+        sippSilpNumber: mapped.sippSilpNumber,
+        sippSilpValidUntil: mapped.sippSilpValidUntil,
       });
     } catch {
       // Tetap gunakan data baris jika gagal refresh detail
@@ -305,6 +354,9 @@ export default function AdminAkunPage() {
     const email = form.email.trim();
     const password = form.password;
     const phone = form.phone.trim();
+    const siapNumber = form.siapNumber.trim();
+    const sippSilpNumber = form.sippSilpNumber.trim();
+    const isCounselorForm = form.role === "Konselor";
 
     if (!name || !email) {
       setFormError("Nama lengkap dan email wajib diisi.");
@@ -321,6 +373,38 @@ export default function AdminAkunPage() {
       return;
     }
 
+    if ((editingId === null || isCounselorForm) && !form.gender) {
+      setFormError("Jenis kelamin wajib dipilih.");
+      return;
+    }
+
+    if (isCounselorForm && (!siapNumber || !sippSilpNumber)) {
+      setFormError("No. SIAP dan No. SIPP/SILP wajib diisi untuk akun konselor.");
+      return;
+    }
+
+    if (
+      isCounselorForm &&
+      (!LICENSE_NUMBER_RE.test(siapNumber) ||
+        !LICENSE_NUMBER_RE.test(sippSilpNumber))
+    ) {
+      setFormError(
+        "No. SIAP dan No. SIPP/SILP hanya boleh berisi huruf, angka, spasi, titik, garis miring, dan tanda hubung.",
+      );
+      return;
+    }
+
+    const personalData = {
+      gender: form.gender || null,
+      ...(isCounselorForm
+        ? {
+            siap_number: siapNumber,
+            sipp_silp_number: sippSilpNumber,
+            sipp_silp_valid_until: form.sippSilpValidUntil || null,
+          }
+        : {}),
+    };
+
     setSubmitting(true);
     setFormError("");
     try {
@@ -332,6 +416,7 @@ export default function AdminAkunPage() {
             member_category: editingAccount?.memberCategory ?? null,
             phone_e164: phone || null,
             account_status: form.status,
+            ...personalData,
           });
           const mapped = mapAccountDto(updated, email);
           setAccounts((prev) =>
@@ -348,6 +433,7 @@ export default function AdminAkunPage() {
             phone_e164: phone || null,
             app_role,
             account_status: form.status,
+            ...personalData,
           });
           const mapped = mapAccountDto(updated, email);
           setAccounts((prev) =>
@@ -366,6 +452,7 @@ export default function AdminAkunPage() {
           member_category,
           app_role,
           account_status: form.status,
+          ...personalData,
         });
         const mapped = mapAccountDto(created, email);
         setAccounts((prev) => [...prev, mapped]);
@@ -568,6 +655,9 @@ export default function AdminAkunPage() {
                           >
                             {a.role}
                           </span>
+                          {a.appRole === "counselor" && (
+                            <LicenseBadge validUntil={a.sippSilpValidUntil} />
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -653,7 +743,7 @@ export default function AdminAkunPage() {
             if (e.target === e.currentTarget) closeModal();
           }}
         >
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
             <h3 className="mb-4 text-lg font-bold">
               {editingId !== null ? "Ubah Akun" : "Tambah Akun"}
             </h3>
@@ -790,6 +880,78 @@ export default function AdminAkunPage() {
                   </select>
                 </div>
               </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600">
+                  Jenis kelamin
+                </label>
+                <select
+                  value={form.gender}
+                  disabled={submitting}
+                  onChange={(e) =>
+                    setForm({ ...form, gender: e.target.value as GenderApi | "" })
+                  }
+                  className={`${inputClass} bg-white`}
+                >
+                  <option value="">Pilih jenis kelamin</option>
+                  <option value="male">Laki-laki</option>
+                  <option value="female">Perempuan</option>
+                </select>
+              </div>
+              {form.role === "Konselor" && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">
+                      No. SIAP
+                    </label>
+                    <input
+                      value={form.siapNumber}
+                      disabled={submitting}
+                      maxLength={80}
+                      onChange={(e) =>
+                        setForm({ ...form, siapNumber: e.target.value })
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">
+                      No. SIPP/SILP
+                    </label>
+                    <input
+                      value={form.sippSilpNumber}
+                      disabled={submitting}
+                      maxLength={80}
+                      onChange={(e) =>
+                        setForm({ ...form, sippSilpNumber: e.target.value })
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-semibold text-slate-600">
+                      SIPP/SILP berlaku sampai (opsional)
+                    </label>
+                    <input
+                      type="date"
+                      value={form.sippSilpValidUntil}
+                      disabled={submitting}
+                      onChange={(e) =>
+                        setForm({ ...form, sippSilpValidUntil: e.target.value })
+                      }
+                      className={inputClass}
+                    />
+                    {editingAccount?.sippSilpUpdatedAt && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Terakhir diperbarui konselor:{" "}
+                        {new Date(editingAccount.sippSilpUpdatedAt).toLocaleString(
+                          "id-ID",
+                          { dateStyle: "medium", timeStyle: "short" },
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               {formError && (
                 <p
                   role="alert"
@@ -807,7 +969,7 @@ export default function AdminAkunPage() {
                 onClick={closeModal}
                 className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
               >
-                Batal
+                <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="button"
@@ -815,7 +977,11 @@ export default function AdminAkunPage() {
                 onClick={() => void save()}
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
               >
-                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting ? (
+<Loader2 className="h-4 w-4 animate-spin" />
+) : (
+<Save className="h-4 w-4" />
+)}
                 {submitting ? "Menyimpan..." : "Simpan"}
               </button>
             </div>
