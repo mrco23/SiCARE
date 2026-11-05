@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import {
   PageHeader,
   SkeletonCardGrid,
@@ -37,6 +38,8 @@ import {
   Lock,
   MapPin,
   Search,
+  CalendarPlus,
+  Pencil,
 } from "lucide-react";
 import type { BookingCounselor } from "../../types/clientCounselor";
 import { sicareApi } from "../../lib/sicareApi";
@@ -982,7 +985,7 @@ export default function KlienPesananPage() {
                   onClick={() => goTo(4)}
                   className="text-sm font-semibold text-primary hover:underline"
                 >
-                  Ubah
+                  <IconLabel icon={Pencil}>Ubah</IconLabel>
                 </button>
               </div>
               <div className="mt-3 divide-y divide-gray-100">
@@ -1119,7 +1122,7 @@ export default function KlienPesananPage() {
               onClick={handleRestart}
               className="mt-6 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
             >
-              Buat janji lain
+              <IconLabel icon={CalendarPlus}>Buat janji lain</IconLabel>
             </button>
           </div>
         </section>

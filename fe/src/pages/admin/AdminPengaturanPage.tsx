@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
 import { sicareApi } from "../../lib/sicareApi";
@@ -785,14 +786,14 @@ export default function AdminPengaturanPage() {
                 onClick={() => setHeroModal(null)}
                 className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
-                Batal
+                <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="button"
                 onClick={submitHeroModal}
                 className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
               >
-                {heroModal.mode === "add" ? "Tambah" : "Simpan kalimat"}
+                <IconLabel icon={Save}>{heroModal.mode === "add" ? "Tambah" : "Simpan kalimat"}</IconLabel>
               </button>
             </div>
           </div>
@@ -812,7 +813,7 @@ export default function AdminPengaturanPage() {
                 disabled={saving}
                 className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:flex-none"
               >
-                Batalkan
+                <IconLabel icon={X}>Batalkan</IconLabel>
               </button>
               <button
                 type="button"

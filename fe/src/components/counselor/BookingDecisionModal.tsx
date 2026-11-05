@@ -1,5 +1,15 @@
+import IconLabel from "../shared/IconLabel";
 import { useEffect, useState } from "react";
-import { AlertCircle, CalendarClock, CheckCircle2, Loader2, MapPin, X, XCircle } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarClock,
+  CheckCircle2,
+  Loader2,
+  MapPin,
+  X,
+  XCircle,
+  Check,
+} from "lucide-react";
 import { ApiError } from "../../lib/api";
 import { sicareApi } from "../../lib/sicareApi";
 import type { BookingDetailDto, BookingRecordBaseDto } from "../../types/api";
@@ -299,7 +309,7 @@ export function BookingDecisionModal({
             onClick={onClose}
             className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            Batal
+            <IconLabel icon={X}>Batal</IconLabel>
           </button>
           <button
             type="button"
@@ -313,7 +323,15 @@ export function BookingDecisionModal({
                   : "bg-red-600 hover:bg-red-700"
             }`}
           >
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : action === "approve" ? (
+              <Check className="h-4 w-4" />
+            ) : action === "reschedule" ? (
+              <CalendarClock className="h-4 w-4" />
+            ) : (
+              <XCircle className="h-4 w-4" />
+            )}
             {action === "approve"
               ? "Konfirmasi & Buat Sesi"
               : action === "reschedule"

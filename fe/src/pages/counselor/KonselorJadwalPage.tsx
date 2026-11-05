@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,6 +11,9 @@ import {
   RefreshCw,
   Trash2,
   X,
+  Pencil,
+  XCircle,
+  Save,
 } from "lucide-react";
 import {
   PageContainer,
@@ -1035,7 +1039,7 @@ export default function KonselorJadwalPage() {
                           onClick={() => openEditSlotModal(s)}
                           className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                         >
-                          Ubah
+                          <IconLabel icon={Pencil}>Ubah</IconLabel>
                         </button>
                       )}
 
@@ -1052,7 +1056,7 @@ export default function KonselorJadwalPage() {
                           }
                           className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
                         >
-                          Batalkan Sesi
+                          <IconLabel icon={XCircle}>Batalkan Sesi</IconLabel>
                         </button>
                       )}
                     </li>
@@ -1194,7 +1198,7 @@ export default function KonselorJadwalPage() {
                     }}
                     className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
                   >
-                    Batalkan Sesi
+                    <IconLabel icon={XCircle}>Batalkan Sesi</IconLabel>
                   </button>
                 )}
 
@@ -1220,7 +1224,7 @@ export default function KonselorJadwalPage() {
                   onClick={() => setEditor(null)}
                   className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
-                  {editor.isBooked || isPast(editor.dateKey) ? "Tutup" : "Batal"}
+                  <IconLabel icon={X}>{editor.isBooked || isPast(editor.dateKey) ? "Tutup" : "Batal"}</IconLabel>
                 </button>
                 {!editor.isBooked && !isPast(editor.dateKey) && (
                   <button
@@ -1229,7 +1233,11 @@ export default function KonselorJadwalPage() {
                     onClick={() => void handleSaveSlotModal()}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-[#064E3B] px-4 py-2 text-xs font-semibold text-white hover:bg-[#053e2f] disabled:opacity-50"
                   >
-                    {mutating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {mutating ? (
+<Loader2 className="h-3.5 w-3.5 animate-spin" />
+) : (
+<Save className="h-3.5 w-3.5" />
+)}
                     Simpan
                   </button>
                 )}
@@ -1300,8 +1308,10 @@ export default function KonselorJadwalPage() {
                 onClick={() => void handleConfirmCancelSession()}
                 className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {cancelSubmitting && (
+                {cancelSubmitting ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5" />
                 )}
                 Ya, Batalkan Sesi
               </button>

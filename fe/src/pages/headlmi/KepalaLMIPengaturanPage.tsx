@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import {
   PageContainer,
   PageHeader,
@@ -33,6 +34,8 @@ import {
   ShieldCheck,
   UserRound,
   X,
+  KeyRound,
+  Trash2,
 } from "lucide-react";
 
 type Profile = {
@@ -458,7 +461,7 @@ export default function KepalaLMIPengaturanPage() {
                   className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-red-300 hover:bg-gray-50 hover:text-red-600"
                   onClick={handleDeletePhoto}
                 >
-                  Hapus foto
+                  <IconLabel icon={Trash2}>Hapus foto</IconLabel>
                 </button>
               )}
               <p className="text-xs leading-relaxed text-gray-500">
@@ -579,7 +582,7 @@ export default function KepalaLMIPengaturanPage() {
                 type="submit"
                 className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
-                Ubah kata sandi
+                <IconLabel icon={KeyRound}>Ubah kata sandi</IconLabel>
               </button>
             </div>
           </form>
@@ -717,7 +720,7 @@ export default function KepalaLMIPengaturanPage() {
                 onClick={closeCropper}
                 className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
-                Batal
+                <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="button"
@@ -745,7 +748,7 @@ export default function KepalaLMIPengaturanPage() {
                 onClick={discardChanges}
                 className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 sm:flex-none"
               >
-                Batalkan
+                <IconLabel icon={X}>Batalkan</IconLabel>
               </button>
               <button
                 type="button"
