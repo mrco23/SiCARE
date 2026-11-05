@@ -110,7 +110,7 @@ export default function KonselorLayout() {
 function Navbar() {
   return (
     <header
-      className="layout-navbar fixed right-0 top-0 left-0 z-30 overflow-visible border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
+      className="layout-navbar fixed right-0 top-0 left-0 z-30 overflow-visible rounded-br-[20px] border-b border-[#d9d9d9] bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] lg:left-[248px]"
     >
       {/* logo mobile (di desktop logo sudah ada di sidebar) */}
       <Link

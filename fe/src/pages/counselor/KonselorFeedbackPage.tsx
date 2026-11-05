@@ -310,7 +310,7 @@ export default function KonselorFeedbackPage() {
   };
 
   return (
-    <PageContainer className="py-6 lg:py-8">
+    <PageContainer maxWidth="full">
       <div className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <PageHeader

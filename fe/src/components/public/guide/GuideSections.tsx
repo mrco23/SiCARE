@@ -51,7 +51,7 @@ function StepItem({ s }: { s: GuideStep }) {
 
       {/* ghost number */}
       <span
-        className={`pointer-events-none absolute select-none text-[110px] font-bold leading-none text-[#C4E2CE] md:text-[150px] ${s.numClass}`}
+        className={`pointer-events-none absolute select-none font-bold leading-none text-[#C4E2CE] md:text-[150px] ${s.numClass}`}
       >
         {s.no}
       </span>

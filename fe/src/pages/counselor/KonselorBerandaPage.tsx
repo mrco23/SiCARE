@@ -297,7 +297,7 @@ export default function KonselorBerandaPage() {
   };
 
   return (
-    <PageContainer className="py-6 lg:py-8">
+    <PageContainer>
       <div className="space-y-6">
         {/* Header Sambutan */}
         <div className="flex flex-wrap items-start justify-between gap-4">

@@ -967,7 +967,7 @@ export default function KonselorRiwayatPage() {
 
   return (
     <PageContainer
-      role="counselor"
+      maxWidth="full"
       spacing="none"
       className={report ? "report-print-page" : ""}
     >
