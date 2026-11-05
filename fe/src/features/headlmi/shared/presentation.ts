@@ -1,5 +1,22 @@
 import { ApiError } from "../../../lib/api";
-import type { AdminReportDto, PublicCounselorDto } from "../../../types/api";
+import type { AcademicPeriod } from "../../../lib/academicPeriods";
+import type {
+  AdminReportDto,
+  PublicAcademicPeriodDto,
+  PublicCounselorDto,
+} from "../../../types/api";
+
+/** Kepala LMI membaca periode dari direktori publik (hanya yang dipublikasikan). */
+export function mapPublicAcademicPeriod(dto: PublicAcademicPeriodDto): AcademicPeriod {
+  return {
+    id: dto.id,
+    ta: dto.academic_year,
+    sem: dto.semester === "Genap" ? "Genap" : "Ganjil",
+    label: `${dto.academic_year} ${dto.semester}`,
+    start: dto.starts_on,
+    end: dto.ends_on,
+  };
+}
 
 /** Short Indonesian month labels used by Head LMI charts. */
 export const MONTH_SHORT_ID = [
