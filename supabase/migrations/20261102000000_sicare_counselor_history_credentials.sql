@@ -29,7 +29,7 @@ grant all on public.counselor_history_credentials to service_role;
 drop trigger if exists counselor_history_credentials_set_updated_at on public.counselor_history_credentials;
 create trigger counselor_history_credentials_set_updated_at
   before update on public.counselor_history_credentials
-  for each row execute function public.handle_updated_at();
+  for each row execute function public.set_updated_at();
 
 commit;
 

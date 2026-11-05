@@ -6,14 +6,31 @@ import type {
   CounselorHistoryPasswordStatusDto,
   CounselorHistoryResponseDto,
   CounselorHistoryVerifyResultDto,
+  CounselorLicenseDto,
+  CounselorLicensePatchApi,
   CounselorProfileDto,
   CounselorProfilePatchApi,
+  CounselorSessionNotesDto,
+  CounselorSessionNotesPatchApi,
+  CounselorSessionReportDto,
   CounselorAvailabilityStatusApi,
   SaveCounselorAvailabilityApi,
 } from "../../../types/api";
 
 /** API operations owned by the counselor workspace. */
 export const counselorApi = {
+  getLicense(): Promise<CounselorLicenseDto> {
+    return apiRequest<CounselorLicenseDto>("/counselor/license", { auth: true });
+  },
+
+  updateLicense(input: CounselorLicensePatchApi): Promise<CounselorLicenseDto> {
+    return apiRequest<CounselorLicenseDto>("/counselor/license", {
+      method: "PATCH",
+      auth: true,
+      body: input,
+    });
+  },
+
   getProfile(): Promise<CounselorProfileDto> {
     return apiRequest<CounselorProfileDto>("/counselor/profile", { auth: true });
   },
@@ -92,6 +109,35 @@ export const counselorApi = {
       auth: true,
       body: input,
     });
+  },
+
+  saveSessionNotes(
+    sessionId: string,
+    input: CounselorSessionNotesPatchApi,
+    grantToken: string,
+  ): Promise<CounselorSessionNotesDto> {
+    return apiRequest<CounselorSessionNotesDto>(
+      `/counselor/sessions/${encodeURIComponent(sessionId)}/notes`,
+      {
+        method: "PUT",
+        auth: true,
+        body: input,
+        headers: { "x-counselor-history-grant": grantToken },
+      },
+    );
+  },
+
+  getSessionReport(
+    sessionId: string,
+    participantId: string | null,
+    grantToken: string,
+  ): Promise<CounselorSessionReportDto> {
+    return apiRequest<CounselorSessionReportDto>(
+      `/counselor/sessions/${encodeURIComponent(sessionId)}/report${buildQueryString({
+        participant_id: participantId ?? undefined,
+      })}`,
+      { auth: true, headers: { "x-counselor-history-grant": grantToken } },
+    );
   },
 
   getHistory(grantToken?: string): Promise<CounselorHistoryResponseDto> {

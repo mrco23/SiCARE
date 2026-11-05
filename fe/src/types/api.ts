@@ -9,6 +9,7 @@ import type { ClientIntake as ClientIntakeAnswersDto } from "./counseling";
 export type AppRoleApi = "client" | "counselor" | "admin" | "head_lmi";
 export type AccountStatusApi = "pending" | "active" | "disabled";
 export type MemberCategoryApi = "student" | "faculty_staff" | "other";
+export type GenderApi = "male" | "female";
 
 export type BookingStatusApi =
   | "waiting_confirmation"
@@ -81,6 +82,9 @@ export interface ProfileDto {
   member_category: MemberCategoryApi | null;
   account_status: AccountStatusApi;
   phone_e164: string | null;
+  gender?: GenderApi | null;
+  siap_number?: string | null;
+  sipp_silp_number?: string | null;
   whatsapp_opt_in: boolean;
   avatar_url?: string | null;
   photo_path?: string | null;
@@ -358,6 +362,11 @@ export interface AdminAccountRecordDto {
   member_category: MemberCategoryApi | null;
   account_status: AccountStatusApi;
   phone_e164: string | null;
+  gender?: GenderApi | null;
+  siap_number?: string | null;
+  sipp_silp_number?: string | null;
+  sipp_silp_valid_until?: string | null;
+  sipp_silp_updated_at?: string | null;
   whatsapp_opt_in?: boolean;
   created_at: string;
   updated_at: string;
@@ -389,6 +398,10 @@ export interface CreateAdminAccountApi {
   member_category?: MemberCategoryApi | null;
   app_role: AdminAccountAssignableRoleApi;
   account_status?: AccountStatusApi;
+  gender?: GenderApi | null;
+  siap_number?: string | null;
+  sipp_silp_number?: string | null;
+  sipp_silp_valid_until?: string | null;
 }
 
 export interface UpdateAdminAccountApi {
@@ -398,6 +411,66 @@ export interface UpdateAdminAccountApi {
   phone_e164?: string | null;
   app_role?: AdminAccountAssignableRoleApi;
   account_status?: AccountStatusApi;
+  gender?: GenderApi | null;
+  siap_number?: string | null;
+  sipp_silp_number?: string | null;
+  sipp_silp_valid_until?: string | null;
+}
+
+export interface CounselorSessionNotesDto {
+  session_id: string;
+  counselor_note: string | null;
+  client_note: string | null;
+  follow_up: string | null;
+}
+
+export type CounselorSessionNotesPatchApi = Omit<CounselorSessionNotesDto, "session_id">;
+
+/** Data laporan per sesi; catatan konselor tidak pernah ikut dikirim. */
+export interface CounselorSessionReportDto {
+  session: {
+    id: string;
+    starts_at: string;
+    ends_at: string;
+    completed_at: string | null;
+    format: "online" | "offline" | null;
+    room: string | null;
+    service_type: "individual" | "group";
+  };
+  participants: Array<{ id: string; display_name: string }>;
+  participant_id: string;
+  client: {
+    full_name: string;
+    faculty: string | null;
+    study_program: string | null;
+    nim: string | null;
+    birthplace: string | null;
+    date_of_birth: string | null;
+    gender: string | null;
+    religion: string | null;
+    education: string | null;
+    address: string | null;
+    phone_e164: string | null;
+  };
+  notes: { client_note: string | null; follow_up: string | null };
+  counselor: {
+    full_name: string | null;
+    sipp_silp_number: string | null;
+    sipp_silp_valid_until: string | null;
+  };
+}
+
+/** Izin praktik milik konselor sendiri; SIAP hanya dapat diubah Admin. */
+export interface CounselorLicenseDto {
+  siap_number: string | null;
+  sipp_silp_number: string | null;
+  sipp_silp_valid_until: string | null;
+  sipp_silp_updated_at: string | null;
+}
+
+export interface CounselorLicensePatchApi {
+  sipp_silp_number: string;
+  sipp_silp_valid_until: string;
 }
 
 export interface AdminAccountQueryApi {
@@ -517,6 +590,9 @@ export interface ConsentIdentityDto {
   date_of_birth: string;
   gender: "Laki-laki" | "Perempuan";
   phone_e164: string;
+  religion: string;
+  education: string;
+  address: string;
 }
 
 export type ConsentStatusApi =
@@ -558,6 +634,9 @@ export interface InformedConsentDto {
     date_of_birth: string | null;
     gender: string | null;
     phone_e164: string | null;
+    religion?: string | null;
+    education?: string | null;
+    address?: string | null;
     is_primary: boolean;
     participant_status: string;
   };

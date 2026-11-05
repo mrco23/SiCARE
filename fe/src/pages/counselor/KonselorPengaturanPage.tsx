@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import {
   PageContainer,
   PageHeader,
@@ -5,6 +6,7 @@ import {
   useToast,
 } from "../../components/shared";
 import { SettingsField as Field, SettingsPanel as Panel, SettingsSwitchRow as SwitchRow } from "../../components/counselor/settings/SettingsPrimitives";
+import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import { useAuth } from "../../features/auth/useAuth";
 import { counselorApi } from "../../lib/counselorApi";
 import { sicareApi } from "../../lib/sicareApi";
@@ -36,6 +38,7 @@ import {
   useState,
 } from "react";
 import {
+  BadgeCheck,
   Camera,
   GraduationCap,
   Layers3,
@@ -46,6 +49,7 @@ import {
   X,
   Pencil,
   Trash2,
+  KeyRound,
 } from "lucide-react";
 
 const EMPTY_COUNSELOR_PROFILE: Profile = {
@@ -113,6 +117,14 @@ export default function KonselorPengaturanPage() {
   const photoInput = useRef<HTMLInputElement>(null);
   const dirty = JSON.stringify(profile) !== JSON.stringify(saved);
   const [loading, setLoading] = useState(true);
+  const [license, setLicense] = useState({
+    siap: "",
+    sippSilp: "",
+    validUntil: "",
+  });
+  const [savedLicense, setSavedLicense] = useState(license);
+  const [savingLicense, setSavingLicense] = useState(false);
+  const [licenseError, setLicenseError] = useState("");
 
   // Load from backend on mount
   useEffect(() => {
@@ -121,8 +133,16 @@ export default function KonselorPengaturanPage() {
       counselorApi.getProfile().catch(() => null),
       sicareApi.getProfile().catch(() => null),
       counselorApi.getHistoryPasswordStatus().catch(() => ({ configured: false })),
-    ]).then(([couns, me, historyStatus]) => {
+      counselorApi.getLicense().catch(() => null),
+    ]).then(([couns, me, historyStatus, licenseData]) => {
       if (!active) return;
+      const loadedLicense = {
+        siap: licenseData?.siap_number ?? me?.siap_number ?? "",
+        sippSilp: licenseData?.sipp_silp_number ?? me?.sipp_silp_number ?? "",
+        validUntil: licenseData?.sipp_silp_valid_until ?? "",
+      };
+      setLicense(loadedLicense);
+      setSavedLicense(loadedLicense);
       if (historyStatus) {
         setHistoryPasswordConfigured(historyStatus.configured);
       }
@@ -150,6 +170,11 @@ export default function KonselorPengaturanPage() {
       active = false;
     };
   }, [currentYear]);
+
+  const licenseExpiry = getLicenseExpiry(savedLicense.validUntil);
+  const licenseDirty =
+    license.sippSilp !== savedLicense.sippSilp ||
+    license.validUntil !== savedLicense.validUntil;
 
   const errors = useMemo<Errors>(
     () => validateCounselorProfile(profile, currentYear),
@@ -341,6 +366,43 @@ export default function KonselorPengaturanPage() {
       "educations",
       profile.educations.filter((e) => e.id !== id),
     );
+  }
+
+  async function saveLicense() {
+    const number = license.sippSilp.trim();
+    if (!number || !license.validUntil) {
+      setLicenseError("No. SIPP/SILP dan tanggal berlaku wajib diisi.");
+      return;
+    }
+    if (!/^[A-Za-z0-9./_\- ]+$/.test(number)) {
+      setLicenseError(
+        "No. SIPP/SILP hanya boleh berisi huruf, angka, spasi, titik, garis miring, dan tanda hubung.",
+      );
+      return;
+    }
+
+    setSavingLicense(true);
+    setLicenseError("");
+    try {
+      const updated = await counselorApi.updateLicense({
+        sipp_silp_number: number,
+        sipp_silp_valid_until: license.validUntil,
+      });
+      const next = {
+        siap: updated.siap_number ?? "",
+        sippSilp: updated.sipp_silp_number ?? "",
+        validUntil: updated.sipp_silp_valid_until ?? "",
+      };
+      setLicense(next);
+      setSavedLicense(next);
+      toast.success("Izin praktik berhasil diperbarui.");
+    } catch (err) {
+      setLicenseError(
+        err instanceof Error ? err.message : "Izin praktik tidak dapat disimpan.",
+      );
+    } finally {
+      setSavingLicense(false);
+    }
   }
 
   async function saveChanges() {
@@ -599,7 +661,7 @@ export default function KonselorPengaturanPage() {
                   className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-red-300 hover:bg-gray-50 hover:text-red-600"
                   onClick={handleDeletePhoto}
                 >
-                  Hapus foto
+                  <IconLabel icon={Trash2}>Hapus foto</IconLabel>
                 </button>
               )}
               <p className="text-xs leading-relaxed text-gray-500">
@@ -707,7 +769,7 @@ export default function KonselorPengaturanPage() {
                       onClick={addTopic}
                       className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                     >
-                      Tambah
+                      <IconLabel icon={Plus}>Tambah</IconLabel>
                     </button>
                   </div>
                 )}
@@ -906,13 +968,82 @@ export default function KonselorPengaturanPage() {
                 onClick={changePassword}
                 className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
               >
-                {pwdSaving
+                <IconLabel icon={KeyRound}>{pwdSaving
                   ? "Memproses..."
                   : passwordKind === "akun"
                   ? "Ubah kata sandi"
                   : historyPasswordConfigured
                   ? "Ubah PIN riwayat"
-                  : "Simpan PIN riwayat"}
+                  : "Simpan PIN riwayat"}</IconLabel>
+              </button>
+            </div>
+          </div>
+        </Panel>
+
+        {/* Panel Izin Praktik: hanya baca, dikelola Admin */}
+        <Panel
+          icon={<BadgeCheck className="h-5 w-5" />}
+          title="Izin Praktik"
+          description="Perbarui No. SIPP/SILP dan masa berlakunya setiap izin diperpanjang. No. SIAP dikelola Admin."
+        >
+          <div className="space-y-4">
+            {licenseExpiry && licenseExpiry.state !== "valid" && (
+              <p
+                role="status"
+                className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
+                  licenseExpiry.state === "expired"
+                    ? "border-red-200 bg-red-50 text-red-800"
+                    : "border-amber-200 bg-amber-50 text-amber-900"
+                }`}
+              >
+                {licenseExpiry.label}
+              </p>
+            )}
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <p className="text-xs font-semibold text-gray-500">No. SIAP</p>
+              <p className="mt-1 break-words text-sm font-bold text-gray-900">
+                {license.siap || "Belum diisi Admin"}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="No. SIPP/SILP">
+                <input
+                  value={license.sippSilp}
+                  maxLength={80}
+                  disabled={savingLicense}
+                  onChange={(event) => {
+                    setLicense({ ...license, sippSilp: event.target.value });
+                    setLicenseError("");
+                  }}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                />
+              </Field>
+              <Field label="Berlaku sampai">
+                <input
+                  type="date"
+                  value={license.validUntil}
+                  disabled={savingLicense}
+                  onChange={(event) => {
+                    setLicense({ ...license, validUntil: event.target.value });
+                    setLicenseError("");
+                  }}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                />
+              </Field>
+            </div>
+            {licenseError && (
+              <p role="alert" className="text-xs text-red-600">
+                {licenseError}
+              </p>
+            )}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                disabled={savingLicense || !licenseDirty}
+                onClick={() => void saveLicense()}
+                className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50"
+              >
+                <IconLabel icon={Save}>{savingLicense ? "Menyimpan..." : "Simpan izin praktik"}</IconLabel>
               </button>
             </div>
           </div>
@@ -972,14 +1103,14 @@ export default function KonselorPengaturanPage() {
                 onClick={() => setEduDraft(undefined)}
                 className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
               >
-                Batal
+                <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="button"
                 onClick={saveEdu}
                 className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-dark"
               >
-                Simpan
+                <IconLabel icon={Save}>Simpan</IconLabel>
               </button>
             </div>
           </div>
@@ -1093,7 +1224,7 @@ export default function KonselorPengaturanPage() {
                 onClick={closeCropper}
                 className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
-                Batal
+                <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="button"
@@ -1121,7 +1252,7 @@ export default function KonselorPengaturanPage() {
                 onClick={discardChanges}
                 className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:flex-none"
               >
-                Batalkan
+                <IconLabel icon={X}>Batalkan</IconLabel>
               </button>
               <button
                 type="button"

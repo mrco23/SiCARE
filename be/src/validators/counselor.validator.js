@@ -11,6 +11,28 @@ export const profilePatchSchema = z.object({
   photo_path: z.string().trim().max(1000).nullable().optional(),
 }).strict();
 
+// SIAP sengaja tidak ada: nomor itu hanya dikelola Admin.
+export const licensePatchSchema = z.object({
+  sipp_silp_number: z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9./_\- ]+$/),
+  sipp_silp_valid_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+}).strict().superRefine((value, ctx) => {
+  const date = value.sipp_silp_valid_until;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Makassar" }).format(new Date());
+  if (Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
+    ctx.addIssue({ code: "custom", message: "Tanggal berlaku tidak valid.", path: ["sipp_silp_valid_until"] });
+  } else if (date < today) {
+    ctx.addIssue({ code: "custom", message: "Tanggal berlaku sudah lewat.", path: ["sipp_silp_valid_until"] });
+  }
+});
+
+const noteField = (max) => z.string().trim().max(max).transform((value) => value || null).nullable();
+
+export const sessionNotesSchema = z.object({
+  counselor_note: noteField(10000),
+  client_note: noteField(10000),
+  follow_up: noteField(5000),
+}).strict();
+
 export const slotSchema = z.object({
   starts_at: z.string().datetime({ offset: true }),
   ends_at: z.string().datetime({ offset: true }),
