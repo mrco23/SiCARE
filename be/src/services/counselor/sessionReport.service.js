@@ -1,3 +1,4 @@
+// @ts-check
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../../config/supabase.js";
 import { HttpError, supabaseError } from "../../lib/http.js";
 import { writeAudit } from "../../lib/audit.js";
@@ -127,7 +128,7 @@ export const counselorSessionReportService = {
 
     if (counselorError) supabaseError(counselorError, "Data konselor tidak dapat dibaca.");
 
-    const identity = consent.identity_snapshot ?? {};
+    const identity = /** @type {Record<string, any>} */ (consent.identity_snapshot ?? {});
     return {
       session: {
         id: session.id,

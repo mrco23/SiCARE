@@ -1,3 +1,4 @@
+// @ts-check
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../../config/supabase.js";
 import { HttpError, supabaseError } from "../../lib/http.js";
 

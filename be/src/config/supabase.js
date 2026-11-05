@@ -1,12 +1,18 @@
+// @ts-check
 import { createClient } from "@supabase/supabase-js";
 import { env } from "./env.js";
 
+/** @typedef {import("@supabase/supabase-js").SupabaseClient<import("../types/database.types.ts").Database>} SicareClient */
+
+/** @type {SicareClient | undefined} */
 let adminClient;
+/** @type {SicareClient | null} */
 let testAdminClient = null;
 
 /**
  * Injects or clears a mock Supabase admin client for automated tests so ownership
  * and authorization tests can execute route handlers without live credentials.
+ * @param {any} [client]
  */
 export function setSupabaseAdminClientForTests(client = null) {
   testAdminClient = client;
@@ -15,6 +21,7 @@ export function setSupabaseAdminClientForTests(client = null) {
 /**
  * Returns the server-only Supabase client.
  * Never expose this client or its key to the frontend.
+ * @returns {SicareClient}
  */
 export function getSupabaseAdminClient() {
   if (testAdminClient) return testAdminClient;

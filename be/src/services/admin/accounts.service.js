@@ -1,3 +1,4 @@
+// @ts-check
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../../config/supabase.js";
 import { HttpError, supabaseError } from "../../lib/http.js";
 import { writeAudit } from "../../lib/audit.js";
@@ -344,7 +345,7 @@ export const adminAccountsService = {
 
     await writeAudit({
       actorUserId,
-      action: "counselor.publication",
+      action: "admin.counselor.publication",
       entityType: "counselor_profile",
       entityId: counselorId,
       metadata: { is_public: isPublic },

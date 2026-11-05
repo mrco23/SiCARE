@@ -34,6 +34,12 @@ export function sendData(response, data, status = 200) {
   return response.status(status).json({ data });
 }
 
+/**
+ * Selalu melempar HttpError bila `error` ada; pemanggil hanya memakainya pada cabang error.
+ * @param {any} error
+ * @param {string} [fallback]
+ * @returns {never}
+ */
 export function supabaseError(error, fallback = "Operasi database gagal.") {
   if (!error) return;
   if (error.code === "23505") throw new HttpError(409, "CONFLICT", "Data duplikat atau slot sudah dipesan.");
