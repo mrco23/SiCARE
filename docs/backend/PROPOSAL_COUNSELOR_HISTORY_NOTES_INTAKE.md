@@ -1,5 +1,7 @@
 # Usulan: Catatan Sesi & Jawaban Intake pada `GET /counselor/history`
 
+**Pembaruan 2026-11-05:** bagian `session_notes` sudah diimplementasikan (migrasi `20261105140000`). `booking_intakes` tetap usulan.
+
 **Status:** USULAN — belum diterapkan. Belum ada file di `supabase/migrations/`, belum ada perubahan controller untuk bagian ini.
 **Tanggal:** 2026-11-04
 **Alasan ditahan:** `AGENTS.md` §3 dan `SOP_COVERAGE_MATRIX.md` #13 & #16 mensyaratkan field, akses, retensi, audit, dan penghapusan untuk intake/catatan konseling disahkan pemilik SOP sebelum tabel/endpoint dibuat.
