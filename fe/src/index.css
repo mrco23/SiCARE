@@ -293,6 +293,10 @@ body {
   body:has(.report-print-page) main {
     margin-left: 0 !important;
     padding: 0 !important;
+    min-height: 0 !important;
+  }
+  body:has(.report-print-page) main > div {
+    padding: 0 !important;
   }
   body:has(.report-print-page) .print-break-inside {
     break-inside: avoid;
@@ -448,5 +452,274 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .toast-enter {
     animation: none;
+  }
+}
+
+/* Lambaian tangan pada sapaan beranda konselor */
+@keyframes wave-hand {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0deg);
+  }
+  10%,
+  30% {
+    transform: rotate(14deg);
+  }
+  20% {
+    transform: rotate(-8deg);
+  }
+  40% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+.wave-hand {
+  display: inline-block;
+  transform-origin: 70% 70%;
+  animation: wave-hand 2.4s ease-in-out 0.3s 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave-hand {
+    animation: none;
+  }
+}
+
+/* ===== DOKUMEN CETAK LAPORAN (components/reports/CounselingReportPrint.tsx) ===== */
+.report-print-only {
+  display: none;
+}
+
+@page sicare-report {
+  size: A4;
+  margin: 26mm 22mm 20mm;
+
+  @top-right {
+    content: "CONFIDENTIAL";
+    color: #ff0000;
+    font: 700 9pt Arial, Helvetica, sans-serif;
+    border: 3px double #ff0000;
+    width: 34mm;
+    height: 8mm;
+    margin: 9mm 0 5mm auto;
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  @bottom-right {
+    content: "Laporan Bimbingan & Konseling | " counter(page);
+    color: #000;
+    font: 9pt Arial, Helvetica, sans-serif;
+  }
+}
+
+@page sicare-report:first {
+  @bottom-right {
+    content: none;
+  }
+}
+
+@media print {
+  body:has(.report-print-page) .report-print-only {
+    display: block;
+    page: sicare-report;
+    color: #000;
+    font: 10.5pt/1.45 Arial, Helvetica, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .rp-cover {
+    break-after: page;
+    text-align: center;
+  }
+  .rp-cover-title {
+    margin-top: 12mm;
+    font: 900 22pt/1.3 "Arial Black", Arial, sans-serif;
+  }
+  .rp-cover-period {
+    margin-top: 4mm;
+    font-size: 12pt;
+    font-weight: 700;
+  }
+  .rp-cover-logo {
+    display: block;
+    width: 70mm;
+    height: 70mm;
+    margin: 28mm auto 34mm;
+    object-fit: contain;
+  }
+  .rp-cover-org {
+    margin-top: 12mm;
+    font-size: 15pt;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .rp-heading {
+    margin: 7mm 0 2.5mm;
+    font: 900 11.5pt "Arial Black", Arial, sans-serif;
+    text-transform: uppercase;
+    break-after: avoid;
+  }
+  .rp-keep {
+    break-inside: avoid;
+  }
+  .rp-note {
+    margin-top: 2mm;
+    font-size: 9.5pt;
+    font-style: italic;
+  }
+  .rp-info td {
+    padding: 0.5mm 0;
+    vertical-align: top;
+  }
+  .rp-label {
+    width: 42mm;
+  }
+  .rp-colon {
+    width: 5mm;
+  }
+  .rp-table {
+    width: 100%;
+    margin-top: 2mm;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+  .rp-table th,
+  .rp-table td {
+    border: 0.5pt solid #000;
+    padding: 1mm 2mm;
+    text-align: left;
+  }
+  .rp-table th {
+    background: #e7e7e7;
+    font-weight: 700;
+  }
+  .rp-table tr {
+    break-inside: avoid;
+  }
+  .rp-table thead {
+    display: table-header-group;
+  }
+  .rp-table .rp-num {
+    text-align: right;
+  }
+  .rp-chart {
+    display: flex;
+    gap: 4mm;
+    align-items: flex-end;
+    height: 42mm;
+    padding-top: 4mm;
+  }
+  .rp-chart-col {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+  }
+  .rp-chart-value,
+  .rp-chart-label {
+    font-size: 8.5pt;
+  }
+  .rp-chart-label {
+    width: 100%;
+    margin-top: 0.5mm;
+    border-top: 0.5pt solid #000;
+    text-align: center;
+  }
+  .rp-chart-bar {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 14mm;
+    max-height: calc(100% - 9mm);
+  }
+  .rp-chart-done {
+    background: #064e3b;
+  }
+  .rp-chart-cancel {
+    background: #b91c1c;
+  }
+  .rp-conclusion {
+    white-space: pre-line;
+    text-align: justify;
+  }
+  .rp-blank {
+    height: 26mm;
+    border-bottom: 0.5pt dotted #000;
+  }
+  .rp-sign {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10mm;
+    text-align: right;
+  }
+  .rp-sign-two {
+    justify-content: space-between;
+  }
+  .rp-sign-two > div:first-child {
+    text-align: left;
+  }
+  .rp-sign-name {
+    margin-top: 16mm;
+    font-weight: 700;
+  }
+  .rp-sign-id {
+    font-weight: 700;
+  }
+}
+
+/* Laporan per sesi konselor: halaman 2 template LMI */
+@page sicare-session {
+  size: A4;
+  margin: 26mm 22mm 20mm;
+
+  @top-right {
+    content: "CONFIDENTIAL";
+    color: #ff0000;
+    font: 700 9pt Arial, Helvetica, sans-serif;
+    border: 3px double #ff0000;
+    width: 34mm;
+    height: 8mm;
+    margin: 9mm 0 5mm auto;
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  @bottom-right {
+    content: "Laporan Bimbingan & Konseling | " counter(page);
+    color: #000;
+    font: 9pt Arial, Helvetica, sans-serif;
+  }
+}
+
+@media print {
+  body:has(.report-print-page) .report-print-page > :not(.report-print-only) {
+    display: none !important;
+  }
+  body:has(.report-print-page) .report-print-only.rp-session {
+    page: sicare-session;
+  }
+  .rp-session-name {
+    margin-bottom: 3mm;
+    font: 900 17pt "Arial Black", Arial, sans-serif;
+    font-variant: small-caps;
+    text-align: center;
+  }
+  .rp-session-sub {
+    font-weight: 700;
+    text-align: center;
+  }
+  .rp-session-note {
+    min-height: 6mm;
+    padding-left: 12mm;
+    white-space: pre-line;
+    text-align: justify;
   }
 }
