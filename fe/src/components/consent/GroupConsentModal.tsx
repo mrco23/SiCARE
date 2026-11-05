@@ -1,3 +1,4 @@
+import IconLabel from "../shared/IconLabel";
 import { SkeletonList } from "../shared/Skeleton";
 import React, { useEffect, useState, useCallback } from "react";
 import {
@@ -287,7 +288,7 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
             onClick={onClose}
             className="rounded-xl bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300 transition"
           >
-            Tutup
+            <IconLabel icon={X}>Tutup</IconLabel>
           </button>
         </div>
       </div>

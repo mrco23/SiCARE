@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -10,6 +11,8 @@ import {
   Loader2,
   User,
   ArrowLeft,
+  X,
+  Save,
 } from "lucide-react";
 import { SignaturePad } from "../../components/consent/SignaturePad";
 import { consentApi } from "../../lib/consentApi";
@@ -37,6 +40,9 @@ export default function GuestConsentPage() {
     date_of_birth: "",
     gender: "Laki-laki",
     phone_e164: "",
+    religion: "",
+    education: "",
+    address: "",
   });
 
   // Agreement and Signature State
@@ -80,6 +86,9 @@ export default function GuestConsentPage() {
             date_of_birth: existingSnapshot.date_of_birth || "",
             gender: existingSnapshot.gender || "Laki-laki",
             phone_e164: existingSnapshot.phone_e164 || participant.phone_e164 || "",
+            religion: existingSnapshot.religion || "",
+            education: existingSnapshot.education || "",
+            address: existingSnapshot.address || "",
           });
         } else {
           // Check if session cookie is already valid
@@ -97,6 +106,9 @@ export default function GuestConsentPage() {
             date_of_birth: existingSnapshot.date_of_birth || part?.date_of_birth || "",
             gender: (existingSnapshot.gender || part?.gender || "Laki-laki") as "Laki-laki" | "Perempuan",
             phone_e164: existingSnapshot.phone_e164 || part?.phone_e164 || "",
+            religion: existingSnapshot.religion || part?.religion || "",
+            education: existingSnapshot.education || part?.education || "",
+            address: existingSnapshot.address || part?.address || "",
           });
         }
       } catch (err: unknown) {
@@ -129,7 +141,10 @@ export default function GuestConsentPage() {
       !identity.study_program.trim() ||
       !identity.birthplace.trim() ||
       !identity.date_of_birth.trim() ||
-      !identity.phone_e164.trim()
+      !identity.phone_e164.trim() ||
+      !identity.religion.trim() ||
+      !identity.education.trim() ||
+      !identity.address.trim()
     ) {
       setError("Seluruh kolom data identitas peserta wajib dilengkapi.");
       return;
@@ -410,6 +425,48 @@ export default function GuestConsentPage() {
 
                     <div>
                       <label className="block font-medium text-slate-700 mb-1">
+                        Agama *
+                      </label>
+                      <input
+                        type="text"
+                        value={identity.religion}
+                        maxLength={50}
+                        onChange={(e) => handleIdentityChange("religion", e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-slate-700 mb-1">
+                        Pendidikan *
+                      </label>
+                      <input
+                        type="text"
+                        value={identity.education}
+                        maxLength={100}
+                        onChange={(e) => handleIdentityChange("education", e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-slate-700 mb-1">
+                        Alamat Rumah *
+                      </label>
+                      <input
+                        type="text"
+                        value={identity.address}
+                        maxLength={300}
+                        onChange={(e) => handleIdentityChange("address", e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-slate-700 mb-1">
                         Tempat Lahir *
                       </label>
                       <input
@@ -582,7 +639,7 @@ export default function GuestConsentPage() {
                 disabled={submitting}
                 className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
               >
-                Batal
+                <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="button"
@@ -590,7 +647,11 @@ export default function GuestConsentPage() {
                 disabled={submitting}
                 className="flex items-center gap-2 rounded-xl bg-[#064E3B] px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-950 transition disabled:opacity-50"
               >
-                {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {submitting ? (
+<Loader2 className="h-3.5 w-3.5 animate-spin" />
+) : (
+<Save className="h-3.5 w-3.5" />
+)}
                 <span>{submitting ? "Memproses Dokumen..." : "Ya, Tanda Tangani & Simpan"}</span>
               </button>
             </div>

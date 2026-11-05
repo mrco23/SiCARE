@@ -98,6 +98,10 @@ export function validateConsentIdentity(identity) {
     date_of_birth: dateOfBirth.includes("T") ? dateOfBirth.split("T")[0] : dateOfBirth,
     gender,
     phone_e164: phone.startsWith("+") ? phone : (phone.startsWith("0") ? `+62${phone.slice(1)}` : `+${phone}`),
+    // Tambahan untuk laporan konselor; tidak dicetak pada PDF informed consent.
+    religion: typeof identity.religion === "string" ? identity.religion.trim() || null : null,
+    education: typeof identity.education === "string" ? identity.education.trim() || null : null,
+    address: typeof identity.address === "string" ? identity.address.trim() || null : null,
   };
 }
 

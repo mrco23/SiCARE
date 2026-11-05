@@ -1,3 +1,4 @@
+import IconLabel from "../../components/shared/IconLabel";
 import {
   PageContainer,
   PageHeader,
@@ -21,6 +22,9 @@ import {
   Search,
   ShieldAlert,
   X,
+  LockOpen,
+  Printer,
+  Save,
 } from "lucide-react";
 import {
   isInPeriod,
@@ -54,9 +58,13 @@ import {
   type CounselorHistoryPeriod as PeriodKey,
 } from "../../features/counselor/history/historySelectors";
 import { counselorApi } from "../../lib/counselorApi";
+import CounselorSessionReportPrint from "../../components/reports/CounselorSessionReportPrint";
+import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import type {
   BookingRecordBaseDto,
   CounselorHistoryResponseDto,
+  CounselorSessionNotesPatchApi,
+  CounselorSessionReportDto,
 } from "../../types/api";
 
 export interface ClientSession {
@@ -72,6 +80,7 @@ export interface ClientSession {
   clientNote: string | null;
   followUp: string | null;
   intake: ClientIntake | null;
+  participants: { id: string; name: string }[];
 }
 
 export interface Client {
@@ -99,19 +108,19 @@ const NOTE_TABS: {
   {
     key: "konselor",
     label: "Catatan konselor",
-    hint: "Hanya dapat dibaca konselor dan admin",
+    hint: "Hanya dapat dibaca konselor yang menangani. Tidak tercetak di laporan.",
     empty: "Belum ada catatan konselor untuk sesi ini.",
   },
   {
     key: "klien",
     label: "Untuk klien",
-    hint: "Dapat dibaca oleh klien",
+    hint: "Ditujukan untuk klien. Tercetak di laporan.",
     empty: "Belum ada catatan untuk klien.",
   },
   {
     key: "tindak",
     label: "Tindak lanjut",
-    hint: "Rencana untuk sesi berikutnya",
+    hint: "Rencana untuk sesi berikutnya. Tercetak di laporan.",
     empty: "Belum ada catatan tindak lanjut.",
   },
 ];
@@ -294,6 +303,9 @@ function SessionDetailView({
   onBackList,
   onBackClient,
   onOpenConsent,
+  onSaveNotes,
+  onPrintReport,
+  printing,
 }: {
   client: Client;
   session: ClientSession;
@@ -302,14 +314,35 @@ function SessionDetailView({
   onBackList: () => void;
   onBackClient: () => void;
   onOpenConsent: () => void;
+  onSaveNotes: (input: CounselorSessionNotesPatchApi) => Promise<boolean>;
+  onPrintReport: (participantId: string | null) => void;
+  printing: boolean;
 }) {
   const activeTab = NOTE_TABS.find((t) => t.key === tab) ?? NOTE_TABS[0];
-  const noteValue =
-    tab === "konselor"
-      ? session.counselorNote
-      : tab === "klien"
-        ? session.clientNote
-        : session.followUp;
+  const isCompleted = session.status === "Selesai";
+  const saved = {
+    konselor: session.counselorNote ?? "",
+    klien: session.clientNote ?? "",
+    tindak: session.followUp ?? "",
+  };
+  const [draft, setDraft] = useState(saved);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [participantId, setParticipantId] = useState(
+    session.participants[0]?.id ?? "",
+  );
+  const notesDirty = NOTE_TABS.some((t) => draft[t.key] !== saved[t.key]);
+  const noteValue = draft[tab];
+  const isGroup = session.format === "Kelompok";
+
+  const saveNotes = async () => {
+    setSavingNotes(true);
+    await onSaveNotes({
+      counselor_note: draft.konselor,
+      client_note: draft.klien,
+      follow_up: draft.tindak,
+    });
+    setSavingNotes(false);
+  };
 
   return (
     <>
@@ -368,14 +401,44 @@ function SessionDetailView({
             {fmtDate(session.date)} · {session.time} WITA
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onOpenConsent}
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary px-3.5 py-2 text-sm font-semibold text-primary hover:bg-primary-soft"
-        >
-          <FileSignature className="h-4 w-4" />
-          Lihat informed consent
-        </button>
+        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+          <button
+            type="button"
+            onClick={onOpenConsent}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary px-3.5 py-2 text-sm font-semibold text-primary hover:bg-primary-soft"
+          >
+            <FileSignature className="h-4 w-4" />
+            Lihat informed consent
+          </button>
+          {isCompleted && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {isGroup && session.participants.length > 0 && (
+                <select
+                  aria-label="Peserta laporan"
+                  value={participantId}
+                  onChange={(e) => setParticipantId(e.target.value)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                >
+                  {session.participants.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                disabled={printing || notesDirty}
+                title={notesDirty ? "Simpan catatan terlebih dahulu" : undefined}
+                onClick={() => onPrintReport(isGroup ? participantId || null : null)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
+              >
+                <Printer className="h-4 w-4" />
+                {printing ? "Menyiapkan..." : "Cetak Laporan"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Catatan: satu kartu, tiga tab, teks biasa */}
@@ -408,7 +471,39 @@ function SessionDetailView({
 
         <div role="tabpanel" className="p-4 sm:p-6">
           <p className="mb-3 text-xs text-gray-500">{activeTab.hint}</p>
-          <NoteText value={noteValue} emptyText={activeTab.empty} />
+          {isCompleted ? (
+            <>
+              <textarea
+                value={noteValue}
+                rows={6}
+                maxLength={tab === "tindak" ? 5000 : 10000}
+                disabled={savingNotes}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, [tab]: e.target.value }))
+                }
+                placeholder={activeTab.empty}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+              />
+              <div className="mt-3 flex items-center justify-end gap-3">
+                {notesDirty && (
+                  <span className="text-xs text-amber-700">
+                    Ada perubahan yang belum disimpan.
+                  </span>
+                )}
+                <button
+                  type="button"
+                  disabled={savingNotes || !notesDirty}
+                  onClick={() => void saveNotes()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4" />
+                  {savingNotes ? "Menyimpan..." : "Simpan catatan"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <NoteText value={noteValue} emptyText={activeTab.empty} />
+          )}
         </div>
       </section>
 
@@ -451,6 +546,8 @@ export default function KonselorRiwayatPage() {
   const [detailUid, setDetailUid] = useState<string | null>(null);
   const [noteTab, setNoteTab] = useState<NoteTab>("konselor");
   const [consentUid, setConsentUid] = useState<string | null>(null);
+  const [report, setReport] = useState<CounselorSessionReportDto | null>(null);
+  const [printing, setPrinting] = useState(false);
 
   const [pwInput, setPwInput] = useState("");
   const [pwVisible, setPwVisible] = useState(false);
@@ -557,6 +654,10 @@ export default function KonselorRiwayatPage() {
           clientNote: note?.client_note ?? null,
           followUp: note?.follow_up ?? null,
           intake: (b && intakeMap.get(b.id)) || null,
+          participants: (b?.booking_participants ?? []).map((p) => ({
+            id: p.id,
+            name: p.display_name,
+          })),
         });
       }
 
@@ -564,6 +665,77 @@ export default function KonselorRiwayatPage() {
     },
     [today],
   );
+
+  const saveSessionNotes = async (
+    sessionUid: string,
+    input: CounselorSessionNotesPatchApi,
+  ): Promise<boolean> => {
+    if (!grantToken) return false;
+    try {
+      const updated = await counselorApi.saveSessionNotes(
+        sessionUid,
+        input,
+        grantToken,
+      );
+      setApiClients((prev) =>
+        prev.map((c) => ({
+          ...c,
+          sessions: c.sessions.map((s) =>
+            s.uid === sessionUid
+              ? {
+                  ...s,
+                  counselorNote: updated.counselor_note,
+                  clientNote: updated.client_note,
+                  followUp: updated.follow_up,
+                }
+              : s,
+          ),
+        })),
+      );
+      toast.success("Catatan sesi berhasil disimpan.");
+      return true;
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Catatan sesi tidak dapat disimpan.",
+      );
+      return false;
+    }
+  };
+
+  const printSessionReport = async (
+    sessionUid: string,
+    participantId: string | null,
+  ) => {
+    if (!grantToken) return;
+    setPrinting(true);
+    try {
+      const data = await counselorApi.getSessionReport(
+        sessionUid,
+        participantId,
+        grantToken,
+      );
+      const expiry = getLicenseExpiry(data.counselor.sipp_silp_valid_until);
+      if (expiry?.state === "expired") toast.error(expiry.label);
+      setReport(data);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Laporan tidak dapat disiapkan.",
+      );
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!report) return;
+    const clear = () => setReport(null);
+    window.addEventListener("afterprint", clear);
+    const frame = window.requestAnimationFrame(() => window.print());
+    return () => {
+      window.removeEventListener("afterprint", clear);
+      window.cancelAnimationFrame(frame);
+    };
+  }, [report]);
 
   const fetchHistoryData = useCallback(
     async (token: string) => {
@@ -794,7 +966,12 @@ export default function KonselorRiwayatPage() {
   }
 
   return (
-    <PageContainer role="counselor" spacing="none">
+    <PageContainer
+      role="counselor"
+      spacing="none"
+      className={report ? "report-print-page" : ""}
+    >
+      {report && <CounselorSessionReportPrint report={report} />}
       {/* Timer Bar when Access Granted */}
       {hasAccess && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-[#064E3B] sm:px-5">
@@ -1042,6 +1219,10 @@ export default function KonselorRiwayatPage() {
             onBackList={backToClients}
             onBackClient={backToClientDetail}
             onOpenConsent={() => handleOpenConsent(detailSession.uid)}
+            key={detailSession.uid}
+            onSaveNotes={(input) => saveSessionNotes(detailSession.uid, input)}
+            onPrintReport={(participantId) => void printSessionReport(detailSession.uid, participantId)}
+            printing={printing}
           />
         ) : (
           <>
@@ -1271,18 +1452,18 @@ export default function KonselorRiwayatPage() {
                 onClick={closePw}
                 className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
-                Batal
+                <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="submit"
                 disabled={pwLocked || verifying || pwInput.length === 0}
                 className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
               >
-                {verifying
+                <IconLabel icon={LockOpen}>{verifying
                   ? "Memproses..."
                   : isConfigured === false
                     ? "Simpan & Buka"
-                    : "Buka"}
+                    : "Buka"}</IconLabel>
               </button>
             </div>
           </form>
