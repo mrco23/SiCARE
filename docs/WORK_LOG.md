@@ -1716,3 +1716,35 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - Atas persetujuan pengguna, `20261105140000` diterapkan ke production (`tfzgztrvonkqsqmesmjy`). Hanya migrasi ini yang tertunda (dry run). Menggantikan catatan "BELUM diterapkan" pada entri sebelumnya.
 - Verifikasi baca-saja: tiga kolom identitas ada; `session_notes` RLS aktif, tanpa grant anon/authenticated, 1 trigger, 0 baris. Data tetap 5 profil dan 2 booking.
 - Temuan: `booking_participants` production kosong karena 2 booking lama dibuat sebelum alur consent; baris peserta baru dibuat saat consent dibuka. Laporan untuk booking seperti ini kini mengembalikan `409 CONSENT_NOT_SIGNED`, bukan `404`.
+
+## 2026-11-05 — Panduan: revisi Alur Sistem dibatalkan pengguna, perbaikan angka mobile
+
+- Pengguna mengembalikan perubahan Alur Sistem sebelumnya ke versi awal; entri di atas tidak lagi berlaku.
+- Hanya angka ganjil 01/03/05 di mobile yang diubah: pindah ke atas kartu (72px) agar tidak tertimpa. Desktop tetap sama (posisi 150px diverifikasi).
+- `fe: tsc`, `eslint` (public): **PASS**. Dicek di browser pada 375px dan 1280px.
+- Kartu Alur Sistem memakai Style A pilihan pengguna: putih, garis hijau di atas, label "Langkah 0X", tanpa sudut membulat dan bayangan. `fe: tsc`, `lint`, `build`: **PASS**. Dicek di browser pada 1280px dan 375px.
+- Angka genap 02/04 di mobile mengikuti angka ganjil: 72px di atas kartu, rata kanan. Terukur tidak ada angka menimpa kartu pada 375px; posisi desktop tidak berubah. `fe: tsc`, `lint`, `build`: **PASS**.
+- Style A dibatalkan atas permintaan pengguna: kartu Alur Sistem kembali ke gaya awal (sudut membulat, border tipis, tanpa garis atas dan label "Langkah"). Perbaikan posisi angka di mobile tetap dipertahankan. `fe: tsc`, `lint`, `build`: **PASS**.
+
+## 2026-11-05 — Konselor: jarak navbar dan isi halaman
+
+- Padding ganda dihapus: `py-6 lg:py-8` pada `PageContainer` halaman Konselor Aktivitas, Beranda, Feedback, Jadwal, Permintaan. Jarak atas kini hanya dari layout (16px mobile, 24px desktop), sama dengan Pengaturan, Riwayat, dan halaman Admin. `fe: tsc`, `lint`, `build`: **PASS**. Browser: **NOT RUN** (butuh login).
+- Riwayat Konselor: lebar konten dari `max-w-6xl` ke `max-w-7xl` agar sama dengan Beranda, Aktivitas, Permintaan, Jadwal, dan Feedback (ruang kosong samping berkurang pada layar di atas sekitar 1530px). Pengukuran harness (sudah dihapus) pada 1280px dan 1920px: jarak navbar ke konten 24px di semua halaman konselor; Feedback tidak berbeda dari halaman lain. `fe: tsc`, `lint`, `build`: **PASS**.
+- `KonselorLayout`: padding atas konten dari 24px ke 16px di semua ukuran (`p-4 sm:px-6 sm:pb-6`), berlaku untuk seluruh halaman konselor; layout role lain tidak berubah. `fe: tsc`, `lint`, `build`: **PASS**. Browser: **NOT RUN** (butuh login).
+- Koreksi pengguna: yang dimaksud jarak ke sidebar, bukan navbar. `KonselorLayout` dikembalikan ke `p-4 sm:p-6`. Riwayat dan Feedback konselor memakai `maxWidth="full"`, sehingga konten menempel pada padding layout (24px dari sidebar) di layar lebar. `fe: tsc`, `lint`, `build`: **PASS**. Browser: **NOT RUN** (butuh login).
+
+## 2026-11-05 — Navbar: sudut kanan bawah
+
+- `AdminLayout`, `KonselorLayout`, `KepalaLMILayout`: navbar mendapat `rounded-br-[20px]` agar mengikuti lengkung gunung ketiga (radius 28 pada viewBox 234, setara sekitar 20px). Dicek di browser pada layout Konselor; ketiga layout memakai bentuk gunung yang sama. `fe: tsc`, `lint`, `build`: **PASS**.
+
+## 2026-11-05 — Tipe database untuk backend
+
+- Baru: `be/src/types/database.types.ts` (hasil `npm run db:types`, hanya struktur skema, tanpa data), `be/tsconfig.json`, skrip `npm run typecheck` dan `db:types`. `getSupabaseAdminClient()` kini bertipe `SupabaseClient<Database>`.
+- Pemeriksaan bertahap lewat `// @ts-check` (`checkJs` mati): `config/supabase.js`, seluruh service admin, counselor (profile, availability, sessionReport), `feedback`, `notification`, `reporting`, dan `historyCredential.controller.js`. Belum: `consent.service.js`, `auth.service.js`, `whatsappOutbox.service.js`, repositories (parameter client belum bertipe), routes, workers.
+- JSDoc pada `supabaseError` (`@returns {never}`) dan `writeAudit`. `reporting.service.js`: perulangan per konselor ditulis tanpa non-null, perilaku sama. Bukti: kolom salah pada `.select()` gagal di typecheck dengan pesan `column ... does not exist`.
+- **Koreksi audit:** `writeAudit` membuang aksi di luar `SAFE_ACTIONS`, sehingga `counselor.license.update` dan `counselor.session_notes.update` yang dilaporkan tercatat ternyata tidak pernah tertulis, dan `sipp_silp_valid_until` terbuang. Keduanya ditambahkan ke daftar, dengan tes. Masih terbuang (sudah ada sebelumnya, belum diubah): `counselor.history.read`, `counselor.history_password.init|verify|change`, `counselor.publication`, `profile.photo_upload`, `profile.photo_delete`.
+- `eslint`, `@eslint/js`, `globals` kini dideklarasikan sebagai devDependencies backend; sebelumnya tidak tercatat dan terhapus saat `npm install`. `be/package-lock.json` berubah.
+- Bila skema berubah, jalankan `npm run db:types` setelah migrasi diterapkan.
+- `be: typecheck` **PASS**, `check` **PASS**, `npm test` **217/218** (gagal: `heroMotivations.test.js`, baseline).
+- Lanjutan audit: `counselor.history.read`, `counselor.history_password.init|verify|change`, `profile.photo_upload`, `profile.photo_delete` ditambahkan ke `SAFE_ACTIONS`; `counselor.publication` disamakan dengan nama daftar `admin.counselor.publication`; kunci metadata `is_public` diizinkan. `filename`/`deleted_path` tetap terbuang karena memuat path berisi ID pengguna. Tes baru memindai `src/` agar setiap aksi `writeAudit` ada di daftar.
+- Hasil lanjutan audit: `be: typecheck` **PASS**, `check` **PASS**, `npm test` **218/219** (gagal: `heroMotivations.test.js`, baseline). Aktif setelah backend di-restart.
