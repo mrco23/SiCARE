@@ -23,7 +23,8 @@ Matriks ini dibuat dari deklarasi route di `be/src/routes/*.js`, mount path di `
 | Reporting | 4 | 4 | Dashboard dan laporan Admin (`AdminBerandaPage`, `AdminLaporanPage`) serta dashboard dan laporan Kepala LMI (`KepalaLMIBerandaPage`, `KepalaLMILaporanPage`) seluruhnya terhubung (100%). |
 | Sesi | 3 | 3 | Daftar sesi, detail sesi (`GET /sessions/:id`), dan transisi status sesi (`PATCH /sessions/:id/status`) terhubung pada halaman klien dan konselor. |
 | Informed Consent | 13 | 13 | Rute Informed Consent individual dan kelompok (`/booking/:bookingId/my-consent`, `/booking/:bookingId/readiness`, `/:id`, `PATCH /:id/identity`, `POST /:id/sign`, `GET /:id/document`, `/booking/:bookingId/group-summary`, `/booking/:bookingId/participants/:participantId/resend-invitation`, `/invitations/claim`, `/guest/me`, `/guest/me/identity`, `/guest/me/sign`, `/guest/me/document`) terhubung di `KlienAktivitasPage`, `KonselorAktivitasPage`, `GroupConsentModal`, dan `GuestConsentPage`. |
-| **Total** | **73** | **69** | Enam puluh sembilan handler UI terhubung penuh; 2 endpoint infrastruktur (webhook & admin whatsapp health), 1 operasional (`/health`), dan 1 handler UI (`GET /bookings/:id`). |
+| Internal WhatsApp | 2 | 0 | Dipanggil layanan cron eksternal, bukan frontend (#79, #80). |
+| **Total** | **75** | **69** | Enam puluh sembilan handler UI terhubung penuh; 2 endpoint infrastruktur (webhook & admin whatsapp health), 2 endpoint cron internal, 1 operasional (`/health`), dan 1 handler UI (`GET /bookings/:id`). |
 
 | # | Method | Endpoint | Role backend | Halaman/pemanggil frontend | Status | Catatan audit |
 |---:|---|---|---|---|---|---|
@@ -105,6 +106,8 @@ Matriks ini dibuat dari deklarasi route di `be/src/routes/*.js`, mount path di `
 | 76 | `PATCH` | `/api/v1/counselor/license` | counselor | KonselorPengaturanPage | **Terhubung** | Konselor memperbarui `sipp_silp_number` dan `sipp_silp_valid_until` (wajib, tidak boleh lewat). SIAP ditolak schema strict. Dicatat audit `counselor.license.update`. |
 | 77 | `PUT` | `/api/v1/counselor/sessions/:sessionId/notes` | counselor (+ header `X-Counselor-History-Grant`) | KonselorRiwayatPage | **Terhubung** | Simpan `counselor_note`, `client_note`, `follow_up`. Hanya konselor sesi itu dan sesi `completed`. Audit `counselor.session_notes.update` tanpa isi catatan. |
 | 78 | `GET` | `/api/v1/counselor/sessions/:sessionId/report` | counselor (+ header `X-Counselor-History-Grant`) | KonselorRiwayatPage | **Terhubung** | Data laporan per sesi; `participant_id` opsional untuk kelompok. Identitas dari `identity_snapshot` consent bertanda tangan (`409 CONSENT_NOT_SIGNED` bila belum). `counselor_note` tidak dikirim. |
+| 79 | `POST` | `/api/v1/internal/whatsapp/worker-run` | cron (`Authorization: Bearer <CRON_SECRET>`) | Cron eksternal | **Backend siap, belum diuji live** | Menjalankan satu putaran worker (batch 10). Respons hanya `claimed` dan `processed`. Selalu `401` bila `CRON_SECRET` kosong. |
+| 80 | `POST` | `/api/v1/internal/whatsapp/scheduler-run` | cron (`Authorization: Bearer <CRON_SECRET>`) | Cron eksternal | **Backend siap, belum diuji live** | Menjalankan satu putaran scheduler pengingat sesi dan consent. Respons hanya berisi jumlah agregat. |
 
 ## Catatan lintas endpoint
 

@@ -1748,3 +1748,21 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - `be: typecheck` **PASS**, `check` **PASS**, `npm test` **217/218** (gagal: `heroMotivations.test.js`, baseline).
 - Lanjutan audit: `counselor.history.read`, `counselor.history_password.init|verify|change`, `profile.photo_upload`, `profile.photo_delete` ditambahkan ke `SAFE_ACTIONS`; `counselor.publication` disamakan dengan nama daftar `admin.counselor.publication`; kunci metadata `is_public` diizinkan. `filename`/`deleted_path` tetap terbuang karena memuat path berisi ID pengguna. Tes baru memindai `src/` agar setiap aksi `writeAudit` ada di daftar.
 - Hasil lanjutan audit: `be: typecheck` **PASS**, `check` **PASS**, `npm test` **218/219** (gagal: `heroMotivations.test.js`, baseline). Aktif setelah backend di-restart.
+
+## 2026-11-09 — WhatsApp: mode simulasi tidak lagi tercatat terkirim
+
+- Masalah: `whatsapp.worker.js` mengabaikan `simulated` dari `fonnte.service.js`, sehingga di mode simulasi outbox menjadi `accepted`, undangan consent menjadi `sent`, dan `cleared_at` terisi, padahal tidak ada pesan yang keluar.
+- Keputusan: outbox ditandai `cancelled` dengan `last_error_code: DRY_RUN_NOT_SENT` dan `provider_status: simulated`, tanpa `sent_at` dan `provider_message_id`. Undangan dan rahasianya tidak diubah. Tidak ada status baru, migrasi, atau perubahan kontrak API.
+- Pesan yang dibatalkan tidak dikirim ulang saat pengiriman nyata diaktifkan, agar pesan lama tidak terkirim mendadak.
+- Dokumen status diselaraskan: catatan "worker belum tersedia" di `PROJECT_STATUS.md` dan `SOP_COVERAGE_MATRIX.md` sudah usang. Worker ada sejak 2026-11-01, tetapi pengiriman nyata belum diuji.
+- Temuan, belum diubah: `cleared_at` hanya mencatat waktu, ciphertext token tetap ada; `FONNTE_ENABLED` tidak dipakai; repo belum punya konfigurasi deploy worker/scheduler. Baris outbox lama di database yang sudah `accepted`/`sent` akibat simulasi tidak diperiksa atau dikoreksi.
+- `be: typecheck` **PASS**, `check` **PASS**, `npm test` **220/221** (gagal: `heroMotivations.test.js`, baseline; 2 tes baru lulus). Uji live Fonnte: **NOT RUN**. Aktif setelah worker di-restart.
+
+## 2026-11-09 — WhatsApp: pemicu cron untuk backend di Vercel Hobby
+
+- Konteks: pengguna melaporkan backend berjalan di Vercel Hobby. Proses `whatsapp:worker` dan `whatsapp:scheduler` tidak bisa berjalan terus-menerus di sana, dan dokumentasi Vercel membatasi cron Hobby sekali sehari dengan ketepatan per jam.
+- Keputusan: cron eksternal memanggil `POST /api/v1/internal/whatsapp/worker-run` dan `scheduler-run` (`be/src/routes/internal.routes.js`), diamankan `Authorization: Bearer <CRON_SECRET>`. Tanpa secret, semua request ditolak `401`. Skrip proses terus-menerus tetap ada untuk host non-serverless.
+- Worker memproses 10 pesan per putaran lewat endpoint. `calculateLeaseSeconds` menggantikan masa kunci tetap 60 detik (230 detik untuk 10 pesan), karena pesan dikirim berurutan dan kunci lama bisa habis sebelum giliran pesan tiba.
+- Tidak ada migrasi. Kontrak baru dicatat di `API_ENDPOINT_MATRIX.md` (#79, #80), panduan aktivasi di `FONNTE_WHATSAPP_INTEGRATION.md`.
+- Risiko saat aktivasi: pesan lama di antrean ikut diproses, jadi jalankan dulu dalam mode simulasi. Isi antrean production belum diperiksa.
+- `be: typecheck` **PASS**, `check` **PASS**, `npm test` **228/229** (gagal: `heroMotivations.test.js`, baseline; 8 tes baru lulus). Deploy Vercel, cron eksternal, dan uji live Fonnte: **NOT RUN**.

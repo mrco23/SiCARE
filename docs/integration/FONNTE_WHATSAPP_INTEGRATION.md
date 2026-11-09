@@ -116,7 +116,7 @@ Pada Batch 1.5a.1, dilakukan audit dan penguatan konsistensi transaksional:
 - **`delivered`**: Fonnte mengirimkan webhook pembaruan status bahwa pesan telah sampai di perangkat penerima (`delivered` atau `read`).
 - **`retry_wait`**: Pengiriman mengalami gangguan sementara (HTTP 429, 5xx, atau device WhatsApp konselor/sistem terputus sementara). Dijadwalkan untuk dicoba kembali pada timestamp `next_attempt_at`.
 - **`failed`**: Pengiriman gagal secara permanen (token tidak valid, nomor telepon tidak terdaftar, pengguna mencabut izin opt-in, atau batas `max_attempts` tercapai).
-- **`cancelled`**: Pesan pengingat dibatalkan karena sesi konseling telah dibatalkan atau dijadwalkan ulang oleh klien/konselor.
+- **`cancelled`**: Pesan dibatalkan karena sesi konseling telah dibatalkan atau dijadwalkan ulang oleh klien/konselor, atau tidak dikirim karena mode simulasi (`last_error_code: DRY_RUN_NOT_SENT`, `provider_status: simulated`).
 - **`unknown`**: Request ke Fonnte mengalami timeout setelah pesan mungkin telah mencapai server provider. Sistem menahan pengiriman ulang membabi buta agar tidak terjadi spam pesan ganda.
 
 ---
@@ -132,6 +132,7 @@ Variabel backend berikut dikelola melalui `be/src/config/env.js` dan terdokument
 | `FONNTE_ENABLED` | Boolean | `false` | Status aktivasi provider Fonnte. |
 | `FONNTE_WEBHOOK_SECRET` | Secret (string) | *kosong* | Secret autentikasi untuk memvalidasi callback webhook status pesan. |
 | `FONNTE_TIMEOUT_MS` | Integer | `15000` | Batas waktu timeout request HTTP ke Fonnte (milidetik). |
+| `CRON_SECRET` | Secret (string) | *kosong* | Bearer secret untuk endpoint `/api/v1/internal/whatsapp/*`. Jika kosong, endpoint menolak semua request. |
 | `WHATSAPP_SEND_ENABLED` | Boolean | `false` | Safety gate utama. Jika `false`, sistem berjalan dalam mode simulasi aman (*dry-run*) tanpa mengirim pesan nyata. |
 | `WHATSAPP_MAX_ATTEMPTS` | Integer | `5` | Jumlah percobaan maksimal sebelum pesan ditandai gagal permanen. |
 | `WHATSAPP_WORKER_CONCURRENCY` | Integer | `1` | Jumlah batch job yang diklaim worker dalam satu putaran. |
@@ -143,6 +144,8 @@ Variabel backend berikut dikelola melalui `be/src/config/env.js` dan terdokument
 1. `FONNTE_TOKEN` dan `FONNTE_WEBHOOK_SECRET` **tidak pernah** ditulis ke log, audit trail, database outbox, atau response API.
 2. Tidak adanya token atau gagalnya koneksi Fonnte **tidak menggagalkan** alur kerja transaksi booking pengguna.
 3. Seluruh pesan baru berada dalam mode aman (*simulated*) hingga pengelola sistem secara eksplisit mengaktifkan `WHATSAPP_SEND_ENABLED=true` dan memasukkan `WHATSAPP_TEST_RECIPIENTS`.
+4. Pesan simulasi tidak dicatat sebagai terkirim: outbox menjadi `cancelled` (`DRY_RUN_NOT_SENT`) tanpa `sent_at`, undangan consent tetap `pending`, dan `cleared_at` tidak diisi. Pesan ini tidak dikirim ulang saat pengiriman nyata diaktifkan; gunakan kirim ulang undangan atau tunggu pengingat berikutnya.
+5. Selama `WHATSAPP_TEST_MODE=true`, nomor di luar `WHATSAPP_TEST_RECIPIENTS` ditandai `failed` (`TEST_RECIPIENT_NOT_ALLOWED`) sebelum gerbang simulasi.
 
 ---
 
@@ -279,6 +282,24 @@ node src/workers/whatsapp.scheduler.js --once
 # Menjalankan scheduler berkala (setiap 10 menit):
 npm run whatsapp:scheduler
 ```
+
+### Menjalankan di Vercel (tanpa proses worker):
+Fungsi Vercel tidak bisa menjalankan proses terus-menerus, dan cron paket Hobby dibatasi sekali sehari. Karena itu, layanan cron eksternal memanggil dua endpoint berikut:
+
+| Endpoint | Jadwal yang disarankan |
+|---|---|
+| `POST /api/v1/internal/whatsapp/worker-run` | Tiap 1 menit |
+| `POST /api/v1/internal/whatsapp/scheduler-run` | Tiap 10 menit |
+
+Setiap request wajib mengirim header `Authorization: Bearer <CRON_SECRET>`, tanpa body. Layanan cron menyimpan secret ini, jadi gunakan nilai khusus untuk cron dan ganti bila layanan tersebut tidak lagi dipakai.
+
+Langkah aktivasi:
+1. Isi `CRON_SECRET` di environment Vercel, lalu redeploy.
+2. Pastikan `WHATSAPP_SEND_ENABLED=false` dan `WHATSAPP_TEST_MODE=true`, lalu buat kedua jadwal. Pesan lama di antrean akan ditutup tanpa terkirim: `cancelled` untuk nomor uji, `failed` untuk nomor lain.
+3. Pantau `GET /api/v1/admin/whatsapp/health` sampai `pending` tidak lagi menumpuk.
+4. Isi `FONNTE_TOKEN`, `FONNTE_WEBHOOK_SECRET`, dan `WHATSAPP_TEST_RECIPIENTS`, set `WHATSAPP_SEND_ENABLED=true`, lalu redeploy dan uji dengan nomor uji yang disetujui.
+
+Setiap putaran memproses maksimal 10 pesan secara berurutan. Masa kunci dihitung dari ukuran batch (230 detik untuk 10 pesan pada timeout 15 detik) agar putaran yang tumpang tindih tidak mengirim pesan yang sama dua kali.
 
 ### Memeriksa Kesehatan & Observabilitas Outbox:
 Endpoint admin terautentikasi:
