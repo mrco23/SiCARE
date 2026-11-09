@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { FonnteService } from "../src/services/fonnte.service.js";
 import { claimEligibleJobs, processOutboxJob } from "../src/workers/whatsapp.worker.js";
+
+function dryRunService() {
+  return new FonnteService({
+    sendEnabled: false,
+    testMode: false,
+    token: "",
+    fetchFn: async () => {
+      throw new Error("Dry-run must not call the network");
+    },
+  });
+}
 
 test("claimEligibleJobs atomically claims eligible jobs and increments attempt_count", async () => {
   const outbox = [
@@ -399,4 +411,131 @@ test("processOutboxJob transitions to unknown on ambiguous provider timeouts", a
   assert.equal(updatedPatch.status, "unknown");
   assert.equal(updatedPatch.last_error_code, "FONNTE_TIMEOUT");
   assert.equal(updatedPatch.error_category, "unknown");
+});
+
+test("processOutboxJob does not record a dry-run booking message as sent", async () => {
+  let updatedPatch = null;
+  const mockClient = {
+    from(table) {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "prof-dry", full_name: "Klien", account_status: "active", whatsapp_opt_in: true, phone_e164: "62812345678" },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "whatsapp_outbox") {
+        return {
+          update(patch) {
+            updatedPatch = patch;
+            return { eq: async () => ({ data: null, error: null }) };
+          },
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    },
+  };
+
+  const result = await processOutboxJob({
+    supabaseClient: mockClient,
+    service: dryRunService(),
+    job: {
+      id: "job-dry-1",
+      recipient_user_id: "prof-dry",
+      message_type: "booking_received",
+      attempt_count: 1,
+      max_attempts: 5,
+      payload: { booking_id: "b-dry", starts_at: new Date().toISOString() },
+    },
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.status, "cancelled");
+  assert.equal(updatedPatch.status, "cancelled");
+  assert.equal(updatedPatch.last_error_code, "DRY_RUN_NOT_SENT");
+  assert.equal(updatedPatch.provider_status, "simulated");
+  assert.equal(updatedPatch.locked_by, null);
+  assert.equal("sent_at" in updatedPatch, false);
+  assert.equal("provider_message_id" in updatedPatch, false);
+});
+
+test("processOutboxJob keeps a dry-run consent invitation pending and its secret uncleared", async () => {
+  let updatedPatch = null;
+  const emptyLookup = {
+    select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+  };
+  const mockClient = {
+    from(table) {
+      if (table === "booking_participants") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "part-dry", full_name: "Tamu", phone_e164: "62812345679", participant_status: "active" },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "consent_invitations") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "inv-dry", status: "pending", expires_at: new Date(Date.now() + 86400000).toISOString() },
+                error: null,
+              }),
+            }),
+          }),
+          update() {
+            throw new Error("Dry-run must not update the invitation");
+          },
+        };
+      }
+      if (table === "consent_invitation_secrets") {
+        return {
+          ...emptyLookup,
+          update() {
+            throw new Error("Dry-run must not clear the invitation secret");
+          },
+        };
+      }
+      if (table === "informed_consents" || table === "bookings") return emptyLookup;
+      if (table === "whatsapp_outbox") {
+        return {
+          update(patch) {
+            updatedPatch = patch;
+            return { eq: async () => ({ data: null, error: null }) };
+          },
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    },
+  };
+
+  const result = await processOutboxJob({
+    supabaseClient: mockClient,
+    service: dryRunService(),
+    job: {
+      id: "job-dry-2",
+      booking_id: "b-dry-2",
+      booking_participant_id: "part-dry",
+      recipient_user_id: null,
+      message_type: "consent_invitation",
+      phone_e164: "62812345679",
+      attempt_count: 1,
+      max_attempts: 5,
+      payload: { invitation_id: "inv-dry", booking_id: "b-dry-2", booking_participant_id: "part-dry" },
+    },
+  });
+
+  assert.equal(result.status, "cancelled");
+  assert.equal(result.error, "DRY_RUN_NOT_SENT");
+  assert.equal(updatedPatch.status, "cancelled");
 });

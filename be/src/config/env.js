@@ -30,6 +30,7 @@ const envSchema = z
     FONNTE_ENABLED: booleanFromEnv(false),
     FONNTE_WEBHOOK_SECRET: optionalSecret,
     FONNTE_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+    CRON_SECRET: optionalSecret,
     WHATSAPP_SEND_ENABLED: booleanFromEnv(false),
     WHATSAPP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
     WHATSAPP_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(1),

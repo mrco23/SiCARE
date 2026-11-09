@@ -354,6 +354,24 @@ export async function processOutboxJob({
   });
 
   // Step 4: Handle Result
+  // Dry-run: nothing left the server, so it must not be recorded as sent. Cancelling is terminal,
+  // so old messages do not go out once live sending is enabled. The invitation stays pending and
+  // its token stays usable, so a later reminder or resend can still carry a valid link.
+  if (sendResult.simulated) {
+    await supa.from("whatsapp_outbox").update({
+      status: "cancelled",
+      provider_status: "simulated",
+      provider_state: "simulated",
+      last_error_code: "DRY_RUN_NOT_SENT",
+      last_error_message: "Mode simulasi aktif (WHATSAPP_SEND_ENABLED=false atau token kosong). Pesan tidak dikirim.",
+      error_category: "permanent",
+      locked_by: null,
+      lease_expires_at: null,
+      updated_at: nowIso,
+    }).eq("id", job.id);
+    return { success: false, status: "cancelled", error: "DRY_RUN_NOT_SENT" };
+  }
+
   if (sendResult.success) {
     await supa.from("whatsapp_outbox").update({
       status: "accepted", // API accepted
@@ -443,6 +461,17 @@ export async function processOutboxJob({
 }
 
 /**
+ * Jobs in a batch are claimed together but sent one at a time, so the lease must outlast the whole
+ * batch. Otherwise an overlapping run could reclaim a job still waiting its turn and send it twice.
+ * @param {number} batchSize
+ * @returns {number}
+ */
+export function calculateLeaseSeconds(batchSize) {
+  const secondsPerJob = env.FONNTE_TIMEOUT_MS / 1000 + 5; // provider timeout plus database calls
+  return Math.max(60, Math.ceil(batchSize * secondsPerJob) + 30);
+}
+
+/**
  * Runs a single worker pass.
  * @param {object} [options]
  * @param {object} [options.supabaseClient]
@@ -458,6 +487,7 @@ export async function runWorkerPass(options = {}) {
     supabaseClient: options.supabaseClient,
     workerId,
     batchSize,
+    leaseSeconds: calculateLeaseSeconds(batchSize),
   });
 
   let processed = 0;

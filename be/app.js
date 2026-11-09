@@ -16,6 +16,7 @@ import counselorRoutes from "./src/routes/counselor.routes.js";
 import reportingRoutes from "./src/routes/reporting.routes.js";
 import webhookRoutes from "./src/routes/webhook.routes.js";
 import consentRoutes from "./src/routes/consent.routes.js";
+import internalRoutes from "./src/routes/internal.routes.js";
 
 const app = express();
 const allowedOrigins = new Set(env.frontendOrigins);
@@ -59,6 +60,7 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1", reportingRoutes);
 app.use("/api/v1/webhooks", webhookRoutes);
 app.use("/api/v1/consents", consentRoutes);
+app.use("/api/v1/internal", internalRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
