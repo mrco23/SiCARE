@@ -1,7 +1,7 @@
 # SiCARE — Dokumentasi Integrasi WhatsApp Fonnte (Batch 1.5a & 1.5a.1)
 
 **Status:** Selesai diimplementasikan, diaudit keandalannya, diperluas pada Batch 1.5d, dan diverifikasi integrasi menyeluruh pada Batch 1.5e (184/184 backend tests PASS).
-**Lingkup:** Infrastruktur pengiriman pesan WhatsApp, transactional outbox, worker background, retry dengan exponential backoff dan jitter, pencegahan pesan duplikat (idempotensi deterministik), scheduler pengingat sesi (H-1 dan Hari H), scheduler pengingat consent (24 jam dan 72 jam), gerbang eligibilitas akhir worker (pembatalan pesan usang), pelacakan status pengiriman via webhook Fonnte, penegakan persetujuan pengguna (opt-in WhatsApp), pemantauan kesehatan provider, serta penyebaran undangan Informed Consent kelompok dengan enkripsi token terdedikasi AES-256-GCM.
+**Lingkup:** Infrastruktur pengiriman pesan WhatsApp, transactional outbox, worker background, retry dengan exponential backoff dan jitter, pencegahan pesan duplikat (idempotensi deterministik), scheduler pengingat sesi (H-1 dan Hari H), scheduler pengingat consent (24 jam dan 72 jam), gerbang eligibilitas akhir worker (pembatalan pesan usang), pelacakan status pengiriman via webhook Fonnte, catatan opt-in WhatsApp yang tidak lagi menggerbang pengiriman (wajib untuk semua klien/konselor, 2026-11-13), pemantauan kesehatan provider, serta penyebaran undangan Informed Consent kelompok dengan enkripsi token terdedikasi AES-256-GCM.
 **Dokumen Alur Undangan Kelompok (Batch 1.5d):** [`docs/GROUP_CONSENT_WORKFLOW.md`](../GROUP_CONSENT_WORKFLOW.md)
 **Dokumen Arsitektur Keamanan:** [`docs/security/security-architecture.md`](../security/security-architecture.md)
 **Status Pengujian & Progres:** [`docs/PROJECT_STATUS.md`](../PROJECT_STATUS.md)
@@ -30,8 +30,9 @@ Sistem notifikasi WhatsApp SiCARE dirancang mengikuti pola **Transactional Outbo
         |
         +---> Klaim batch job, ubah status -> 'processing', kunci worker lease
         |
-        +---> Validasi status akun & Live WhatsApp Opt-In (profiles.whatsapp_opt_in === true)
-        |     (Jika opt-out: tandai 'failed' dengan category 'opt_out', pesan TIDAK dikirim)
+        +---> Validasi status akun aktif (profiles.account_status === 'active')
+        |     (Sejak 2026-11-13: TIDAK lagi memeriksa profiles.whatsapp_opt_in, notifikasi wajib
+        |     untuk semua klien/konselor; kolom itu masih ada tapi tidak dibaca worker.)
         |
         +---> Render Template Pesan (src/templates/whatsapp/index.js)
         |
@@ -115,7 +116,7 @@ Pada Batch 1.5a.1, dilakukan audit dan penguatan konsistensi transaksional:
 - **`accepted`**: Fonnte menerima pesan (`status: true`). Pesan berada di antrean internal Fonnte untuk dikirimkan ke perangkat WhatsApp.
 - **`delivered`**: Fonnte mengirimkan webhook pembaruan status bahwa pesan telah sampai di perangkat penerima (`delivered` atau `read`).
 - **`retry_wait`**: Pengiriman mengalami gangguan sementara (HTTP 429, 5xx, atau device WhatsApp konselor/sistem terputus sementara). Dijadwalkan untuk dicoba kembali pada timestamp `next_attempt_at`.
-- **`failed`**: Pengiriman gagal secara permanen (token tidak valid, nomor telepon tidak terdaftar, pengguna mencabut izin opt-in, atau batas `max_attempts` tercapai).
+- **`failed`**: Pengiriman gagal secara permanen (token tidak valid, nomor telepon tidak terdaftar, atau batas `max_attempts` tercapai). Kode `RECIPIENT_NOT_OPTED_IN`/kategori `opt_out` sudah tidak pernah terjadi lagi sejak 2026-11-13.
 - **`cancelled`**: Pesan dibatalkan karena sesi konseling telah dibatalkan atau dijadwalkan ulang oleh klien/konselor, atau tidak dikirim karena mode simulasi (`last_error_code: DRY_RUN_NOT_SENT`, `provider_status: simulated`).
 - **`unknown`**: Request ke Fonnte mengalami timeout setelah pesan mungkin telah mencapai server provider. Sistem menahan pengiriman ulang membabi buta agar tidak terjadi spam pesan ganda.
 
@@ -220,15 +221,21 @@ Pesan hanya memuat data operasional (nomor referensi booking `#SC-XXXXXX`, nama 
 
 ---
 
-## 7. Penegakan Persetujuan Pengguna (Opt-In Enforcement)
+## 7. Notifikasi WhatsApp Wajib (bukan lagi opt-in)
 
-Sesuai aturan keamanan dan etika komunikasi WhatsApp SiCARE:
-1. **Pemeriksaan Opt-in Live Saat Pengiriman:**
-   Meskipun pesan telah dimasukkan ke outbox saat booking dibuat, background worker memeriksa status terkini profil penerima (`profiles.whatsapp_opt_in === true`) tepat sebelum Fonnte dipanggil.
-2. **Opt-Out Dihormati Seketika:**
-   Jika klien atau konselor mematikan toggle notifikasi WhatsApp di halaman Pengaturan (`PATCH /api/v1/profile/whatsapp-consent`), seluruh pengiriman berikutnya (termasuk pengingat sesi yang telah terjadwal) langsung ditandai `failed` dengan kode `RECIPIENT_NOT_OPTED_IN` dan kategori `opt_out`, tanpa mengirim pesan ke WhatsApp.
-3. **Validasi Nomor Telepon:**
-   Hanya nomor telepon yang memiliki format E.164 valid (minimal 7 digit, diawali `62` atau `08`) yang akan diproses.
+**Keputusan pengguna, 2026-11-13:** notifikasi WhatsApp bersifat wajib untuk semua klien dan
+konselor, bukan lagi preferensi yang bisa dimatikan.
+
+- `be/src/workers/whatsapp.worker.js` tidak lagi memeriksa `profiles.whatsapp_opt_in` sebelum
+  mengirim. Satu-satunya syarat sebelum kirim adalah akun penerima `account_status === 'active'`.
+- Toggle "Terima Notifikasi Jadwal WhatsApp" di halaman Pengaturan klien sudah dihapus dari UI.
+- Endpoint `PATCH /api/v1/profile/whatsapp-consent` dan kolom `profiles.whatsapp_opt_in` masih
+  ada di backend/database (tidak dihapus, hanya tidak lagi dibaca untuk keputusan kirim/tidak),
+  karena beberapa tampilan admin masih menampilkannya sebagai riwayat. Nilai lama klien yang
+  pernah opt-out **tidak diubah**; nilai itu sekarang murni historis dan tidak memengaruhi apakah
+  mereka menerima WhatsApp.
+- **Validasi Nomor Telepon:** hanya nomor telepon dengan format E.164 valid (minimal 7 digit,
+  diawali `62` atau `08`) yang akan diproses.
 
 ---
 

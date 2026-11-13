@@ -31,7 +31,6 @@ import {
   X,
   KeyRound,
   Save,
-  Trash2,
 } from "lucide-react";
 import { EDUCATION_LEVELS } from "../../constants/registerOptions";
 import {
@@ -66,9 +65,6 @@ export default function KlienPengaturanPage() {
   const [photo, setPhoto] = useState<string | null>(initialPhoto);
   const [savedPhoto, setSavedPhoto] = useState<string | null>(initialPhoto);
 
-  const [whatsappOptIn, setWhatsappOptIn] = useState(true);
-  const [savedWhatsappOptIn, setSavedWhatsappOptIn] = useState(true);
-
   const [serverProfile, setServerProfile] = useState<ProfileDto | null>(null);
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -98,9 +94,7 @@ export default function KlienPengaturanPage() {
   const photoInput = useRef<HTMLInputElement>(null);
 
   const dirty =
-    JSON.stringify(profile) !== JSON.stringify(saved) ||
-    photo !== savedPhoto ||
-    whatsappOptIn !== savedWhatsappOptIn;
+    JSON.stringify(profile) !== JSON.stringify(saved) || photo !== savedPhoto;
 
   const errors = useMemo<Errors>(() => validateClientProfile(profile), [profile]);
   const [loading, setLoading] = useState(true);
@@ -125,8 +119,6 @@ export default function KlienPengaturanPage() {
         };
         setSaved(clone(next));
         setProfile(clone(next));
-        setWhatsappOptIn(Boolean(data.whatsapp_opt_in));
-        setSavedWhatsappOptIn(Boolean(data.whatsapp_opt_in));
         if (data.avatar_url) {
           setPhoto(data.avatar_url);
           setSavedPhoto(data.avatar_url);
@@ -274,11 +266,6 @@ export default function KlienPengaturanPage() {
     closeCropper();
   }
 
-  function handleDeletePhoto() {
-    setPhoto(null);
-    toast.info("Foto profil ditandai untuk dihapus. Klik Simpan perubahan.");
-  }
-
   async function saveChanges() {
     if (Object.keys(errors).length) {
       setShowErrors(true);
@@ -292,9 +279,6 @@ export default function KlienPengaturanPage() {
       await sicareApi.updateProfile({
         phone_e164: cleanedPhone || null,
       });
-      await sicareApi
-        .setWhatsAppConsent({ opted_in: whatsappOptIn })
-        .catch(() => null);
 
       let nextPhotoPath = photo;
       if (photo !== savedPhoto) {
@@ -318,7 +302,6 @@ export default function KlienPengaturanPage() {
       setSaved(clone(profile));
       setSavedPhoto(nextPhotoPath);
       setPhoto(nextPhotoPath);
-      setSavedWhatsappOptIn(whatsappOptIn);
       setShowErrors(false);
       toast.success("Perubahan berhasil disimpan.");
     } catch (err) {
@@ -335,7 +318,6 @@ export default function KlienPengaturanPage() {
   function discardChanges() {
     setProfile(clone(saved));
     setPhoto(savedPhoto);
-    setWhatsappOptIn(savedWhatsappOptIn);
     setShowErrors(false);
     setPhotoError("");
   }
@@ -424,6 +406,9 @@ export default function KlienPengaturanPage() {
           </span>
         </div>
       </section>
+      {photoError && (
+        <p className="mt-2 text-xs font-medium text-red-600">{photoError}</p>
+      )}
 
       {/* Hidden file input */}
       <input
@@ -458,7 +443,7 @@ export default function KlienPengaturanPage() {
         {/* Kontak & data yang bisa diubah */}
         <Panel
           icon={<Phone className="h-5 w-5" />}
-          title="Kontak & Preferensi Notifikasi"
+          title="Kontak"
           description="Informasi ini dipakai untuk koordinasi jadwal sesi dengan konselor."
         >
           <div className="flex flex-col gap-5">
@@ -475,53 +460,10 @@ export default function KlienPengaturanPage() {
                 onChange={(e) => update("phone", e.target.value)}
                 placeholder="Contoh: 081298765432"
               />
-            </Field>
-
-            <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3.5">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={whatsappOptIn}
-                  onChange={(e) => setWhatsappOptIn(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded accent-primary text-primary focus:ring-primary"
-                />
-                <div className="text-xs">
-                  <span className="font-bold text-gray-800">
-                    Terima Notifikasi Jadwal WhatsApp
-                  </span>
-                  <p className="text-gray-500 mt-0.5">
-                    Kirim konfirmasi booking dan pengingat jadwal konseling ke nomor WhatsApp di atas.
-                  </p>
-                </div>
-              </label>
-            </div>
-
-            <Field
-              label="Foto Profil"
-              error={photoError}
-            >
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => photoInput.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  <Camera className="h-4 w-4" />
-                  {photo ? "Ganti Foto" : "Unggah Foto"}
-                </button>
-                {photo && (
-                  <button
-                    type="button"
-                    onClick={handleDeletePhoto}
-                    className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
-                  >
-                    <IconLabel icon={Trash2}>Hapus Foto</IconLabel>
-                  </button>
-                )}
-                <span className="text-[11px] text-gray-400">
-                  Maksimal 2 MB (JPG, PNG, WebP)
-                </span>
-              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                Semua klien menerima konfirmasi booking dan pengingat jadwal konseling via
+                WhatsApp ke nomor ini.
+              </p>
             </Field>
 
             <Field

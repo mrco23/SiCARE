@@ -134,7 +134,7 @@ export async function processOutboxJob({
   if (job.recipient_user_id) {
     const { data: profile, error: profileError } = await supa
       .from("profiles")
-      .select("id,full_name,phone_e164,account_status,whatsapp_opt_in")
+      .select("id,full_name,phone_e164,account_status")
       .eq("id", job.recipient_user_id)
       .maybeSingle();
 
@@ -164,20 +164,10 @@ export async function processOutboxJob({
       return { success: false, status: "failed", error: "RECIPIENT_INACTIVE" };
     }
 
-    // Mandatory Opt-In Enforcement (Rule 11)
-    if (profile.whatsapp_opt_in !== true) {
-      await supa.from("whatsapp_outbox").update({
-        status: "failed",
-        last_error_code: "RECIPIENT_NOT_OPTED_IN",
-        last_error_message: "Penerima belum menyetujui notifikasi WhatsApp atau telah opt-out",
-        error_category: "opt_out",
-        locked_by: null,
-        lease_expires_at: null,
-        updated_at: nowIso,
-      }).eq("id", job.id);
-      return { success: false, status: "failed", error: "RECIPIENT_NOT_OPTED_IN" };
-    }
-
+    // Notifikasi WhatsApp bersifat wajib untuk semua klien dan konselor (keputusan
+    // pengguna, 2026-11-13) — tidak lagi digerbang oleh `profiles.whatsapp_opt_in`.
+    // Kolom itu masih ada di database untuk riwayat/tampilan admin, tapi worker tidak
+    // membacanya lagi untuk memutuskan boleh/tidaknya pengiriman.
     recipientName = profile.full_name;
     targetPhone = normalizePhoneNumber(profile.phone_e164 || job.phone_e164);
   } else {

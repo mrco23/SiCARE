@@ -5,7 +5,7 @@ import {
   SkeletonFormGrid,
   useToast,
 } from "../../components/shared";
-import { SettingsField as Field, SettingsPanel as Panel, SettingsSwitchRow as SwitchRow } from "../../components/counselor/settings/SettingsPrimitives";
+import { SettingsField as Field, SettingsPanel as Panel } from "../../components/counselor/settings/SettingsPrimitives";
 import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import { useAuth } from "../../features/auth/useAuth";
 import { counselorApi } from "../../lib/counselorApi";
@@ -41,7 +41,6 @@ import {
   BadgeCheck,
   Camera,
   GraduationCap,
-  Layers3,
   LockKeyhole,
   Plus,
   Save,
@@ -61,7 +60,6 @@ const EMPTY_COUNSELOR_PROFILE: Profile = {
   experienceStartYear: String(new Date().getFullYear()),
   phone: "",
   educations: [],
-  services: { individual: true, group: true },
 };
 
 export default function KonselorPengaturanPage() {
@@ -183,13 +181,6 @@ export default function KonselorPengaturanPage() {
 
   function update<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function updateToggle(group: "services", key: string, value: boolean) {
-    setProfile(
-      (prev) =>
-        ({ ...prev, [group]: { ...prev[group], [key]: value } }) as Profile,
-    );
   }
 
   function closeCropper() {
@@ -794,31 +785,6 @@ export default function KonselorPengaturanPage() {
                 </span>
               </div>
             </Field>
-          </div>
-        </Panel>
-
-        {/* Panel Layanan Konseling */}
-        <Panel
-          icon={<Layers3 className="h-5 w-5" />}
-          title="Layanan Konseling"
-          description="Tentukan jenis layanan konseling yang Anda sediakan untuk klien."
-        >
-          <div className="space-y-4">
-            <SwitchRow
-              title="Konseling Individu"
-              description="Pendampingan tatap muka satu lawan satu dengan klien."
-              checked={profile.services.individual}
-              onChange={(v) => updateToggle("services", "individual", v)}
-            />
-            <SwitchRow
-              title="Konseling Kelompok"
-              description="Sesi kelompok tematik terstruktur untuk beberapa peserta."
-              checked={profile.services.group}
-              onChange={(v) => updateToggle("services", "group", v)}
-            />
-            {showErrors && errors.services && (
-              <p className="text-xs text-red-600">{errors.services}</p>
-            )}
           </div>
         </Panel>
 

@@ -83,7 +83,9 @@ test("claimEligibleJobs atomically claims eligible jobs and increments attempt_c
   assert.ok(claimed[0].lease_expires_at);
 });
 
-test("processOutboxJob rejects non-opted-in recipients immediately", async () => {
+test("processOutboxJob sends regardless of profiles.whatsapp_opt_in (mandatory for all clients/counselors, 2026-11-13)", async () => {
+  // Pre-2026-11-13 this profile would have been rejected with RECIPIENT_NOT_OPTED_IN.
+  // The opt-in gate was removed; whatsapp_opt_in is no longer read by the worker at all.
   let updatedPatch = null;
   const mockClient = {
     from(table) {
@@ -99,7 +101,7 @@ test("processOutboxJob rejects non-opted-in recipients immediately", async () =>
                       full_name: "Ahmad",
                       phone_e164: "628123456789",
                       account_status: "active",
-                      whatsapp_opt_in: false, // NOT OPTED IN!
+                      whatsapp_opt_in: false,
                     },
                     error: null,
                   }),
@@ -125,14 +127,15 @@ test("processOutboxJob rejects non-opted-in recipients immediately", async () =>
 
   let serviceCalled = false;
   const mockService = {
-    sendMessage: async () => {
+    sendMessage: async ({ target }) => {
       serviceCalled = true;
-      return { success: true };
+      assert.equal(target, "628123456789");
+      return { success: true, providerMessageId: "msg-1", providerRequestId: "req-1" };
     },
   };
 
   const job = {
-    id: "job-opt-out",
+    id: "job-mandatory",
     recipient_user_id: "prof-1",
     message_type: "booking_accepted",
     attempt_count: 1,
@@ -146,12 +149,9 @@ test("processOutboxJob rejects non-opted-in recipients immediately", async () =>
     service: mockService,
   });
 
-  assert.equal(serviceCalled, false);
-  assert.equal(result.success, false);
-  assert.equal(result.status, "failed");
-  assert.equal(updatedPatch.status, "failed");
-  assert.equal(updatedPatch.last_error_code, "RECIPIENT_NOT_OPTED_IN");
-  assert.equal(updatedPatch.error_category, "opt_out");
+  assert.equal(serviceCalled, true);
+  assert.equal(result.success, true);
+  assert.equal(updatedPatch.status, "accepted");
 });
 
 test("processOutboxJob successfully sends and transitions to accepted", async () => {
