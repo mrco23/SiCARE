@@ -1,8 +1,10 @@
 # Usulan: Catatan Sesi & Jawaban Intake pada `GET /counselor/history`
 
-**Pembaruan 2026-11-05:** bagian `session_notes` sudah diimplementasikan (migrasi `20261105140000`). `booking_intakes` tetap usulan.
+**Pembaruan 2026-11-05:** bagian `session_notes` sudah diimplementasikan (migrasi `20261105140000`).
 
-**Status:** USULAN — belum diterapkan. Belum ada file di `supabase/migrations/`, belum ada perubahan controller untuk bagian ini.
+**Pembaruan 2026-11-13:** `booking_intakes` sudah diimplementasikan, tetapi lewat `POST /bookings`, `GET /bookings`, dan `GET /bookings/:id` (untuk `KonselorPermintaanPage` dan `KonselorAktivitasPage`) — **bukan** lewat `GET /counselor/history` seperti rencana di dokumen ini. Migrasi: `supabase/migrations/20261113130000_sicare_booking_intakes.sql`. Keputusan SOP yang menjawab pertanyaan di bawah: satu baris per booking (bukan per peserta kelompok, lihat §2), hanya konselor yang menangani booking yang boleh membaca (lihat §5, akses admin/Kepala LMI ditangguhkan), retensi mengikuti siklus hidup booking via `on delete cascade` (lihat §3, tidak ada aturan retensi/penghapusan terjadwal). §4 (enkripsi kolom) dijawab dengan tidak menambah enkripsi aplikasi — sama seperti `session_notes`, cukup RLS + akses `service_role` saja. §6 (sesi dibatalkan) belum relevan karena jalur baca yang diimplementasikan (`GET /bookings`) tidak membatasi status booking.
+
+**Status bagian `GET /counselor/history` di bawah ini:** USULAN — belum diterapkan untuk jalur Riwayat Konselor. Tipe `CounselorHistoryResponseDto.intake_answers` sudah ada di `fe/src/types/api.ts` dan `KonselorRiwayatPage` sudah siap merender lewat `intakeMap`, tetapi controller riwayat belum mengisinya. Mengaktifkannya tinggal menambah pemanggilan `bookingRepository.findIntakeAnswersByBookingIds` di `historyCredential.controller.js`, sama seperti yang sudah dipakai `booking.service.js`.
 **Tanggal:** 2026-11-04
 **Alasan ditahan:** `AGENTS.md` §3 dan `SOP_COVERAGE_MATRIX.md` #13 & #16 mensyaratkan field, akses, retensi, audit, dan penghapusan untuk intake/catatan konseling disahkan pemilik SOP sebelum tabel/endpoint dibuat.
 
