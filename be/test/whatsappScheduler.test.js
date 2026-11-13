@@ -78,7 +78,12 @@ test("scanUpcomingSessionsAndEnqueueReminders generates H-1 and Day-of reminders
         };
       }
       if (table === "whatsapp_outbox") {
+        const existingCheck = {
+          eq: () => existingCheck,
+          limit: async () => ({ data: [], error: null }),
+        };
         return {
+          select: () => existingCheck,
           insert(row) {
             enqueuedRows.push(row);
             return {

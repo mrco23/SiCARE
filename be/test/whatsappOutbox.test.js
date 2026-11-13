@@ -174,3 +174,100 @@ test("cancelObsoleteReminders updates pending and retry_wait reminders to cancel
   assert.equal(eqBookingId, "b-cancelled-123");
   assert.equal(updatedPayload.status, "cancelled");
 });
+
+function reminderOutboxMock(existingRows, { failCheck = false } = {}) {
+  const insertedRows = [];
+  const client = {
+    from(table) {
+      assert.equal(table, "whatsapp_outbox");
+      return {
+        select() {
+          const filters = {};
+          const query = {
+            eq(column, value) {
+              filters[column] = value;
+              return query;
+            },
+            limit: async () => {
+              if (failCheck) return { data: null, error: { message: "network" } };
+              const rows = [...existingRows, ...insertedRows].filter((row) =>
+                Object.entries(filters).every(([column, value]) =>
+                  column === "scheduled_at"
+                    ? new Date(row[column]).getTime() === new Date(value).getTime()
+                    : row[column] === value,
+                ),
+              );
+              return { data: rows.map((row) => ({ id: row.id ?? "new" })), error: null };
+            },
+          };
+          return query;
+        },
+        insert(row) {
+          insertedRows.push(row);
+          return { select: () => ({ maybeSingle: async () => ({ data: { id: `new-${insertedRows.length}` }, error: null }) }) };
+        },
+      };
+    },
+  };
+  return { client, insertedRows };
+}
+
+const reminderBooking = {
+  id: "book-dup",
+  client_id: "client-1",
+  counselor_id: "counselor-1",
+  // JSON format returned by Supabase; the booking RPC writes keys with "2030-01-02 03:00:00+00".
+  starts_at: "2030-01-02T03:00:00+00:00",
+  ends_at: "2030-01-02T04:00:00+00:00",
+};
+
+function rpcReminderRow(messageType, recipientUserId, scheduledAt) {
+  return {
+    id: `rpc-${messageType}-${recipientUserId}`,
+    booking_id: reminderBooking.id,
+    message_type: messageType,
+    recipient_user_id: recipientUserId,
+    // Postgres text format for the same instant, as written by the RPC
+    scheduled_at: scheduledAt,
+    idempotency_key: `booking:${reminderBooking.id}:${messageType}:${recipientUserId}:2030-01-02 03:00:00+00`,
+    status: "failed",
+  };
+}
+
+test("enqueueSessionReminders does not duplicate reminders the booking RPC already queued", async () => {
+  const existing = ["client-1", "counselor-1"].flatMap((userId) => [
+    rpcReminderRow("reminder_h1", userId, "2030-01-01 03:00:00+00"),
+    rpcReminderRow("reminder_day_of", userId, "2030-01-02 02:00:00+00"),
+  ]);
+  const { client, insertedRows } = reminderOutboxMock(existing);
+
+  const result = await enqueueSessionReminders({ supabaseClient: client, booking: reminderBooking });
+
+  assert.equal(insertedRows.length, 0);
+  assert.equal(result.enqueued, 0);
+});
+
+test("enqueueSessionReminders only fills in reminders that are missing", async () => {
+  const existing = [
+    rpcReminderRow("reminder_h1", "client-1", "2030-01-01 03:00:00+00"),
+    rpcReminderRow("reminder_day_of", "client-1", "2030-01-02 02:00:00+00"),
+  ];
+  const { client, insertedRows } = reminderOutboxMock(existing);
+
+  const result = await enqueueSessionReminders({ supabaseClient: client, booking: reminderBooking });
+
+  assert.equal(result.enqueued, 2);
+  assert.deepEqual(
+    insertedRows.map((row) => `${row.message_type}:${row.recipient_user_id}`).sort(),
+    ["reminder_day_of:counselor-1", "reminder_h1:counselor-1"],
+  );
+});
+
+test("enqueueSessionReminders skips enqueueing when the existing-reminder check fails", async () => {
+  const { client, insertedRows } = reminderOutboxMock([], { failCheck: true });
+
+  const result = await enqueueSessionReminders({ supabaseClient: client, booking: reminderBooking });
+
+  assert.equal(insertedRows.length, 0);
+  assert.equal(result.enqueued, 0);
+});

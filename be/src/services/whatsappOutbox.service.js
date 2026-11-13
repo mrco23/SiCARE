@@ -285,6 +285,29 @@ export async function enqueueBookingNotifications({
  * @param {string} [params.counselorName]
  * @returns {Promise<{ enqueued: number }>}
  */
+/**
+ * The booking RPC builds reminder keys from `starts_at::text` ("2026-11-13 00:00:00+00"), while the scheduler
+ * reads starts_at as JSON ("2026-11-13T00:00:00+00:00"). The keys never match, so the unique key alone let the
+ * scheduler add a second copy of every reminder the RPC had already queued. Comparing scheduled_at as a
+ * timestamp works for rows from either source, in any status.
+ * @returns {Promise<boolean>} true when a reminder exists or the check failed (skip now, retry next run)
+ */
+async function reminderAlreadyQueued(supa, { bookingId, messageType, recipientUserId, scheduledAt }) {
+  const { data, error } = await supa
+    .from("whatsapp_outbox")
+    .select("id")
+    .eq("booking_id", bookingId)
+    .eq("message_type", messageType)
+    .eq("recipient_user_id", recipientUserId)
+    .eq("scheduled_at", scheduledAt.toISOString())
+    .limit(1);
+  if (error) {
+    console.warn(`[WhatsApp Outbox] Pengecekan pengingat ${messageType} gagal; dilewati sampai putaran berikutnya.`);
+    return true;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
 export async function enqueueSessionReminders({
   supabaseClient,
   booking,
@@ -329,8 +352,16 @@ export async function enqueueSessionReminders({
       partner_name: r.partnerName,
     };
 
-    // H-1 Reminder (only if scheduled time is not more than 1 day in the past)
-    if (h1ScheduledAt.getTime() > nowMs - 12 * 60 * 60 * 1000) {
+    // H-1 Reminder (only if scheduled time is not more than 12 hours in the past)
+    if (
+      h1ScheduledAt.getTime() > nowMs - 12 * 60 * 60 * 1000 &&
+      !(await reminderAlreadyQueued(supa, {
+        bookingId: booking.id,
+        messageType: "reminder_h1",
+        recipientUserId: r.userId,
+        scheduledAt: h1ScheduledAt,
+      }))
+    ) {
       const resH1 = await enqueueOutboxMessage({
         supabaseClient: supa,
         bookingId: booking.id,
@@ -340,11 +371,19 @@ export async function enqueueSessionReminders({
         payload: reminderPayload,
         qualifier: String(booking.starts_at),
       });
-      if (resH1.success) enqueued++;
+      if (resH1.success && !resH1.skippedDuplicate) enqueued++;
     }
 
     // Day-of / 1 Hour Reminder
-    if (dayOfScheduledAt.getTime() > nowMs - 30 * 60 * 1000) {
+    if (
+      dayOfScheduledAt.getTime() > nowMs - 30 * 60 * 1000 &&
+      !(await reminderAlreadyQueued(supa, {
+        bookingId: booking.id,
+        messageType: "reminder_day_of",
+        recipientUserId: r.userId,
+        scheduledAt: dayOfScheduledAt,
+      }))
+    ) {
       const resDayOf = await enqueueOutboxMessage({
         supabaseClient: supa,
         bookingId: booking.id,
@@ -354,7 +393,7 @@ export async function enqueueSessionReminders({
         payload: reminderPayload,
         qualifier: String(booking.starts_at),
       });
-      if (resDayOf.success) enqueued++;
+      if (resDayOf.success && !resDayOf.skippedDuplicate) enqueued++;
     }
   }
 
