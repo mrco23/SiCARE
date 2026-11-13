@@ -277,7 +277,7 @@ export default function KonselorBerandaPage() {
     } else if (action === "reschedule") {
       toast.info(`Permintaan jadwal ulang untuk ${title} telah dikirim ke klien.`);
     } else {
-      toast.info(`Permintaan ${title} telah ditolak.`);
+      toast.info(`Permintaan ${title} tidak diterima. Alasannya sudah dikirim ke klien.`);
     }
 
     try {
@@ -573,16 +573,7 @@ export default function KonselorBerandaPage() {
                             }
                             className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
                           >
-                            <IconLabel icon={XCircle}>Tolak</IconLabel>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDecisionModal({ booking, action: "reschedule" })
-                            }
-                            className="rounded-lg border border-amber-300 bg-amber-50/70 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-                          >
-                            Jadwal Ulang
+                            <IconLabel icon={XCircle}>Tidak Dapat Menerima</IconLabel>
                           </button>
                           <button
                             type="button"

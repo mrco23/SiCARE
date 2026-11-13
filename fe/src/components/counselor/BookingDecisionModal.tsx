@@ -158,7 +158,7 @@ export function BookingDecisionModal({
                   ? "Terima Permintaan Konseling"
                   : action === "reschedule"
                     ? "Minta Jadwal Ulang"
-                    : "Tolak Permintaan Konseling"}
+                    : "Tidak Dapat Menerima Permintaan"}
               </h2>
               <p className="mt-1 text-sm text-gray-500">
                 {clientTitle} · {scheduleDate} ({scheduleTime})
@@ -221,7 +221,7 @@ export function BookingDecisionModal({
               <fieldset>
                 <legend className="text-sm font-semibold text-gray-800">
                   {action === "reject"
-                    ? "Alasan Penolakan"
+                    ? "Alasan"
                     : "Alasan Permintaan Jadwal Ulang"}{" "}
                   <span className="text-red-600">*</span>
                 </legend>
@@ -294,8 +294,8 @@ export function BookingDecisionModal({
                 <p className="mt-1 text-xs text-gray-400">
                   Total alasan: {composedReason.length}/1000 karakter.{" "}
                   {action === "reschedule"
-                    ? "Alasan disimpan pada `reschedule_reason` dan slot saat ini dibuka kembali agar klien dapat memilih jadwal baru."
-                    : "Alasan disimpan pada `cancellation_reason` dan dikirim ke notifikasi klien."}
+                    ? "Alasan ini dikirim ke klien, dan klien akan diminta memilih jadwal baru."
+                    : "Alasan ini dikirim ke klien sebagai pemberitahuan."}
                 </p>
               </div>
             </>
@@ -336,7 +336,7 @@ export function BookingDecisionModal({
               ? "Konfirmasi & Buat Sesi"
               : action === "reschedule"
                 ? "Kirim Permintaan Jadwal Ulang"
-                : "Ya, Tolak Permintaan"}
+                : "Kirim ke Klien"}
           </button>
         </div>
       </div>

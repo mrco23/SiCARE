@@ -1766,3 +1766,20 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - Tidak ada migrasi. Kontrak baru dicatat di `API_ENDPOINT_MATRIX.md` (#79, #80), panduan aktivasi di `FONNTE_WHATSAPP_INTEGRATION.md`.
 - Risiko saat aktivasi: pesan lama di antrean ikut diproses, jadi jalankan dulu dalam mode simulasi. Isi antrean production belum diperiksa.
 - `be: typecheck` **PASS**, `check` **PASS**, `npm test` **228/229** (gagal: `heroMotivations.test.js`, baseline; 8 tes baru lulus). Deploy Vercel, cron eksternal, dan uji live Fonnte: **NOT RUN**.
+
+## 2026-11-13 — Jadwal konselor, slot hari ini, dan halaman permintaan
+
+- `KonselorJadwalPage`: pesan error untuk tanggal yang sudah lewat dan jam hari ini yang sudah lewat, saat membuat, mengubah, atau menggeser slot. Sebelumnya tanggal lampau diblokir tanpa pesan dan jam lewat hanya ditolak server dengan pesan umum. Tombol "Tambah Jadwal" tidak lagi dinonaktifkan untuk tanggal lampau agar pesan bisa tampil.
+- Slot hari ini kini muncul di `KlienPesananPage` dan direktori konselor. Penyebabnya batasan frontend `MIN_LEAD_DAYS = 1` dan permintaan slot yang dimulai besok; backend dan RPC `sicare_public_availability` sudah membolehkan slot yang belum dimulai. Tidak ditemukan aturan SOP untuk batas minimal hari.
+- Halaman permintaan konselor dan Beranda konselor: tombol "Jadwal Ulang" dihapus dari permintaan yang menunggu konfirmasi; "Tolak" diganti "Tidak Dapat Menerima"; status "Ditolak" menjadi "Tidak Diterima". "Minta Jadwal Ulang" untuk sesi yang sudah dikonfirmasi tetap ada. Teks teknis di detail permintaan dan modal keputusan diganti teks biasa.
+- Isi form klien belum ditampilkan: jawaban intake tidak pernah dikirim ke backend dan belum ada tabel penyimpanannya. Menunggu keputusan SOP; tidak ada tabel atau endpoint baru.
+- Temuan, belum diubah: notifikasi dalam aplikasi dan template WhatsApp ke klien masih memakai kata "ditolak"; kunci idempotensi pengingat RPC dan scheduler kemungkinan berbeda format sehingga pengingat bisa terkirim dua kali; sesi terlewat tetap `scheduled` tanpa penanganan otomatis.
+- `fe: tsc` **PASS**, `lint` **PASS** (0 peringatan), `build` **PASS**. Backend tidak berubah. Uji browser: **NOT RUN** (butuh login konselor dan klien).
+
+## 2026-11-13 — WhatsApp: pengingat sesi tidak lagi masuk antrean dua kali
+
+- Masalah: RPC `sicare_transition_booking` membuat kunci pengingat dengan `starts_at::text` (`2026-11-13 00:00:00+00`), sedangkan scheduler memakai `String(starts_at)` dari JSON (`2026-11-13T00:00:00+00:00`). Kunci unik tidak pernah sama, sehingga scheduler menambah salinan kedua tiap pengingat H-1 dan Hari H.
+- Bukti: query baca-saja ke database tertaut menemukan 8 baris pengingat = 4 pengingat x 2 format kunci, semua `failed` (mode uji, tidak ada pesan terkirim). Tidak ada data yang diubah atau dihapus.
+- Perbaikan: `enqueueSessionReminders` (`be/src/services/whatsappOutbox.service.js`) mengecek baris yang sudah ada untuk booking, jenis, penerima, dan `scheduled_at` yang sama (status apa pun) sebelum menambah. Jika pengecekan gagal, pengingat dilewati dan dicoba lagi di putaran berikutnya. Jumlah `enqueuedReminders` kini tidak menghitung baris yang dilewati. Tanpa migrasi dan tanpa perubahan kontrak API.
+- Baris duplikat lama dibiarkan karena sudah `failed`.
+- `be: typecheck` **PASS**, `check` **PASS**, `npm test` **231/232** (gagal: `heroMotivations.test.js`, baseline; 3 tes baru lulus, mock scheduler diperbarui). Deploy: **NOT RUN**.

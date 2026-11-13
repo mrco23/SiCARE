@@ -113,6 +113,29 @@ function buildSlotIsoPayload(
   };
 }
 
+const PAST_DATE_MESSAGE =
+  "Tanggal ini sudah lewat. Pilih hari ini atau tanggal setelahnya.";
+
+/** The server rejects slots that do not start in the future; this gives the counselor a clear reason first. */
+function pastSlotMessage(
+  dateKey: string,
+  startMinutes: number,
+  todayKey: string,
+): string | null {
+  if (dateKey < todayKey) return PAST_DATE_MESSAGE;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const startsAt = new Date(
+    year,
+    month - 1,
+    day,
+    Math.floor(startMinutes / 60),
+    startMinutes % 60,
+  );
+  if (startsAt.getTime() > Date.now()) return null;
+  const now = new Date();
+  return `Jam ${fmt(startMinutes)} hari ini sudah lewat. Pilih jam mulai setelah ${fmt(now.getHours() * 60 + now.getMinutes())}.`;
+}
+
 export default function KonselorJadwalPage() {
   const navigate = useNavigate();
 
@@ -323,14 +346,29 @@ export default function KonselorJadwalPage() {
   };
 
   const openNewSlotModal = (dKey: string, initialStart?: number) => {
-    if (isPast(dKey)) return;
+    if (isPast(dKey)) {
+      toast.error(PAST_DATE_MESSAGE);
+      return;
+    }
     let start = initialStart ?? 9 * 60;
     if (initialStart === undefined) {
+      if (pastSlotMessage(dKey, LAST_START, todayKey)) {
+        toast.error(
+          "Jam operasional hari ini sudah lewat. Pilih tanggal setelah hari ini.",
+        );
+        return;
+      }
       for (let t = START; t <= LAST_START; t += SESSION) {
-        if (!findConflict(dKey, t)) {
+        if (!findConflict(dKey, t) && !pastSlotMessage(dKey, t, todayKey)) {
           start = t;
           break;
         }
+      }
+    } else {
+      const pastMessage = pastSlotMessage(dKey, initialStart, todayKey);
+      if (pastMessage) {
+        toast.error(pastMessage);
+        return;
       }
     }
     setEditorError(null);
@@ -372,6 +410,11 @@ export default function KonselorJadwalPage() {
       setEditorError(
         "Jam mulai harus antara 08.00 dan 15.00 agar sesi 1 jam selesai sebelum 16.00.",
       );
+      return;
+    }
+    const pastMessage = pastSlotMessage(editor.dateKey, parsed, todayKey);
+    if (pastMessage) {
+      setEditorError(pastMessage);
       return;
     }
     const conflict = findConflict(editor.dateKey, parsed, editor.slotId);
@@ -489,8 +532,12 @@ export default function KonselorJadwalPage() {
       const cur = dragRef.current;
       setDrag(null);
       if (!cur) return;
-      if (isPast(cur.toDate)) return;
       if (cur.fromDate === cur.toDate && cur.origStart === cur.start) return;
+      const pastMessage = pastSlotMessage(cur.toDate, cur.start, todayKey);
+      if (pastMessage) {
+        toast.error(pastMessage);
+        return;
+      }
       if (findConflict(cur.toDate, cur.start, cur.slotId)) {
         toast.error("Tidak dapat memindahkan jadwal karena berbenturan dengan slot lain.");
         return;
@@ -522,7 +569,7 @@ export default function KonselorJadwalPage() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, findConflict, isPast, periods, toast]);
+  }, [drag, findConflict, isPast, periods, toast, todayKey]);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -577,7 +624,7 @@ export default function KonselorJadwalPage() {
             </button>
             <button
               type="button"
-              disabled={selectedPast || loading || mutating}
+              disabled={loading || mutating}
               onClick={() => openNewSlotModal(selected)}
               className="inline-flex items-center gap-2 rounded-xl bg-[#064E3B] px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:opacity-45"
             >
@@ -723,8 +770,12 @@ export default function KonselorJadwalPage() {
                         }}
                         style={{ height: H }}
                         onClick={(e) => {
-                          if (past || drag) return;
+                          if (drag) return;
                           if (e.target !== e.currentTarget) return;
+                          if (past) {
+                            toast.error(PAST_DATE_MESSAGE);
+                            return;
+                          }
                           const r = e.currentTarget.getBoundingClientRect();
                           const raw = START + (e.clientY - r.top) / PX;
                           const snapped = clamp(

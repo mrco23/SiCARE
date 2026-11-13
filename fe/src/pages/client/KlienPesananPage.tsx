@@ -169,8 +169,6 @@ export default function KlienPesananPage() {
   useEffect(() => {
     let active = true;
     const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() + 1);
-    fromDate.setHours(0, 0, 0, 0);
     const toDate = new Date();
     toDate.setDate(toDate.getDate() + MAX_AHEAD_DAYS);
     Promise.all([
@@ -647,8 +645,8 @@ export default function KlienPesananPage() {
                 Pilih Tanggal &amp; Jam
               </p>
               <p className="mt-1 text-xs text-gray-500">
-                Tanggal berwarna hijau tersedia. Janji dapat dibuat mulai besok
-                sampai {MAX_AHEAD_DAYS} hari ke depan.
+                Tanggal berwarna hijau tersedia. Janji dapat dibuat mulai hari
+                ini sampai {MAX_AHEAD_DAYS} hari ke depan.
               </p>
               <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,26rem)_1fr]">
                 <CalendarPicker
