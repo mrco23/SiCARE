@@ -7,7 +7,8 @@ export interface BookingSlot {
 }
 
 const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"] as const;
-const MIN_LEAD_DAYS = 1;
+// Same-day slots are allowed; the server only returns slots that have not started yet.
+const MIN_LEAD_DAYS = 0;
 export const MAX_AHEAD_DAYS = 60;
 
 export const startOfToday = (): Date => {

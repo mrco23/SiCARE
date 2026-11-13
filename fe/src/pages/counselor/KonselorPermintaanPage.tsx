@@ -64,7 +64,7 @@ function getStatusBadge(status: BookingStatusApi) {
       };
     case "rejected":
       return {
-        label: "Ditolak",
+        label: "Tidak Diterima",
         className: "border-red-200 bg-red-50 text-red-700",
       };
     case "cancelled":
@@ -233,7 +233,7 @@ export default function KonselorPermintaanPage() {
     } else if (action === "reschedule") {
       toast.info(`Permintaan jadwal ulang untuk ${targetTitle} telah dikirim ke klien.`);
     } else {
-      toast.info(`Permintaan ${targetTitle} telah ditolak.`);
+      toast.info(`Permintaan ${targetTitle} tidak diterima. Alasannya sudah dikirim ke klien.`);
     }
 
     try {
@@ -345,16 +345,7 @@ export default function KonselorPermintaanPage() {
                         }
                         className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                       >
-                        <IconLabel icon={XCircle}>Tolak</IconLabel>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDecisionModal({ booking: selectedBooking, action: "reschedule" })
-                        }
-                        className="rounded-xl border border-amber-300 bg-amber-50/70 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
-                      >
-                        Minta Jadwal Ulang
+                        <IconLabel icon={XCircle}>Tidak Dapat Menerima</IconLabel>
                       </button>
                       <button
                         type="button"
@@ -461,7 +452,7 @@ export default function KonselorPermintaanPage() {
                   )}
                   {selectedBooking.cancellation_reason && (
                     <div className="rounded-xl border border-red-200 bg-red-50/70 p-4 text-sm text-red-900">
-                      <p className="font-bold">Alasan Penolakan / Pembatalan:</p>
+                      <p className="font-bold">Alasan Tidak Diterima / Pembatalan:</p>
                       <p className="mt-1">{selectedBooking.cancellation_reason}</p>
                     </div>
                   )}
@@ -473,14 +464,11 @@ export default function KonselorPermintaanPage() {
                   <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#064E3B]" />
                   <div>
                     <h3 className="text-sm font-bold text-gray-900">
-                      Formulir Intake Klinis & Privasi Data Klien
+                      Formulir Klien
                     </h3>
                     <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                      Sesuai skema backend `/api/v1/bookings` dan kebijakan privasi SOP saat ini,
-                      jawaban kuesioner intake klinis (keluhan detail, riwayat konseling, dan kontak
-                      darurat) belum disimpan atau dikirim melalui proyeksi booking. Anda dapat
-                      memverifikasi detail kebutuhan klien secara langsung saat sesi konseling
-                      dimulai.
+                      Jawaban formulir klien belum dapat ditampilkan di halaman ini. Silakan
+                      gali kebutuhan klien secara langsung saat sesi dimulai.
                     </p>
                   </div>
                 </div>
@@ -497,7 +485,7 @@ export default function KonselorPermintaanPage() {
                   ["waiting_confirmation", "Menunggu Konfirmasi", counts.waiting_confirmation],
                   ["reschedule_requested", "Jadwal Ulang Diminta", counts.reschedule_requested],
                   ["confirmed", "Dikonfirmasi", counts.confirmed],
-                  ["closed", "Ditolak / Batal", counts.closed],
+                  ["closed", "Tidak Diterima / Batal", counts.closed],
                   ["all", "Semua Status", counts.all],
                 ] as const
               ).map(([key, label, count]) => {
@@ -653,7 +641,7 @@ export default function KonselorPermintaanPage() {
                             )}
                             {booking.cancellation_reason && (
                               <p className="mt-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs text-red-700">
-                                <span className="font-semibold">Alasan penolakan/batal:</span>{" "}
+                                <span className="font-semibold">Alasan tidak diterima/batal:</span>{" "}
                                 {booking.cancellation_reason}
                               </p>
                             )}
@@ -678,16 +666,7 @@ export default function KonselorPermintaanPage() {
                                 }
                                 className="rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 sm:text-sm"
                               >
-                                <IconLabel icon={XCircle}>Tolak</IconLabel>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDecisionModal({ booking, action: "reschedule" })
-                                }
-                                className="rounded-xl border border-amber-300 bg-amber-50/70 px-3.5 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 sm:text-sm"
-                              >
-                                Jadwal Ulang
+                                <IconLabel icon={XCircle}>Tidak Dapat Menerima</IconLabel>
                               </button>
                               <button
                                 type="button"
