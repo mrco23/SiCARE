@@ -29,6 +29,29 @@ const claimSchema = z.object({
   token: z.string().trim().min(10).max(128),
 });
 
+const PROFILE_GENDER_TO_CONSENT = { male: "Laki-laki", female: "Perempuan" };
+
+/**
+ * Fills empty identity fields of the signer's own participant record from their
+ * account profile so the consent form starts pre-filled. Response-only: nothing is
+ * written until the client reviews the data and signs.
+ */
+export function prefillParticipantFromProfile(participant, profile) {
+  if (!participant || !profile) return participant;
+  const blank = (value) => value === null || value === undefined || String(value).trim() === "";
+  const fallback = {
+    full_name: profile.full_name,
+    nim: profile.identity_code,
+    gender: PROFILE_GENDER_TO_CONSENT[profile.gender] ?? null,
+    phone_e164: profile.phone_e164,
+  };
+  const next = { ...participant };
+  for (const [field, value] of Object.entries(fallback)) {
+    if (blank(next[field]) && !blank(value)) next[field] = value;
+  }
+  return next;
+}
+
 function parseSignatureBase64(dataOrBase64) {
   let base64 = dataOrBase64;
   if (base64.includes(",")) {
@@ -59,6 +82,13 @@ export const consentController = {
       authUser,
       authRole: req.auth.profile.app_role,
     });
+
+    if (fullConsent?.status !== "signed" && fullConsent?.booking_participants?.user_id === authUser.id) {
+      fullConsent.booking_participants = prefillParticipantFromProfile(
+        fullConsent.booking_participants,
+        req.auth.profile,
+      );
+    }
 
     return sendData(res, fullConsent);
   },

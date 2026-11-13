@@ -36,12 +36,31 @@ import {
 } from "../../features/counselor/shared/presentation";
 import { ApiError } from "../../lib/api";
 import { sicareApi } from "../../lib/sicareApi";
+import { consentApi } from "../../lib/consentApi";
 import { GroupConsentModal } from "../../components/consent/GroupConsentModal";
+import { ClientIntakeView } from "../../components/counselor/ClientIntakeView";
 import type {
+  BookingConsentReadinessDto,
   BookingRecordBaseDto,
   SessionListItemDto,
   SessionStatusApi,
 } from "../../types/api";
+
+/**
+ * Why a session may not be started yet, read from previously-fetched consent readiness.
+ * Returns null when consent is complete or readiness has not loaded (fail-open: an
+ * unknown state never blocks the button, it only loses the proactive warning).
+ */
+function consentBlockReason(
+  bookingId: string,
+  readinessByBooking: Record<string, BookingConsentReadinessDto>,
+): string | null {
+  const readiness = readinessByBooking[bookingId];
+  if (!readiness || readiness.is_fully_consented) return null;
+  return readiness.pending_participants > 0
+    ? `Menunggu ${readiness.pending_participants} peserta menandatangani informed consent.`
+    : "Menunggu peserta menandatangani informed consent.";
+}
 
 type ActivityTab = "active" | "today" | "upcoming" | "finished";
 type TypeFilter = "Semua" | "Individu" | "Kelompok";
@@ -96,8 +115,50 @@ export default function KonselorAktivitasPage() {
   const [transitionSubmitting, setTransitionSubmitting] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [consentModalBookingId, setConsentModalBookingId] = useState<string | null>(null);
+  const [consentReadiness, setConsentReadiness] = useState<
+    Record<string, BookingConsentReadinessDto>
+  >({});
 
   const toast = useToast();
+
+  // Proactively check consent readiness for scheduled sessions so "Mulai Sesi" can be
+  // disabled before the counselor clicks it, instead of only failing after the fact.
+  // Fetch failures are swallowed: an unknown readiness never blocks the button (fail-open).
+  useEffect(() => {
+    const scheduledBookingIds = Array.from(
+      new Set(
+        sessions
+          .filter((s) => s.status === "scheduled")
+          .map((s) => s.booking_id),
+      ),
+    );
+    if (scheduledBookingIds.length === 0) return;
+
+    let active = true;
+    void Promise.all(
+      scheduledBookingIds.map(async (bookingId) => {
+        try {
+          const readiness = await consentApi.getBookingConsentReadiness(bookingId);
+          return [bookingId, readiness] as const;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((results) => {
+      if (!active) return;
+      setConsentReadiness((prev) => {
+        const next = { ...prev };
+        for (const result of results) {
+          if (result) next[result[0]] = result[1];
+        }
+        return next;
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [sessions]);
 
   const fetchActivityData = useCallback(async () => {
     const [sessionsRes, bookingsRes] = await Promise.all([
@@ -393,8 +454,14 @@ export default function KonselorAktivitasPage() {
                             {title}
                           </h2>
                           <span
-                            className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badge.className}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badge.className}`}
                           >
+                            {selectedSession.status === "ongoing" && (
+                              <span className="relative flex h-2 w-2 shrink-0">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+                                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
+                              </span>
+                            )}
                             {badge.label}
                           </span>
                           <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
@@ -437,7 +504,7 @@ export default function KonselorAktivitasPage() {
                             }}
                             className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                           >
-                            <IconLabel icon={XCircle}>Batalkan Sesi</IconLabel>
+                            <IconLabel icon={XCircle}>Urungkan Sesi</IconLabel>
                           </button>
                           <button
                             type="button"
@@ -449,6 +516,13 @@ export default function KonselorAktivitasPage() {
                           </button>
                           <button
                             type="button"
+                            disabled={Boolean(
+                              consentBlockReason(selectedSession.booking_id, consentReadiness),
+                            )}
+                            title={
+                              consentBlockReason(selectedSession.booking_id, consentReadiness) ??
+                              undefined
+                            }
                             onClick={() => {
                               setTransitionError(null);
                               setTransitionDialog({
@@ -456,13 +530,19 @@ export default function KonselorAktivitasPage() {
                                 targetStatus: "ongoing",
                               });
                             }}
-                            className="inline-flex items-center gap-2 rounded-xl bg-[#064E3B] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#053e2f]"
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#064E3B] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:hover:bg-gray-300"
                           >
                             <Play className="h-4 w-4" />
                             Mulai Sesi
                           </button>
                         </>
                       )}
+                      {selectedSession.status === "scheduled" &&
+                        consentBlockReason(selectedSession.booking_id, consentReadiness) && (
+                          <p className="mt-1 w-full text-xs font-medium text-amber-700">
+                            {consentBlockReason(selectedSession.booking_id, consentReadiness)}
+                          </p>
+                        )}
 
                       {selectedSession.status === "ongoing" && (
                         <>
@@ -477,7 +557,7 @@ export default function KonselorAktivitasPage() {
                             }}
                             className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                           >
-                            <IconLabel icon={XCircle}>Batalkan Sesi</IconLabel>
+                            <IconLabel icon={XCircle}>Hentikan Sesi</IconLabel>
                           </button>
                           <button
                             type="button"
@@ -620,20 +700,35 @@ export default function KonselorAktivitasPage() {
                     </div>
                   )}
 
-                  {/* Informasi Batas Kontrak Catatan Klinis & Intake */}
+                  {/* Formulir Klien */}
                   <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
                     <div className="flex items-start gap-3">
                       <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#064E3B]" />
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-bold text-gray-900">
-                          Catatan Konseling Klinis & Formulir Intake Belum Tersedia di Server
+                          Formulir Klien
                         </h3>
-                        <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                          Penyimpanan catatan konseling klinis (Catatan Rahasia Konselor, Catatan
-                          untuk Klien, dan Rencana Tindak Lanjut) serta jawaban kuesioner intake
-                          belum diaktifkan pada tabel database `/api/v1/sessions` sambil menunggu
-                          pengesahan SOP retensi dan enkripsi data klinis. Anda dapat memulai dan
-                          menyelesaikan status sesi secara langsung menggunakan tombol di atas.
+                        {booking?.intake_answers === undefined ? (
+                          <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                            Jawaban formulir klien belum dapat ditampilkan di halaman ini.
+                          </p>
+                        ) : (
+                          <>
+                            <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                              Diisi klien saat membuat pesanan ini. Jaga kerahasiaan isi formulir ini.
+                            </p>
+                            <div className="mt-3">
+                              <ClientIntakeView
+                                intake={booking.intake_answers}
+                                emptyText="Klien tidak mengisi formulir saat membuat pesanan ini."
+                              />
+                            </div>
+                          </>
+                        )}
+                        <p className="mt-4 border-t border-gray-200 pt-3 text-xs leading-relaxed text-gray-500">
+                          Catatan konseling (catatan konselor, catatan untuk klien, dan rencana
+                          tindak lanjut) ditambahkan dari halaman Riwayat Konseling setelah sesi
+                          ini selesai.
                         </p>
                       </div>
                     </div>
@@ -769,8 +864,14 @@ export default function KonselorAktivitasPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-bold text-gray-900">{title}</p>
                               <span
-                                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badge.className}`}
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badge.className}`}
                               >
+                                {session.status === "ongoing" && (
+                                  <span className="relative flex h-2 w-2 shrink-0">
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
+                                  </span>
+                                )}
                                 {badge.label}
                               </span>
                               <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
@@ -812,6 +913,12 @@ export default function KonselorAktivitasPage() {
                                 </span>
                               )}
                             </div>
+                            {session.status === "scheduled" &&
+                              consentBlockReason(session.booking_id, consentReadiness) && (
+                                <p className="mt-1.5 text-xs font-medium text-amber-700">
+                                  {consentBlockReason(session.booking_id, consentReadiness)}
+                                </p>
+                              )}
                           </div>
                         </div>
 
@@ -837,7 +944,7 @@ export default function KonselorAktivitasPage() {
                                 }}
                                 className="rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 sm:text-sm"
                               >
-                                <IconLabel icon={X}>Batalkan</IconLabel>
+                                <IconLabel icon={X}>Urungkan</IconLabel>
                               </button>
                               <button
                                 type="button"
@@ -849,6 +956,13 @@ export default function KonselorAktivitasPage() {
                               </button>
                               <button
                                 type="button"
+                                disabled={Boolean(
+                                  consentBlockReason(session.booking_id, consentReadiness),
+                                )}
+                                title={
+                                  consentBlockReason(session.booking_id, consentReadiness) ??
+                                  undefined
+                                }
                                 onClick={() => {
                                   setTransitionError(null);
                                   setTransitionDialog({
@@ -856,7 +970,7 @@ export default function KonselorAktivitasPage() {
                                     targetStatus: "ongoing",
                                   });
                                 }}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-[#064E3B] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#053e2f] sm:text-sm"
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-[#064E3B] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#053e2f] sm:text-sm disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:hover:bg-gray-300"
                               >
                                 <Play className="h-3.5 w-3.5" />
                                 Mulai Sesi
@@ -877,7 +991,7 @@ export default function KonselorAktivitasPage() {
                                 }}
                                 className="rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 sm:text-sm"
                               >
-                                <IconLabel icon={X}>Batalkan</IconLabel>
+                                <IconLabel icon={X}>Hentikan</IconLabel>
                               </button>
                               <button
                                 type="button"
@@ -923,7 +1037,9 @@ export default function KonselorAktivitasPage() {
                   ? "Mulai Sesi Konseling?"
                   : transitionDialog.targetStatus === "completed"
                     ? "Selesaikan Sesi Konseling?"
-                    : "Batalkan Sesi Konseling?"}
+                    : transitionDialog.session.status === "ongoing"
+                      ? "Hentikan Sesi Konseling?"
+                      : "Urungkan Sesi Konseling?"}
               </h2>
               <button
                 type="button"
@@ -943,7 +1059,9 @@ export default function KonselorAktivitasPage() {
                   )} akan diubah menjadi sedang berlangsung dan klien menerima notifikasi.`
                 : transitionDialog.targetStatus === "completed"
                   ? "Status sesi dan booking akan ditandai selesai (completed). Klien akan menerima notifikasi bahwa sesi telah selesai dan dapat memberikan ulasan."
-                  : "Sesi dan booking terkait akan dibatalkan dengan keterangan sistem 'Sesi dibatalkan oleh konselor', serta slot ketersediaan Anda akan dibuka kembali."}
+                  : transitionDialog.session.status === "ongoing"
+                    ? "Sesi dan booking terkait akan dihentikan dengan keterangan sistem 'Sesi dibatalkan oleh konselor', serta slot ketersediaan Anda akan dibuka kembali."
+                    : "Sesi dan booking terkait akan diurungkan dengan keterangan sistem 'Sesi dibatalkan oleh konselor', serta slot ketersediaan Anda akan dibuka kembali."}
             </p>
 
             {transitionError && (
@@ -1005,7 +1123,9 @@ export default function KonselorAktivitasPage() {
                   ? "Ya, Mulai Sesi"
                   : transitionDialog.targetStatus === "completed"
                     ? "Ya, Selesaikan Sesi"
-                    : "Ya, Batalkan Sesi"}
+                    : transitionDialog.session.status === "ongoing"
+                      ? "Ya, Hentikan Sesi"
+                      : "Ya, Urungkan Sesi"}
               </button>
             </div>
           </div>

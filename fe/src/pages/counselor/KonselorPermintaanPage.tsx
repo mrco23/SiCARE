@@ -25,6 +25,7 @@ import {
   BookingDecisionModal,
   type BookingDecisionAction,
 } from "../../components/counselor/BookingDecisionModal";
+import { ClientIntakeView } from "../../components/counselor/ClientIntakeView";
 import {
   formatBookingClientTitle,
   formatBookingRepresentative,
@@ -462,14 +463,28 @@ export default function KonselorPermintaanPage() {
               <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <div className="flex items-start gap-3">
                   <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#064E3B]" />
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-bold text-gray-900">
                       Formulir Klien
                     </h3>
-                    <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                      Jawaban formulir klien belum dapat ditampilkan di halaman ini. Silakan
-                      gali kebutuhan klien secara langsung saat sesi dimulai.
-                    </p>
+                    {selectedBooking.intake_answers === undefined ? (
+                      <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                        Jawaban formulir klien belum dapat ditampilkan di halaman ini. Silakan
+                        gali kebutuhan klien secara langsung saat sesi dimulai.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                          Diisi klien saat membuat pesanan ini. Jaga kerahasiaan isi formulir ini.
+                        </p>
+                        <div className="mt-3">
+                          <ClientIntakeView
+                            intake={selectedBooking.intake_answers}
+                            emptyText="Klien tidak mengisi formulir saat membuat pesanan ini."
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1107,7 +1107,7 @@ export default function KonselorJadwalPage() {
                           }
                           className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
                         >
-                          <IconLabel icon={XCircle}>Batalkan Sesi</IconLabel>
+                          <IconLabel icon={XCircle}>Urungkan Sesi</IconLabel>
                         </button>
                       )}
                     </li>
@@ -1249,7 +1249,7 @@ export default function KonselorJadwalPage() {
                     }}
                     className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
                   >
-                    <IconLabel icon={XCircle}>Batalkan Sesi</IconLabel>
+                    <IconLabel icon={XCircle}>Urungkan Sesi</IconLabel>
                   </button>
                 )}
 
@@ -1312,7 +1312,7 @@ export default function KonselorJadwalPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">
-                  Batalkan Sesi Konseling?
+                  Urungkan Sesi Konseling?
                 </h2>
                 <p className="mt-1 text-xs text-gray-500">
                   {cancelSessionTarget.clientLabel} ·{" "}
@@ -1364,7 +1364,7 @@ export default function KonselorJadwalPage() {
                 ) : (
                   <XCircle className="h-3.5 w-3.5" />
                 )}
-                Ya, Batalkan Sesi
+                Ya, Urungkan Sesi
               </button>
             </div>
           </div>

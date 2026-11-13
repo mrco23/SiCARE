@@ -9,12 +9,42 @@ export const participantSchema = z.object({
   is_representative: z.boolean().default(false),
 }).strict();
 
+// Mirrors ClientIntake (fe/src/types/counseling.ts) and the booking form's field limits
+// (fe/src/pages/client/KlienPesananPage.tsx). One set of answers per booking, filled by
+// the client/representative who creates it — not per group participant (SOP decision,
+// 2026-11-13; see supabase/migrations/20261113130000_sicare_booking_intakes.sql).
+const intakeAnswerEnum = z.enum(["Ya", "Mungkin", "Tidak"]);
+const intakeEssayField = z.string().trim().min(1).max(1500);
+
+export const clientIntakeAnswersSchema = z.object({
+  selfHarm: intakeAnswerEnum,
+  distress: intakeAnswerEnum,
+  abuse: intakeAnswerEnum,
+  substance: intakeAnswerEnum,
+  sleep: z.number().int().min(1).max(5),
+  finance: z.number().int().min(1).max(5),
+  topics: z.array(z.string().trim().min(1).max(120)).max(8).default([]),
+  other: z.string().trim().max(80).optional().default(""),
+  complaint: intakeEssayField,
+  history: intakeEssayField,
+  reason: intakeEssayField,
+  efforts: intakeEssayField,
+  goal: intakeEssayField,
+  strengths: intakeEssayField,
+  weaknesses: intakeEssayField,
+}).strict().superRefine((input, context) => {
+  if (input.topics.length === 0 && !input.other.trim()) {
+    context.addIssue({ code: "custom", message: "Pilih minimal satu topik.", path: ["topics"] });
+  }
+});
+
 export const createBookingSchema = z.object({
   counselor_id: uuid,
   availability_slot_id: uuid,
   service_type: z.enum(["individual", "group"]),
   group_name: z.string().trim().min(1).max(160).nullable().optional(),
   participants: z.array(participantSchema).max(10).default([]),
+  intake_answers: clientIntakeAnswersSchema.optional(),
 }).strict().superRefine((input, context) => {
   if (input.service_type === "individual") {
     if (input.group_name != null || input.participants.length !== 0) {

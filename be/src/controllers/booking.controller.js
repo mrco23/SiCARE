@@ -19,6 +19,7 @@ export const bookingController = {
 
     const data = await bookingService.listBookings({
       authUser: req.auth.user,
+      authProfile: req.auth.profile,
       authRole: req.auth.profile.app_role,
       status: filters.data.status,
       limit: filters.data.limit,

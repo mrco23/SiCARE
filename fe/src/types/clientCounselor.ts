@@ -48,6 +48,7 @@ export interface ClientDirectoryCounselor extends ClientCounselorIdentity {
 
 export interface BookingCounselor extends ClientCounselorIdentity {
   profileId?: string;
+  photoUrl?: string | null;
   availabilityByDate?: Record<string, string[]>;
   short: string;
   gender: "Perempuan" | "Laki-laki" | "Tidak dicantumkan";

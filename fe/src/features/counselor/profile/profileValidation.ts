@@ -40,8 +40,5 @@ export function validateCounselorProfile(
   else if (!COUNSELOR_PHONE_PATTERN.test(phone)) {
     errors.phone = "Format nomor telepon tidak valid";
   }
-  if (!profile.services.individual && !profile.services.group) {
-    errors.services = "Pilih minimal satu jenis layanan";
-  }
   return errors;
 }

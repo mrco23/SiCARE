@@ -39,5 +39,27 @@ export const bookingRepository = {
     if (error) supabaseError(error, "Daftar booking tidak dapat dibaca.");
     return data ?? [];
   },
+
+  /**
+   * Reads stored intake answers for the given booking ids, keyed by booking_id.
+   * Callers are responsible for only requesting ids the caller is allowed to see
+   * (booking.service.js only calls this for the counselor who owns the booking).
+   */
+  async findIntakeAnswersByBookingIds(supabaseClient, bookingIds) {
+    if (!bookingIds.length) return new Map();
+    const { data, error } = await supabaseClient
+      .from("booking_intakes")
+      .select("booking_id,answers")
+      .in("booking_id", bookingIds);
+    if (error) supabaseError(error, "Jawaban formulir klien tidak dapat dibaca.");
+    return new Map((data ?? []).map((row) => [row.booking_id, row.answers]));
+  },
+
+  async saveIntakeAnswers(supabaseClient, { bookingId, clientId, answers }) {
+    const { error } = await supabaseClient
+      .from("booking_intakes")
+      .upsert({ booking_id: bookingId, client_id: clientId, answers }, { onConflict: "booking_id" });
+    if (error) supabaseError(error, "Jawaban formulir klien tidak dapat disimpan.");
+  },
 };
 

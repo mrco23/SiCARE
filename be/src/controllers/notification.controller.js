@@ -6,6 +6,7 @@ const uuid = z.string().uuid();
 const notificationQuerySchema = z.object({
   unread_only: z.enum(["true", "false"]).default("false"),
   limit: z.coerce.number().int().min(1).max(100).default(30),
+  offset: z.coerce.number().int().min(0).default(0),
 }).strict();
 
 export const notificationController = {
@@ -19,6 +20,7 @@ export const notificationController = {
       userId: req.auth.user.id,
       unreadOnly: filters.data.unread_only,
       limit: filters.data.limit,
+      offset: filters.data.offset,
     });
 
     return sendData(res, data);

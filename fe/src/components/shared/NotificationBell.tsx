@@ -8,6 +8,8 @@ import { ApiError } from "../../lib/api";
 
 type NotificationFilter = "all" | "unread";
 
+const PAGE_SIZE = 10;
+
 type NotificationBellProps = {
   role: NotificationRole;
   /** Deprecated compatibility prop. Notifications are scoped by the authenticated API session. */
@@ -31,11 +33,14 @@ export default function NotificationBell({
   const [filter, setFilter] = useState<NotificationFilter>("all");
   const [notifications, setNotifications] = useState<NotificationRecordApi[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [panelStyle, setPanelStyle] = useState<CSSProperties>({ visibility: "hidden" });
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Panel dirender di body karena navbar memakai backdrop-blur, yang membuat
   // `position: fixed` mengacu ke navbar. Posisinya mengikuti tombol lalu dijaga
@@ -82,32 +87,66 @@ export default function NotificationBell({
     };
   }, [open]);
 
-  const fetchNotifications = useCallback(() => sicareApi.notifications(false, 30), []);
-  const applyNotifications = useCallback((result: Awaited<ReturnType<typeof fetchNotifications>>) => {
+  const fetchPage = useCallback(
+    (offset: number) => sicareApi.notifications(false, PAGE_SIZE, offset),
+    [],
+  );
+  const applyFirstPage = useCallback((result: Awaited<ReturnType<typeof fetchPage>>) => {
     setNotifications(result.items);
     setUnreadCount(result.unread_count);
+    setHasMore(result.has_more);
     setError("");
   }, []);
   const reportLoadError = useCallback((cause: unknown) => {
     setError(cause instanceof ApiError || cause instanceof Error ? cause.message : "Notifikasi tidak dapat dimuat.");
   }, []);
 
+  // Memuat 10 notifikasi terbaru saat komponen dipasang (untuk badge) dan setiap kali
+  // panel dibuka (menyegarkan daftar). Halaman berikutnya dimuat lewat scroll (loadMore).
   useEffect(() => {
     let active = true;
-    void fetchNotifications()
-      .then((result) => { if (active) applyNotifications(result); })
+    void fetchPage(0)
+      .then((result) => { if (active) applyFirstPage(result); })
       .catch((cause: unknown) => { if (active) reportLoadError(cause); });
     return () => { active = false; };
-  }, [fetchNotifications, applyNotifications, reportLoadError]);
+  }, [fetchPage, applyFirstPage, reportLoadError]);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
-    void fetchNotifications()
-      .then((result) => { if (active) applyNotifications(result); })
+    void fetchPage(0)
+      .then((result) => { if (active) applyFirstPage(result); })
       .catch((cause: unknown) => { if (active) reportLoadError(cause); });
     return () => { active = false; };
-  }, [open, fetchNotifications, applyNotifications, reportLoadError]);
+  }, [open, fetchPage, applyFirstPage, reportLoadError]);
+
+  const loadMore = useCallback(() => {
+    setLoadingMore((currentlyLoading) => {
+      if (currentlyLoading) return currentlyLoading;
+      void fetchPage(notifications.length)
+        .then((result) => {
+          setNotifications((previous) => [...previous, ...result.items]);
+          setUnreadCount(result.unread_count);
+          setHasMore(result.has_more);
+        })
+        .catch(reportLoadError)
+        .finally(() => setLoadingMore(false));
+      return true;
+    });
+  }, [fetchPage, notifications.length, reportLoadError]);
+
+  // Scroll-infinite: muat 10 notifikasi berikutnya saat mendekati bawah daftar.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || !open) return;
+    const onScroll = () => {
+      if (!hasMore || loadingMore) return;
+      const distanceToBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+      if (distanceToBottom < 96) loadMore();
+    };
+    list.addEventListener("scroll", onScroll);
+    return () => list.removeEventListener("scroll", onScroll);
+  }, [open, hasMore, loadingMore, loadMore]);
 
   const visibleNotifications = useMemo(() => {
     const sorted = [...notifications].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
@@ -135,9 +174,18 @@ export default function NotificationBell({
 
   const handleReadAll = async () => {
     setBusy(true);
-    try { await sicareApi.markAllNotificationsRead(); applyNotifications(await fetchNotifications()); }
-    catch (cause) { setError(cause instanceof ApiError || cause instanceof Error ? cause.message : "Notifikasi tidak dapat ditandai dibaca."); }
-    finally { setBusy(false); }
+    try {
+      await sicareApi.markAllNotificationsRead();
+      const now = new Date().toISOString();
+      setNotifications((previous) =>
+        previous.map((item) => (item.read_at === null ? { ...item, read_at: now } : item)),
+      );
+      setUnreadCount(0);
+    } catch (cause) {
+      setError(cause instanceof ApiError || cause instanceof Error ? cause.message : "Notifikasi tidak dapat ditandai dibaca.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -149,11 +197,11 @@ export default function NotificationBell({
       {open && createPortal(<section ref={panelRef} role="dialog" aria-label="Daftar notifikasi" style={panelStyle} className="fixed z-[100] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.2)]">
         <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3.5"><div><h2 className="text-sm font-bold text-gray-900">Notifikasi</h2><p className="mt-0.5 text-xs text-gray-500">{unreadCount === 0 ? "Tidak ada notifikasi belum dibaca" : `${unreadCount} belum dibaca`}</p></div><div className="flex items-center gap-1">{unreadCount > 0 && <button type="button" disabled={busy} onClick={() => void handleReadAll()} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary-soft disabled:opacity-50"><CheckCheck className="h-3.5 w-3.5" />Baca semua</button>}<button type="button" aria-label="Tutup notifikasi" onClick={() => setOpen(false)} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"><X className="h-4 w-4" /></button></div></div>
         <div className="flex gap-1 border-b border-gray-100 px-3 py-2">{([{ value: "all", label: "Semua" }, { value: "unread", label: "Belum dibaca" }] as const).map((option) => <button key={option.value} type="button" aria-pressed={filter === option.value} onClick={() => setFilter(option.value)} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${filter === option.value ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"}`}>{option.label}</button>)}</div>
-        <div className="min-h-0 flex-1 overflow-y-auto">{error && <p role="alert" className="m-3 rounded-lg bg-red-50 p-2 text-xs text-red-700">{error}</p>}{visibleNotifications.length === 0 ? <div className="px-5 py-10 text-center"><Bell className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-3 text-sm font-semibold text-gray-700">{filter === "unread" ? "Semua notifikasi sudah dibaca" : "Belum ada notifikasi"}</p><p className="mt-1 text-xs text-gray-500">Notifikasi baru akan muncul di sini.</p></div> : <ul className="divide-y divide-gray-100">{visibleNotifications.map((notification) => {
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto">{error && <p role="alert" className="m-3 rounded-lg bg-red-50 p-2 text-xs text-red-700">{error}</p>}{visibleNotifications.length === 0 ? <div className="px-5 py-10 text-center"><Bell className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-3 text-sm font-semibold text-gray-700">{filter === "unread" ? "Semua notifikasi sudah dibaca" : "Belum ada notifikasi"}</p><p className="mt-1 text-xs text-gray-500">Notifikasi baru akan muncul di sini.</p></div> : <ul className="divide-y divide-gray-100">{visibleNotifications.map((notification) => {
           const href = destinationFor(notification);
           const content = <><span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${notification.read_at === null ? "bg-primary" : "bg-transparent"}`} /><span className="min-w-0 flex-1"><span className="flex items-start justify-between gap-2"><span className="text-sm font-semibold text-gray-900">{notification.title}</span>{href && <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />}</span><span className="mt-1 block text-xs leading-relaxed text-gray-600">{notification.body}</span><span className="mt-2 block text-[10px] font-medium text-gray-400">{new Date(notification.created_at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></span></>;
           return <li key={notification.id}>{href ? <Link to={href} onClick={() => void handleNotificationClick(notification.id)} className={`flex w-full gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 ${notification.read_at === null ? "bg-primary/[0.035]" : ""}`}>{content}</Link> : <button type="button" onClick={() => void handleNotificationClick(notification.id)} className={`flex w-full gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 ${notification.read_at === null ? "bg-primary/[0.035]" : ""}`}>{content}</button>}</li>;
-        })}</ul>}</div>
+        })}</ul>}{loadingMore && <p className="px-4 py-3 text-center text-xs text-gray-400">Memuat notifikasi lain...</p>}</div>
       </section>, document.body)}
     </div>
   );

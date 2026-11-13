@@ -10,9 +10,16 @@ const PILL_OFF =
 export function Stepper({
   step,
   steps,
+  maxStepReached,
+  onStepClick,
 }: {
   step: number;
   steps: readonly string[];
+  /** Highest step number the client has already reached. Steps beyond this stay
+   * unclickable, since they depend on choices not yet made in earlier steps. */
+  maxStepReached?: number;
+  /** Omit to keep the stepper display-only (e.g. on the success screen). */
+  onStepClick?: (stepNumber: number) => void;
 }) {
   return (
     <ol className="mt-6 flex items-start overflow-x-auto pb-2">
@@ -21,21 +28,27 @@ export function Stepper({
         const done = n < step;
         const active = n === step;
         const last = i === steps.length - 1;
+        const clickable = Boolean(onStepClick) && n !== step && n <= (maxStepReached ?? step);
         return (
           <li
             key={label}
             className={`flex min-w-[88px] flex-col items-center ${i === 0 ? "items-start" : ""} ${last ? "flex-none" : "flex-1"}`}
           >
             <div className="flex w-full items-center">
-              <span
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+              <button
+                type="button"
+                disabled={!clickable}
+                onClick={() => clickable && onStepClick?.(n)}
+                aria-current={active ? "step" : undefined}
+                aria-label={`Langkah ${n}: ${label}`}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold transition ${
                   active || done
                     ? "bg-primary text-white"
                     : "bg-gray-200 text-gray-500"
-                }`}
+                } ${clickable ? "cursor-pointer hover:ring-2 hover:ring-primary/40" : "cursor-default"}`}
               >
                 {done ? "✓" : n}
-              </span>
+              </button>
               {!last && (
                 <span
                   className={`mt-0 h-0.5 flex-1 ${done ? "bg-primary" : "bg-gray-200"}`}

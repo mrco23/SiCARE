@@ -223,6 +223,13 @@ export interface BookingRecordBaseDto {
   created_at: string;
   updated_at: string;
   booking_participants: BookingParticipantDto[];
+  /**
+   * The client's intake form answers, filled in when the booking was created.
+   * Only present when the requester is the counselor who owns this booking
+   * (backend omits it entirely for the client's own requests) — absent means
+   * "not applicable to this requester", `null` means the client submitted no form.
+   */
+  intake_answers?: ClientIntakeAnswersDto | null;
 }
 
 export type BookingListItemDto = BookingRecordBaseDto;
@@ -239,6 +246,8 @@ export interface CreateBookingApi {
     phone_e164?: string | null;
     is_representative: boolean;
   }>;
+  /** Filled by the client/representative who creates the booking (not per group participant). */
+  intake_answers?: ClientIntakeAnswersDto;
 }
 
 export interface BookingTransitionApi {
@@ -347,6 +356,7 @@ export interface NotificationDto {
 export interface NotificationListDto {
   items: NotificationDto[];
   unread_count: number;
+  has_more: boolean;
 }
 
 export interface MarkAllNotificationsReadDto {

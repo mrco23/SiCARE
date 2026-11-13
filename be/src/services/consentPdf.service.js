@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { HttpError } from "../lib/http.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,7 +56,7 @@ export function formatIndonesianDate(dateInput) {
  */
 export function validateConsentIdentity(identity) {
   if (!identity || typeof identity !== "object") {
-    throw new Error("Data identitas peserta wajib diisi.");
+    throw new HttpError(400, "CONSENT_IDENTITY_INVALID", "Data identitas peserta wajib diisi.");
   }
 
   const errors = [];
@@ -84,7 +85,7 @@ export function validateConsentIdentity(identity) {
   }
 
   if (errors.length > 0) {
-    const error = new Error(`Validasi identitas gagal: ${errors.join(" ")}`);
+    const error = new HttpError(400, "CONSENT_IDENTITY_INVALID", `Data identitas belum lengkap: ${errors.join(" ")}`, errors);
     error.validationIssues = errors;
     throw error;
   }
@@ -114,17 +115,17 @@ export function validateConsentIdentity(identity) {
  */
 export function validateSignaturePng(signatureBuffer) {
   if (!signatureBuffer) {
-    throw new Error("Tanda tangan digital tidak boleh kosong.");
+    throw new HttpError(400, "CONSENT_SIGNATURE_INVALID", "Tanda tangan digital tidak boleh kosong.");
   }
 
   const buf = Buffer.isBuffer(signatureBuffer) ? signatureBuffer : Buffer.from(signatureBuffer);
 
   if (buf.length === 0) {
-    throw new Error("Tanda tangan digital tidak boleh kosong.");
+    throw new HttpError(400, "CONSENT_SIGNATURE_INVALID", "Tanda tangan digital tidak boleh kosong.");
   }
 
   if (buf.length > 2 * 1024 * 1024) {
-    throw new Error("Ukuran berkas tanda tangan melampaui batas maksimum 2 MB.");
+    throw new HttpError(400, "CONSENT_SIGNATURE_INVALID", "Ukuran berkas tanda tangan melampaui batas maksimum 2 MB.");
   }
 
   // Verify PNG signature magic bytes: 89 50 4E 47 0D 0A 1A 0A
@@ -140,7 +141,7 @@ export function validateSignaturePng(signatureBuffer) {
     buf[7] === 0x0a;
 
   if (!isPng) {
-    throw new Error("Format tanda tangan tidak valid. Hanya berkas gambar PNG yang diizinkan (SVG dan tipe lain ditolak).");
+    throw new HttpError(400, "CONSENT_SIGNATURE_INVALID", "Format tanda tangan tidak valid. Hanya berkas gambar PNG yang diizinkan (SVG dan tipe lain ditolak).");
   }
 
   return buf;
