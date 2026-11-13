@@ -3,7 +3,8 @@ import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase
 import { HttpError, supabaseError } from "../lib/http.js";
 import { writeAudit } from "../lib/audit.js";
 
-function getClient() {
+function getClient(override) {
+  if (override) return override;
   if (!isSupabaseConfigured()) {
     throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada backend.");
   }
@@ -11,18 +12,24 @@ function getClient() {
 }
 
 export const notificationService = {
-  async listNotifications({ userId, unreadOnly, limit }) {
-    const client = getClient();
+  async listNotifications({ userId, unreadOnly, limit, offset = 0, supabaseClient }) {
+    const client = getClient(supabaseClient);
+    // Fetch one extra row beyond `limit` so `has_more` can be known without a second
+    // count query per page (the panel scrolls through many pages; keep each one cheap).
     let query = client
       .from("notifications")
       .select("id,type,title,body,entity_type,entity_id,created_at,read_at")
       .eq("recipient_user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit);
 
     if (unreadOnly === "true") query = query.is("read_at", null);
     const { data, error } = await query;
     if (error) supabaseError(error, "Notifikasi tidak dapat dibaca.");
+
+    const rows = data ?? [];
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
 
     const { count, error: countError } = await client
       .from("notifications")
@@ -31,7 +38,7 @@ export const notificationService = {
       .is("read_at", null);
 
     if (countError) supabaseError(countError, "Jumlah notifikasi belum dibaca tidak dapat dihitung.");
-    return { items: data ?? [], unread_count: count ?? 0 };
+    return { items, unread_count: count ?? 0, has_more: hasMore };
   },
 
   async markAllRead(userId) {
