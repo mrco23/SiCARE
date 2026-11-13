@@ -14,7 +14,6 @@ export type CounselorProfile = {
   educations: CounselorEducation[];
   topics: string[];
   phone: string;
-  services: { individual: boolean; group: boolean };
 };
 
 export type CounselorProfileErrors = Record<string, string>;

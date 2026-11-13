@@ -291,7 +291,12 @@ function createOwnershipMockDb() {
         tables[table] = (tables[table] ?? []).filter((r) => !matched.includes(r));
         return { data: matched.map((r) => ({ ...r })), error: null };
       }
-      const limited = op.limitCount != null ? matched.slice(0, op.limitCount) : matched;
+      const limited =
+        op.rangeFrom != null
+          ? matched.slice(op.rangeFrom, op.rangeTo + 1)
+          : op.limitCount != null
+            ? matched.slice(0, op.limitCount)
+            : matched;
       if (op.head) {
         return { data: null, count: matched.length, error: null };
       }
@@ -343,6 +348,11 @@ function createOwnershipMockDb() {
       },
       limit(n) {
         op.limitCount = n;
+        return builder;
+      },
+      range(from, to) {
+        op.rangeFrom = from;
+        op.rangeTo = to;
         return builder;
       },
       maybeSingle() {

@@ -107,8 +107,8 @@ export const sicareApi = {
     });
   },
 
-  notifications(unreadOnly = false, limit = 30): Promise<ApiTypes.NotificationListDto> {
-    return apiRequest<ApiTypes.NotificationListDto>(`/notifications${buildQueryString({ unread_only: unreadOnly, limit })}`, {
+  notifications(unreadOnly = false, limit = 30, offset = 0): Promise<ApiTypes.NotificationListDto> {
+    return apiRequest<ApiTypes.NotificationListDto>(`/notifications${buildQueryString({ unread_only: unreadOnly, limit, offset })}`, {
       auth: true,
     });
   },
