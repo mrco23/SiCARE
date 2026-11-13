@@ -18,6 +18,9 @@ import {
   Stepper,
 } from "../../components/client/booking/BookingFormControls";
 import type { CounselingFormat, IntakeAnswer } from "../../types/counseling";
+import type { CreateBookingApi } from "../../types/api";
+
+type IntakeAnswersPayload = NonNullable<CreateBookingApi["intake_answers"]>;
 import {
   CalendarPicker,
   TimePanel,
@@ -46,6 +49,7 @@ import { sicareApi } from "../../lib/sicareApi";
 import {
   getPublicAvailability,
   getPublicCounselors,
+  getPublicPhotoUrl,
   type PublicAvailabilitySlot,
   type PublicCounselor,
 } from "../../lib/publicApi";
@@ -123,6 +127,7 @@ function mapBookingCounselors(
         .join("")
         .toUpperCase(),
       profileId: profile.profile_id,
+      photoUrl: getPublicPhotoUrl(profile.photo_path),
       availabilityByDate,
       short: profile.public_name,
       gender: "Tidak dicantumkan",
@@ -155,6 +160,7 @@ export default function KlienPesananPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestError, setRequestError] = useState("");
   const [step, setStep] = useState<Step>(1);
+  const [maxStepReached, setMaxStepReached] = useState<Step>(1);
   const [layanan, setLayanan] = useState<CounselingFormat | null>(null);
   const [konselorId, setKonselorId] = useState<number | null>(null);
   const [q, setQ] = useState("");
@@ -222,6 +228,7 @@ export default function KlienPesananPage() {
 
   const goTo = (n: Step) => {
     setStep(n);
+    setMaxStepReached((current) => (n > current ? n : current));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -285,6 +292,31 @@ export default function KlienPesananPage() {
 
   const handleSubmit = async () => {
     if (!counselor || !slot || !layanan || submissionLock.current) return;
+    // Defensive re-check: handleNextFromForm already validated this before step 5,
+    // but re-validate here so a stale/edited form never sends partial intake answers.
+    if (validate().length > 0) {
+      setRequestError(
+        "Formulir belum lengkap. Kembali ke langkah sebelumnya untuk melengkapi isian.",
+      );
+      return;
+    }
+    const intakeAnswers: IntakeAnswersPayload = {
+      selfHarm: form.selfHarm as IntakeAnswer,
+      distress: form.distress as IntakeAnswer,
+      abuse: form.abuse as IntakeAnswer,
+      substance: form.substance as IntakeAnswer,
+      sleep: form.sleep as number,
+      finance: form.finance as number,
+      topics: form.topics,
+      other: form.otherOn ? form.other.trim() : "",
+      complaint: form.complaint.trim(),
+      history: form.history.trim(),
+      reason: form.reason.trim(),
+      efforts: form.efforts.trim(),
+      goal: form.goal.trim(),
+      strengths: form.strengths.trim(),
+      weaknesses: form.weaknesses.trim(),
+    };
     const selectedAvailability = availabilitySlots.find(
       (candidate) =>
         candidate.counselor_id === counselor.entityId &&
@@ -371,6 +403,7 @@ export default function KlienPesananPage() {
         counselor_id: counselor.entityId,
         availability_slot_id: selectedAvailability.id,
         service_type: layanan === "Kelompok" ? "group" : "individual",
+        intake_answers: intakeAnswers,
         ...(layanan === "Kelompok"
           ? {
               group_name: form.groupName.trim(),
@@ -398,6 +431,7 @@ export default function KlienPesananPage() {
     submissionLock.current = false;
     setIsSubmitting(false);
     setStep(1);
+    setMaxStepReached(1);
     setLayanan(null);
     setKonselorId(null);
     setSlot(null);
@@ -428,7 +462,14 @@ export default function KlienPesananPage() {
         <SkeletonCardGrid count={3} label="Memuat konselor dan jadwal dari backend..." className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" />
       )}
 
-      {step <= 5 && <Stepper step={step} steps={STEPS} />}
+      {step <= 5 && (
+        <Stepper
+          step={step}
+          steps={STEPS}
+          maxStepReached={maxStepReached}
+          onStepClick={(n) => goTo(n as Step)}
+        />
+      )}
 
       {/* ===== 1. JENIS LAYANAN ===== */}
       {step === 1 && (
@@ -536,9 +577,17 @@ export default function KlienPesananPage() {
                   className={`flex flex-col rounded-2xl border-2 bg-white p-4 text-left transition hover:shadow-md ${on ? "border-primary" : "border-gray-200"}`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">
-                      {c.initials}
-                    </div>
+                    {c.photoUrl ? (
+                      <img
+                        src={c.photoUrl}
+                        alt={c.name}
+                        className="h-14 w-14 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">
+                        {c.initials}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="whitespace-pre-line font-semibold leading-snug text-gray-900">
                         {c.short}
