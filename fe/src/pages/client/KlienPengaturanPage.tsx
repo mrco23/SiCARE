@@ -13,6 +13,9 @@ import {
   validatePhotoFile,
 } from "../../lib/profilePhotoStorage";
 import type { ProfileDto } from "../../types/api";
+import { PasswordRuleList, PhoneE164Input } from "../../components/shared/AccountInputs";
+import { toIndonesianE164 } from "../../lib/accountRules";
+import { submitAccountPasswordChange } from "../../features/auth/accountPasswordChange";
 import {
   type ChangeEvent,
   type PointerEvent as ReactPointerEvent,
@@ -39,8 +42,6 @@ import {
   type ClientProfile,
   type ClientProfileErrors as Errors,
 } from "../../features/client/profile/profileValidation";
-
-const PASSWORD_MIN = 8;
 
 const INITIAL_PROFILE: ClientProfile = {
   phone: "081298765432",
@@ -90,6 +91,7 @@ export default function KlienPengaturanPage() {
   const [pwdCurrent, setPwdCurrent] = useState("");
   const [pwdNext, setPwdNext] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
+  const [pwdSaving, setPwdSaving] = useState(false);
 
   const photoInput = useRef<HTMLInputElement>(null);
 
@@ -275,9 +277,8 @@ export default function KlienPengaturanPage() {
 
     setSaving(true);
     try {
-      const cleanedPhone = profile.phone.replace(/[\s()-]/g, "").trim();
       await sicareApi.updateProfile({
-        phone_e164: cleanedPhone || null,
+        phone_e164: toIndonesianE164(profile.phone) || null,
       });
 
       let nextPhotoPath = photo;
@@ -322,22 +323,26 @@ export default function KlienPengaturanPage() {
     setPhotoError("");
   }
 
-  function changePassword() {
-    const issues = [
-      !pwdCurrent ? "Masukkan kata sandi saat ini." : "",
-      pwdNext.length < PASSWORD_MIN
-        ? `Kata sandi baru minimal ${PASSWORD_MIN} karakter.`
-        : "",
-      pwdConfirm !== pwdNext ? "Konfirmasi kata sandi tidak sama." : "",
-    ].filter(Boolean);
-    if (issues.length) {
-      toast.error(issues.join(" "));
-      return;
+  async function changePassword() {
+    if (pwdSaving) return;
+    setPwdSaving(true);
+    try {
+      await submitAccountPasswordChange({
+        current: pwdCurrent,
+        next: pwdNext,
+        confirm: pwdConfirm,
+      });
+      setPwdCurrent("");
+      setPwdNext("");
+      setPwdConfirm("");
+      toast.success("Kata sandi akun berhasil diperbarui.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Kata sandi belum dapat diperbarui.",
+      );
+    } finally {
+      setPwdSaving(false);
     }
-    setPwdCurrent("");
-    setPwdNext("");
-    setPwdConfirm("");
-    toast.success("Perubahan kata sandi disimpan untuk sesi browser ini.");
   }
 
   const activeProfile = serverProfile ?? authProfile;
@@ -452,13 +457,10 @@ export default function KlienPengaturanPage() {
               required
               error={showErrors ? errors.phone : ""}
             >
-              <input
-                className={inputClass}
-                type="tel"
-                inputMode="tel"
+              <PhoneE164Input
                 value={profile.phone}
-                onChange={(e) => update("phone", e.target.value)}
-                placeholder="Contoh: 081298765432"
+                invalid={Boolean(showErrors && errors.phone)}
+                onChange={(e164) => update("phone", e164)}
               />
               <p className="mt-1.5 text-[11px] text-gray-400">
                 Semua klien menerima konfirmasi booking dan pengingat jadwal konseling via
@@ -531,6 +533,7 @@ export default function KlienPengaturanPage() {
                 type="password"
                 autoComplete="current-password"
                 value={pwdCurrent}
+                disabled={pwdSaving}
                 onChange={(e) => setPwdCurrent(e.target.value)}
               />
             </Field>
@@ -540,11 +543,10 @@ export default function KlienPengaturanPage() {
                 type="password"
                 autoComplete="new-password"
                 value={pwdNext}
+                disabled={pwdSaving}
                 onChange={(e) => setPwdNext(e.target.value)}
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Minimal {PASSWORD_MIN} karakter
-              </p>
+              <PasswordRuleList password={pwdNext} className="mt-2" />
             </Field>
             <Field label="Ulangi kata sandi baru" required>
               <input
@@ -552,6 +554,7 @@ export default function KlienPengaturanPage() {
                 type="password"
                 autoComplete="new-password"
                 value={pwdConfirm}
+                disabled={pwdSaving}
                 onChange={(e) => setPwdConfirm(e.target.value)}
               />
             </Field>
@@ -560,9 +563,10 @@ export default function KlienPengaturanPage() {
             <button
               type="button"
               onClick={changePassword}
-              className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:w-auto"
+              disabled={pwdSaving}
+              className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 sm:w-auto"
             >
-              <IconLabel icon={KeyRound}>Ubah kata sandi</IconLabel>
+              <IconLabel icon={KeyRound}>{pwdSaving ? "Memproses..." : "Ubah kata sandi"}</IconLabel>
             </button>
           </div>
         </Panel>

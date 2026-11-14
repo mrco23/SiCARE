@@ -3,13 +3,21 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import AuthLayout from "../../components/auth/AuthLayout";
 import { Field, PasswordInput, TextInput } from "../../components/auth/FormControls";
+import { CampusEmailInput, PasswordRuleList, PhoneE164Input } from "../../components/shared/AccountInputs";
+import {
+  CAMPUS_EMAIL_DOMAIN,
+  buildCampusEmail,
+  getCampusEmailLocalPart,
+  toIndonesianE164,
+  validateCampusEmailLocalPart,
+  validateIndonesianPhone,
+  validateStrongPassword,
+} from "../../lib/accountRules";
 import { useAuth } from "../../features/auth/useAuth";
 import type { MemberCategory, RegisterRequest } from "../../types/auth";
 
-const CAMPUS_DOMAIN = "unikadelasalle.ac.id";
 const STUDENT_NIM_RE = /^\d{8}$/;
 const STAFF_NIP_RE = /^\d{8,18}$/;
-const STAFF_EMAIL_RE = new RegExp(`^[^\\s@]+@${CAMPUS_DOMAIN.replace(/\./g, "\\.")}$`, "i");
 const STEPS = ["Kategori", "Akun", "Profil", "Tinjau & kirim"] as const;
 
 type RegistrationCategory = "student" | "faculty_staff";
@@ -36,15 +44,7 @@ const INITIAL_FORM: RegisterForm = {
 
 function deriveStudentEmail(identityCode: string): string {
   const clean = identityCode.trim();
-  return STUDENT_NIM_RE.test(clean) ? `${clean}@${CAMPUS_DOMAIN}` : "";
-}
-
-function normalizePhone(phone: string): string {
-  const clean = phone.replace(/[\s()-]/g, "");
-  if (clean.startsWith("+")) return clean;
-  if (clean.startsWith("0")) return `+62${clean.slice(1)}`;
-  if (clean.startsWith("62")) return `+${clean}`;
-  return clean;
+  return STUDENT_NIM_RE.test(clean) ? buildCampusEmail(clean) : "";
 }
 
 function validateCategory(form: RegisterForm): RegisterErrors {
@@ -62,14 +62,12 @@ function validateAccount(form: RegisterForm): RegisterErrors {
   } else if (form.category === "faculty_staff") {
     if (!code) errors.identityCode = "NIP wajib diisi.";
     else if (!STAFF_NIP_RE.test(code)) errors.identityCode = "NIP harus berupa 8–18 digit angka.";
-    if (!form.email.trim()) errors.email = "Email kampus wajib diisi.";
-    else if (!STAFF_EMAIL_RE.test(form.email.trim())) {
-      errors.email = `Gunakan email resmi kampus (@${CAMPUS_DOMAIN}).`;
-    }
+    const emailError = validateCampusEmailLocalPart(getCampusEmailLocalPart(form.email));
+    if (emailError) errors.email = emailError;
   }
 
-  if (form.password.length < 8) errors.password = "Kata sandi minimal 8 karakter.";
-  if (form.password.length > 128) errors.password = "Kata sandi maksimal 128 karakter.";
+  const passwordError = validateStrongPassword(form.password);
+  if (passwordError) errors.password = passwordError;
   if (form.confirmPassword !== form.password) errors.confirmPassword = "Konfirmasi kata sandi tidak sama.";
   return errors;
 }
@@ -79,9 +77,8 @@ function validateProfile(form: RegisterForm): RegisterErrors {
   if (!form.fullName.trim()) errors.fullName = "Nama lengkap wajib diisi.";
   else if (form.fullName.trim().length > 160) errors.fullName = "Nama maksimal 160 karakter.";
 
-  const phone = normalizePhone(form.phone);
-  if (!form.phone.trim()) errors.phone = "Nomor telepon wajib diisi.";
-  else if (!/^\+[1-9]\d{6,14}$/.test(phone)) errors.phone = "Gunakan nomor telepon yang valid, misalnya +6281234567890.";
+  const phoneError = validateIndonesianPhone(form.phone, { required: true });
+  if (phoneError) errors.phone = phoneError;
   return errors;
 }
 
@@ -182,7 +179,7 @@ export default function Register() {
         full_name: form.fullName.trim(),
         identity_code: form.identityCode.trim(),
         member_category: form.category as MemberCategory,
-        phone_e164: normalizePhone(form.phone),
+        phone_e164: toIndonesianE164(form.phone),
       };
       const result = await signUp(payload);
 
@@ -288,22 +285,21 @@ export default function Register() {
                 htmlFor="email"
                 error={errors.email}
                 required
-                hint={isStudent ? "Email dibuat otomatis berdasarkan NIM." : `Gunakan email resmi @${CAMPUS_DOMAIN}.`}
+                hint={isStudent ? "Email dibuat otomatis berdasarkan NIM." : `Cukup isi nama email Anda; akhiran @${CAMPUS_EMAIL_DOMAIN} ditambahkan otomatis.`}
               >
-                <TextInput
+                <CampusEmailInput
                   id="email"
                   name="email"
-                  type="email"
                   autoComplete="email"
-                  inputMode="email"
-                  placeholder={isStudent ? "Otomatis dari NIM" : `nama@${CAMPUS_DOMAIN}`}
-                  value={form.email}
-                  error={errors.email}
+                  placeholder={isStudent ? "Otomatis dari NIM" : "nama.anda"}
+                  value={getCampusEmailLocalPart(form.email)}
+                  invalid={Boolean(errors.email)}
                   readOnly={isStudent}
-                  onChange={(event) => setField("email", event.target.value)}
+                  inputClassName="py-3"
+                  onChange={(localPart) => setField("email", buildCampusEmail(localPart))}
                 />
               </Field>
-              <Field label="Kata sandi" htmlFor="password" error={errors.password} required hint="Minimal 8 karakter.">
+              <Field label="Kata sandi" htmlFor="password" error={errors.password} required>
                 <PasswordInput
                   id="password"
                   name="password"
@@ -313,6 +309,7 @@ export default function Register() {
                   error={errors.password}
                   onChange={(event) => setField("password", event.target.value)}
                 />
+                <PasswordRuleList password={form.password} className="mt-1" />
               </Field>
               <Field label="Konfirmasi kata sandi" htmlFor="confirmPassword" error={errors.confirmPassword} required>
                 <PasswordInput
@@ -346,17 +343,14 @@ export default function Register() {
                   onChange={(event) => setField("fullName", event.target.value)}
                 />
               </Field>
-              <Field label="Nomor telepon" htmlFor="phone" error={errors.phone} required hint="Nomor akan disimpan dalam format internasional, misalnya +6281234567890.">
-                <TextInput
+              <Field label="Nomor telepon" htmlFor="phone" error={errors.phone} required hint="Isi nomor tanpa angka 0 di depan, misalnya 81234567890.">
+                <PhoneE164Input
                   id="phone"
                   name="phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="081234567890"
                   value={form.phone}
-                  error={errors.phone}
-                  onChange={(event) => setField("phone", event.target.value)}
+                  invalid={Boolean(errors.phone)}
+                  inputClassName="py-3"
+                  onChange={(e164) => setField("phone", e164)}
                 />
               </Field>
             </FieldGrid>
@@ -371,7 +365,7 @@ export default function Register() {
               <div className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-4"><dt className="text-xs font-medium text-text-muted sm:w-44">NIM/NIP</dt><dd className="break-words text-sm text-text-base">{form.identityCode || "-"}</dd></div>
               <div className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-4"><dt className="text-xs font-medium text-text-muted sm:w-44">Email</dt><dd className="break-words text-sm text-text-base">{form.email || "-"}</dd></div>
               <div className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-4"><dt className="text-xs font-medium text-text-muted sm:w-44">Nama lengkap</dt><dd className="break-words text-sm text-text-base">{form.fullName || "-"}</dd></div>
-              <div className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-4"><dt className="text-xs font-medium text-text-muted sm:w-44">Nomor telepon</dt><dd className="break-words text-sm text-text-base">{normalizePhone(form.phone) || "-"}</dd></div>
+              <div className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-4"><dt className="text-xs font-medium text-text-muted sm:w-44">Nomor telepon</dt><dd className="break-words text-sm text-text-base">{toIndonesianE164(form.phone) || "-"}</dd></div>
             </dl>
             <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">Pendaftaran mandiri tidak dapat menentukan role aplikasi. Akun baru dibuat sebagai klien. Peran konselor, admin, dan Kepala LMI harus diberikan melalui proses administrasi.</p>
           </section>
@@ -384,11 +378,11 @@ export default function Register() {
             </button>
           ) : <span />}
           {isLastStep ? (
-            <button type="submit" disabled={submitting} className="flex items-center justify-center gap-2 rounded-button bg-primary px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-70">
+            <button key="submit" type="submit" disabled={submitting} className="flex items-center justify-center gap-2 rounded-button bg-primary px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-70">
               {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Memproses...</> : "Daftar"}
             </button>
           ) : (
-            <button type="button" onClick={handleNext} className="flex items-center justify-center gap-2 rounded-button bg-primary px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-primary-dark">
+            <button key="next" type="button" onClick={handleNext} className="flex items-center justify-center gap-2 rounded-button bg-primary px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-primary-dark">
               Lanjut <ArrowRight className="h-4 w-4" />
             </button>
           )}
