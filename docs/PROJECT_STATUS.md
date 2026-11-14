@@ -13,6 +13,7 @@
 
 | Area | Status | Bukti / catatan |
 |---|---|---|
+| Ikon Mood Tracker | PASS (build + uji browser) | Sejak 2026-11-14 emoji jawaban dan badge hasil Mood Tracker diganti ikon SVG SiCARE (`components/mood/MoodIcons.tsx`): 32 ikon mini maskot Psi (lengan = energi, wajah = perasaan) dan 5 ikon cuaca hati. Logika skor tidak berubah. |
 | Aturan akun (kata sandi, email, telepon) | PASS (unit test + build), uji browser NOT RUN | Sejak 2026-11-14: kata sandi akun wajib huruf kecil + besar + angka + simbol, 8–128 karakter (register, buat akun admin, ganti kata sandi); email registrasi dan akun Konselor/Kepala LMI buatan admin wajib `@unikadelasalle.ac.id` (input hanya nama email); telepon di registrasi dan semua halaman pengaturan memakai awalan tetap `+62` dan disimpan E.164. Ganti kata sandi akun di Pengaturan Klien/Konselor/Kepala LMI kini tersimpan ke server (`POST /auth/change-password`). |
 | Audit endpoint | PASS untuk audit statis | 66 handler backend dipetakan (56 bentuk method/path dipanggil frontend, 1 ops health, 1 webhook Fonnte, 1 admin whatsapp health, 6 rute informed consent `/api/v1/consents/*`). |
 | Audit kontrak API | Batch 1.1, 1.2, 1.5a, 1.5b, 1.5c selesai | DTO consent (`ConsentIdentityDto`, `InformedConsentDto`, `SignConsentPayloadApi`, `SignConsentResultApi`, `ConsentDocumentDownloadDto`, `BookingConsentReadinessDto`) tervalidasi Zod & TypeScript. Lihat `integration/API_CONTRACT_AUDIT.md`. |

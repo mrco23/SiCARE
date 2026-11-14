@@ -1850,3 +1850,13 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - Tidak diubah: data lama — akun dengan kata sandi lemah tetap bisa login; nomor tersimpan `08…` baru dinormalisasi saat profil disimpan ulang. Edit akun di Admin Akun tetap menampilkan email penuh (read-only) karena akun lama bisa memakai domain lain.
 - `be: check` **PASS**, `typecheck` **PASS**, `npm test` **259/260** (gagal: `heroMotivations.test.js`, baseline; 10 tes baru `accountRules.test.js` lulus; fixture `adminRoutesLoad`/`counselorLicense` diperbarui ke email kampus dan kata sandi kuat). `fe: tsc`, `lint`, `build` **PASS**. Uji browser Registrasi (dev server, tanpa backend): input email berakhiran tetap, checklist kata sandi, telepon `+62 812-3456-7890` → `+6281234567890`, tampilan mobile **PASS**. Halaman Pengaturan, Admin Akun, dan ganti kata sandi end-to-end dengan backend: **NOT RUN**. Deploy: **NOT RUN**. Tidak ada migrasi.
 
+
+## 2026-11-14 — Ikon Mood Tracker: mini maskot Psi dan cuaca hati
+
+- Permintaan pengguna: ikon sendiri bergaya SiCARE untuk setiap jawaban Mood Tracker. Arah yang disetujui: A (karakter) untuk 32 jawaban + C (cuaca hati) untuk 5 badge hasil. Saat implementasi ditemukan maskot resmi `fe/public/maskot.png` (karakter Psi navy, DNA hijau-emas, bintang); atas keputusan pengguna karakter A memakai **mini maskot Psi**, bukan karakter daun baru, agar SiCARE tidak punya dua maskot.
+- Komponen baru `fe/src/components/mood/MoodIcons.tsx` (SVG React, tanpa file gambar): `MoodAnswerIcon` — posisi lengan Psi = energi (+2 terangkat tinggi … −2 terkulai), ekspresi wajah = perasaan, properti kecil = konteks jawaban; `MoodResultIcon` — cerah/teduh/angin/hujan/busur seimbang. Semua `aria-hidden`; teks jawaban/badge tetap menjadi label. Jawaban negatif tidak memakai merah atau tanda peringatan.
+- `moodAssessment.ts`: `Option.emoji` → `Option.icon` (`MoodAnswerIconId`); emoji di teks `badge` dipindah ke field `id` (`MoodResultIconId`). Teks, urutan, skor, dan `calculateMood` tidak berubah.
+- `MoodTrackerPage.tsx`: lingkaran ikon jawaban 44px → 56px agar detail maskot terbaca; saat kartu terpilih (latar `bg-primary`) lingkaran ikon menjadi putih (sebelumnya `bg-white/15`) agar maskot navy tidak tenggelam di hijau tua. Badge hasil menjadi `inline-flex` dengan ikon cuaca.
+- Pratinjau sementara (`fe/mood-icons-preview.html`, `fe/src/__preview__/`) dipakai untuk persetujuan pengguna lalu dihapus.
+- `fe: tsc`, `lint`, `build` **PASS**. Uji browser `/mood-tracker` (desktop + mobile 375px): 32 ikon tampil, kartu terpilih terbaca, badge hasil "Seimbang" tampil dengan ikon, tanpa scroll horizontal **PASS**. Backend tidak berubah.
+

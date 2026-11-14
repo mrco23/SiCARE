@@ -4,6 +4,7 @@ import {
   questions,
   type MoodResult,
 } from "../../features/public/mood/moodAssessment";
+import { MoodAnswerIcon, MoodResultIcon } from "../../components/mood/MoodIcons";
 
 function MascotResult({ mood }: { mood: MoodResult }) {
   return (
@@ -24,9 +25,10 @@ function MascotResult({ mood }: { mood: MoodResult }) {
 
       <div className="flex-1 text-center md:text-left">
         <span
-          className="inline-block rounded-full px-3 py-1 text-xs font-bold shadow-sm sm:text-sm"
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold shadow-sm sm:text-sm"
           style={{ color: mood.color, backgroundColor: "#ffffff" }}
         >
+          <MoodResultIcon id={mood.id} className="shrink-0" />
           {mood.badge}
         </span>
         <h2 className="mt-3 font-[Montserrat] text-2xl font-extrabold leading-tight text-[#111] md:text-3xl">
@@ -179,11 +181,11 @@ export default function MoodTrackerPage() {
                         }`}
                       >
                         <span
-                          className={`flex h-11 w-11 items-center justify-center rounded-full text-2xl leading-none transition-transform duration-200 group-hover:scale-110 ${
-                            selected ? "bg-white/15" : "bg-primary-soft"
+                          className={`flex h-14 w-14 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110 ${
+                            selected ? "bg-white" : "bg-primary-soft"
                           }`}
                         >
-                          {opt.emoji}
+                          <MoodAnswerIcon id={opt.icon} size={48} />
                         </span>
                         <span>{opt.label}</span>
                       </button>
