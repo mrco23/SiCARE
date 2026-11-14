@@ -1832,3 +1832,10 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - Atas permintaan pengguna, kartu ini dihapus dari `KonselorPengaturanPage.tsx`, beserta field `services` di tipe `CounselorProfile` (`types/counselorProfile.ts`) dan validasi "Pilih minimal satu jenis layanan" di `profileValidation.ts`. Komponen primitif `SettingsSwitchRow` (`SettingsPrimitives.tsx`) dibiarkan ada meski sekarang tidak dipakai di mana pun — primitif bersama, bukan kode mati yang spesifik fitur ini.
 - Tidak ada perubahan backend/migrasi (tidak pernah ada yang disimpan untuk dihapus).
 - `fe: tsc`, `lint`, `build` **PASS**. Backend tidak berubah. Uji browser: **NOT RUN**.
+
+## 2026-11-14 — Dokumen spesifikasi modul (dokumentasi saja)
+
+- Menyusun `docs/specs/SPESIFIKASI_MODUL.md`: 13 modul (Autentikasi, Manajemen Role & Akun, Notifikasi In-App, Notifikasi WhatsApp, Mood Tracker, Booking, Sesi, Informed Consent, Profil & Jadwal Konselor, Riwayat & Catatan, Feedback, Dashboard & Laporan, Periode & Konten Publik). Format per modul: Deskripsi, Hak/Akses Role, Alur Kerja, Aturan & Batasan. Isi diturunkan dari route, validator, service, dan fungsi migrasi.
+- Klarifikasi pengguna: Mood Tracker adalah fitur hiburan publik permintaan klien proyek (tanpa login, tidak disimpan). Masa aktif sesi mengikuti kode (bawaan Supabase, tanpa aturan tambahan). Perilaku notifikasi in-app saat ini (tanpa auto-hapus, tanpa realtime) dan aturan pembuatan akun per role dinyatakan final.
+- Tidak ada perubahan kode atau kontrak. Pemeriksaan build/test: **NOT RUN** (tidak relevan untuk perubahan dokumentasi saja).
+
