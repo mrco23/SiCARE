@@ -5,12 +5,13 @@ import { env } from "../config/env.js";
 import { authenticate } from "../middleware/auth.js";
 import { asyncHandler, HttpError, parseBody, sendData, supabaseError } from "../lib/http.js";
 import { writeAudit } from "../lib/audit.js";
+import { indonesianPhoneSchema } from "../validators/shared.validator.js";
 
 const router = Router();
 const uuid = z.string().uuid();
 const profilePatchSchema = z.object({
   full_name: z.string().trim().min(1).max(160).optional(),
-  phone_e164: z.string().trim().min(7).max(20).nullable().optional(),
+  phone_e164: indonesianPhoneSchema.nullable().optional(),
 }).strict();
 const whatsappConsentSchema = z.object({ opted_in: z.boolean() }).strict();
 const MAX_PUBLIC_AVAILABILITY_RANGE_MS = 90 * 24 * 60 * 60 * 1000;

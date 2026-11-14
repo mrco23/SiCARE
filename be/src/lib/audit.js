@@ -1,5 +1,6 @@
 export const SAFE_ACTIONS = new Set([
   "auth.register",
+  "auth.password_change",
   "profile.update",
   "profile.whatsapp_consent",
   "booking.create",

@@ -12,6 +12,7 @@ router.post("/register", asyncHandler(authController.register));
 router.post("/resend-confirmation", asyncHandler(authController.resendConfirmation));
 router.post("/login", asyncHandler(authController.login));
 router.get("/me", authenticate, authController.getMe);
+router.post("/change-password", authenticate, asyncHandler(authController.changePassword));
 router.post("/logout", authenticate, authController.logout);
 
 export default router;

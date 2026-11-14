@@ -270,3 +270,46 @@ export async function loginUser(input) {
   return { user: { id: data.user.id, email: data.user.email }, profile, session: data.session };
 }
 
+
+/**
+ * Changes the signed-in user's Supabase Auth password after re-verifying the current one.
+ * The new password is validated by strongPasswordSchema before reaching this function.
+ */
+export async function changeAccountPassword(auth, input) {
+  const userId = auth?.user?.id;
+  const email = auth?.user?.email;
+  if (!userId || !email) {
+    throw new HttpError(400, "PASSWORD_CHANGE_UNSUPPORTED", "Akun ini tidak memiliki email untuk verifikasi kata sandi.");
+  }
+
+  const { data, error } = await getPublicAuthClient().auth.signInWithPassword({
+    email,
+    password: input.current_password,
+  });
+  if (error || data?.user?.id !== userId) {
+    if (error && /rate limit|too many/i.test(error.message ?? "")) {
+      throw new HttpError(429, "RATE_LIMITED", "Terlalu banyak percobaan. Silakan coba beberapa saat lagi.");
+    }
+    throw new HttpError(400, "CURRENT_PASSWORD_INVALID", "Kata sandi saat ini tidak benar.");
+  }
+
+  const { error: updateError } = await getSupabaseAdminClient().auth.admin.updateUserById(userId, {
+    password: input.new_password,
+  });
+  if (updateError) {
+    if (/weak|pwned|leaked|should be different|same/i.test(updateError.message ?? "")) {
+      throw new HttpError(400, "PASSWORD_REJECTED", "Kata sandi baru ditolak oleh sistem autentikasi. Gunakan kata sandi lain.");
+    }
+    throw new HttpError(503, "PASSWORD_UPDATE_FAILED", "Kata sandi belum dapat diperbarui. Silakan coba lagi.");
+  }
+
+  await writeAudit({
+    actorUserId: userId,
+    action: "auth.password_change",
+    entityType: "profile",
+    entityId: userId,
+    metadata: {},
+  });
+
+  return { password_changed: true };
+}
