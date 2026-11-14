@@ -28,6 +28,15 @@ export const sicareApi = {
     return apiRequest<ApiTypes.ProfileDto>("/profile", { method: "PATCH", auth: true, body: input });
   },
 
+  /** Ganti kata sandi login akun yang sedang masuk (memverifikasi kata sandi saat ini di server). */
+  changePassword(input: { current_password: string; new_password: string }): Promise<{ password_changed: boolean }> {
+    return apiRequest<{ password_changed: boolean }>("/auth/change-password", {
+      method: "POST",
+      auth: true,
+      body: input,
+    });
+  },
+
   uploadPhoto(imageData: string): Promise<ApiTypes.ProfilePhotoResultDto> {
     return apiRequest<ApiTypes.ProfilePhotoResultDto>("/profile/photo", {
       method: "POST",
