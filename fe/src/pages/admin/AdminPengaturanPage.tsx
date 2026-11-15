@@ -3,6 +3,7 @@ import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
 import { sicareApi } from "../../lib/sicareApi";
 import { PhoneE164Input } from "../../components/shared/AccountInputs";
+import HomepageLogoPanel from "../../components/admin/settings/HomepageLogoPanel";
 import { toIndonesianE164, validateIndonesianPhone } from "../../lib/accountRules";
 import type { HeroMotivationAdminDto } from "../../types/api";
 import { useEffect, useMemo, useState } from "react";
@@ -692,6 +693,8 @@ export default function AdminPengaturanPage() {
             </div>
           )}
         </Panel>
+
+        <HomepageLogoPanel />
 
         <Panel
           className="lg:col-span-2"

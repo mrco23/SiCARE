@@ -6,6 +6,7 @@ import { authenticate } from "../middleware/auth.js";
 import { asyncHandler, HttpError, parseBody, sendData, supabaseError } from "../lib/http.js";
 import { writeAudit } from "../lib/audit.js";
 import { indonesianPhoneSchema } from "../validators/shared.validator.js";
+import { homepageLogoService } from "../services/homepageLogo.service.js";
 
 const router = Router();
 const uuid = z.string().uuid();
@@ -75,6 +76,10 @@ router.get("/public/hero-motivations", asyncHandler(async (_request, response) =
     .order("created_at", { ascending: true });
   if (error) supabaseError(error, "Kalimat motivasi publik tidak dapat dibaca.");
   return sendData(response, data ?? []);
+}));
+
+router.get("/public/homepage-logo", asyncHandler(async (_request, response) => {
+  return sendData(response, await homepageLogoService.getLogo(supa()));
 }));
 
 router.get("/public/counselors", asyncHandler(async (_request, response) => {
