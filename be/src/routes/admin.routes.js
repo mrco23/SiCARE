@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { allowRoles, authenticate } from "../middleware/auth.js";
-import { asyncHandler } from "../lib/http.js";
+import { asyncHandler, parseBody, sendData } from "../lib/http.js";
 import { adminAccountsController } from "../controllers/admin/accounts.controller.js";
 import { adminPeriodsController } from "../controllers/admin/periods.controller.js";
 import { adminCounselingController } from "../controllers/admin/counseling.controller.js";
 import { adminHeroController } from "../controllers/admin/hero.controller.js";
 import { adminWhatsAppController } from "../controllers/admin/whatsapp.controller.js";
+import { homepageLogoService, homepageLogoUpdateSchema } from "../services/homepageLogo.service.js";
 
 const router = Router();
 
@@ -35,6 +36,15 @@ router.get("/hero-motivations", authenticate, allowRoles("admin"), asyncHandler(
 router.post("/hero-motivations", authenticate, allowRoles("admin"), asyncHandler(adminHeroController.createHeroMotivation));
 router.patch("/hero-motivations/:id", authenticate, allowRoles("admin"), asyncHandler(adminHeroController.updateHeroMotivation));
 router.delete("/hero-motivations/:id", authenticate, allowRoles("admin"), asyncHandler(adminHeroController.deleteHeroMotivation));
+
+// Logo Lasallian DNA di home page: hanya baca dan ganti (tidak ada hapus).
+router.get("/homepage-logo", authenticate, allowRoles("admin"), asyncHandler(async (_req, res) => {
+  return sendData(res, await homepageLogoService.getLogo());
+}));
+router.put("/homepage-logo", authenticate, allowRoles("admin"), asyncHandler(async (req, res) => {
+  const input = parseBody(homepageLogoUpdateSchema, req.body);
+  return sendData(res, await homepageLogoService.updateLogo(input, req.auth.user.id));
+}));
 
 // WhatsApp Diagnostics
 router.get("/whatsapp/health", authenticate, allowRoles("admin"), asyncHandler(adminWhatsAppController.getWhatsAppHealth));

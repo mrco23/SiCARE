@@ -20,6 +20,7 @@ export const SAFE_ACTIONS = new Set([
   "admin.hero_motivation.create",
   "admin.hero_motivation.update",
   "admin.hero_motivation.delete",
+  "admin.homepage_logo.update",
   "counselor.profile.update",
   "counselor.availability.create",
   "counselor.availability.update",
