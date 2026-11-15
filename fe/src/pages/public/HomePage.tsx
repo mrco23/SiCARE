@@ -736,7 +736,7 @@ function LasallianLogo() {
       src={logo?.src ?? "/himsi.png"}
       alt={logo?.alt ?? "Logo HIMPSI"}
       onError={() => setLogo(null)}
-      className="h-14 w-auto max-w-[220px] object-contain md:h-16"
+      className="h-16 w-auto max-w-[260px] object-contain md:h-20"
     />
   );
 }
@@ -909,7 +909,7 @@ export default function HomePage() {
                   <img
                     src="/kampus.png"
                     alt="Logo Universitas Katolik De La Salle Manado"
-                    className="h-14 w-auto object-contain md:h-16"
+                    className="h-16 w-auto object-contain md:h-20"
                   />
                   <LasallianLogo />
                 </div>
