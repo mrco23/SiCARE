@@ -352,7 +352,7 @@ Keputusan hasil klarifikasi:
   * Periode baru default nonaktif. Motivasi hero baru default aktif.
   * Slot di luar periode aktif tidak dapat dipesan (`BOOKING_PERIOD_UNAVAILABLE`).
   * Logo Lasallian DNA (migrasi `20261115150000`): hanya satu logo aktif (tabel `homepage_logo`, id = 1); admin hanya dapat mengganti, tidak dapat menghapus; logo lama tidak disimpan (file lama dihapus dari bucket `site-assets` setelah logo baru tersimpan); hanya PNG atau WebP maksimal 1 MB, diverifikasi juga dari isi file; keterangan (teks alternatif) wajib 1–120 karakter. Keterangan dapat diubah tanpa mengganti gambar.
-  * Di beranda tinggi logo sama dengan logo kampus (`h-14`, `md:h-16`) dan lebarnya mengikuti proporsi gambar (maksimal 220px). Selama admin belum mengunggah logo, atau logo gagal dimuat, beranda menampilkan logo HIMPSI bawaan.
+  * Di beranda tinggi logo sama dengan logo kampus (`h-16`, `md:h-20`; diperbesar 2026-11-15) dan lebarnya mengikuti proporsi gambar (maksimal 260px). Selama admin belum mengunggah logo, atau logo gagal dimuat, beranda menampilkan logo HIMPSI bawaan.
 
 ===
 

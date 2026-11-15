@@ -1972,3 +1972,9 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Frontend:** `components/admin/settings/HomepageLogoPanel.tsx` di `AdminPengaturanPage` (pratinjau di samping logo kampus dengan ukuran beranda, pilih file PNG/WebP dengan validasi tipe dan ukuran, keterangan wajib, simpan; tanpa tombol hapus). `HomePage.tsx`: komponen `LasallianLogo` memuat logo dari `GET /public/homepage-logo` dan memakai kelas ukuran yang sama dengan logo sebelumnya (`h-14 md:h-16`, lebar mengikuti proporsi, maks. 220px); fallback ke `/himsi.png` bila belum ada logo atau gagal dimuat. Helper `adminApi.getHomepageLogo/updateHomepageLogo`, `getPublicHomepageLogo`, tipe `HomepageLogoDto`.
 - `be: check`, `typecheck` **PASS**, `npm test` **305/306** (gagal: `heroMotivations.test.js`, baseline; 11 tes baru `homepageLogo.test.js`). `fe: tsc`, `lint`, `build` **PASS**. Uji browser beranda: fallback logo HIMPSI tampil dengan tinggi sama dengan logo kampus (56px) **PASS**. Panel admin dan unggah nyata: **NOT RUN** (butuh login admin, migrasi, dan bucket).
 
+
+## 2026-11-15 — Ukuran logo kampus dan Lasallian DNA di beranda diperbesar
+
+- **Permintaan pengguna:** "perbesar sedikit logo de la salle dan lasallian DNA di home page".
+- **Perubahan:** `HomePage.tsx` (logo kampus dan `LasallianLogo`) serta pratinjau di `HomepageLogoPanel.tsx`: `h-14 md:h-16` → `h-16 md:h-20` (56/64px → 64/80px), batas lebar logo Lasallian 220px → 260px. Spesifikasi §13 diperbarui.
+- **Verifikasi:** `fe: tsc`, `eslint` file terkait **PASS**. Browser (viewport kecil): kedua logo 64px, tinggi sama **PASS**. Ukuran `md` (80px) mengikuti kelas Tailwind, tidak diukur terpisah.

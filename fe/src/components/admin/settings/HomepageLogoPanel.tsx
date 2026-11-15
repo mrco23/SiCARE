@@ -106,9 +106,9 @@ export default function HomepageLogoPanel() {
           <div>
             <p className="mb-1.5 text-sm font-medium text-gray-800">Tampilan di beranda</p>
             <div className="flex min-h-28 items-center gap-4 rounded-xl border border-dashed border-gray-300 bg-[#f5fdf9] px-4 py-5">
-              <img src="/kampus.png" alt="Logo kampus" className="h-14 w-auto object-contain md:h-16" />
+              <img src="/kampus.png" alt="Logo kampus" className="h-16 w-auto object-contain md:h-20" />
               {previewSrc ? (
-                <img src={previewSrc} alt={trimmedAlt || DEFAULT_ALT} className="h-14 w-auto max-w-[220px] object-contain md:h-16" />
+                <img src={previewSrc} alt={trimmedAlt || DEFAULT_ALT} className="h-16 w-auto max-w-[260px] object-contain md:h-20" />
               ) : (
                 <span className="text-xs text-gray-500">Belum ada logo. Beranda masih menampilkan logo lama.</span>
               )}
