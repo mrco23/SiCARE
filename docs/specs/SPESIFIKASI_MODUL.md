@@ -339,17 +339,20 @@ Keputusan hasil klarifikasi:
 
 ## 13. Periode Akademik & Konten Publik
 
-* **<Deskripsi>:** Mengatur periode akademik yang membatasi jadwal konseling, serta konten motivasi pada hero halaman utama.
+* **<Deskripsi>:** Mengatur periode akademik yang membatasi jadwal konseling, konten motivasi pada hero halaman utama, dan logo Lasallian DNA di beranda.
 * **<Hak / Akses Role>:**
-  * `admin`: CRUD `/admin/periods` dan `/admin/hero-motivations`.
-  * Publik: `GET /public/periods`, `GET /public/hero-motivations`, `GET /public/counselors`, `GET /public/availability`.
+  * `admin`: CRUD `/admin/periods` dan `/admin/hero-motivations`; baca dan ganti `/admin/homepage-logo` (tanpa hapus).
+  * Publik: `GET /public/periods`, `GET /public/hero-motivations`, `GET /public/homepage-logo`, `GET /public/counselors`, `GET /public/availability`.
 * **<Alur Kerja>:**
   1. Admin membuat periode akademik, lalu mengaktifkan atau menonaktifkannya (`is_active`).
   2. Konselor mengaitkan slot ke periode. Booking hanya dapat dibuat pada periode yang valid.
   3. Admin mengelola daftar motivasi hero. Motivasi yang aktif tampil di beranda.
+  4. Admin mengganti logo Lasallian DNA di Pengaturan Admin (panel "Logo Lasallian DNA"): memilih file, melihat pratinjau di samping logo kampus, mengisi keterangan, lalu menyimpan. Beranda menampilkan logo itu di tempat logo HIMPSI sebelumnya.
 * **<Aturan & Batasan>:**
   * Periode baru default nonaktif. Motivasi hero baru default aktif.
   * Slot di luar periode aktif tidak dapat dipesan (`BOOKING_PERIOD_UNAVAILABLE`).
+  * Logo Lasallian DNA (migrasi `20261115150000`): hanya satu logo aktif (tabel `homepage_logo`, id = 1); admin hanya dapat mengganti, tidak dapat menghapus; logo lama tidak disimpan (file lama dihapus dari bucket `site-assets` setelah logo baru tersimpan); hanya PNG atau WebP maksimal 1 MB, diverifikasi juga dari isi file; keterangan (teks alternatif) wajib 1–120 karakter. Keterangan dapat diubah tanpa mengganti gambar.
+  * Di beranda tinggi logo sama dengan logo kampus (`h-16`, `md:h-20`; diperbesar 2026-11-15) dan lebarnya mengikuti proporsi gambar (maksimal 260px). Selama admin belum mengunggah logo, atau logo gagal dimuat, beranda menampilkan logo HIMPSI bawaan.
 
 ===
 

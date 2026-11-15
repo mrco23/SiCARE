@@ -77,6 +77,19 @@ export interface PublicHeroMotivationDto {
   content: string;
 }
 
+/** Logo Lasallian DNA di home page; null bila admin belum mengunggah. */
+export interface HomepageLogoDto {
+  url: string;
+  alt_text: string;
+  updated_at: string;
+}
+
+export interface UpdateHomepageLogoApi {
+  /** Data URL PNG/WebP. Kosong bila hanya keterangan yang diubah. */
+  image_data?: string;
+  alt_text: string;
+}
+
 // Authenticated profile DTOs
 export interface ProfileDto {
   id: string;

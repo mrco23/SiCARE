@@ -20,6 +20,7 @@ import {
   getPublicCounselors,
   getPublicFeedback,
   getPublicHeroMotivations,
+  getPublicHomepageLogo,
   type PublicAcademicPeriod,
   type PublicCounselor,
   type PublicFeedback,
@@ -710,6 +711,36 @@ function Counselors({
   );
 }
 
+/**
+ * Logo Lasallian DNA yang dikelola admin (Pengaturan Admin). Tingginya sama dengan logo kampus,
+ * lebarnya mengikuti proporsi gambar. Selama belum ada logo dari server (atau gagal dimuat),
+ * logo HIMPSI lama tetap ditampilkan.
+ */
+function LasallianLogo() {
+  const [logo, setLogo] = useState<{ src: string; alt: string } | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getPublicHomepageLogo(controller.signal)
+      .then((data) => {
+        if (data?.url) setLogo({ src: data.url, alt: data.alt_text });
+      })
+      .catch(() => {
+        // Tetap memakai logo bawaan.
+      });
+    return () => controller.abort();
+  }, []);
+
+  return (
+    <img
+      src={logo?.src ?? "/himsi.png"}
+      alt={logo?.alt ?? "Logo HIMPSI"}
+      onError={() => setLogo(null)}
+      className="h-16 w-auto max-w-[260px] object-contain md:h-20"
+    />
+  );
+}
+
 export default function HomePage() {
   const [heroMotivation, setHeroMotivation] = useState(DEFAULT_HERO_MOTIVATION);
   // Kalimat baru ditampilkan setelah API menjawab (atau timeout), agar tidak
@@ -878,13 +909,9 @@ export default function HomePage() {
                   <img
                     src="/kampus.png"
                     alt="Logo Universitas Katolik De La Salle Manado"
-                    className="h-14 w-auto object-contain md:h-16"
+                    className="h-16 w-auto object-contain md:h-20"
                   />
-                  <img
-                    src="/himsi.png"
-                    alt="Logo HIMPSI"
-                    className="h-14 w-auto object-contain md:h-16"
-                  />
+                  <LasallianLogo />
                 </div>
 
                 <h2 className="mt-6 text-2xl font-bold leading-[1.25] text-[#1b1b1b] sm:text-3xl lg:text-4xl">
