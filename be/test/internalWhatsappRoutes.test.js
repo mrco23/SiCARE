@@ -106,8 +106,8 @@ test("scheduler-run returns only aggregate counts", async () => {
       scannedSessions: 0,
       enqueuedReminders: 0,
       cleanedReminders: 0,
-      scannedInvitations: 0,
-      enqueuedConsentReminders: 0,
+      missedSessions: 0,
+      expiredBookings: 0,
     },
   });
 });
@@ -117,4 +117,9 @@ test("calculateLeaseSeconds outlasts sequential provider timeouts and stays with
   const lease = calculateLeaseSeconds(10);
   assert.ok(lease >= 150, "must cover 10 sends at the 15s provider timeout");
   assert.ok(lease < 300, "must stay below the 300s Vercel Hobby function limit");
+});
+
+test("temporary unauthenticated smoke-test route is removed", async () => {
+  const response = await fetch(`${baseUrl}/smoke-test`);
+  assert.equal(response.status, 404);
 });

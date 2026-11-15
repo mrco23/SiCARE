@@ -126,6 +126,31 @@ export async function processOutboxJob({
   const supa = supabaseClient || getSupabaseAdminClient();
   const nowIso = new Date().toISOString();
 
+  // Step 0: Session reminders only go out while the booking is confirmed and the session is still
+  // scheduled. Older database functions only cancel reminder_h1/reminder_day_of on cancel, reject,
+  // or reschedule, so this gate also covers reminder_morning. Fails open on lookup errors.
+  if (typeof job.message_type === "string" && job.message_type.startsWith("reminder_") && job.booking_id) {
+    const [{ data: reminderBooking }, { data: reminderSession }] = await Promise.all([
+      supa.from("bookings").select("id,status").eq("id", job.booking_id).maybeSingle(),
+      supa.from("counseling_sessions").select("id,status").eq("booking_id", job.booking_id).maybeSingle(),
+    ]).catch(() => [{ data: null }, { data: null }]);
+
+    const bookingInactive = reminderBooking && reminderBooking.status !== "confirmed";
+    const sessionInactive = reminderSession && reminderSession.status !== "scheduled";
+    if (bookingInactive || sessionInactive) {
+      await supa.from("whatsapp_outbox").update({
+        status: "cancelled",
+        last_error_code: "REMINDER_NOT_APPLICABLE",
+        last_error_message: "Booking atau sesi sudah tidak terjadwal. Pengingat dibatalkan.",
+        error_category: "permanent",
+        locked_by: null,
+        lease_expires_at: null,
+        updated_at: nowIso,
+      }).eq("id", job.id);
+      return { success: false, status: "cancelled", error: "REMINDER_NOT_APPLICABLE" };
+    }
+  }
+
   // Step 1: Resolve recipient identity, phone number, and authorization
   const isConsentInvitation = ["consent_invitation", "consent_reminder"].includes(job.message_type);
   let recipientName = "Peserta Konseling";

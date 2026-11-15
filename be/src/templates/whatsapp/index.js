@@ -1,3 +1,6 @@
+// Zona waktu operasional LMI Unika De La Salle Manado (WITA). Semua jam di pesan WhatsApp memakai zona ini.
+export const OPERATIONAL_TIME_ZONE = "Asia/Makassar";
+
 const DAYS_ID = [
   "Minggu",
   "Senin",
@@ -26,10 +29,10 @@ const MONTHS_ID = [
 /**
  * Formats ISO date to Indonesian readable date string (e.g. "Senin, 3 November 2026")
  * @param {string|Date} dateInput
- * @param {string} [timeZone='Asia/Jakarta']
+ * @param {string} [timeZone='Asia/Makassar']
  * @returns {string}
  */
-export function formatIndonesianDate(dateInput, timeZone = "Asia/Jakarta") {
+export function formatIndonesianDate(dateInput, timeZone = OPERATIONAL_TIME_ZONE) {
   if (!dateInput) return "-";
   const date = new Date(dateInput);
   if (Number.isNaN(date.getTime())) return String(dateInput);
@@ -53,13 +56,13 @@ export function formatIndonesianDate(dateInput, timeZone = "Asia/Jakarta") {
 }
 
 /**
- * Formats start and end times to Indonesian time window (e.g. "14:00 - 15:00 WIB")
+ * Formats start and end times to Indonesian time window (e.g. "14:00 - 15:00 WITA")
  * @param {string|Date} startsAt
  * @param {string|Date} endsAt
- * @param {string} [timeZone='Asia/Jakarta']
+ * @param {string} [timeZone='Asia/Makassar']
  * @returns {string}
  */
-export function formatIndonesianTimeWindow(startsAt, endsAt, timeZone = "Asia/Jakarta") {
+export function formatIndonesianTimeWindow(startsAt, endsAt, timeZone = OPERATIONAL_TIME_ZONE) {
   if (!startsAt) return "-";
   const start = new Date(startsAt);
   const end = endsAt ? new Date(endsAt) : null;
@@ -87,7 +90,7 @@ export function formatIndonesianTimeWindow(startsAt, endsAt, timeZone = "Asia/Ja
     }
   }
 
-  return endStr ? `${startStr} - ${endStr} WIB` : `${startStr} WIB`;
+  return endStr ? `${startStr} - ${endStr} WITA` : `${startStr} WITA`;
 }
 
 /**
@@ -127,8 +130,8 @@ export const WHATSAPP_TEMPLATES = {
     const counselorName = vars.counselor_name || vars.recipient_name || "Konselor";
     const clientName = vars.client_name || "Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const date = vars.session_date || formatIndonesianDate(vars.starts_at);
-    const time = vars.session_time || formatIndonesianTimeWindow(vars.starts_at, vars.ends_at);
+    const date = vars.starts_at ? formatIndonesianDate(vars.starts_at) : vars.session_date || "-";
+    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
     const serviceType = vars.service_type === "group" ? "Konseling Kelompok" : "Konseling Individu";
 
     return (
@@ -153,8 +156,8 @@ Tim Layanan Mahasiswa dan Inklusi (LMI)`
     const clientName = vars.client_name || vars.recipient_name || "Klien";
     const counselorName = vars.counselor_name || "Konselor";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const date = vars.session_date || formatIndonesianDate(vars.starts_at);
-    const time = vars.session_time || formatIndonesianTimeWindow(vars.starts_at, vars.ends_at);
+    const date = vars.starts_at ? formatIndonesianDate(vars.starts_at) : vars.session_date || "-";
+    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
 
     return (
 `Halo ${clientName},
@@ -177,8 +180,8 @@ Tim SiCARE`
     const clientName = vars.client_name || vars.recipient_name || "Klien";
     const counselorName = vars.counselor_name || "Konselor";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const date = vars.session_date || formatIndonesianDate(vars.starts_at);
-    const time = vars.session_time || formatIndonesianTimeWindow(vars.starts_at, vars.ends_at);
+    const date = vars.starts_at ? formatIndonesianDate(vars.starts_at) : vars.session_date || "-";
+    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
     const { sessionFormat, roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
 
     return (
@@ -265,8 +268,8 @@ Tim SiCARE`
     const recipientName = vars.recipient_name || "Pengguna SiCARE";
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const date = vars.session_date || formatIndonesianDate(vars.starts_at);
-    const time = vars.session_time || formatIndonesianTimeWindow(vars.starts_at, vars.ends_at);
+    const date = vars.starts_at ? formatIndonesianDate(vars.starts_at) : vars.session_date || "-";
+    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
     const { sessionFormat, roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
 
     return (
@@ -287,11 +290,35 @@ Tim SiCARE`
     );
   },
 
+  "session-reminder-morning": (vars) => {
+    const recipientName = vars.recipient_name || "Pengguna SiCARE";
+    const partnerName = vars.partner_name || "Konselor/Klien";
+    const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
+    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
+    const { sessionFormat, roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
+
+    return (
+`Halo ${recipientName},
+
+Pengingat: Anda memiliki jadwal sesi konseling hari ini di SiCARE.
+
+Nomor Booking: ${ref}
+Dengan: ${partnerName}
+Waktu: ${time}
+Format: ${sessionFormat}
+${roomInfo}
+Mohon hadir tepat waktu. Detail sesi dapat dilihat di website SiCARE.
+
+Terima kasih.
+Tim SiCARE`
+    );
+  },
+
   "session-reminder-day-of": (vars) => {
     const recipientName = vars.recipient_name || "Pengguna SiCARE";
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const time = vars.session_time || formatIndonesianTimeWindow(vars.starts_at, vars.ends_at);
+    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
     const { sessionFormat, roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
 
     return (

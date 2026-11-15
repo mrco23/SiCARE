@@ -15,9 +15,27 @@ test("formatIndonesianDate formats ISO strings to Indonesian day and month names
   assert.match(result, /November/);
 });
 
-test("formatIndonesianTimeWindow formats start and end times to WIB", () => {
+test("formatIndonesianTimeWindow formats start and end times in WITA (UTC+8)", () => {
   const result = formatIndonesianTimeWindow("2026-11-02T07:00:00Z", "2026-11-02T08:00:00Z");
-  assert.match(result, /WIB/);
+  assert.equal(result, "15:00 - 16:00 WITA");
+  assert.doesNotMatch(result, /WIB/);
+});
+
+test("formatIndonesianDate uses the WITA calendar day", () => {
+  // 2026-11-02 17:00 UTC is already Tuesday 3 November 01:00 WITA.
+  assert.match(formatIndonesianDate("2026-11-02T17:00:00Z"), /3 November 2026/);
+});
+
+test("templates recompute the time from starts_at instead of a stale pre-formatted WIB string", () => {
+  const text = renderWhatsAppTemplate("reminder_day_of", {
+    recipient_name: "Ani",
+    booking_id: "11111111-2222-3333-4444-555555555555",
+    starts_at: "2026-11-02T02:00:00Z",
+    ends_at: "2026-11-02T03:00:00Z",
+    session_time: "09:00 - 10:00 WIB",
+  });
+  assert.match(text, /10:00 - 11:00 WITA/);
+  assert.doesNotMatch(text, /WIB/);
 });
 
 test("formatBookingReference produces clean short reference", () => {

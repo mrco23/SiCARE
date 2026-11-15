@@ -183,9 +183,18 @@ function reminderOutboxMock(existingRows, { failCheck = false } = {}) {
       return {
         select() {
           const filters = {};
+          const ranges = [];
           const query = {
             eq(column, value) {
               filters[column] = value;
+              return query;
+            },
+            gte(column, value) {
+              ranges.push((row) => new Date(row[column]).getTime() >= new Date(value).getTime());
+              return query;
+            },
+            lt(column, value) {
+              ranges.push((row) => new Date(row[column]).getTime() < new Date(value).getTime());
               return query;
             },
             limit: async () => {
@@ -195,7 +204,7 @@ function reminderOutboxMock(existingRows, { failCheck = false } = {}) {
                   column === "scheduled_at"
                     ? new Date(row[column]).getTime() === new Date(value).getTime()
                     : row[column] === value,
-                ),
+                ) && ranges.every((match) => match(row)),
               );
               return { data: rows.map((row) => ({ id: row.id ?? "new" })), error: null };
             },
@@ -234,24 +243,13 @@ function rpcReminderRow(messageType, recipientUserId, scheduledAt) {
   };
 }
 
+// Sesi 2030-01-02 11.00 WITA. Trigger database menyelaraskan reminder_h1 dari RPC ke 07.00 WITA
+// sehari sebelumnya (2029-12-31 23:00 UTC); pengingat pagi hari H (2030-01-01 23:00 UTC) hanya dibuat backend.
 test("enqueueSessionReminders does not duplicate reminders the booking RPC already queued", async () => {
   const existing = ["client-1", "counselor-1"].flatMap((userId) => [
-    rpcReminderRow("reminder_h1", userId, "2030-01-01 03:00:00+00"),
+    rpcReminderRow("reminder_h1", userId, "2029-12-31 23:00:00+00"),
     rpcReminderRow("reminder_day_of", userId, "2030-01-02 02:00:00+00"),
   ]);
-  const { client, insertedRows } = reminderOutboxMock(existing);
-
-  const result = await enqueueSessionReminders({ supabaseClient: client, booking: reminderBooking });
-
-  assert.equal(insertedRows.length, 0);
-  assert.equal(result.enqueued, 0);
-});
-
-test("enqueueSessionReminders only fills in reminders that are missing", async () => {
-  const existing = [
-    rpcReminderRow("reminder_h1", "client-1", "2030-01-01 03:00:00+00"),
-    rpcReminderRow("reminder_day_of", "client-1", "2030-01-02 02:00:00+00"),
-  ];
   const { client, insertedRows } = reminderOutboxMock(existing);
 
   const result = await enqueueSessionReminders({ supabaseClient: client, booking: reminderBooking });
@@ -259,7 +257,31 @@ test("enqueueSessionReminders only fills in reminders that are missing", async (
   assert.equal(result.enqueued, 2);
   assert.deepEqual(
     insertedRows.map((row) => `${row.message_type}:${row.recipient_user_id}`).sort(),
-    ["reminder_day_of:counselor-1", "reminder_h1:counselor-1"],
+    ["reminder_morning:client-1", "reminder_morning:counselor-1"],
+  );
+  for (const row of insertedRows) {
+    assert.equal(new Date(row.scheduled_at).toISOString(), "2030-01-01T23:00:00.000Z");
+  }
+});
+
+test("enqueueSessionReminders only fills in reminders that are missing", async () => {
+  const existing = [
+    rpcReminderRow("reminder_h1", "client-1", "2029-12-31 23:00:00+00"),
+    rpcReminderRow("reminder_day_of", "client-1", "2030-01-02 02:00:00+00"),
+  ];
+  const { client, insertedRows } = reminderOutboxMock(existing);
+
+  const result = await enqueueSessionReminders({ supabaseClient: client, booking: reminderBooking });
+
+  assert.equal(result.enqueued, 4);
+  assert.deepEqual(
+    insertedRows.map((row) => `${row.message_type}:${row.recipient_user_id}`).sort(),
+    [
+      "reminder_day_of:counselor-1",
+      "reminder_h1:counselor-1",
+      "reminder_morning:client-1",
+      "reminder_morning:counselor-1",
+    ],
   );
 });
 
