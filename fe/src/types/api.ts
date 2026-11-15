@@ -16,13 +16,17 @@ export type BookingStatusApi =
   | "confirmed"
   | "rejected"
   | "reschedule_requested"
-  | "cancelled";
+  | "cancelled"
+  | "expired";
 
 export type SessionStatusApi =
   | "scheduled"
   | "ongoing"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "missed";
+/** Alasan sesi ditandai terlewat otomatis (migrasi 20261115120000). */
+export type SessionMissedReasonApi = "consent_unsigned" | "not_started";
 export type FeedbackModerationStatusApi = "pending" | "shown" | "disabled";
 export type FeedbackReviewStatusApi = "new" | "reviewed" | "resolved";
 export type AcademicSemesterApi = "Ganjil" | "Genap";
@@ -270,6 +274,9 @@ export interface SessionListItemDto {
   room: string | null;
   started_at: string | null;
   completed_at: string | null;
+  /** Ada hanya setelah migrasi status terlewat diterapkan. */
+  missed_reason?: SessionMissedReasonApi | null;
+  missed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -570,6 +577,10 @@ export interface AdminReportDto {
     bookings: number;
     completed_sessions: number;
     cancelled_sessions: number;
+    /** Sesi yang ditandai terlewat otomatis (sejak 2026-11-15). */
+    missed_sessions?: number;
+    /** Booking yang kedaluwarsa karena tidak dikonfirmasi sampai jadwalnya (sejak 2026-11-15). */
+    expired_bookings?: number;
     feedback: number;
     shown_feedback: number;
     average_rating: number | null;

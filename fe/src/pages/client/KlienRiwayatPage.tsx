@@ -29,10 +29,11 @@ import type {
   FeedbackModerationStatusApi,
   SessionStatusApi,
 } from "../../types/api";
+import { EXPIRED_BOOKING_LABEL, MISSED_SESSION_LABEL, missedReasonText } from "../../lib/sessionStatus";
 
 /* ========================= TIPE & LABEL ========================= */
 
-type StatusFilter = "semua" | "menunggu" | "terjadwal" | "selesai" | "batal";
+type StatusFilter = "semua" | "menunggu" | "terjadwal" | "selesai" | "terlewat" | "batal";
 type NoteTab = "klien" | "tindak";
 type ServiceType = BookingRecordApi["service_type"];
 
@@ -58,6 +59,7 @@ const BOOKING_STATUS: Record<BookingStatusApi, { label: string; style: string }>
     style: "bg-sky-50 text-sky-700",
   },
   cancelled: { label: "Dibatalkan", style: "bg-red-50 text-red-700" },
+  expired: { label: EXPIRED_BOOKING_LABEL, style: "bg-slate-100 text-slate-700" },
 };
 
 const SESSION_STATUS: Record<SessionStatusApi, { label: string; style: string }> = {
@@ -65,6 +67,7 @@ const SESSION_STATUS: Record<SessionStatusApi, { label: string; style: string }>
   ongoing: { label: "Sesi berlangsung", style: "bg-amber-50 text-amber-700" },
   completed: { label: "Sesi selesai", style: "bg-primary-soft text-primary" },
   cancelled: { label: "Sesi dibatalkan", style: "bg-red-50 text-red-700" },
+  missed: { label: `Sesi ${MISSED_SESSION_LABEL.toLowerCase()}`, style: "bg-slate-100 text-slate-700" },
 };
 
 const STATUS_FILTERS: [StatusFilter, string][] = [
@@ -72,6 +75,7 @@ const STATUS_FILTERS: [StatusFilter, string][] = [
   ["menunggu", "Menunggu"],
   ["terjadwal", "Terjadwal"],
   ["selesai", "Selesai"],
+  ["terlewat", `${MISSED_SESSION_LABEL}/${EXPIRED_BOOKING_LABEL}`],
   ["batal", "Batal/Ditolak"],
 ];
 
@@ -128,6 +132,7 @@ function historyTitle(booking: BookingRecordApi): string {
 function statusGroup(item: HistoryItem): Exclude<StatusFilter, "semua"> {
   const { booking, session } = item;
   if (session?.status === "completed") return "selesai";
+  if (session?.status === "missed" || booking.status === "expired") return "terlewat";
   if (
     session?.status === "cancelled" ||
     booking.status === "cancelled" ||
@@ -473,6 +478,12 @@ export default function KlienRiwayatPage() {
                   <InfoRow
                     label="Selesai pada"
                     value={dateTimeLabel(session.completed_at)}
+                  />
+                )}
+                {session.status === "missed" && (
+                  <InfoRow
+                    label="Keterangan"
+                    value={missedReasonText(session.missed_reason)}
                   />
                 )}
               </>

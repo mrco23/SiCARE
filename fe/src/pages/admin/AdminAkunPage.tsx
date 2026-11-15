@@ -86,7 +86,8 @@ type FormState = {
 const LICENSE_NUMBER_RE = /^[A-Za-z0-9./_\- ]+$/;
 
 const ROLES: Role[] = ["Konselor", "Kepala LMI"];
-const TABS: Tab[] = ["Semua", "Konselor", "Klien", "Kepala LMI", "Admin"];
+// Akun admin sengaja tidak ditampilkan di halaman ini (tanpa tab maupun baris).
+const TABS: Tab[] = ["Semua", "Konselor", "Klien", "Kepala LMI"];
 
 const ROLE_STYLE: Record<Role, string> = {
   Konselor: "bg-primary-subtle text-primary border-emerald-100",
@@ -157,7 +158,7 @@ function matchesTab(account: ManagedAccount, tab: Tab): boolean {
   if (tab === "Klien") return account.appRole === "client";
   if (tab === "Konselor") return account.appRole === "counselor";
   if (tab === "Kepala LMI") return account.appRole === "head_lmi";
-  return account.appRole === "admin";
+  return false;
 }
 
 const initials = (n: string) =>
@@ -250,7 +251,8 @@ export default function AdminAkunPage() {
 
   const fetchAccounts = useCallback(async () => {
     const dtos = await adminApi.listAccounts({ limit: 100 });
-    return dtos.map((dto) => mapAccountDto(dto));
+    // Akun admin tidak dikelola dari halaman ini, jadi tidak ditampilkan.
+    return dtos.filter((dto) => dto.app_role !== "admin").map((dto) => mapAccountDto(dto));
   }, []);
 
   useEffect(() => {

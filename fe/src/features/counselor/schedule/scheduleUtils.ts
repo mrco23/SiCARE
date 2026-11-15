@@ -34,6 +34,10 @@ export const WEEKDAYS = [
   "Sabtu",
 ];
 
+/** Konseling hanya dilayani pada hari kerja; Sabtu dan Minggu tidak bisa dibuatkan jadwal baru. */
+export const WEEKEND_MESSAGE =
+  "Jadwal konseling hanya dapat dibuat pada hari kerja (Senin–Jumat).";
+
 export const pad = (value: number) => String(value).padStart(2, "0");
 export const fmt = (minutes: number) =>
   `${pad(Math.floor(minutes / 60))}.${pad(minutes % 60)}`;
@@ -50,6 +54,11 @@ export const keyOf = (date: Date) =>
 export const parseKey = (key: string) => {
   const [year, month, day] = key.split("-").map(Number);
   return new Date(year, month - 1, day);
+};
+
+export const isWeekendKey = (key: string) => {
+  const day = parseKey(key).getDay();
+  return day === 0 || day === 6;
 };
 
 export const dateLabel = (key: string) => {

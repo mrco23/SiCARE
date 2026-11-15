@@ -4,6 +4,7 @@ import type {
   AdminCounselingDto,
   BookingStatusApi,
 } from "../../../types/api";
+import { EXPIRED_BOOKING_LABEL } from "../../../lib/sessionStatus";
 import { formatIndonesianDate } from "../../../lib/dateUtils";
 import {
   ArrowRight,
@@ -395,6 +396,7 @@ export function RecentClientBookings({
     rejected: "Ditolak",
     reschedule_requested: "Perubahan jadwal",
     cancelled: "Dibatalkan",
+    expired: EXPIRED_BOOKING_LABEL,
   };
 
   return (

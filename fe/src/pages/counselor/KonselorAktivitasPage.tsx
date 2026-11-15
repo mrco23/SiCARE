@@ -45,6 +45,7 @@ import type {
   SessionListItemDto,
   SessionStatusApi,
 } from "../../types/api";
+import { MISSED_SESSION_LABEL, missedReasonText } from "../../lib/sessionStatus";
 
 /**
  * Why a session may not be started yet, read from previously-fetched consent readiness.
@@ -86,6 +87,11 @@ function getSessionStatusBadge(status: SessionStatusApi) {
       return {
         label: "Dibatalkan",
         className: "border-red-200 bg-red-50 text-red-700",
+      };
+    case "missed":
+      return {
+        label: MISSED_SESSION_LABEL,
+        className: "border-slate-200 bg-slate-100 text-slate-700",
       };
     default:
       return {
@@ -240,7 +246,7 @@ export default function KonselorAktivitasPage() {
           s.status === "scheduled" && toLocalDateKey(s.starts_at) > todayKey,
       ).length,
       finished: sessions.filter(
-        (s) => s.status === "completed" || s.status === "cancelled",
+        (s) => s.status === "completed" || s.status === "cancelled" || s.status === "missed",
       ).length,
     };
   }, [sessions, todayKey]);
@@ -273,7 +279,8 @@ export default function KonselorAktivitasPage() {
         if (
           activeTab === "finished" &&
           session.status !== "completed" &&
-          session.status !== "cancelled"
+          session.status !== "cancelled" &&
+          session.status !== "missed"
         ) {
           return false;
         }
@@ -638,7 +645,8 @@ export default function KonselorAktivitasPage() {
                   {/* Timestamp Pelaksanaan Sesi */}
                   {(selectedSession.started_at ||
                     selectedSession.completed_at ||
-                    selectedSession.status === "cancelled") && (
+                    selectedSession.status === "cancelled" ||
+                    selectedSession.status === "missed") && (
                     <div className="mt-4 flex flex-wrap gap-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs text-gray-600">
                       {selectedSession.started_at && (
                         <span>
@@ -656,6 +664,12 @@ export default function KonselorAktivitasPage() {
                         <span>
                           <strong className="text-red-700">Diperbarui (Batal):</strong>{" "}
                           {new Date(selectedSession.updated_at).toLocaleString("id-ID")}
+                        </span>
+                      )}
+                      {selectedSession.status === "missed" && (
+                        <span>
+                          <strong className="text-slate-800">{MISSED_SESSION_LABEL}:</strong>{" "}
+                          {missedReasonText(selectedSession.missed_reason)}
                         </span>
                       )}
                     </div>

@@ -1,3 +1,4 @@
+import { EXPIRED_BOOKING_LABEL, MISSED_SESSION_LABEL } from "../../lib/sessionStatus";
 import {
   useCallback,
   useEffect,
@@ -145,7 +146,11 @@ function mapBookingToReportRow(
 ): ReportSessionRow {
   const session = dto.counseling_sessions?.[0] ?? null;
   const isDone = session?.status === "completed";
+  const isMissed = session?.status === "missed";
+  const isExpired = dto.status === "expired";
   const isCancelled =
+    isMissed ||
+    isExpired ||
     session?.status === "cancelled" ||
     dto.status === "cancelled" ||
     dto.status === "rejected";
@@ -168,8 +173,11 @@ function mapBookingToReportRow(
     outcome: isDone ? "Selesai" : isCancelled ? "Dibatalkan" : "Terjadwal",
     cancelReason:
       dto.cancellation_reason?.trim() || dto.reschedule_reason?.trim() || null,
-    cancelCategory:
-      dto.status === "rejected"
+    cancelCategory: isMissed
+      ? `Sesi ${MISSED_SESSION_LABEL.toLowerCase()}`
+      : isExpired
+        ? `Booking ${EXPIRED_BOOKING_LABEL.toLowerCase()}`
+        : dto.status === "rejected"
         ? "Ditolak konselor"
         : session?.status === "cancelled"
           ? "Sesi dibatalkan"

@@ -1,6 +1,6 @@
 import type { Account, Role } from "../../../types/admin";
 
-export type AdminAccountTab = "Semua" | "Konselor" | "Klien" | "Kepala LMI" | "Admin";
+export type AdminAccountTab = "Semua" | "Konselor" | "Klien" | "Kepala LMI";
 
 const CLIENT_ROLES: readonly Role[] = ["Mahasiswa", "Dosen", "Staff"];
 

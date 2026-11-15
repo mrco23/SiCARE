@@ -1,15 +1,26 @@
 import { HttpError, supabaseError } from "../lib/http.js";
 
-const SESSION_SELECT_FIELDS =
+const BASE_SESSION_FIELDS =
   "id,booking_id,counselor_id,starts_at,ends_at,status,format,room,started_at,completed_at,created_at,updated_at";
+// Kolom dari migrasi 20261115120000. Bila migrasi belum diterapkan, query diulang tanpa kolom ini.
+const SESSION_SELECT_FIELDS = `${BASE_SESSION_FIELDS},missed_reason,missed_at`;
+
+function isMissingColumn(error) {
+  return error?.code === "42703" || /missed_(reason|at)/.test(error?.message ?? "");
+}
+
+/** Menjalankan query dengan kolom terbaru, lalu mengulang dengan kolom dasar bila kolomnya belum ada. */
+async function selectWithFallback(build) {
+  const first = await build(SESSION_SELECT_FIELDS);
+  if (!first.error || !isMissingColumn(first.error)) return first;
+  return build(BASE_SESSION_FIELDS);
+}
 
 export const sessionRepository = {
   async findForParty(supabaseClient, sessionId, profile) {
-    const { data: session, error } = await supabaseClient
-      .from("counseling_sessions")
-      .select(SESSION_SELECT_FIELDS)
-      .eq("id", sessionId)
-      .maybeSingle();
+    const { data: session, error } = await selectWithFallback((fields) =>
+      supabaseClient.from("counseling_sessions").select(fields).eq("id", sessionId).maybeSingle(),
+    );
 
     if (error) supabaseError(error, "Sesi tidak dapat dibaca.");
     if (!session) throw new HttpError(404, "SESSION_NOT_FOUND", "Sesi konseling tidak ditemukan.");
@@ -41,18 +52,16 @@ export const sessionRepository = {
     const bookingIds = (bookings ?? []).map((booking) => booking.id);
     if (!bookingIds.length) return [];
 
-    let query = supabaseClient
-      .from("counseling_sessions")
-      .select(SESSION_SELECT_FIELDS)
-      .in("booking_id", bookingIds)
-      .order("starts_at", { ascending: false })
-      .limit(limit);
-
-    if (status) {
-      query = query.eq("status", status);
-    }
-
-    const { data, error } = await query;
+    const { data, error } = await selectWithFallback((fields) => {
+      let query = supabaseClient
+        .from("counseling_sessions")
+        .select(fields)
+        .in("booking_id", bookingIds)
+        .order("starts_at", { ascending: false })
+        .limit(limit);
+      if (status) query = query.eq("status", status);
+      return query;
+    });
     if (error) supabaseError(error, "Daftar sesi tidak dapat dibaca.");
     return data ?? [];
   },

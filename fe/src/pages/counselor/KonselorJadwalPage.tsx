@@ -46,6 +46,8 @@ import {
   startOfDay,
   WEEKDAYS,
   yOf,
+  isWeekendKey,
+  WEEKEND_MESSAGE,
 } from "../../features/counselor/schedule/scheduleUtils";
 import { ApiError } from "../../lib/api";
 import { counselorApi } from "../../lib/counselorApi";
@@ -350,6 +352,10 @@ export default function KonselorJadwalPage() {
       toast.error(PAST_DATE_MESSAGE);
       return;
     }
+    if (isWeekendKey(dKey)) {
+      toast.error(WEEKEND_MESSAGE);
+      return;
+    }
     let start = initialStart ?? 9 * 60;
     if (initialStart === undefined) {
       if (pastSlotMessage(dKey, LAST_START, todayKey)) {
@@ -509,7 +515,7 @@ export default function KonselorJadwalPage() {
       if (!cur) return;
       let toDate = cur.toDate;
       for (const [k, el] of Object.entries(colRefs.current)) {
-        if (!el || isPast(k)) continue;
+        if (!el || isPast(k) || isWeekendKey(k)) continue;
         const r = el.getBoundingClientRect();
         if (e.clientX >= r.left && e.clientX <= r.right) {
           toDate = k;
@@ -536,6 +542,10 @@ export default function KonselorJadwalPage() {
       const pastMessage = pastSlotMessage(cur.toDate, cur.start, todayKey);
       if (pastMessage) {
         toast.error(pastMessage);
+        return;
+      }
+      if (isWeekendKey(cur.toDate)) {
+        toast.error(WEEKEND_MESSAGE);
         return;
       }
       if (findConflict(cur.toDate, cur.start, cur.slotId)) {
@@ -711,12 +721,14 @@ export default function KonselorJadwalPage() {
                     const k = keyOf(d);
                     const isSel = k === selected;
                     const isTod = k === todayKey;
-                    const past = isPast(k);
+                    const weekend = isWeekendKey(k);
+                    const past = isPast(k) || weekend;
                     return (
                       <button
                         key={k}
                         type="button"
                         onClick={() => pickDate(k)}
+                        title={weekend ? "Libur — tidak melayani konseling" : undefined}
                         className={`mx-0.5 rounded-xl py-1.5 text-center transition ${
                           isSel
                             ? "bg-[#064E3B] text-white"
@@ -734,6 +746,9 @@ export default function KonselorJadwalPage() {
                             <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[#064E3B] align-middle" />
                           )}
                         </div>
+                        {weekend && (
+                          <div className="text-[10px] font-medium opacity-80">Libur</div>
+                        )}
                       </button>
                     );
                   })}
@@ -756,7 +771,8 @@ export default function KonselorJadwalPage() {
                   {weekDays.map((d) => {
                     const k = keyOf(d);
                     const daySlots = slotsByDate[k] ?? [];
-                    const past = isPast(k);
+                    const weekend = isWeekendKey(k);
+                    const past = isPast(k) || weekend;
                     const ghost = drag && drag.toDate === k ? drag : null;
                     const ghostConflict = ghost
                       ? findConflict(k, ghost.start, ghost.slotId) !== null
@@ -773,7 +789,7 @@ export default function KonselorJadwalPage() {
                           if (drag) return;
                           if (e.target !== e.currentTarget) return;
                           if (past) {
-                            toast.error(PAST_DATE_MESSAGE);
+                            toast.error(weekend && !isPast(k) ? WEEKEND_MESSAGE : PAST_DATE_MESSAGE);
                             return;
                           }
                           const r = e.currentTarget.getBoundingClientRect();
@@ -994,7 +1010,7 @@ export default function KonselorJadwalPage() {
                   const k = keyOf(d);
                   const isSel = k === selected;
                   const hasSlots = (slotsByDate[k]?.length ?? 0) > 0;
-                  const past = isPast(k);
+                  const past = isPast(k) || isWeekendKey(k);
                   return (
                     <button
                       key={k}
@@ -1178,7 +1194,7 @@ export default function KonselorJadwalPage() {
                   type="text"
                   inputMode="numeric"
                   maxLength={5}
-                  disabled={editor.isBooked || isPast(editor.dateKey) || mutating}
+                  disabled={editor.isBooked || isPast(editor.dateKey) || isWeekendKey(editor.dateKey) || mutating}
                   value={editorText}
                   onChange={(e) => {
                     setEditorText(e.target.value);
@@ -1275,9 +1291,9 @@ export default function KonselorJadwalPage() {
                   onClick={() => setEditor(null)}
                   className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
-                  <IconLabel icon={X}>{editor.isBooked || isPast(editor.dateKey) ? "Tutup" : "Batal"}</IconLabel>
+                  <IconLabel icon={X}>{editor.isBooked || isPast(editor.dateKey) || isWeekendKey(editor.dateKey) ? "Tutup" : "Batal"}</IconLabel>
                 </button>
-                {!editor.isBooked && !isPast(editor.dateKey) && (
+                {!editor.isBooked && !isPast(editor.dateKey) && !isWeekendKey(editor.dateKey) && (
                   <button
                     type="button"
                     disabled={mutating}

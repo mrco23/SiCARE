@@ -41,6 +41,7 @@ import type {
   BookingRecordBaseDto,
   BookingStatusApi,
 } from "../../types/api";
+import { EXPIRED_BOOKING_LABEL } from "../../lib/sessionStatus";
 
 type StatusTab = "waiting_confirmation" | "reschedule_requested" | "confirmed" | "closed" | "all";
 type TypeFilter = "Semua" | "Individu" | "Kelompok";
@@ -72,6 +73,11 @@ function getStatusBadge(status: BookingStatusApi) {
       return {
         label: "Dibatalkan",
         className: "border-gray-200 bg-gray-100 text-gray-700",
+      };
+    case "expired":
+      return {
+        label: EXPIRED_BOOKING_LABEL,
+        className: "border-slate-200 bg-slate-100 text-slate-700",
       };
     default:
       return {
@@ -150,7 +156,9 @@ export default function KonselorPermintaanPage() {
       waiting_confirmation: bookings.filter((b) => b.status === "waiting_confirmation").length,
       reschedule_requested: bookings.filter((b) => b.status === "reschedule_requested").length,
       confirmed: bookings.filter((b) => b.status === "confirmed").length,
-      closed: bookings.filter((b) => b.status === "rejected" || b.status === "cancelled").length,
+      closed: bookings.filter(
+        (b) => b.status === "rejected" || b.status === "cancelled" || b.status === "expired",
+      ).length,
       all: bookings.length,
     };
   }, [bookings]);
@@ -171,7 +179,8 @@ export default function KonselorPermintaanPage() {
         if (
           statusTab === "closed" &&
           booking.status !== "rejected" &&
-          booking.status !== "cancelled"
+          booking.status !== "cancelled" &&
+          booking.status !== "expired"
         ) {
           return false;
         }

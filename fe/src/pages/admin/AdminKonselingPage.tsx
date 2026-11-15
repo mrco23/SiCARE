@@ -14,6 +14,7 @@ import type {
   BookingStatusApi,
   SessionStatusApi,
 } from "../../types/api";
+import { EXPIRED_BOOKING_LABEL, MISSED_SESSION_LABEL } from "../../lib/sessionStatus";
 import type { AcademicPeriod } from "../../types/academicPeriod";
 import {
   Ban,
@@ -157,6 +158,13 @@ function resolveStatusInfo(
 ): { outcome: OutcomeCategory; label: string } {
   if (sessionStatus === "completed") {
     return { outcome: "completed", label: "Selesai" };
+  }
+  // Sesi terlewat dan booking kedaluwarsa dikelompokkan sebagai tidak terlaksana, dengan label sendiri.
+  if (sessionStatus === "missed") {
+    return { outcome: "cancelled", label: MISSED_SESSION_LABEL };
+  }
+  if (bookingStatus === "expired") {
+    return { outcome: "cancelled", label: EXPIRED_BOOKING_LABEL };
   }
   if (
     sessionStatus === "cancelled" ||
