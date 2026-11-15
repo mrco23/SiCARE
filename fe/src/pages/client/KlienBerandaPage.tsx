@@ -24,8 +24,9 @@ import type {
   BookingListItemDto,
   SessionListItemDto,
 } from "../../types/api";
+import { EXPIRED_BOOKING_LABEL, MISSED_SESSION_LABEL } from "../../lib/sessionStatus";
 
-type BookingStatus = "pending" | "scheduled" | "done" | "cancelled";
+type BookingStatus = "pending" | "scheduled" | "done" | "missed" | "expired" | "cancelled";
 
 type NextSession = {
   date: Date;
@@ -46,6 +47,8 @@ const STATUS_STYLE: Record<BookingStatus, { cls: string; label: string }> = {
   pending: { cls: "bg-amber-50 text-amber-700", label: "Menunggu Konfirmasi" },
   scheduled: { cls: "bg-[#e8f9f0] text-[#1e5b3a]", label: "Terjadwal" },
   done: { cls: "bg-gray-100 text-gray-700", label: "Selesai" },
+  missed: { cls: "bg-slate-100 text-slate-700", label: MISSED_SESSION_LABEL },
+  expired: { cls: "bg-slate-100 text-slate-700", label: EXPIRED_BOOKING_LABEL },
   cancelled: { cls: "bg-red-50 text-red-700", label: "Dibatalkan" },
 };
 
@@ -243,7 +246,13 @@ export default function BerandaKlienPage() {
     const status: BookingStatus =
       matchingSession?.status === "completed"
         ? "done"
-        : b.status === "confirmed"
+        : matchingSession?.status === "missed"
+          ? "missed"
+          : matchingSession?.status === "cancelled"
+            ? "cancelled"
+            : b.status === "expired"
+              ? "expired"
+            : b.status === "confirmed"
           ? "scheduled"
           : b.status === "cancelled" || b.status === "rejected"
             ? "cancelled"

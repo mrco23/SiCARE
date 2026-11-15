@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const sessionListQuerySchema = z.object({
-  status: z.enum(["scheduled", "ongoing", "completed", "cancelled"]).optional(),
+  status: z.enum(["scheduled", "ongoing", "completed", "cancelled", "missed"]).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 }).strict();
 

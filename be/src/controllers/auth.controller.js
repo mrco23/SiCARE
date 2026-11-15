@@ -3,11 +3,13 @@ import {
   registerSchema,
   loginSchema,
   resendConfirmationSchema,
+  changePasswordSchema,
 } from "../validators/auth.validator.js";
 import {
   registerUser,
   resendConfirmation,
   loginUser,
+  changeAccountPassword,
 } from "../services/auth.service.js";
 
 export const authController = {
@@ -26,6 +28,12 @@ export const authController = {
   async login(req, res) {
     const input = parseBody(loginSchema, req.body);
     const result = await loginUser(input);
+    return sendData(res, result);
+  },
+
+  async changePassword(req, res) {
+    const input = parseBody(changePasswordSchema, req.body);
+    const result = await changeAccountPassword(req.auth, input);
     return sendData(res, result);
   },
 

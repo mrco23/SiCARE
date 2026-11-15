@@ -31,9 +31,20 @@ import type {
   ClientFeedbackDto,
   InformedConsentDto,
   SessionListItemDto,
+  SessionMissedReasonApi,
+  SessionStatusApi,
 } from "../../types/api";
+import {
+  EXPIRED_BOOKING_LABEL,
+  EXPIRED_BOOKING_REASON,
+  MISSED_SESSION_LABEL,
+  missedReasonText,
+} from "../../lib/sessionStatus";
 
-type SessionStatus = "ongoing" | "done" | "upcoming";
+// "waiting": jam sesi sudah tiba/lewat tetapi konselor belum memulai (status server masih `scheduled`).
+// "missed": ditandai otomatis oleh server setelah lewat jam selesai + toleransi.
+// "expired": booking yang tidak dikonfirmasi sampai jadwalnya tiba (status booking `expired`).
+type SessionStatus = "ongoing" | "waiting" | "done" | "upcoming" | "missed" | "expired";
 
 type PendingSlot = {
   reason: string;
@@ -58,6 +69,11 @@ type Session = {
   consentSignedAt?: Date | null;
   bookingId?: string;
   counselorId?: string;
+  /** Status dari server; tidak ada untuk booking yang belum punya baris sesi. */
+  serverStatus?: SessionStatusApi;
+  missedReason?: SessionMissedReasonApi | null;
+  /** Status booking untuk entri yang belum punya baris sesi. */
+  bookingStatus?: BookingListItemDto["status"];
   consentId?: string;
   rawSessionId?: string;
 };
@@ -136,13 +152,22 @@ const countdown = (milliseconds: number) => {
     : `${remainingMinutes} menit lagi`;
 };
 
+// Status mengikuti server; jam hanya dipakai untuk membedakan sesi yang belum tiba waktunya.
 const statusOf = (session: Session, now: number): SessionStatus => {
-  if (now >= session.start.getTime() && now < session.end.getTime()) {
-    return "ongoing";
+  if (session.serverStatus === "completed") return "done";
+  if (session.serverStatus === "missed") return "missed";
+  if (session.serverStatus === "ongoing") return "ongoing";
+  if (!session.serverStatus) {
+    // Belum ada sesi: booking masih menunggu konfirmasi atau jadwal ulang.
+    if (session.bookingStatus === "expired") return "expired";
+    if (session.bookingStatus === "reschedule_requested") return "upcoming";
+    if (now >= session.start.getTime()) return "expired";
   }
-  if (now >= session.end.getTime()) return "done";
-  return "upcoming";
+  if (now < session.start.getTime()) return "upcoming";
+  return "waiting";
 };
+
+const MISSED_VISIBLE_DAYS = 14;
 
 const canReschedule = (session: Session, now: number) => {
   const hoursLeft = (session.start.getTime() - now) / 3_600_000;
@@ -293,6 +318,7 @@ export default function KlienAktivitasPage() {
 
       for (const s of sessionRows) {
         processedBookingIds.add(s.booking_id);
+        if (s.status === "cancelled") continue;
         const booking = bookingRows.find((b) => b.id === s.booking_id);
         const counselorName =
           counselorMap.get(s.counselor_id) ||
@@ -358,6 +384,8 @@ export default function KlienAktivitasPage() {
             : null,
           bookingId: s.booking_id,
           counselorId: s.counselor_id,
+          serverStatus: s.status,
+          missedReason: s.missed_reason ?? null,
           consentId: consent?.id,
           rawSessionId: s.id,
         });
@@ -413,6 +441,7 @@ export default function KlienAktivitasPage() {
             : null,
           bookingId: b.id,
           counselorId: b.counselor_id,
+          bookingStatus: b.status,
           consentId: consent?.id,
           rawSessionId: b.id,
         });
@@ -465,8 +494,35 @@ export default function KlienAktivitasPage() {
   const ongoing = useMemo(
     () =>
       sessions
-        .filter((session) => statusOf(session, now) === "ongoing")
+        .filter((session) => {
+          const status = statusOf(session, now);
+          return status === "ongoing" || status === "waiting";
+        })
         .sort((a, b) => a.start.getTime() - b.start.getTime()),
+    [sessions, now],
+  );
+
+  const expiredRequests = useMemo(
+    () =>
+      sessions
+        .filter(
+          (session) =>
+            statusOf(session, now) === "expired" &&
+            now - session.start.getTime() <= MISSED_VISIBLE_DAYS * 86_400_000,
+        )
+        .sort((a, b) => b.start.getTime() - a.start.getTime()),
+    [sessions, now],
+  );
+
+  const missed = useMemo(
+    () =>
+      sessions
+        .filter(
+          (session) =>
+            statusOf(session, now) === "missed" &&
+            now - session.end.getTime() <= MISSED_VISIBLE_DAYS * 86_400_000,
+        )
+        .sort((a, b) => b.start.getTime() - a.start.getTime()),
     [sessions, now],
   );
 
@@ -491,7 +547,7 @@ export default function KlienAktivitasPage() {
   ).length;
 
   const summaryLine = [
-    ongoing.length
+    ongoing.some((session) => statusOf(session, now) === "ongoing")
       ? "Kamu sedang dalam sesi konseling. Kamu aman untuk bercerita."
       : "",
     !ongoing.length && upcoming.length
@@ -724,24 +780,33 @@ export default function KlienAktivitasPage() {
 
   const renderOngoingCard = (session: Session) => {
     const signed = session.consentSigned;
+    const waiting = statusOf(session, now) === "waiting";
 
     return (
       <article
         key={session.id}
         className="overflow-hidden rounded-3xl border border-[#1e5b3a]/15 bg-white shadow-sm"
       >
-        <div className="flex items-center justify-between gap-3 bg-[#1e5b3a] px-5 py-3 text-white">
+        <div
+          className={`flex items-center justify-between gap-3 px-5 py-3 ${
+            waiting ? "bg-amber-100 text-amber-900" : "bg-[#1e5b3a] text-white"
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#8fe3bf] opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#8fe3bf]" />
-            </span>
+            {waiting ? (
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+            ) : (
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#8fe3bf] opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#8fe3bf]" />
+              </span>
+            )}
             <span className="text-xs font-semibold uppercase tracking-wider">
-              Sedang berlangsung
+              {waiting ? "Menunggu sesi dimulai" : "Sedang berlangsung"}
             </span>
           </div>
-          <span className="text-xs text-white/80">
-            Selesai pukul {formatTime(session.end)} WITA
+          <span className={`text-xs ${waiting ? "text-amber-800" : "text-white/80"}`}>
+            {formatTime(session.start)}–{formatTime(session.end)} WITA
           </span>
         </div>
 
@@ -768,7 +833,9 @@ export default function KlienAktivitasPage() {
                 Tanda tangani informed consent terlebih dahulu
               </p>
               <p className="mt-1 text-xs text-amber-800">
-                Dokumen ini wajib disetujui sebelum sesi dimulai.
+                {waiting
+                  ? "Konselor baru dapat memulai sesi setelah dokumen ini ditandatangani. Jika belum ditandatangani sampai 30 menit setelah jadwal berakhir, sesi ditandai terlewat."
+                  : "Dokumen ini wajib disetujui sebelum sesi dimulai."}
               </p>
               <button
                 type="button"
@@ -784,6 +851,35 @@ export default function KlienAktivitasPage() {
       </article>
     );
   };
+
+  const renderMissedCard = (session: Session) => (
+    <div
+      key={session.id}
+      className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex min-w-0 items-center gap-4">
+        {dateBadge(session.start)}
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900">{session.counselor}</p>
+          <p className="text-xs text-gray-500">
+            {session.service} · {formatTime(session.start)}–{formatTime(session.end)} WITA
+          </p>
+          <p className="mt-1 text-xs text-gray-600">
+            {statusOf(session, now) === "expired"
+              ? EXPIRED_BOOKING_REASON
+              : missedReasonText(session.missedReason)}
+          </p>
+        </div>
+      </div>
+      <Link
+        to="/klien/pesanan"
+        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-[#1e5b3a] px-4 py-2 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#f7fcf9]"
+      >
+        <CalendarPlus className="h-4 w-4" />
+        Pesan jadwal baru
+      </Link>
+    </div>
+  );
 
   const renderFeedbackCard = (session: Session) => (
     <div
@@ -1154,6 +1250,38 @@ export default function KlienAktivitasPage() {
             Sedang berlangsung
           </h2>
           {ongoing.map(renderOngoingCard)}
+        </section>
+      )}
+
+      {missed.length > 0 && (
+        <section
+          className="space-y-4 rounded-3xl border border-gray-200 bg-gray-50/60 p-5 sm:p-6"
+          aria-labelledby="missed-section-title"
+        >
+          <div id="missed-section-title">
+            <SectionHeader
+              title={`Sesi ${MISSED_SESSION_LABEL.toLowerCase()}`}
+              description="Sesi ini tidak terlaksana sesuai jadwal. Kamu dapat memesan jadwal baru kapan saja."
+              count={missed.length}
+            />
+          </div>
+          <div className="space-y-3">{missed.map(renderMissedCard)}</div>
+        </section>
+      )}
+
+      {expiredRequests.length > 0 && (
+        <section
+          className="space-y-4 rounded-3xl border border-gray-200 bg-gray-50/60 p-5 sm:p-6"
+          aria-labelledby="expired-section-title"
+        >
+          <div id="expired-section-title">
+            <SectionHeader
+              title={`Permintaan ${EXPIRED_BOOKING_LABEL.toLowerCase()}`}
+              description="Permintaan ini ditutup otomatis karena belum dikonfirmasi sampai jadwalnya tiba."
+              count={expiredRequests.length}
+            />
+          </div>
+          <div className="space-y-3">{expiredRequests.map(renderMissedCard)}</div>
         </section>
       )}
 

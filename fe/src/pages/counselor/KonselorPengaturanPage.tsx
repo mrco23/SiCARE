@@ -10,6 +10,9 @@ import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus
 import { useAuth } from "../../features/auth/useAuth";
 import { counselorApi } from "../../lib/counselorApi";
 import { sicareApi } from "../../lib/sicareApi";
+import { PasswordRuleList, PhoneE164Input } from "../../components/shared/AccountInputs";
+import { toIndonesianE164 } from "../../lib/accountRules";
+import { submitAccountPasswordChange } from "../../features/auth/accountPasswordChange";
 import {
   uploadProfilePhoto,
   deleteProfilePhoto,
@@ -409,7 +412,6 @@ export default function KonselorPengaturanPage() {
         0,
         currentYear - (Number(profile.experienceStartYear) || currentYear),
       );
-      const cleanedPhone = profile.phone.replace(/[\s()-]/g, "").trim();
 
       let nextPhotoPath = profile.photo;
       if (profile.photo !== saved.photo) {
@@ -441,12 +443,10 @@ export default function KonselorPengaturanPage() {
             photo_path: nextPhotoPath,
           })
           .catch(() => null),
-        sicareApi
-          .updateProfile({
-            full_name: profile.displayName.trim(),
-            phone_e164: cleanedPhone || null,
-          })
-          .catch(() => null),
+        sicareApi.updateProfile({
+          full_name: profile.displayName.trim(),
+          phone_e164: toIndonesianE164(profile.phone) || null,
+        }),
       ]);
 
       await refreshProfile().catch(() => null);
@@ -516,6 +516,26 @@ export default function KonselorPengaturanPage() {
       return;
     }
 
+    if (passwordKind === "akun") {
+      setPwdSaving(true);
+      try {
+        await submitAccountPasswordChange({
+          current: pwdCurrent,
+          next: pwdNext,
+          confirm: pwdConfirm,
+        });
+        setPwdCurrent("");
+        setPwdNext("");
+        setPwdConfirm("");
+        toast.success("Kata sandi akun berhasil diperbarui.");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Kata sandi akun belum dapat diperbarui.");
+      } finally {
+        setPwdSaving(false);
+      }
+      return;
+    }
+
     const issues = [
       !pwdCurrent ? "Masukkan kata sandi saat ini." : "",
       pwdNext.length < minimumLength
@@ -525,14 +545,6 @@ export default function KonselorPengaturanPage() {
     ].filter(Boolean);
     if (issues.length) {
       toast.error(issues.join(" "));
-      return;
-    }
-
-    if (passwordKind === "akun") {
-      setPwdCurrent("");
-      setPwdNext("");
-      setPwdConfirm("");
-      toast.info("Permintaan ubah kata sandi akun diterima.");
       return;
     }
 
@@ -683,6 +695,22 @@ export default function KonselorPengaturanPage() {
                 onChange={(e) => update("displayName", e.target.value)}
                 placeholder="Contoh: Giovanna Yudi, M.Psi"
               />
+            </Field>
+
+            <Field
+              label="Nomor telepon (WhatsApp)"
+              required
+              error={showErrors ? errors.phone : ""}
+            >
+              <PhoneE164Input
+                value={profile.phone}
+                disabled={saving}
+                invalid={Boolean(showErrors && errors.phone)}
+                onChange={(e164) => update("phone", e164)}
+              />
+              <p className="mt-1 text-[11px] text-gray-400">
+                Tidak ditampilkan ke klien. Dipakai untuk notifikasi WhatsApp permintaan booking dan pengingat jadwal.
+              </p>
             </Field>
 
             <Field label="Headline profesi">
@@ -909,9 +937,12 @@ export default function KonselorPengaturanPage() {
                   type="password"
                   value={pwdNext}
                   onChange={(e) => setPwdNext(e.target.value)}
-                  placeholder={passwordKind === "riwayat" ? "Minimal 4 karakter" : "Minimal 8 karakter"}
+                  placeholder={passwordKind === "riwayat" ? "Minimal 4 karakter" : "Buat kata sandi baru"}
                   className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
                 />
+                {passwordKind === "akun" && (
+                  <PasswordRuleList password={pwdNext} className="mt-2" />
+                )}
               </Field>
 
               <Field

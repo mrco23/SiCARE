@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase.js";
+import { markExpiredBookings, markMissedSessions } from "../services/missedSession.service.js";
 import {
   cancelObsoleteReminders,
   enqueueSessionReminders,
@@ -229,14 +230,28 @@ export async function scanPendingConsentsAndEnqueueReminders(options = {}) {
  */
 export async function runSchedulerPass(options = {}) {
   try {
+    let expiredBookings = 0;
+    try {
+      expiredBookings = await markExpiredBookings(options.supabaseClient);
+    } catch (err) {
+      console.error("[WhatsApp Scheduler] Penandaan booking kedaluwarsa gagal:", { code: err?.code ?? "UNKNOWN" });
+    }
+    let missedSessions = 0;
+    try {
+      missedSessions = await markMissedSessions(options.supabaseClient);
+    } catch (err) {
+      // Pengingat tetap dijalankan walau penandaan sesi terlewat gagal (mis. migrasi belum diterapkan).
+      console.error("[WhatsApp Scheduler] Penandaan sesi terlewat gagal:", { code: err?.code ?? "UNKNOWN" });
+    }
     const sessionRes = await scanUpcomingSessionsAndEnqueueReminders(options);
-    const consentRes = await scanPendingConsentsAndEnqueueReminders(options);
+    // Pengingat consent yang belum ditandatangani dinonaktifkan sejak 2026-11-15 (keputusan pengguna).
+    // scanPendingConsentsAndEnqueueReminders tetap ada tetapi tidak dipanggil.
     return {
       scannedSessions: sessionRes.scannedSessions,
       enqueuedReminders: sessionRes.enqueuedReminders,
       cleanedReminders: sessionRes.cleanedReminders,
-      scannedInvitations: consentRes.scannedInvitations,
-      enqueuedConsentReminders: consentRes.enqueuedReminders,
+      missedSessions,
+      expiredBookings,
     };
   } catch (err) {
     console.error("[WhatsApp Scheduler] Error running reminder scheduler pass:", err);

@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase.js";
+import { markMissedSessionsSafely } from "./missedSession.service.js";
 import { HttpError } from "../lib/http.js";
 import { callDomainRpc } from "../lib/domainRpc.js";
 import { writeAudit } from "../lib/audit.js";
@@ -44,6 +45,7 @@ export async function attachIntakeAnswersForCounselor(client, authProfile, booki
 export const bookingService = {
   async listBookings({ authUser, authProfile, authRole, status, limit }) {
     const client = getClient();
+    await markMissedSessionsSafely(client);
     const bookings = await bookingRepository.list(client, {
       userId: authUser.id,
       role: authRole,

@@ -9,6 +9,9 @@ import {
 } from "../../components/shared";
 import { useAuth } from "../../features/auth/useAuth";
 import { sicareApi } from "../../lib/sicareApi";
+import { PasswordRuleList, PhoneE164Input } from "../../components/shared/AccountInputs";
+import { toIndonesianE164, validateIndonesianPhone } from "../../lib/accountRules";
+import { submitAccountPasswordChange } from "../../features/auth/accountPasswordChange";
 import {
   uploadProfilePhoto,
   deleteProfilePhoto,
@@ -29,7 +32,6 @@ import {
   Camera,
   LockKeyhole,
   Mail,
-  Phone,
   Save,
   ShieldCheck,
   UserRound,
@@ -52,7 +54,6 @@ const INITIAL_PROFILE: Profile = {
   phone: "",
 };
 
-const PASSWORD_MIN = 8;
 
 function cloneProfile(p: Profile): Profile {
   return { ...p };
@@ -98,6 +99,7 @@ export default function KepalaLMIPengaturanPage() {
   const [pwdCurrent, setPwdCurrent] = useState("");
   const [pwdNext, setPwdNext] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
+  const [pwdSaving, setPwdSaving] = useState(false);
 
   const photoInput = useRef<HTMLInputElement>(null);
 
@@ -147,11 +149,8 @@ export default function KepalaLMIPengaturanPage() {
       result.email = "Format email tidak valid.";
     }
 
-    const phone = profile.phone.replace(/[\s()-]/g, "");
-    if (phone && !/^(\+62|62|0)[0-9]{8,15}$/.test(phone)) {
-      result.phone = "Format nomor telepon tidak valid.";
-    }
-
+    const phoneError = validateIndonesianPhone(profile.phone);
+    if (phoneError) result.phone = phoneError;
     return result;
   }, [profile]);
 
@@ -296,10 +295,9 @@ export default function KepalaLMIPengaturanPage() {
 
     setSaving(true);
     try {
-      const cleanedPhone = profile.phone.replace(/[\s()-]/g, "").trim();
       await sicareApi.updateProfile({
         full_name: profile.displayName.trim(),
-        phone_e164: cleanedPhone || null,
+        phone_e164: toIndonesianE164(profile.phone) || null,
       });
 
       let nextPhotoPath = profile.photo;
@@ -346,26 +344,28 @@ export default function KepalaLMIPengaturanPage() {
     setPhotoError("");
   }
 
-  function changePassword(event: FormEvent<HTMLFormElement>) {
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pwdSaving) return;
 
-    const issues = [
-      !pwdCurrent ? "Masukkan kata sandi saat ini." : "",
-      pwdNext.length < PASSWORD_MIN
-        ? `Kata sandi baru minimal ${PASSWORD_MIN} karakter.`
-        : "",
-      pwdConfirm !== pwdNext ? "Konfirmasi kata sandi tidak sama." : "",
-    ].filter(Boolean);
-
-    if (issues.length > 0) {
-      toast.error(issues.join(" "));
-      return;
+    setPwdSaving(true);
+    try {
+      await submitAccountPasswordChange({
+        current: pwdCurrent,
+        next: pwdNext,
+        confirm: pwdConfirm,
+      });
+      setPwdCurrent("");
+      setPwdNext("");
+      setPwdConfirm("");
+      toast.success("Kata sandi akun berhasil diperbarui.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Kata sandi belum dapat diperbarui.",
+      );
+    } finally {
+      setPwdSaving(false);
     }
-
-    setPwdCurrent("");
-    setPwdNext("");
-    setPwdConfirm("");
-    toast.success("Perubahan kata sandi disimpan untuk sesi ini.");
   }
 
   const photoPreview = getPublicPhotoUrl(profile.photo);
@@ -516,19 +516,12 @@ export default function KepalaLMIPengaturanPage() {
               label="Nomor Telepon (WhatsApp)"
               error={showErrors ? errors.phone : ""}
             >
-              <div className="relative">
-                <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  disabled={saving}
-                  value={profile.phone}
-                  onChange={(e) => updateProfile("phone", e.target.value)}
-                  placeholder="Contoh: 081234567890"
-                  className={`${inputClass} pl-10`}
-                />
-              </div>
+              <PhoneE164Input
+                disabled={saving}
+                value={profile.phone}
+                invalid={Boolean(showErrors && errors.phone)}
+                onChange={(e164) => updateProfile("phone", e164)}
+              />
               <p className="mt-1 text-[11px] text-gray-400">
                 Digunakan untuk koordinasi operasional SiCARE.
               </p>
@@ -549,6 +542,7 @@ export default function KepalaLMIPengaturanPage() {
                 type="password"
                 autoComplete="current-password"
                 value={pwdCurrent}
+                disabled={pwdSaving}
                 onChange={(e) => setPwdCurrent(e.target.value)}
                 className={inputClass}
               />
@@ -559,12 +553,11 @@ export default function KepalaLMIPengaturanPage() {
                 type="password"
                 autoComplete="new-password"
                 value={pwdNext}
+                disabled={pwdSaving}
                 onChange={(e) => setPwdNext(e.target.value)}
                 className={inputClass}
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Minimal {PASSWORD_MIN} karakter
-              </p>
+              <PasswordRuleList password={pwdNext} className="mt-2" />
             </Field>
 
             <Field label="Ulangi kata sandi baru" required>
@@ -572,6 +565,7 @@ export default function KepalaLMIPengaturanPage() {
                 type="password"
                 autoComplete="new-password"
                 value={pwdConfirm}
+                disabled={pwdSaving}
                 onChange={(e) => setPwdConfirm(e.target.value)}
                 className={inputClass}
               />
@@ -580,9 +574,10 @@ export default function KepalaLMIPengaturanPage() {
             <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                disabled={pwdSaving}
+                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
               >
-                <IconLabel icon={KeyRound}>Ubah kata sandi</IconLabel>
+                <IconLabel icon={KeyRound}>{pwdSaving ? "Memproses..." : "Ubah kata sandi"}</IconLabel>
               </button>
             </div>
           </form>

@@ -9,6 +9,19 @@ import {
 import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
+import {
+  CampusEmailInput,
+  PasswordRuleList,
+  PhoneE164Input,
+} from "../../components/shared/AccountInputs";
+import {
+  buildCampusEmail,
+  getCampusEmailLocalPart,
+  toIndonesianE164,
+  validateCampusEmailLocalPart,
+  validateIndonesianPhone,
+  validateStrongPassword,
+} from "../../lib/accountRules";
 import type {
   AccountStatusApi,
   AdminAccountDto,
@@ -73,7 +86,8 @@ type FormState = {
 const LICENSE_NUMBER_RE = /^[A-Za-z0-9./_\- ]+$/;
 
 const ROLES: Role[] = ["Konselor", "Kepala LMI"];
-const TABS: Tab[] = ["Semua", "Konselor", "Klien", "Kepala LMI", "Admin"];
+// Akun admin sengaja tidak ditampilkan di halaman ini (tanpa tab maupun baris).
+const TABS: Tab[] = ["Semua", "Konselor", "Klien", "Kepala LMI"];
 
 const ROLE_STYLE: Record<Role, string> = {
   Konselor: "bg-primary-subtle text-primary border-emerald-100",
@@ -144,7 +158,7 @@ function matchesTab(account: ManagedAccount, tab: Tab): boolean {
   if (tab === "Klien") return account.appRole === "client";
   if (tab === "Konselor") return account.appRole === "counselor";
   if (tab === "Kepala LMI") return account.appRole === "head_lmi";
-  return account.appRole === "admin";
+  return false;
 }
 
 const initials = (n: string) =>
@@ -237,7 +251,8 @@ export default function AdminAkunPage() {
 
   const fetchAccounts = useCallback(async () => {
     const dtos = await adminApi.listAccounts({ limit: 100 });
-    return dtos.map((dto) => mapAccountDto(dto));
+    // Akun admin tidak dikelola dari halaman ini, jadi tidak ditampilkan.
+    return dtos.filter((dto) => dto.app_role !== "admin").map((dto) => mapAccountDto(dto));
   }, []);
 
   useEffect(() => {
@@ -353,7 +368,7 @@ export default function AdminAkunPage() {
     const code = form.code.trim();
     const email = form.email.trim();
     const password = form.password;
-    const phone = form.phone.trim();
+    const phone = toIndonesianE164(form.phone);
     const siapNumber = form.siapNumber.trim();
     const sippSilpNumber = form.sippSilpNumber.trim();
     const isCounselorForm = form.role === "Konselor";
@@ -363,13 +378,22 @@ export default function AdminAkunPage() {
       return;
     }
 
-    if (editingId === null && password.length < 8) {
-      setFormError("Password akun baru minimal 8 karakter.");
-      return;
+    if (editingId === null) {
+      const emailError = validateCampusEmailLocalPart(getCampusEmailLocalPart(email));
+      if (emailError) {
+        setFormError(emailError);
+        return;
+      }
+      const passwordError = validateStrongPassword(password);
+      if (passwordError) {
+        setFormError(passwordError);
+        return;
+      }
     }
 
-    if (phone && (phone.length < 8 || phone.length > 20)) {
-      setFormError("Nomor telepon harus antara 8 hingga 20 karakter.");
+    const phoneError = validateIndonesianPhone(phone);
+    if (phoneError) {
+      setFormError(phoneError);
       return;
     }
 
@@ -775,23 +799,32 @@ export default function AdminAkunPage() {
                 <label className="text-xs font-semibold text-slate-600">
                   Email kampus
                 </label>
-                <input
-                  type="email"
-                  value={form.email}
-                  readOnly={editingId !== null}
-                  disabled={submitting}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className={`${inputClass} ${
-                    editingId !== null
-                      ? "cursor-not-allowed bg-slate-50 text-slate-500"
-                      : ""
-                  }`}
-                />
+                {editingId === null ? (
+                  <CampusEmailInput
+                    value={getCampusEmailLocalPart(form.email)}
+                    disabled={submitting}
+                    autoComplete="off"
+                    placeholder="nama.pengguna"
+                    className="mt-1 border-slate-200"
+                    inputClassName="py-2"
+                    onChange={(localPart) =>
+                      setForm({ ...form, email: buildCampusEmail(localPart) })
+                    }
+                  />
+                ) : (
+                  <input
+                    type="email"
+                    value={form.email}
+                    readOnly
+                    disabled={submitting}
+                    className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-500`}
+                  />
+                )}
               </div>
               {editingId === null ? (
                 <div>
                   <label className="text-xs font-semibold text-slate-600">
-                    Password awal (minimal 8 karakter)
+                    Password awal
                   </label>
                   <input
                     type="password"
@@ -800,24 +833,23 @@ export default function AdminAkunPage() {
                     onChange={(e) =>
                       setForm({ ...form, password: e.target.value })
                     }
-                    placeholder="Minimal 8 karakter"
+                    placeholder="Buat password awal"
+                    autoComplete="new-password"
                     className={inputClass}
                   />
+                  <PasswordRuleList password={form.password} className="mt-2" />
                 </div>
               ) : (
                 <div>
                   <label className="text-xs font-semibold text-slate-600">
                     Nomor telepon (opsional)
                   </label>
-                  <input
-                    type="tel"
+                  <PhoneE164Input
                     value={form.phone}
                     disabled={submitting}
-                    onChange={(e) =>
-                      setForm({ ...form, phone: e.target.value })
-                    }
-                    placeholder="Contoh: +6281234567890"
-                    className={inputClass}
+                    className="mt-1 border-slate-200"
+                    inputClassName="py-2"
+                    onChange={(e164) => setForm({ ...form, phone: e164 })}
                   />
                 </div>
               )}

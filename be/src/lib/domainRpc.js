@@ -16,6 +16,7 @@ export const DOMAIN_ERRORS = {
   BOOKING_REASON_REQUIRED: [400, "BOOKING_REASON_REQUIRED", "Alasan wajib diisi untuk perubahan status ini."],
   BOOKING_SESSION_ALREADY_STARTED: [409, "SESSION_ALREADY_STARTED", "Booking tidak dapat dibatalkan setelah sesi dimulai atau selesai."],
   BOOKING_FORBIDDEN: [403, "BOOKING_FORBIDDEN", "Kamu tidak memiliki akses ke booking ini."],
+  BOOKING_EXPIRED: [409, "BOOKING_EXPIRED", "Jadwal booking ini sudah tiba atau lewat, sehingga tidak dapat dikonfirmasi lagi."],
   SESSION_FORMAT_REQUIRED: [400, "SESSION_FORMAT_REQUIRED", "Format sesi online atau offline wajib dipilih saat menerima booking."],
   SESSION_ROOM_INVALID: [400, "SESSION_ROOM_INVALID", "Informasi ruang maksimal 240 karakter."],
   SESSION_NOT_FOUND: [404, "SESSION_NOT_FOUND", "Sesi konseling tidak ditemukan."],

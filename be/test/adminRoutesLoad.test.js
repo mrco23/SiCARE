@@ -235,8 +235,8 @@ test("POST /admin/accounts with app_role: 'client' is rejected with 400", async 
       url: "/api/v1/admin/accounts",
       headers: { authorization: "Bearer valid-admin-token" },
       body: {
-        email: "client.new@sicare.test",
-        password: "password123",
+        email: "client.new@unikadelasalle.ac.id",
+        password: "Sandi#Kuat123",
         full_name: "Calon Klien",
         app_role: "client",
       },
@@ -258,8 +258,8 @@ test("POST /admin/accounts with app_role: 'admin' is rejected with 400", async (
       url: "/api/v1/admin/accounts",
       headers: { authorization: "Bearer valid-admin-token" },
       body: {
-        email: "admin.new@sicare.test",
-        password: "password123",
+        email: "admin.new@unikadelasalle.ac.id",
+        password: "Sandi#Kuat123",
         full_name: "Calon Admin",
         app_role: "admin",
       },
@@ -281,8 +281,8 @@ test("POST /admin/accounts with app_role: 'counselor' succeeds (201)", async () 
       url: "/api/v1/admin/accounts",
       headers: { authorization: "Bearer valid-admin-token" },
       body: {
-        email: "konselor.baru@sicare.test",
-        password: "password123",
+        email: "konselor.baru@unikadelasalle.ac.id",
+        password: "Sandi#Kuat123",
         full_name: "Konselor Baru",
         gender: "female",
         siap_number: "SIAP-001",
@@ -292,7 +292,7 @@ test("POST /admin/accounts with app_role: 'counselor' succeeds (201)", async () 
     });
     assert.equal(res.status, 201);
     assert.equal(res.body.data.app_role, "counselor");
-    assert.equal(res.body.data.email, "konselor.baru@sicare.test");
+    assert.equal(res.body.data.email, "konselor.baru@unikadelasalle.ac.id");
   } finally {
     setSupabaseAdminClientForTests(null);
   }
@@ -308,8 +308,8 @@ test("POST /admin/accounts with app_role: 'head_lmi' succeeds (201)", async () =
       url: "/api/v1/admin/accounts",
       headers: { authorization: "Bearer valid-admin-token" },
       body: {
-        email: "headlmi.baru@sicare.test",
-        password: "password123",
+        email: "headlmi.baru@unikadelasalle.ac.id",
+        password: "Sandi#Kuat123",
         full_name: "Pimpinan LMI Baru",
         gender: "male",
         app_role: "head_lmi",
@@ -317,7 +317,7 @@ test("POST /admin/accounts with app_role: 'head_lmi' succeeds (201)", async () =
     });
     assert.equal(res.status, 201);
     assert.equal(res.body.data.app_role, "head_lmi");
-    assert.equal(res.body.data.email, "headlmi.baru@sicare.test");
+    assert.equal(res.body.data.email, "headlmi.baru@unikadelasalle.ac.id");
   } finally {
     setSupabaseAdminClientForTests(null);
   }

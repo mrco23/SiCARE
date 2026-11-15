@@ -1,5 +1,6 @@
 // @ts-check
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase.js";
+import { markMissedSessionsSafely } from "./missedSession.service.js";
 import { HttpError, supabaseError } from "../lib/http.js";
 
 const supa = () => {
@@ -15,6 +16,7 @@ async function countRows(table, configure = (q) => q) {
 
 export const reportingService = {
   async getDashboard() {
+    await markMissedSessionsSafely();
     const [
       activeClients,
       activeCounselors,
@@ -44,6 +46,7 @@ export const reportingService = {
   },
 
   async getReport() {
+    await markMissedSessionsSafely();
     const since = new Date();
     since.setMonth(since.getMonth() - 11, 1);
     since.setHours(0, 0, 0, 0);
@@ -119,6 +122,8 @@ export const reportingService = {
         bookings: bookings.length,
         completed_sessions: sessions.filter((x) => x.status === "completed").length,
         cancelled_sessions: sessions.filter((x) => x.status === "cancelled").length,
+        missed_sessions: sessions.filter((x) => x.status === "missed").length,
+        expired_bookings: bookings.filter((x) => x.status === "expired").length,
         feedback: feedback.length,
         shown_feedback: feedback.filter((x) => x.moderation_status === "shown").length,
         average_rating: feedback.length

@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import type { ElementType } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import AnimatedMascot from "../../components/mood/AnimatedMascot";
 import {
   getPublicAcademicPeriods,
   getPublicCounselors,
@@ -905,11 +906,9 @@ export default function HomePage() {
               {/* Kanan: maskot */}
               <div className="flex justify-center md:justify-end">
                 <div className="relative w-full max-w-48 sm:max-w-56 lg:max-w-64">
-                  <img
-                    src="/thinking.png"
-                    alt="Maskot SiCARE"
-                    className="mascot-confused block h-auto w-full object-contain"
-                  />
+                  <div role="img" aria-label="Maskot SiCARE sedang berpikir">
+                    <AnimatedMascot pose="thinking" />
+                  </div>
                   {/* Tanda tanya yang muncul bergantian di sekitar kepala maskot */}
                   <span
                     aria-hidden="true"

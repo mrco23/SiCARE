@@ -33,6 +33,16 @@ export const sessionNotesSchema = z.object({
   follow_up: noteField(5000),
 }).strict();
 
+// Konseling hanya dilayani pada hari kerja (Senin–Jumat) menurut waktu operasional WITA.
+// Aturan ini hanya berlaku untuk jadwal yang dibuat/diubah konselor lewat API; data uji
+// akhir pekan yang dimasukkan langsung ke database oleh pengelola tidak terpengaruh.
+const OPERATIONAL_TIME_ZONE = "Asia/Makassar";
+export function isWeekendInOperationalZone(isoString) {
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: OPERATIONAL_TIME_ZONE, weekday: "short" })
+    .format(new Date(isoString));
+  return weekday === "Sat" || weekday === "Sun";
+}
+
 export const slotSchema = z.object({
   starts_at: z.string().datetime({ offset: true }),
   ends_at: z.string().datetime({ offset: true }),
@@ -43,6 +53,13 @@ export const slotSchema = z.object({
   }
   if (Date.parse(v.starts_at) <= Date.now()) {
     c.addIssue({ code: "custom", message: "Jadwal harus berada di masa depan.", path: ["starts_at"] });
+  }
+  if (isWeekendInOperationalZone(v.starts_at) || isWeekendInOperationalZone(v.ends_at)) {
+    c.addIssue({
+      code: "custom",
+      message: "Jadwal konseling hanya dapat dibuat pada hari kerja (Senin–Jumat).",
+      path: ["starts_at"],
+    });
   }
 });
 

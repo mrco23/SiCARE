@@ -1,3 +1,4 @@
+import { validateIndonesianPhone } from "../../../lib/accountRules";
 import type {
   CounselorProfile,
   CounselorProfileErrors,
@@ -8,7 +9,6 @@ export const MAX_COUNSELOR_TOPIC_LENGTH = 40;
 export const MAX_COUNSELOR_BIO_LENGTH = 500;
 export const MAX_COUNSELOR_PHOTO_BYTES = 2 * 1024 * 1024;
 export const COUNSELOR_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-export const COUNSELOR_PHONE_PATTERN = /^(\+62|62|0)[0-9]{8,13}$/;
 export const MIN_ACCOUNT_PASSWORD_LENGTH = 8;
 
 export function cloneCounselorProfile(profile: CounselorProfile): CounselorProfile {
@@ -35,10 +35,7 @@ export function validateCounselorProfile(
     errors.experience = `Isi tahun mulai berpraktik (1950–${currentYear})`;
   }
   if (!profile.topics.length) errors.topics = "Pilih minimal satu topik";
-  const phone = profile.phone.replace(/[\s()-]/g, "");
-  if (!phone) errors.phone = "Nomor telepon wajib diisi";
-  else if (!COUNSELOR_PHONE_PATTERN.test(phone)) {
-    errors.phone = "Format nomor telepon tidak valid";
-  }
+  const phoneError = validateIndonesianPhone(profile.phone, { required: true });
+  if (phoneError) errors.phone = phoneError;
   return errors;
 }

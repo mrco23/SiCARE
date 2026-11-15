@@ -66,6 +66,7 @@ import type {
   CounselorSessionNotesPatchApi,
   CounselorSessionReportDto,
 } from "../../types/api";
+import { MISSED_SESSION_LABEL } from "../../lib/sessionStatus";
 
 export interface ClientSession {
   id: number;
@@ -75,7 +76,7 @@ export interface ClientSession {
   format: Format;
   date: string;
   time: string;
-  status: "Selesai" | "Dibatalkan";
+  status: "Selesai" | "Dibatalkan" | typeof MISSED_SESSION_LABEL;
   counselorNote: string | null;
   clientNote: string | null;
   followUp: string | null;
@@ -132,6 +133,13 @@ const YN_PILL: Record<IntakeAnswer, string> = {
 };
 
 const CONSENT_PDF_URL = "/informed-consent.pdf";
+
+
+function historyStatusClass(status: string): string {
+  if (status === "Selesai") return "bg-primary-soft text-primary";
+  if (status === MISSED_SESSION_LABEL) return "bg-slate-100 text-slate-700";
+  return "bg-red-50 text-red-700";
+}
 
 function sessionCode(id: string): string {
   return `KNS-${id.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
@@ -376,11 +384,7 @@ function SessionDetailView({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                session.status === "Selesai"
-                  ? "bg-primary-soft text-primary"
-                  : "bg-red-50 text-red-700"
-              }`}
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${historyStatusClass(session.status)}`}
             >
               {session.status}
             </span>
@@ -615,7 +619,7 @@ export default function KonselorRiwayatPage() {
       }
 
       for (const s of res.sessions || []) {
-        if (s.status !== "completed" && s.status !== "cancelled") continue;
+        if (s.status !== "completed" && s.status !== "cancelled" && s.status !== "missed") continue;
         const b = bookingMap.get(s.booking_id);
         const clientId = b?.client_id || b?.id || s.id;
         const profileInfo = profileMap.get(b?.client_id || "");
@@ -649,7 +653,12 @@ export default function KonselorRiwayatPage() {
           format: b?.service_type === "group" ? "Kelompok" : "Individu",
           date: startDate,
           time: startTime,
-          status: s.status === "cancelled" ? "Dibatalkan" : "Selesai",
+          status:
+            s.status === "cancelled"
+              ? "Dibatalkan"
+              : s.status === "missed"
+                ? MISSED_SESSION_LABEL
+                : "Selesai",
           counselorNote: note?.counselor_note ?? null,
           clientNote: note?.client_note ?? null,
           followUp: note?.follow_up ?? null,
@@ -1330,11 +1339,7 @@ export default function KonselorRiwayatPage() {
                       </div>
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            s.status === "Selesai"
-                              ? "bg-primary-soft text-primary"
-                              : "bg-red-50 text-red-700"
-                          }`}
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${historyStatusClass(s.status)}`}
                         >
                           {s.status}
                         </span>

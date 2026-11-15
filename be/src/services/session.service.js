@@ -3,6 +3,7 @@ import { HttpError } from "../lib/http.js";
 import { callDomainRpc } from "../lib/domainRpc.js";
 import { writeAudit } from "../lib/audit.js";
 import { sessionRepository } from "../repositories/session.repository.js";
+import { markMissedSessionsSafely } from "./missedSession.service.js";
 
 function getClient() {
   if (!isSupabaseConfigured()) {
@@ -14,6 +15,7 @@ function getClient() {
 export const sessionService = {
   async listSessions({ authUser, authRole, status, limit }) {
     const client = getClient();
+    await markMissedSessionsSafely(client);
     return sessionRepository.list(client, {
       userId: authUser.id,
       role: authRole,

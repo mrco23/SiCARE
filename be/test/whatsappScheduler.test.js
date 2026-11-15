@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { scanUpcomingSessionsAndEnqueueReminders } from "../src/workers/whatsapp.scheduler.js";
+import { witaMorning } from "../src/services/whatsappOutbox.service.js";
 
 test("scanUpcomingSessionsAndEnqueueReminders generates H-1 and Day-of reminders for upcoming confirmed sessions", async () => {
-  const futureDate = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
-  const futureEndDate = new Date(Date.now() + 49 * 60 * 60 * 1000).toISOString();
+  // 10.00 WITA, tiga hari lagi: semua pengingat (H-1 07.00, pagi hari H 07.00, 1 jam sebelum) masih di masa depan.
+  const startMs = witaMorning(Date.now() + 3 * 24 * 60 * 60 * 1000, 0).getTime() + 3 * 60 * 60 * 1000;
+  const futureDate = new Date(startMs).toISOString();
+  const futureEndDate = new Date(startMs + 60 * 60 * 1000).toISOString();
 
   const sessions = [
     {
@@ -80,6 +83,8 @@ test("scanUpcomingSessionsAndEnqueueReminders generates H-1 and Day-of reminders
       if (table === "whatsapp_outbox") {
         const existingCheck = {
           eq: () => existingCheck,
+          gte: () => existingCheck,
+          lt: () => existingCheck,
           limit: async () => ({ data: [], error: null }),
         };
         return {
@@ -104,9 +109,9 @@ test("scanUpcomingSessionsAndEnqueueReminders generates H-1 and Day-of reminders
   });
 
   assert.equal(result.scannedSessions, 1);
-  // 2 recipients (client + counselor) * 2 reminders (H-1 + Day-of) = 4 reminders
-  assert.equal(result.enqueuedReminders, 4);
-  assert.equal(enqueuedRows.length, 4);
+  // 2 recipients (client + counselor) * 3 reminders (H-1 07.00, pagi hari H 07.00, 1 jam sebelum) = 6
+  assert.equal(result.enqueuedReminders, 6);
+  assert.equal(enqueuedRows.length, 6);
 
   const h1Rows = enqueuedRows.filter((r) => r.message_type === "reminder_h1");
   const dayOfRows = enqueuedRows.filter((r) => r.message_type === "reminder_day_of");

@@ -35,6 +35,7 @@ import HomePage from "../pages/public/HomePage";
 import PublicLayout from "../layouts/PublicLayout";
 import AboutPage from "../pages/public/AboutPage";
 import MoodTrackerPage from "../pages/public/MoodTrackerPage";
+import MoodCheckPage from "../pages/public/MoodCheckPage";
 import FeedbackPage from "../pages/public/FeedbackPage";
 import CounselorPage from "../pages/public/CounselorPage";
 import PanduanPage from "../pages/public/PanduanPage";
@@ -66,6 +67,7 @@ export default function AppRouter() {
         <Route path="panduan" element={<PanduanPage />} />
         <Route path="profil-konselor" element={<CounselorPage />} />
         <Route path="mood-tracker" element={<MoodTrackerPage />} />
+        <Route path="mood-tracker/cek" element={<MoodCheckPage />} />
         <Route path="feedback" element={<FeedbackPage />} />
       </Route>
 

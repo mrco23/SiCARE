@@ -11,8 +11,8 @@ const migrationSql = readFileSync(
 );
 
 const baseAccount = {
-  email: "konselor@example.test",
-  password: "password123",
+  email: "konselor@unikadelasalle.ac.id",
+  password: "Sandi#Kuat123",
   full_name: "Konselor Uji",
   app_role: "counselor",
 };

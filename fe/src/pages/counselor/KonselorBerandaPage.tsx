@@ -39,6 +39,7 @@ import { useAuth } from "../../features/auth/useAuth";
 import { ApiError } from "../../lib/api";
 import { counselorApi } from "../../lib/counselorApi";
 import { sicareApi } from "../../lib/sicareApi";
+import { MISSED_SESSION_LABEL } from "../../lib/sessionStatus";
 import type {
   BookingDetailDto,
   BookingRecordBaseDto,
@@ -628,6 +629,7 @@ export default function KonselorBerandaPage() {
                     const title = formatBookingClientTitle(booking);
                     const isOngoing = session.status === "ongoing";
                     const isCompleted = session.status === "completed";
+                    const isMissed = session.status === "missed";
                     const startDate = new Date(session.starts_at);
                     const timeStr = `${String(startDate.getHours()).padStart(2, "0")}.${String(startDate.getMinutes()).padStart(2, "0")}`;
 
@@ -673,6 +675,10 @@ export default function KonselorBerandaPage() {
                         ) : isCompleted ? (
                           <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-semibold text-teal-700">
                             Selesai
+                          </span>
+                        ) : isMissed ? (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+                            {MISSED_SESSION_LABEL}
                           </span>
                         ) : (
                           <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600">

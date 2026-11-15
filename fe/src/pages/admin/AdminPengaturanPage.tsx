@@ -2,6 +2,8 @@ import IconLabel from "../../components/shared/IconLabel";
 import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
 import { sicareApi } from "../../lib/sicareApi";
+import { PhoneE164Input } from "../../components/shared/AccountInputs";
+import { toIndonesianE164, validateIndonesianPhone } from "../../lib/accountRules";
 import type { HeroMotivationAdminDto } from "../../types/api";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -18,7 +20,6 @@ import {
   FileText,
   Mail,
   Pencil,
-  Phone,
   Plus,
   Save,
   Search,
@@ -46,7 +47,6 @@ const INITIAL_PROFILE: AdminProfile = {
   phone: "",
 };
 
-const PHONE_RE = /^(\+62|62|0)[0-9]{7,15}$/;
 
 const HERO_PAGE_SIZE = 5;
 
@@ -142,10 +142,8 @@ export default function AdminPengaturanPage() {
     const result: Record<string, string> = {};
     if (!profile.name.trim()) result.name = "Nama admin wajib diisi.";
 
-    const phone = profile.phone.replace(/[\s()-]/g, "");
-    if (phone && !PHONE_RE.test(phone)) {
-      result.phone = "Format nomor telepon tidak valid (8–20 digit).";
-    }
+    const phoneError = validateIndonesianPhone(profile.phone);
+    if (phoneError) result.phone = phoneError;
 
     heroMotivations.forEach((item, index) => {
       if (!item.content.trim()) {
@@ -278,10 +276,9 @@ export default function AdminPengaturanPage() {
     setSaving(true);
     try {
       if (profileDirty) {
-        const cleanedPhone = profile.phone.replace(/[\s()-]/g, "").trim();
         const updatedMe = await sicareApi.updateProfile({
           full_name: profile.name.trim(),
-          phone_e164: cleanedPhone || null,
+          phone_e164: toIndonesianE164(profile.phone) || null,
         });
         const nextSaved: AdminProfile = {
           name: updatedMe.full_name?.trim() || profile.name.trim(),
@@ -436,21 +433,12 @@ export default function AdminPengaturanPage() {
             </Field>
 
             <Field label="Nomor telepon" error={showErrors ? errors.phone : ""}>
-              <div className="relative">
-                <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  value={profile.phone}
-                  disabled={saving}
-                  onChange={(event) =>
-                    updateProfile("phone", event.target.value)
-                  }
-                  placeholder="Contoh: +6281234567890"
-                  className={`${inputClass} pl-10`}
-                />
-              </div>
+              <PhoneE164Input
+                value={profile.phone}
+                disabled={saving}
+                invalid={Boolean(showErrors && errors.phone)}
+                onChange={(e164) => updateProfile("phone", e164)}
+              />
               <p className="mt-1.5 text-xs text-gray-500">
                 Nomor telepon opsional.
               </p>

@@ -111,6 +111,21 @@ export async function enqueueOutboxMessage({
   }
 }
 
+const WITA_OFFSET_MS = 8 * 60 * 60 * 1000; // Asia/Makassar, tanpa DST
+const REMINDER_GRACE_MS = 30 * 60 * 1000;
+
+/**
+ * Jam 07.00 WITA pada tanggal WITA dari `atMs`, digeser `dayOffset` hari.
+ * Cermin dari fungsi database `sicare_wita_morning`.
+ * @param {number} atMs
+ * @param {number} dayOffset
+ * @returns {Date}
+ */
+export function witaMorning(atMs, dayOffset) {
+  const wita = new Date(atMs + WITA_OFFSET_MS);
+  return new Date(Date.UTC(wita.getUTCFullYear(), wita.getUTCMonth(), wita.getUTCDate() + dayOffset, 7) - WITA_OFFSET_MS);
+}
+
 /**
  * Cancels obsolete reminder jobs for a booking (e.g. when cancelled or rescheduled).
  *
@@ -129,7 +144,7 @@ export async function cancelObsoleteReminders(bookingId, supabaseClient) {
         updated_at: new Date().toISOString(),
       })
       .eq("booking_id", bookingId)
-      .in("message_type", ["reminder_h1", "reminder_day_of"])
+      .in("message_type", ["reminder_h1", "reminder_morning", "reminder_day_of"])
       .in("status", ["pending", "queued", "retry_wait"])
       .select("id");
 
@@ -292,15 +307,19 @@ export async function enqueueBookingNotifications({
  * timestamp works for rows from either source, in any status.
  * @returns {Promise<boolean>} true when a reminder exists or the check failed (skip now, retry next run)
  */
-async function reminderAlreadyQueued(supa, { bookingId, messageType, recipientUserId, scheduledAt }) {
-  const { data, error } = await supa
+async function reminderAlreadyQueued(supa, { bookingId, messageType, recipientUserId, scheduledAt, scheduledBefore = null }) {
+  let query = supa
     .from("whatsapp_outbox")
     .select("id")
     .eq("booking_id", bookingId)
     .eq("message_type", messageType)
-    .eq("recipient_user_id", recipientUserId)
-    .eq("scheduled_at", scheduledAt.toISOString())
-    .limit(1);
+    .eq("recipient_user_id", recipientUserId);
+  // With scheduledBefore, any row inside [scheduledAt, scheduledBefore) counts: an H-1 reminder sent
+  // immediately on confirmation is stamped with the confirmation time, not with 07.00.
+  query = scheduledBefore
+    ? query.gte("scheduled_at", scheduledAt.toISOString()).lt("scheduled_at", scheduledBefore.toISOString())
+    : query.eq("scheduled_at", scheduledAt.toISOString());
+  const { data, error } = await query.limit(1);
   if (error) {
     console.warn(`[WhatsApp Outbox] Pengecekan pengingat ${messageType} gagal; dilewati sampai putaran berikutnya.`);
     return true;
@@ -320,8 +339,15 @@ export async function enqueueSessionReminders({
   const startsAtMs = new Date(booking.starts_at).getTime();
   const nowMs = Date.now();
 
-  const h1ScheduledAt = new Date(startsAtMs - 24 * 60 * 60 * 1000); // 24 hours before
+  // Aturan sejak 2026-11-15: H-1 dan pagi hari H dikirim jam 07.00 WITA; pengingat 1 jam sebelum
+  // sesi tetap berjalan tanpa terikat jam 07.00.
+  const h1ScheduledAt = witaMorning(startsAtMs, -1);
+  const morningScheduledAt = witaMorning(startsAtMs, 0);
+  // Akhir "hari H-1" = 00.00 WITA di hari sesi.
+  const h1WindowEnd = new Date(morningScheduledAt.getTime() - 7 * 60 * 60 * 1000);
   const dayOfScheduledAt = new Date(startsAtMs - 60 * 60 * 1000); // 1 hour before
+  // Sesi pagi (mulai <= 08.30 WITA): pengingat pagi bertabrakan dengan pengingat 1 jam, jadi dilewati.
+  const morningClashesWithDayOf = morningScheduledAt.getTime() >= dayOfScheduledAt.getTime() - REMINDER_GRACE_MS;
 
   const recipients = [
     {
@@ -352,14 +378,21 @@ export async function enqueueSessionReminders({
       partner_name: r.partnerName,
     };
 
-    // H-1 Reminder (only if scheduled time is not more than 12 hours in the past)
+    // H-1 Reminder: 07.00 WITA sehari sebelum sesi. Booking yang baru dikonfirmasi pada hari itu
+    // setelah 07.00 langsung dikirimi H-1. Dikonfirmasi pada hari sesi: H-1 dilewati.
+    const h1SendAt = nowMs < h1ScheduledAt.getTime()
+      ? h1ScheduledAt
+      : nowMs < h1WindowEnd.getTime()
+        ? new Date(nowMs)
+        : null;
     if (
-      h1ScheduledAt.getTime() > nowMs - 12 * 60 * 60 * 1000 &&
+      h1SendAt &&
       !(await reminderAlreadyQueued(supa, {
         bookingId: booking.id,
         messageType: "reminder_h1",
         recipientUserId: r.userId,
         scheduledAt: h1ScheduledAt,
+        scheduledBefore: h1WindowEnd,
       }))
     ) {
       const resH1 = await enqueueOutboxMessage({
@@ -367,11 +400,34 @@ export async function enqueueSessionReminders({
         bookingId: booking.id,
         recipientUserId: r.userId,
         messageType: "reminder_h1",
-        scheduledAt: h1ScheduledAt,
+        scheduledAt: h1SendAt,
         payload: reminderPayload,
         qualifier: String(booking.starts_at),
       });
       if (resH1.success && !resH1.skippedDuplicate) enqueued++;
+    }
+
+    // Morning-of Reminder (07.00 WITA di hari sesi)
+    if (
+      !morningClashesWithDayOf &&
+      morningScheduledAt.getTime() > nowMs - REMINDER_GRACE_MS &&
+      !(await reminderAlreadyQueued(supa, {
+        bookingId: booking.id,
+        messageType: "reminder_morning",
+        recipientUserId: r.userId,
+        scheduledAt: morningScheduledAt,
+      }))
+    ) {
+      const resMorning = await enqueueOutboxMessage({
+        supabaseClient: supa,
+        bookingId: booking.id,
+        recipientUserId: r.userId,
+        messageType: "reminder_morning",
+        scheduledAt: morningScheduledAt,
+        payload: reminderPayload,
+        qualifier: String(booking.starts_at),
+      });
+      if (resMorning.success && !resMorning.skippedDuplicate) enqueued++;
     }
 
     // Day-of / 1 Hour Reminder

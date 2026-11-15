@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { campusEmailSchema, indonesianPhoneSchema, strongPasswordSchema } from "./shared.validator.js";
 
 const uuid = z.string().uuid();
 export const roles = ["client", "counselor", "admin", "head_lmi"];
@@ -32,8 +33,8 @@ export const accountQuerySchema = z
 
 export const createAccountSchema = z
   .object({
-    email: z.string().trim().email().max(254),
-    password: z.string().min(8).max(128),
+    email: campusEmailSchema,
+    password: strongPasswordSchema,
     full_name: z.string().trim().min(1).max(160),
     identity_code: z
       .string()
@@ -82,7 +83,7 @@ export const patchAccountSchema = z
       .enum(["student", "faculty_staff", "other"])
       .nullable()
       .optional(),
-    phone_e164: z.string().trim().min(8).max(20).nullable().optional(),
+    phone_e164: indonesianPhoneSchema.nullable().optional(),
     app_role: z.enum(adminManageableRoles).optional(),
     account_status: z.enum(["pending", "active", "disabled"]).optional(),
     gender: genderField,

@@ -1,4 +1,5 @@
 import { EDUCATION_LEVELS } from "../../../constants/registerOptions";
+import { validateIndonesianPhone } from "../../../lib/accountRules";
 
 export interface ClientProfile {
   phone: string;
@@ -13,7 +14,6 @@ export type ClientProfileErrors = Partial<
 
 export const MAX_ADDRESS = 200;
 const MAX_OCCUPATION = 60;
-const PHONE_RE = /^(\+62|62|0)[0-9]{8,13}$/;
 const E164_RE = /^\+[1-9][0-9]{6,14}$/;
 
 export interface ClientBackendProfileDraft {
@@ -72,12 +72,8 @@ export function validateClientBackendProfile(
 /** Pure profile validation; profile and password drafts remain component-local. */
 export function validateClientProfile(profile: ClientProfile): ClientProfileErrors {
   const errors: ClientProfileErrors = {};
-  const phone = profile.phone.replace(/[\s()-]/g, "");
-
-  if (!phone) errors.phone = "Nomor telepon wajib diisi";
-  else if (!PHONE_RE.test(phone)) {
-    errors.phone = "Format nomor telepon tidak valid";
-  }
+  const phoneError = validateIndonesianPhone(profile.phone, { required: true });
+  if (phoneError) errors.phone = phoneError;
 
   if (!profile.address.trim()) errors.address = "Alamat wajib diisi";
   else if (profile.address.length > MAX_ADDRESS) {
