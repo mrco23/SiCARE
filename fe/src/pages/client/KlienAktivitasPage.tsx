@@ -36,7 +36,7 @@ import type {
 } from "../../types/api";
 import {
   EXPIRED_BOOKING_LABEL,
-  EXPIRED_BOOKING_REASON,
+  expiredReasonText,
   MISSED_SESSION_LABEL,
   missedReasonText,
 } from "../../lib/sessionStatus";
@@ -74,6 +74,7 @@ type Session = {
   missedReason?: SessionMissedReasonApi | null;
   /** Status booking untuk entri yang belum punya baris sesi. */
   bookingStatus?: BookingListItemDto["status"];
+  expiredReason?: BookingListItemDto["expired_reason"];
   consentId?: string;
   rawSessionId?: string;
 };
@@ -442,6 +443,7 @@ export default function KlienAktivitasPage() {
           bookingId: b.id,
           counselorId: b.counselor_id,
           bookingStatus: b.status,
+          expiredReason: b.expired_reason ?? null,
           consentId: consent?.id,
           rawSessionId: b.id,
         });
@@ -866,7 +868,7 @@ export default function KlienAktivitasPage() {
           </p>
           <p className="mt-1 text-xs text-gray-600">
             {statusOf(session, now) === "expired"
-              ? EXPIRED_BOOKING_REASON
+              ? expiredReasonText(session.expiredReason)
               : missedReasonText(session.missedReason)}
           </p>
         </div>
