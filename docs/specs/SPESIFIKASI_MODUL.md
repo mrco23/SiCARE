@@ -1,8 +1,10 @@
 # Dokumen Spesifikasi Modul SiCARE
 
-- **Tanggal:** 2026-11-14
+- **Tanggal:** 2026-11-14 (diperbarui 2026-11-16)
 - **Sumber:** analisis kode pada branch `development` (commit `6c68df3`), dilengkapi klarifikasi pemilik proyek.
 - **Pembaruan 2026-11-14:** aturan kata sandi kuat, email kampus wajib, telepon format `+62`, ganti kata sandi akun lewat server (§1, §2, §9), notifikasi WhatsApp permintaan booking ke konselor (§4), dan ikon Mood Tracker (§5).
+- **Pembaruan 2026-11-15:** status otomatis sesi "Terlewat" dan booking "Kedaluwarsa" (§6, §7), pengingat WhatsApp 07.00 WITA (§4), blokir jadwal akhir pekan (§9), halaman Mood Tracker terpisah dengan maskot animasi (§5), dan logo Lasallian DNA yang dikelola admin (§13).
+- **Pembaruan 2026-11-16:** penjaga alur konseling hasil audit (migrasi `20261116120000`): penutupan otomatis sesi yang tidak diakhiri, booking jadwal ulang ikut kedaluwarsa, jendela waktu memulai sesi, dan larangan membatalkan booking yang sesinya sudah ditutup (§3, §6, §7, §10–§12).
 - **Cakupan:** backend Express (`be/src`, prefix `/api/v1`), fungsi database Supabase (`supabase/migrations`), dan frontend React (`fe/src`).
 - **Role sistem:** `client` (klien/mahasiswa/staf), `counselor` (konselor), `admin` (administrator), `head_lmi` (Kepala LMI). Pengecekan role dilakukan middleware `authenticate` + `allowRoles(...)` (`be/src/middleware/auth.js`) dan diulang di fungsi database untuk kepemilikan record.
 
@@ -82,6 +84,9 @@ Keputusan hasil klarifikasi:
      * booking dikonfirmasi, ditolak, dibatalkan, atau diminta jadwal ulang;
      * booking dijadwal ulang oleh klien;
      * sesi dimulai, selesai, atau dibatalkan;
+     * booking kedaluwarsa (`booking.expired`, ke klien dan konselor);
+     * sesi terlewat (`session.missed`, ke klien dan konselor);
+     * sesi ditutup otomatis (`session.completed` ke klien, `session.auto_completed` ke konselor);
      * feedback masuk (ke semua admin dan Kepala LMI aktif).
   2. Saat layout dashboard dimuat, komponen `NotificationBell` memanggil `GET /notifications?limit=10&offset=0` untuk mengisi badge jumlah belum dibaca.
   3. Saat pengguna membuka panel, halaman pertama dimuat ulang. Halaman berikutnya dimuat otomatis ketika pengguna menggulir ke bawah (infinite scroll, 10 item per halaman).
@@ -180,13 +185,13 @@ Keputusan hasil klarifikasi:
      * **Terima (`confirmed`):** wajib memilih format `online` atau `offline` (opsional ruang). Sistem membuat sesi `scheduled`.
      * **Tolak (`rejected`):** wajib menyertakan alasan.
      * **Minta jadwal ulang (`reschedule_requested`):** wajib menyertakan alasan. Sesi yang masih `scheduled` dibatalkan.
-  5. Jika diminta jadwal ulang, klien memilih slot baru. Booking kembali ke `waiting_confirmation` dan pengingat WhatsApp lama dibatalkan.
+  5. Jika diminta jadwal ulang, klien memilih slot baru. Booking kembali ke `waiting_confirmation` dan pengingat WhatsApp lama dibatalkan. Bila klien belum memilih slot sampai jam mulai asli booking, booking otomatis `expired`.
   6. Klien dapat membatalkan booking dengan alasan.
 * **<Aturan & Batasan>:**
-  * Status booking: `waiting_confirmation`, `confirmed`, `rejected`, `reschedule_requested`, `cancelled`.
+  * Status booking: `waiting_confirmation`, `confirmed`, `rejected`, `reschedule_requested`, `cancelled`, `expired` (otomatis, tidak dapat dipilih pengguna).
   * Klien hanya boleh mengubah status ke `cancelled`, dari status `waiting_confirmation`, `confirmed`, atau `reschedule_requested`.
   * Konselor tidak boleh memakai status `cancelled` pada booking. Konselor hanya boleh menerima atau menolak dari `waiting_confirmation`, dan meminta jadwal ulang dari `waiting_confirmation` atau `confirmed`.
-  * Booking tidak dapat dibatalkan atau dijadwal ulang jika sesinya sudah `ongoing` atau `completed`.
+  * Booking tidak dapat dibatalkan atau dijadwal ulang jika sesinya sudah `ongoing`, `completed`, atau `missed` (`409 BOOKING_SESSION_CLOSED` / `SESSION_ALREADY_STARTED`).
   * Alasan (1–1000 karakter) wajib untuk pembatalan, penolakan, dan permintaan jadwal ulang.
   * Booking individual tidak boleh memiliki nama kelompok atau peserta.
   * Booking kelompok wajib memiliki nama kelompok dan 2–10 peserta, dengan tepat satu perwakilan.
@@ -200,7 +205,8 @@ Keputusan hasil klarifikasi:
   * Sejak 2026-11-15, booking `waiting_confirmation` yang belum diterima atau ditolak konselor sampai jam mulainya otomatis menjadi `expired` ("Kedaluwarsa") lewat fungsi `sicare_mark_expired_bookings` (migrasi `20261115140000`). Fungsi ini dipanggil scheduler cron tiap 10 menit serta saat daftar booking, daftar sesi, dashboard, atau laporan dibaca (maks. sekali per menit per instance). `expired_at` mencatat waktunya.
   * Saat booking kedaluwarsa: pesan WhatsApp yang belum terkirim untuk booking itu dibatalkan, klien dan konselor menerima notifikasi in-app `booking.expired` (tanpa WhatsApp), dan slot jadwalnya lepas. Booking `expired` bersifat final.
   * Booking yang jam mulainya sudah tiba tidak dapat dikonfirmasi lagi: trigger `bookings_guard_confirmation_time` menolak perubahan ke `confirmed` (`409 BOOKING_EXPIRED`), walaupun penanda otomatis belum berjalan.
-  * Booking `reschedule_requested` tidak ikut kedaluwarsa karena waktu lamanya tidak lagi berlaku dan klien masih dapat memilih jadwal baru.
+  * Sejak 2026-11-16 (migrasi `20261116120000`), booking `reschedule_requested` juga kedaluwarsa bila klien belum memilih slot pengganti sampai jam mulai aslinya tiba. Kolom `expired_reason` membedakan alasannya: `not_confirmed` (belum dikonfirmasi konselor) atau `reschedule_not_selected` (jadwal pengganti tidak dipilih). Undangan consent anggota kelompok untuk booking itu dicabut. Akibatnya, bila konselor meminta jadwal ulang menjelang jadwal, waktu klien untuk memilih slot pengganti hanya sampai jam mulai asli tersebut.
+  * Booking `confirmed` tidak dapat dibatalkan klien atau diminta jadwal ulang bila sesinya sudah `ongoing`, `completed`, atau `missed`: trigger `bookings_guard_closed_session` menolaknya (`409 BOOKING_SESSION_CLOSED`).
   * Tampilan: klien melihat bagian "Permintaan kedaluwarsa" di Aktivitas (14 hari terakhir, tombol "Pesan jadwal baru") dan label "Kedaluwarsa" di Riwayat dan Beranda; konselor melihatnya di tab "Ditutup" halaman Permintaan; Admin mengelompokkannya sebagai tidak terlaksana dengan label sendiri; laporan menyertakan `totals.expired_bookings`.
 
 ===
@@ -211,13 +217,16 @@ Keputusan hasil klarifikasi:
 * **<Hak / Akses Role>:** `client` dan `counselor` dapat melihat sesi miliknya (`GET /sessions`, `GET /sessions/:id`). Hanya `counselor` pemilik sesi yang dapat mengubah status (`PATCH /sessions/:id/status`).
 * **<Alur Kerja>:**
   1. Sesi `scheduled` dibuat saat konselor menerima booking.
-  2. Konselor memulai sesi (`ongoing`). Sistem memeriksa bahwa semua informed consent peserta sudah lengkap.
+  2. Konselor memulai sesi (`ongoing`) dalam jendela 15 menit sebelum jam mulai sampai jam selesai. Sistem memeriksa bahwa semua informed consent peserta sudah lengkap.
   3. Konselor menyelesaikan sesi (`completed`). Klien menerima notifikasi bahwa feedback dapat diberikan.
   4. Konselor dapat membatalkan sesi (`cancelled`). Booking terkait ikut menjadi `cancelled`.
-  5. Sesi yang masih `scheduled` 30 menit setelah jam selesainya ditandai otomatis `missed` ("Terlewat") oleh fungsi database `sicare_mark_missed_sessions` (migrasi `20261115120000`). Fungsi ini dipanggil scheduler cron tiap 10 menit, dan juga saat daftar sesi, riwayat konselor, atau laporan dibaca (paling sering sekali per menit per instance), sehingga status tetap benar walau cron tidak berjalan.
+  5. Sesi `ongoing` yang belum diakhiri konselor sampai 2 jam setelah jam selesainya ditutup otomatis menjadi `completed` oleh `sicare_auto_complete_sessions` (migrasi `20261116120000`), dipanggil bersama penanda otomatis lain. `completed_at` diisi jam selesai terjadwal dan `auto_completed_at` mencatat waktu penutupan. Klien menerima notifikasi `session.completed` (feedback dapat diberikan) dan konselor menerima `session.auto_completed`; catatan sesi tetap dapat diisi. Detail sesi konselor menampilkan keterangan "Ditutup otomatis".
+  6. Sesi yang masih `scheduled` 30 menit setelah jam selesainya ditandai otomatis `missed` ("Terlewat") oleh fungsi database `sicare_mark_missed_sessions` (migrasi `20261115120000`). Fungsi ini dipanggil scheduler cron tiap 10 menit, dan juga saat daftar sesi, riwayat konselor, atau laporan dibaca (paling sering sekali per menit per instance), sehingga status tetap benar walau cron tidak berjalan.
 * **<Aturan & Batasan>:**
-  * Transisi yang diizinkan hanya `scheduled → ongoing/cancelled` dan `ongoing → completed/cancelled`.
+  * Status sesi: `scheduled`, `ongoing`, `completed`, `cancelled`, `missed` (otomatis).
+  * Transisi oleh konselor hanya `scheduled → ongoing/cancelled` dan `ongoing → completed/cancelled`. Transisi otomatis sistem: `scheduled → missed` (jam selesai + 30 menit) dan `ongoing → completed` (jam selesai + 2 jam).
   * Sesi tidak dapat dimulai sebelum consent lengkap (`CONSENT_READINESS_INCOMPLETE`).
+  * Sejak 2026-11-16, sesi hanya dapat dimulai dari 15 menit sebelum jam mulai sampai jam selesainya (`409 SESSION_START_TOO_EARLY` / `409 SESSION_START_WINDOW_PASSED`). Tombol "Mulai Sesi" di Aktivitas Konselor nonaktif di luar jendela itu dan menampilkan alasannya; waktu diperbarui tiap 30 detik.
   * Waktu mulai (`started_at`) dan selesai (`completed_at`) dicatat oleh server.
   * Setiap transisi mengirim notifikasi in-app ke klien.
   * Status `missed` mencatat alasan (`missed_reason`): `consent_unsigned` bila informed consent belum lengkap, atau `not_started` bila consent lengkap tetapi konselor tidak memulai sesi. Waktu penandaan disimpan di `missed_at`.
@@ -292,6 +301,7 @@ Keputusan hasil klarifikasi:
   * Grant akses berlaku 30 menit dan terikat pada ID konselor.
   * Catatan konselor dan catatan klien maksimal 10.000 karakter. Tindak lanjut maksimal 5.000 karakter.
   * Konselor hanya dapat mengakses sesi miliknya sendiri.
+  * Catatan sesi dan laporan hanya tersedia untuk sesi `completed`, termasuk sesi yang ditutup otomatis. Sesi `missed` dan `cancelled` tidak memiliki catatan.
 
 ===
 
@@ -312,7 +322,8 @@ Keputusan hasil klarifikasi:
   4. Kepala LMI menandai tinjauan: `reviewed` atau `resolved`.
 * **<Aturan & Batasan>:**
   * Rating berupa bilangan bulat 1–5. Komentar maksimal 5000 karakter.
-  * Feedback hanya untuk sesi `completed` milik klien tersebut, dan hanya oleh klien aktif.
+  * Feedback hanya untuk sesi `completed` milik klien tersebut (termasuk sesi yang ditutup otomatis), dan hanya oleh klien aktif. Pada booking kelompok, hanya klien pembuat booking yang dapat memberi feedback.
+  * Satu feedback per klien per sesi (constraint `feedback_one_per_client_session`).
   * Status moderasi: `pending`, `shown`, `disabled`. Alasan wajib (1–1000 karakter) jika `disabled`.
   * Status tinjau: `new`, `reviewed`, `resolved`.
   * Hanya feedback `shown` yang tampil di halaman publik.
@@ -333,6 +344,8 @@ Keputusan hasil klarifikasi:
   3. Halaman laporan menampilkan rekap konseling. Admin juga dapat melihat log aktivitas sistem.
 * **<Aturan & Batasan>:**
   * Dashboard dan laporan dipisah per role; endpoint admin tidak dapat diakses Kepala LMI dan sebaliknya.
+  * Sebelum agregasi, backend menjalankan penanda otomatis (booking kedaluwarsa, sesi ditutup otomatis, sesi terlewat), paling sering sekali per menit per instance.
+  * Total laporan mencakup `completed_sessions` (termasuk yang ditutup otomatis), `cancelled_sessions`, `missed_sessions`, dan `expired_bookings`.
   * Audit trail tidak menyalin isi konseling, jawaban intake, atau token ke metadata.
 
 ===

@@ -1978,3 +1978,16 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Permintaan pengguna:** "perbesar sedikit logo de la salle dan lasallian DNA di home page".
 - **Perubahan:** `HomePage.tsx` (logo kampus dan `LasallianLogo`) serta pratinjau di `HomepageLogoPanel.tsx`: `h-14 md:h-16` → `h-16 md:h-20` (56/64px → 64/80px), batas lebar logo Lasallian 220px → 260px. Spesifikasi §13 diperbarui.
 - **Verifikasi:** `fe: tsc`, `eslint` file terkait **PASS**. Browser (viewport kecil): kedua logo 64px, tinggi sama **PASS**. Ukuran `md` (80px) mengikuti kelas Tailwind, tidak diukur terpisah.
+
+## 2026-11-16 — Penjaga alur konseling (audit alur, prioritas tinggi)
+
+- **Permintaan pengguna:** setelah audit alur konseling dari awal hingga akhir, pengguna menyetujui perbaikan empat temuan prioritas tinggi ("Ya, perbaiki") dengan usulan bawaan.
+- **Migrasi `20261116120000_sicare_counseling_flow_guards.sql`:**
+  1. `sicare_auto_complete_sessions(p_grace_minutes default 120)`: sesi `ongoing` yang lewat jam selesai + 2 jam menjadi `completed` (`completed_at` = jam selesai terjadwal, kolom baru `auto_completed_at`), notifikasi `session.completed` ke klien dan `session.auto_completed` ke konselor.
+  2. `sicare_mark_expired_bookings()` kini juga menangani `reschedule_requested` yang jam aslinya lewat; kolom baru `expired_reason` (`not_confirmed`/`reschedule_not_selected`, data lama diisi `not_confirmed`); undangan consent booking itu dicabut.
+  3. `sicare_transition_session` menolak `scheduled → ongoing` di luar jendela 15 menit sebelum jam mulai sampai jam selesai (`SESSION_START_TOO_EARLY`, `SESSION_START_WINDOW_PASSED`).
+  4. Trigger `bookings_guard_closed_session` menolak `confirmed → cancelled/reschedule_requested` bila sesinya `ongoing`/`completed`/`missed` (`BOOKING_SESSION_CLOSED`).
+- **Backend:** `missedSession.service.js` (`autoCompleteSessions`, `AUTO_COMPLETE_GRACE_MINUTES = 120`, ikut dijalankan di jalur baca); scheduler mengembalikan `autoCompletedSessions`; `domainRpc.js` memetakan tiga kode baru ke 409; repository sesi dan booking membaca kolom baru dengan fallback bertingkat bila migrasi belum diterapkan.
+- **Frontend:** `lib/sessionStatus.ts` (`expiredReasonText`, `AUTO_COMPLETED_NOTE`, `sessionStartTimeBlockReason`); Aktivitas Konselor menonaktifkan "Mulai Sesi" di luar jendela waktu (jam berjalan tiap 30 detik) dan menampilkan keterangan "Ditutup otomatis"; Aktivitas Klien menampilkan alasan kedaluwarsa sesuai `expired_reason`; tipe DTO diperbarui.
+- **Pemeriksaan:** `be: npm test` **311/312** (gagal: `heroMotivations.test.js`, baseline), 6 tes baru `counselingFlowGuards.test.js`, tiga tes lama disesuaikan; `be: check`, `typecheck` **PASS**. `fe: tsc`, `lint`, `build` **PASS**. Fungsi `sessionStartTimeBlockReason` dicek dengan Node pada empat titik waktu **PASS**. Uji browser halaman konselor/klien dan uji fungsi SQL di database: **NOT RUN** (migrasi belum diterapkan, butuh login).
+- **Risiko:** booking yang diminta jadwal ulang menjelang jadwal hanya memberi waktu klien sampai jam mulai asli; menguji "Mulai Sesi" kini harus dalam jendela waktu sesi. Temuan menengah dan minor dari audit belum dikerjakan.
