@@ -45,7 +45,12 @@ import type {
   SessionListItemDto,
   SessionStatusApi,
 } from "../../types/api";
-import { MISSED_SESSION_LABEL, missedReasonText } from "../../lib/sessionStatus";
+import {
+  AUTO_COMPLETED_NOTE,
+  MISSED_SESSION_LABEL,
+  missedReasonText,
+  sessionStartTimeBlockReason,
+} from "../../lib/sessionStatus";
 
 /**
  * Why a session may not be started yet, read from previously-fetched consent readiness.
@@ -124,6 +129,17 @@ export default function KonselorAktivitasPage() {
   const [consentReadiness, setConsentReadiness] = useState<
     Record<string, BookingConsentReadinessDto>
   >({});
+  // Jam berjalan untuk jendela "Mulai Sesi" (15 menit sebelum jadwal sampai jadwal selesai).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  /** Alasan tombol "Mulai Sesi" dinonaktifkan: waktu dulu, lalu consent. */
+  const startBlockReason = (session: SessionListItemDto): string | null =>
+    sessionStartTimeBlockReason(session.starts_at, session.ends_at, now) ??
+    consentBlockReason(session.booking_id, consentReadiness);
 
   const toast = useToast();
 
@@ -524,10 +540,10 @@ export default function KonselorAktivitasPage() {
                           <button
                             type="button"
                             disabled={Boolean(
-                              consentBlockReason(selectedSession.booking_id, consentReadiness),
+                              startBlockReason(selectedSession),
                             )}
                             title={
-                              consentBlockReason(selectedSession.booking_id, consentReadiness) ??
+                              startBlockReason(selectedSession) ??
                               undefined
                             }
                             onClick={() => {
@@ -545,9 +561,9 @@ export default function KonselorAktivitasPage() {
                         </>
                       )}
                       {selectedSession.status === "scheduled" &&
-                        consentBlockReason(selectedSession.booking_id, consentReadiness) && (
+                        startBlockReason(selectedSession) && (
                           <p className="mt-1 w-full text-xs font-medium text-amber-700">
-                            {consentBlockReason(selectedSession.booking_id, consentReadiness)}
+                            {startBlockReason(selectedSession)}
                           </p>
                         )}
 
@@ -670,6 +686,12 @@ export default function KonselorAktivitasPage() {
                         <span>
                           <strong className="text-slate-800">{MISSED_SESSION_LABEL}:</strong>{" "}
                           {missedReasonText(selectedSession.missed_reason)}
+                        </span>
+                      )}
+                      {selectedSession.status === "completed" && selectedSession.auto_completed_at && (
+                        <span>
+                          <strong className="text-amber-700">Ditutup otomatis:</strong>{" "}
+                          {AUTO_COMPLETED_NOTE}
                         </span>
                       )}
                     </div>
@@ -928,9 +950,9 @@ export default function KonselorAktivitasPage() {
                               )}
                             </div>
                             {session.status === "scheduled" &&
-                              consentBlockReason(session.booking_id, consentReadiness) && (
+                              startBlockReason(session) && (
                                 <p className="mt-1.5 text-xs font-medium text-amber-700">
-                                  {consentBlockReason(session.booking_id, consentReadiness)}
+                                  {startBlockReason(session)}
                                 </p>
                               )}
                           </div>
@@ -971,10 +993,10 @@ export default function KonselorAktivitasPage() {
                               <button
                                 type="button"
                                 disabled={Boolean(
-                                  consentBlockReason(session.booking_id, consentReadiness),
+                                  startBlockReason(session),
                                 )}
                                 title={
-                                  consentBlockReason(session.booking_id, consentReadiness) ??
+                                  startBlockReason(session) ??
                                   undefined
                                 }
                                 onClick={() => {

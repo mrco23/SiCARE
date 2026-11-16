@@ -108,6 +108,7 @@ test("scheduler-run returns only aggregate counts", async () => {
       cleanedReminders: 0,
       missedSessions: 0,
       expiredBookings: 0,
+      autoCompletedSessions: 0,
     },
   });
 });

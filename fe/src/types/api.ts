@@ -27,6 +27,8 @@ export type SessionStatusApi =
   | "missed";
 /** Alasan sesi ditandai terlewat otomatis (migrasi 20261115120000). */
 export type SessionMissedReasonApi = "consent_unsigned" | "not_started";
+/** Alasan booking kedaluwarsa (migrasi 20261116120000). */
+export type BookingExpiredReasonApi = "not_confirmed" | "reschedule_not_selected";
 export type FeedbackModerationStatusApi = "pending" | "shown" | "disabled";
 export type FeedbackReviewStatusApi = "new" | "reviewed" | "resolved";
 export type AcademicSemesterApi = "Ganjil" | "Genap";
@@ -237,6 +239,9 @@ export interface BookingRecordBaseDto {
   status: BookingStatusApi;
   cancellation_reason: string | null;
   reschedule_reason: string | null;
+  /** Ada hanya setelah migrasi booking kedaluwarsa diterapkan. */
+  expired_at?: string | null;
+  expired_reason?: BookingExpiredReasonApi | null;
   created_at: string;
   updated_at: string;
   booking_participants: BookingParticipantDto[];
@@ -290,6 +295,8 @@ export interface SessionListItemDto {
   /** Ada hanya setelah migrasi status terlewat diterapkan. */
   missed_reason?: SessionMissedReasonApi | null;
   missed_at?: string | null;
+  /** Diisi bila sesi berlangsung ditutup otomatis 2 jam setelah jadwal selesai. */
+  auto_completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }

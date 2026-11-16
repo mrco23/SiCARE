@@ -72,10 +72,14 @@ test("read path is throttled and never throws when the RPC fails", async () => {
   console.error = () => {};
   try {
     assert.equal(await markMissedSessionsSafely(failing), 0);
-    // One pass calls both RPCs (expired bookings, missed sessions); a second call inside the
-    // throttle window does not hit the database again.
+    // One pass calls every RPC (expired bookings, auto-complete, missed sessions); a second call
+    // inside the throttle window does not hit the database again.
     assert.equal(await markMissedSessionsSafely(failing), 0);
-    assert.deepEqual(failing.calls.map((c) => c.name), ["sicare_mark_expired_bookings", "sicare_mark_missed_sessions"]);
+    assert.deepEqual(failing.calls.map((c) => c.name), [
+      "sicare_mark_expired_bookings",
+      "sicare_auto_complete_sessions",
+      "sicare_mark_missed_sessions",
+    ]);
   } finally {
     console.error = originalError;
     resetMissedSessionThrottleForTests();
@@ -111,9 +115,11 @@ test("session list falls back to base columns before the migration is applied", 
   const client = sessionsClient({ missingColumns: true });
   const rows = await sessionRepository.list(client, { userId: "u1", role: "client" });
   assert.equal(rows.length, 1);
-  assert.equal(client.selects.length, 2);
-  assert.ok(client.selects[0].includes("missed_reason"));
-  assert.ok(!client.selects[1].includes("missed_reason"));
+  // Latest columns -> without auto_completed_at -> base columns.
+  assert.equal(client.selects.length, 3);
+  assert.ok(client.selects[0].includes("auto_completed_at"));
+  assert.ok(client.selects[1].includes("missed_reason") && !client.selects[1].includes("auto_completed_at"));
+  assert.ok(!client.selects[2].includes("missed_reason"));
 });
 
 test("session list returns missed fields once the migration is applied", async () => {

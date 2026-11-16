@@ -4,8 +4,11 @@ import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase
  * Menandai data yang lewat waktu:
  * - sesi `scheduled` yang sudah lewat jam selesai + toleransi menjadi `missed`
  *   (RPC `sicare_mark_missed_sessions`, migrasi 20261115120000);
- * - booking `waiting_confirmation` yang jam mulainya sudah tiba menjadi `expired`
- *   (RPC `sicare_mark_expired_bookings`, migrasi 20261115140000).
+ * - booking `waiting_confirmation` / `reschedule_requested` yang jam mulainya sudah tiba
+ *   menjadi `expired` (RPC `sicare_mark_expired_bookings`, migrasi 20261115140000 dan
+ *   20261116120000);
+ * - sesi `ongoing` yang tidak diakhiri sampai jam selesai + 2 jam ditutup otomatis menjadi
+ *   `completed` (RPC `sicare_auto_complete_sessions`, migrasi 20261116120000).
  *
  * Dipanggil dari dua tempat:
  * - scheduler cron (tiap 10 menit) — jalur utama;
@@ -15,6 +18,7 @@ import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase
  */
 
 export const MISSED_SESSION_GRACE_MINUTES = 30;
+export const AUTO_COMPLETE_GRACE_MINUTES = 120;
 const MIN_INTERVAL_MS = 60 * 1000;
 
 let lastRunAt = 0;
@@ -49,6 +53,16 @@ export async function markExpiredBookings(supabaseClient) {
   return typeof data === "number" ? data : 0;
 }
 
+/** Jalur scheduler untuk sesi berlangsung yang tidak diakhiri; galat diteruskan ke pemanggil. */
+export async function autoCompleteSessions(supabaseClient) {
+  const client = supabaseClient ?? getSupabaseAdminClient();
+  const { data, error } = await client.rpc("sicare_auto_complete_sessions", {
+    p_grace_minutes: AUTO_COMPLETE_GRACE_MINUTES,
+  });
+  if (error) throw error;
+  return typeof data === "number" ? data : 0;
+}
+
 function logFailure(kind, error) {
   console.error(`[MissedSession] Penandaan ${kind} gagal:`, {
     code: typeof error?.code === "string" ? error.code : "UNKNOWN",
@@ -68,6 +82,11 @@ export async function markMissedSessionsSafely(supabaseClient) {
         await markExpiredBookings(supabaseClient);
       } catch (error) {
         logFailure("booking kedaluwarsa", error);
+      }
+      try {
+        await autoCompleteSessions(supabaseClient);
+      } catch (error) {
+        logFailure("sesi ditutup otomatis", error);
       }
       try {
         return await callRpc(supabaseClient);

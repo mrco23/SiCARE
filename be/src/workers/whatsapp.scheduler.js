@@ -1,5 +1,5 @@
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase.js";
-import { markExpiredBookings, markMissedSessions } from "../services/missedSession.service.js";
+import { autoCompleteSessions, markExpiredBookings, markMissedSessions } from "../services/missedSession.service.js";
 import {
   cancelObsoleteReminders,
   enqueueSessionReminders,
@@ -243,6 +243,12 @@ export async function runSchedulerPass(options = {}) {
       // Pengingat tetap dijalankan walau penandaan sesi terlewat gagal (mis. migrasi belum diterapkan).
       console.error("[WhatsApp Scheduler] Penandaan sesi terlewat gagal:", { code: err?.code ?? "UNKNOWN" });
     }
+    let autoCompletedSessions = 0;
+    try {
+      autoCompletedSessions = await autoCompleteSessions(options.supabaseClient);
+    } catch (err) {
+      console.error("[WhatsApp Scheduler] Penutupan otomatis sesi gagal:", { code: err?.code ?? "UNKNOWN" });
+    }
     const sessionRes = await scanUpcomingSessionsAndEnqueueReminders(options);
     // Pengingat consent yang belum ditandatangani dinonaktifkan sejak 2026-11-15 (keputusan pengguna).
     // scanPendingConsentsAndEnqueueReminders tetap ada tetapi tidak dipanggil.
@@ -252,6 +258,7 @@ export async function runSchedulerPass(options = {}) {
       cleanedReminders: sessionRes.cleanedReminders,
       missedSessions,
       expiredBookings,
+      autoCompletedSessions,
     };
   } catch (err) {
     console.error("[WhatsApp Scheduler] Error running reminder scheduler pass:", err);
