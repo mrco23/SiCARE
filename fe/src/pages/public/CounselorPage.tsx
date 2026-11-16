@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BriefcaseBusiness, CalendarDays, GraduationCap } from "lucide-react";
 import {
   getPublicAcademicPeriods,
-  getPublicAvailability,
+  getAllPublicAvailability,
   getPublicCounselors,
   getPublicPhotoUrl,
   type PublicAcademicPeriod,
@@ -165,7 +165,7 @@ export default function CounselorPage() {
     let active = true;
     Promise.all([
       getPublicCounselors(controller.signal),
-      getPublicAvailability({ signal: controller.signal, limit: 100 }),
+      getAllPublicAvailability({ signal: controller.signal }),
       getPublicAcademicPeriods(controller.signal),
     ])
       .then(([nextCounselors, nextSlots, nextPeriods]) => {

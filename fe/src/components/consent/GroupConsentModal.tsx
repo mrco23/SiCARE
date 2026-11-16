@@ -12,6 +12,8 @@ import {
   Loader2,
   AlertCircle,
   FileCheck2,
+  Copy,
+  Link2,
 } from "lucide-react";
 import { consentApi } from "../../lib/consentApi";
 import type { GroupConsentSummaryDto } from "../../types/api";
@@ -32,6 +34,9 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [summary, setSummary] = useState<GroupConsentSummaryDto | null>(null);
+  // Tautan undangan per peserta, hanya di memori selama modal terbuka (tidak disimpan ke storage).
+  const [links, setLinks] = useState<Record<string, { url: string; expiresAt: string }>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const loadSummary = useCallback(async () => {
     if (!bookingId) return;
@@ -77,8 +82,14 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
     setError(null);
     setFeedback(null);
     try {
-      await consentApi.resendConsentInvitation(bookingId, participantId);
-      setFeedback(`Undangan WhatsApp baru berhasil dikirimkan ke ${participantName}.`);
+      const result = await consentApi.resendConsentInvitation(bookingId, participantId);
+      setLinks((previous) => ({
+        ...previous,
+        [participantId]: { url: result.invitation_link, expiresAt: result.expires_at },
+      }));
+      setFeedback(
+        `Tautan undangan baru untuk ${participantName} sudah dibuat. Salin atau bagikan tautannya kepada ${participantName}; tautan lama tidak berlaku lagi.`,
+      );
       await loadSummary();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : `Gagal mengirim ulang undangan ke ${participantName}.`);
@@ -86,6 +97,19 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
       setResendingId(null);
     }
   };
+
+  const copyLink = async (participantId: string, url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(participantId);
+      window.setTimeout(() => setCopiedId((current) => (current === participantId ? null : current)), 2000);
+    } catch {
+      setError("Tautan tidak dapat disalin otomatis. Tekan lama tautan lalu salin secara manual.");
+    }
+  };
+
+  const shareText = (participantName: string, url: string) =>
+    `Halo ${participantName}, silakan tanda tangani informed consent sesi konseling kelompok SiCARE melalui tautan berikut sebelum sesi dimulai: ${url}`;
 
   if (!isOpen) return null;
 
@@ -198,7 +222,7 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
                     return (
                       <div
                         key={participant.participant_id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 hover:bg-gray-50/50"
+                        className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 p-4 hover:bg-gray-50/50"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -226,7 +250,7 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
                             )}
                             {participant.invitation_status && (
                               <span className="text-gray-400">
-                                · Undangan WA: {participant.invitation_status}
+                                · Undangan: {participant.invitation_status}
                               </span>
                             )}
                           </div>
@@ -254,11 +278,56 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
                                 ) : (
                                   <Send className="h-3.5 w-3.5" />
                                 )}
-                                Kirim Ulang WA
+                                {links[participant.participant_id] ? "Buat Tautan Baru" : "Buat Tautan Undangan"}
                               </button>
                             )
                           )}
                         </div>
+                        {!isSigned && links[participant.participant_id] && (
+                          <div className="w-full space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 sm:basis-full">
+                            <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-900">
+                              <Link2 className="h-3.5 w-3.5" />
+                              Tautan pribadi untuk {participant.display_name}
+                            </p>
+                            <input
+                              readOnly
+                              value={links[participant.participant_id].url}
+                              onFocus={(event) => event.currentTarget.select()}
+                              aria-label={`Tautan undangan untuk ${participant.display_name}`}
+                              className="w-full rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-xs text-gray-700"
+                            />
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void copyLink(participant.participant_id, links[participant.participant_id].url)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-[#064E3B] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#053d2f]"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                                {copiedId === participant.participant_id ? "Tersalin" : "Salin tautan"}
+                              </button>
+                              <a
+                                href={`https://wa.me/?text=${encodeURIComponent(shareText(participant.display_name, links[participant.participant_id].url))}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 hover:bg-emerald-50"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                Bagikan lewat WhatsApp
+                              </a>
+                            </div>
+                            <p className="text-[11px] leading-relaxed text-emerald-900/80">
+                              Kirimkan hanya kepada {participant.display_name}. Berlaku sampai{" "}
+                              {new Date(links[participant.participant_id].expiresAt).toLocaleString("id-ID", {
+                                timeZone: "Asia/Makassar",
+                                day: "numeric",
+                                month: "long",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}{" "}
+                              WITA.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

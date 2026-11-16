@@ -184,8 +184,8 @@ export default function KonselorAktivitasPage() {
 
   const fetchActivityData = useCallback(async () => {
     const [sessionsRes, bookingsRes] = await Promise.all([
-      sicareApi.sessions(100),
-      sicareApi.bookings(100),
+      sicareApi.allSessions(),
+      sicareApi.allBookings(),
     ]);
     return {
       sessions: sessionsRes,

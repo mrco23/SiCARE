@@ -18,6 +18,29 @@ export type {
   FeedbackReviewStatusApi,
 } from "../../../types/api";
 
+/** Ukuran halaman maksimum yang diterima backend untuk daftar booking/sesi. */
+const LIST_PAGE_SIZE = 100;
+/** Batas pengaman agar satu halaman tidak mengulang permintaan tanpa akhir. */
+const LIST_MAX_PAGES = 50;
+
+/** Mengambil semua halaman daftar (offset), membuang duplikat bila data bergeser saat paginasi. */
+async function fetchAllPages<T extends { id: string }>(
+  fetchPage: (limit: number, offset: number) => Promise<T[]>,
+): Promise<T[]> {
+  const seen = new Set<string>();
+  const items: T[] = [];
+  for (let page = 0; page < LIST_MAX_PAGES; page += 1) {
+    const batch = await fetchPage(LIST_PAGE_SIZE, page * LIST_PAGE_SIZE);
+    for (const item of batch) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      items.push(item);
+    }
+    if (batch.length < LIST_PAGE_SIZE) break;
+  }
+  return items;
+}
+
 /** Authenticated API operations shared by client and counselor workflows. */
 export const sicareApi = {
   getProfile(): Promise<ApiTypes.ProfileDto> {
@@ -60,8 +83,8 @@ export const sicareApi = {
     });
   },
 
-  bookings(limit = 50, status?: ApiTypes.BookingStatusApi): Promise<ApiTypes.BookingListItemDto[]> {
-    return apiRequest<ApiTypes.BookingListItemDto[]>(`/bookings${buildQueryString({ limit, status })}`, { auth: true });
+  bookings(limit = 50, status?: ApiTypes.BookingStatusApi, offset = 0): Promise<ApiTypes.BookingListItemDto[]> {
+    return apiRequest<ApiTypes.BookingListItemDto[]>(`/bookings${buildQueryString({ limit, status, offset: offset || undefined })}`, { auth: true });
   },
 
   booking(bookingId: string): Promise<ApiTypes.BookingDetailDto> {
@@ -88,8 +111,18 @@ export const sicareApi = {
     });
   },
 
-  sessions(limit = 50, status?: ApiTypes.SessionStatusApi): Promise<ApiTypes.SessionListItemDto[]> {
-    return apiRequest<ApiTypes.SessionListItemDto[]>(`/sessions${buildQueryString({ limit, status })}`, { auth: true });
+  sessions(limit = 50, status?: ApiTypes.SessionStatusApi, offset = 0): Promise<ApiTypes.SessionListItemDto[]> {
+    return apiRequest<ApiTypes.SessionListItemDto[]>(`/sessions${buildQueryString({ limit, status, offset: offset || undefined })}`, { auth: true });
+  },
+
+  /** Semua booking milik pengguna (seluruh halaman), terbaru lebih dulu. */
+  allBookings(status?: ApiTypes.BookingStatusApi): Promise<ApiTypes.BookingListItemDto[]> {
+    return fetchAllPages((limit, offset) => sicareApi.bookings(limit, status, offset));
+  },
+
+  /** Semua sesi milik pengguna (seluruh halaman), jadwal terbaru lebih dulu. */
+  allSessions(status?: ApiTypes.SessionStatusApi): Promise<ApiTypes.SessionListItemDto[]> {
+    return fetchAllPages((limit, offset) => sicareApi.sessions(limit, status, offset));
   },
 
   session(sessionId: string): Promise<ApiTypes.SessionDetailDto> {

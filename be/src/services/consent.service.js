@@ -10,6 +10,34 @@ import {
   getEncryptionKey,
 } from "./tokenEncryption.service.js";
 import { normalizePhoneNumber } from "./fonnte.service.js";
+import { env } from "../config/env.js";
+
+/** Undangan consent minimal berlaku 72 jam dan selalu sampai jadwal sesi berakhir. */
+const MIN_INVITATION_HOURS = 72;
+
+/**
+ * Jam berlaku undangan: sampai jam selesai booking (bila lebih lama dari 72 jam), supaya
+ * tautan yang dikirim jauh hari sebelum sesi tidak mati sebelum sesinya dimulai.
+ * @param {string | null | undefined} endsAt
+ * @param {number} [nowMs]
+ * @returns {number}
+ */
+export function invitationHoursUntil(endsAt, nowMs = Date.now()) {
+  const endMs = endsAt ? Date.parse(endsAt) : NaN;
+  if (!Number.isFinite(endMs)) return MIN_INVITATION_HOURS;
+  return Math.max(MIN_INVITATION_HOURS, Math.ceil((endMs - nowMs) / 3_600_000));
+}
+
+/**
+ * Tautan undangan consent untuk dibagikan manual oleh perwakilan/konselor
+ * (format sama dengan tautan di pesan WhatsApp worker).
+ * @param {string} rawToken
+ * @returns {string}
+ */
+export function buildConsentInvitationLink(rawToken) {
+  const appBase = env.appBaseUrl || "http://localhost:5173";
+  return `${appBase.replace(/\/$/, "")}/consent/invite?token=${encodeURIComponent(rawToken)}`;
+}
 
 function getClient(client) {
   if (client) return client;
@@ -1369,7 +1397,7 @@ export async function initializeGroupConsentInvitations({ supabaseClient, bookin
   // 1. Fetch booking
   const { data: booking } = await supa
     .from("bookings")
-    .select("id,client_id,counselor_id,service_type,status")
+    .select("id,client_id,counselor_id,service_type,status,ends_at")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -1409,6 +1437,7 @@ export async function initializeGroupConsentInvitations({ supabaseClient, bookin
         consentId: consent.id,
         recipientPhone: part.phone_e164,
         invitationType: part.user_id ? "authenticated_participant" : "guest_participant",
+        expiresInHours: invitationHoursUntil(booking.ends_at),
         createdBy: booking.client_id,
       });
 
@@ -1452,7 +1481,7 @@ export async function resendConsentInvitation({
   // 1. Verify booking and authorization
   const { data: booking, error: bError } = await supa
     .from("bookings")
-    .select("id,client_id,counselor_id,status,service_type")
+    .select("id,client_id,counselor_id,status,service_type,ends_at")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -1481,6 +1510,20 @@ export async function resendConsentInvitation({
 
   if (participant.participant_status === "removed") {
     throw new Error("Peserta telah dihapus dari kelompok.");
+  }
+
+  // Undangan hanya untuk booking terkonfirmasi yang jadwalnya belum berakhir.
+  if (booking.status !== "confirmed") {
+    const err = new Error("Undangan hanya dapat dibuat untuk booking yang sudah dikonfirmasi.");
+    err.status = 409;
+    err.code = "BOOKING_NOT_CONFIRMED";
+    throw err;
+  }
+  if (booking.ends_at && Date.parse(booking.ends_at) <= Date.now()) {
+    const err = new Error("Jadwal sesi sudah berakhir sehingga undangan tidak dapat dibuat.");
+    err.status = 409;
+    err.code = "SESSION_WINDOW_PASSED";
+    throw err;
   }
 
   // If already signed, no need to resend
@@ -1520,11 +1563,14 @@ export async function resendConsentInvitation({
     consentId: consent.id,
     recipientPhone: participant.phone_e164,
     invitationType: participant.user_id ? "authenticated_participant" : "guest_participant",
+    expiresInHours: invitationHoursUntil(booking.ends_at),
     createdBy: authUser.id,
   });
 
-  // 7. Enqueue fresh WhatsApp invitation message
+  // 7. Enqueue fresh WhatsApp invitation message (dikirim hanya bila pengiriman WhatsApp aktif)
+  let whatsappQueued = false;
   if (participant.phone_e164) {
+    whatsappQueued = true;
     await enqueueConsentInvitationWhatsApp({
       supabaseClient: supa,
       bookingId,
@@ -1550,7 +1596,16 @@ export async function resendConsentInvitation({
     },
   });
 
-  return { success: true, invitationId: inv.invitationId };
+  // Tautan dikembalikan hanya ke pihak booking yang sudah diotorisasi di atas, supaya
+  // perwakilan/konselor dapat membagikannya sendiri bila WhatsApp otomatis belum aktif.
+  // Jangan mencatat tautan ini di log atau audit.
+  return {
+    success: true,
+    invitationId: inv.invitationId,
+    invitation_link: buildConsentInvitationLink(inv.rawToken),
+    expires_at: inv.expiresAt,
+    whatsapp_queued: whatsappQueued,
+  };
 }
 
 /**

@@ -15,7 +15,7 @@ import type { ClientDirectoryCounselor } from "../../types/clientCounselor";
 import { CounselorCard } from "../../components/client/counselors/CounselorCard";
 import { filterClientDirectoryCounselors } from "../../features/client/counselors/filterClientCounselors";
 import {
-  getPublicAvailability,
+  getAllPublicAvailability,
   getPublicCounselors,
   getPublicPhotoUrl,
 } from "../../lib/publicApi";
@@ -122,10 +122,9 @@ export default function KlienKonselorPage() {
 
     const [profiles, slots] = await Promise.all([
       getPublicCounselors(signal),
-      getPublicAvailability({
+      getAllPublicAvailability({
         from: fromDate,
         to: toDate,
-        limit: 100,
         signal,
       }).catch(() => [] as PublicAvailabilitySlotDto[]),
     ]);

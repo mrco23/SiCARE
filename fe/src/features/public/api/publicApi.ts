@@ -44,6 +44,47 @@ export function getPublicAvailability(options: {
   });
 }
 
+/** Batas pengaman jumlah halaman agar satu tampilan tidak meminta tanpa akhir. */
+const AVAILABILITY_MAX_PAGES = 30;
+
+/**
+ * Mengambil semua slot dalam rentang waktu. Backend membatasi 100 slot per permintaan
+ * (urut jam mulai), jadi halaman berikutnya dimulai dari jam mulai slot terakhir
+ * (inklusif) dan slot yang sudah ada dibuang berdasarkan ID.
+ */
+export async function getAllPublicAvailability(options: {
+  counselorId?: string;
+  from?: Date;
+  to?: Date;
+  signal?: AbortSignal;
+} = {}): Promise<PublicAvailabilitySlotDto[]> {
+  const pageSize = 100;
+  const start = options.from ?? new Date();
+  const end = options.to ?? new Date(start.getTime() + 90 * 24 * 60 * 60 * 1000);
+  const seen = new Set<string>();
+  const slots: PublicAvailabilitySlotDto[] = [];
+  let cursor = start;
+  for (let page = 0; page < AVAILABILITY_MAX_PAGES; page += 1) {
+    const batch = await getPublicAvailability({
+      counselorId: options.counselorId,
+      from: cursor,
+      to: end,
+      limit: pageSize,
+      signal: options.signal,
+    });
+    let added = 0;
+    for (const slot of batch) {
+      if (seen.has(slot.id)) continue;
+      seen.add(slot.id);
+      slots.push(slot);
+      added += 1;
+    }
+    if (batch.length < pageSize || added === 0) break;
+    cursor = new Date(batch[batch.length - 1].starts_at);
+  }
+  return slots;
+}
+
 export function getPublicFeedback(limit = 20, signal?: AbortSignal): Promise<PublicFeedbackDto[]> {
   return apiRequest<PublicFeedbackDto[]>(`/public/feedback${buildQueryString({ limit })}`, { signal });
 }

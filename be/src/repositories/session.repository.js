@@ -47,29 +47,28 @@ export const sessionRepository = {
     return { ...session, booking };
   },
 
-  async list(supabaseClient, { userId, role, status, limit = 50 }) {
-    let bookingQuery = supabaseClient.from("bookings").select("id");
-    bookingQuery = role === "client"
-      ? bookingQuery.eq("client_id", userId)
-      : bookingQuery.eq("counselor_id", userId);
-
-    const { data: bookings, error: bookingError } = await bookingQuery;
-    if (bookingError) supabaseError(bookingError, "Daftar booking tidak dapat dibaca.");
-    const bookingIds = (bookings ?? []).map((booking) => booking.id);
-    if (!bookingIds.length) return [];
-
+  async list(supabaseClient, { userId, role, status, limit = 50, offset = 0 }) {
+    // Filter kepemilikan di database (bukan daftar booking_id di URL) supaya tetap jalan
+    // untuk pengguna dengan ratusan booking, lalu dipaginasi dengan offset.
     const { data, error } = await selectWithFallback((fields) => {
       let query = supabaseClient
         .from("counseling_sessions")
-        .select(fields)
-        .in("booking_id", bookingIds)
+        .select(role === "client" ? `${fields},bookings!inner(client_id)` : fields)
         .order("starts_at", { ascending: false })
-        .limit(limit);
+        .order("id", { ascending: false })
+        .range(offset, offset + limit - 1);
+      query = role === "client"
+        ? query.eq("bookings.client_id", userId)
+        : query.eq("counselor_id", userId);
       if (status) query = query.eq("status", status);
       return query;
     });
     if (error) supabaseError(error, "Daftar sesi tidak dapat dibaca.");
-    return data ?? [];
+    return (data ?? []).map((row) => {
+      if (!row || typeof row !== "object" || !("bookings" in row)) return row;
+      const { bookings: _ownership, ...session } = row;
+      return session;
+    });
   },
 };
 

@@ -38,13 +38,14 @@ export const bookingRepository = {
     return data;
   },
 
-  async list(supabaseClient, { userId, role, status, limit = 50 }) {
+  async list(supabaseClient, { userId, role, status, limit = 50, offset = 0 }) {
     const { data, error } = await selectWithFallback((fields) => {
       let query = supabaseClient
         .from("bookings")
         .select(fields)
         .order("created_at", { ascending: false })
-        .limit(limit);
+        .order("id", { ascending: false })
+        .range(offset, offset + limit - 1);
 
       query = role === "client"
         ? query.eq("client_id", userId)

@@ -71,6 +71,7 @@ test("booking reads include expired_reason and fall back when the column is miss
         eq() { return q; },
         order() { return q; },
         limit() { return q; },
+        range() { return q; },
         then(resolve) {
           if (fields.includes("expired_reason")) {
             return resolve({ data: null, error: { code: "42703", message: "column bookings.expired_reason does not exist" } });

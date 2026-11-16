@@ -106,7 +106,7 @@ export default function KonselorPermintaanPage() {
   const toast = useToast();
 
   const fetchBookingsData = useCallback(async () => {
-    return sicareApi.bookings(100);
+    return sicareApi.allBookings();
   }, []);
 
   useEffect(() => {

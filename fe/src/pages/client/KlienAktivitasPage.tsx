@@ -16,12 +16,14 @@ import {
   X,
   Pencil,
   Send,
+  Users,
 } from "lucide-react";
 import { sicareApi } from "../../lib/sicareApi";
 import { consentApi } from "../../lib/consentApi";
 import { InformedConsentModal } from "../../components/consent/InformedConsentModal";
+import { GroupConsentModal } from "../../components/consent/GroupConsentModal";
 import {
-  getPublicAvailability,
+  getAllPublicAvailability,
   getPublicCounselors,
   type PublicAvailabilitySlot,
   type PublicCounselor,
@@ -77,6 +79,8 @@ type Session = {
   expiredReason?: BookingListItemDto["expired_reason"];
   consentId?: string;
   rawSessionId?: string;
+  /** Booking kelompok: perwakilan membagikan tautan consent ke anggota. */
+  isGroup?: boolean;
 };
 
 type RescheduleState = {
@@ -247,6 +251,9 @@ export default function KlienAktivitasPage() {
   const [consentSessionId, setConsentSessionId] = useState<
     number | string | null
   >(null);
+  const [groupConsentBookingId, setGroupConsentBookingId] = useState<
+    string | null
+  >(null);
   const toast = useToast();
   const [view, setView] = useState<"main" | "reschedule">("main");
   const [reschedule, setReschedule] = useState<RescheduleState | null>(null);
@@ -260,11 +267,11 @@ export default function KlienAktivitasPage() {
 
       const [sessionRows, bookingRows, counselors, feedbackRows, slotRows] =
         await Promise.all([
-          sicareApi.sessions(100).catch(() => [] as SessionListItemDto[]),
-          sicareApi.bookings(100).catch(() => [] as BookingListItemDto[]),
+          sicareApi.allSessions().catch(() => [] as SessionListItemDto[]),
+          sicareApi.allBookings().catch(() => [] as BookingListItemDto[]),
           getPublicCounselors().catch(() => [] as PublicCounselor[]),
           sicareApi.myFeedback().catch(() => [] as ClientFeedbackDto[]),
-          getPublicAvailability({ from, to, limit: 100 }).catch(
+          getAllPublicAvailability({ from, to }).catch(
             () => [] as PublicAvailabilitySlot[],
           ),
         ]);
@@ -389,6 +396,7 @@ export default function KlienAktivitasPage() {
           missedReason: s.missed_reason ?? null,
           consentId: consent?.id,
           rawSessionId: s.id,
+          isGroup: booking?.service_type === "group",
         });
       }
 
@@ -780,6 +788,19 @@ export default function KlienAktivitasPage() {
     }
   };
 
+  /** Tombol perwakilan untuk membagikan tautan consent ke anggota kelompok. */
+  const renderGroupConsentButton = (session: Session) =>
+    session.isGroup && session.bookingId && session.serverStatus === "scheduled" ? (
+      <button
+        type="button"
+        onClick={() => setGroupConsentBookingId(session.bookingId ?? null)}
+        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0]"
+      >
+        <Users className="h-4 w-4" />
+        Consent anggota kelompok
+      </button>
+    ) : null;
+
   const renderOngoingCard = (session: Session) => {
     const signed = session.consentSigned;
     const waiting = statusOf(session, now) === "waiting";
@@ -847,6 +868,18 @@ export default function KlienAktivitasPage() {
                 <FileSignature className="h-4 w-4" />
                 Tanda tangan sekarang
               </button>
+            </div>
+          )}
+          {session.isGroup && session.serverStatus === "scheduled" && (
+            <div className="rounded-2xl border border-gray-200 p-4">
+              <p className="text-sm font-semibold text-gray-900">
+                Persetujuan anggota kelompok
+              </p>
+              <p className="mt-1 text-xs text-gray-600">
+                Sesi baru dapat dimulai setelah semua anggota menandatangani.
+                Bagikan tautan undangan pribadi kepada setiap anggota.
+              </p>
+              <div className="mt-3">{renderGroupConsentButton(session)}</div>
             </div>
           )}
         </div>
@@ -948,6 +981,7 @@ export default function KlienAktivitasPage() {
           </div>
 
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+            {renderGroupConsentButton(session)}
             {isPending ? (
               <span className="rounded-xl bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800">
                 Menunggu persetujuan konselor
@@ -1360,6 +1394,14 @@ export default function KlienAktivitasPage() {
           isOpen
           onClose={() => setConsentSessionId(null)}
           onSuccess={handleConsentSigned}
+        />
+      )}
+
+      {groupConsentBookingId && (
+        <GroupConsentModal
+          bookingId={groupConsentBookingId}
+          isOpen
+          onClose={() => setGroupConsentBookingId(null)}
         />
       )}
 

@@ -28,7 +28,9 @@ export function timingSafeEqualString(a, b) {
  */
 export function verifyWebhookSecret(request) {
   const configuredSecret = env.FONNTE_WEBHOOK_SECRET;
-  if (!configuredSecret) return true; // No secret configured
+  // Without a configured secret only non-production environments accept status callbacks;
+  // production fails closed so nobody can forge delivery statuses.
+  if (!configuredSecret) return env.NODE_ENV !== "production";
 
   const incomingSecret =
     request.headers["x-fonnte-secret"] ||

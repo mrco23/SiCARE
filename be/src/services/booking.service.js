@@ -43,7 +43,7 @@ export async function attachIntakeAnswersForCounselor(client, authProfile, booki
 }
 
 export const bookingService = {
-  async listBookings({ authUser, authProfile, authRole, status, limit }) {
+  async listBookings({ authUser, authProfile, authRole, status, limit, offset }) {
     const client = getClient();
     await markMissedSessionsSafely(client);
     const bookings = await bookingRepository.list(client, {
@@ -51,6 +51,7 @@ export const bookingService = {
       role: authRole,
       status,
       limit,
+      offset,
     });
     return attachIntakeAnswersForCounselor(client, authProfile, bookings);
   },
@@ -91,6 +92,7 @@ export const bookingService = {
       },
     });
 
+    let intakeSaved = true;
     if (input.intake_answers) {
       try {
         await bookingRepository.saveIntakeAnswers(client, {
@@ -102,11 +104,14 @@ export const bookingService = {
         // The booking itself already succeeded and its slot is already consumed; failing
         // the whole request here would make the client re-submit into a slot that no
         // longer exists. Log and continue — the counselor simply won't see the form.
+        // The response carries intake_saved: false so the client is told the form did not arrive.
+        intakeSaved = false;
         console.warn("Gagal menyimpan jawaban formulir klien untuk booking:", intakeError?.message);
       }
     }
 
-    return bookingRepository.findById(client, bookingId, authProfile);
+    const booking = await bookingRepository.findById(client, bookingId, authProfile);
+    return input.intake_answers ? { ...booking, intake_saved: intakeSaved } : booking;
   },
 
   async rescheduleBooking({ authUser, authProfile, bookingId, availabilitySlotId }) {

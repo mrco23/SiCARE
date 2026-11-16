@@ -117,8 +117,8 @@ export default function BerandaKlienPage() {
   const fetchDashboard = useCallback(async () => {
     try {
       const [bookingRows, sessionRows, counselorRows] = await Promise.all([
-        sicareApi.bookings(100).catch(() => [] as BookingListItemDto[]),
-        sicareApi.sessions(100).catch(() => [] as SessionListItemDto[]),
+        sicareApi.allBookings().catch(() => [] as BookingListItemDto[]),
+        sicareApi.allSessions().catch(() => [] as SessionListItemDto[]),
         getPublicCounselors().catch(() => []),
       ]);
 

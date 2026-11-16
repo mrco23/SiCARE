@@ -64,6 +64,7 @@ export const createBookingSchema = z.object({
 export const bookingListQuerySchema = z.object({
   status: z.enum(["waiting_confirmation", "confirmed", "rejected", "reschedule_requested", "cancelled", "expired"]).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).max(100000).default(0),
 }).strict();
 
 export const bookingTransitionSchema = z.object({
