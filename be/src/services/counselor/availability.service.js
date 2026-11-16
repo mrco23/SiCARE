@@ -14,7 +14,14 @@ const supa = () => {
 };
 
 export const counselorAvailabilityService = {
-  async listAvailability(counselorId, status) {
+  /**
+   * @param {string} counselorId
+   * @param {string | undefined} status
+   * @param {{ limit?: number, offset?: number }} [page]
+   */
+  async listAvailability(counselorId, status, page = {}) {
+    const limit = Math.min(Math.max(Math.trunc(Number(page.limit) || 200), 1), 200);
+    const offset = Math.max(Math.trunc(Number(page.offset) || 0), 0);
     if (status !== undefined && !["available", "blocked", "cancelled"].includes(status)) {
       throw new HttpError(400, "VALIDATION_ERROR", "Filter status jadwal tidak valid.");
     }
@@ -24,7 +31,8 @@ export const counselorAvailabilityService = {
       .select("id,counselor_id,academic_period_id,starts_at,ends_at,status,created_at,updated_at")
       .eq("counselor_id", counselorId)
       .order("starts_at", { ascending: true })
-      .limit(200);
+      .order("id", { ascending: true })
+      .range(offset, offset + limit - 1);
 
     if (status) query = query.eq("status", status);
     const { data, error } = await query;

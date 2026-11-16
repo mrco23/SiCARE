@@ -13,7 +13,7 @@ function getClient() {
 }
 
 export const sessionService = {
-  async listSessions({ authUser, authRole, status, limit }) {
+  async listSessions({ authUser, authRole, status, limit, offset }) {
     const client = getClient();
     await markMissedSessionsSafely(client);
     return sessionRepository.list(client, {
@@ -21,6 +21,7 @@ export const sessionService = {
       role: authRole,
       status,
       limit,
+      offset,
     });
   },
 

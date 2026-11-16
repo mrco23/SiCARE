@@ -43,10 +43,24 @@ export const counselorApi = {
     });
   },
 
-  getAvailability(status?: CounselorAvailabilityStatusApi): Promise<CounselorAvailabilitySlotDto[]> {
-    return apiRequest<CounselorAvailabilitySlotDto[]>(`/counselor/availability${buildQueryString({ status })}`, {
-      auth: true,
-    });
+  /** Semua jadwal konselor (seluruh halaman, 200 per permintaan), urut jam mulai. */
+  async getAvailability(status?: CounselorAvailabilityStatusApi): Promise<CounselorAvailabilitySlotDto[]> {
+    const pageSize = 200;
+    const seen = new Set<string>();
+    const slots: CounselorAvailabilitySlotDto[] = [];
+    for (let page = 0; page < 25; page += 1) {
+      const batch = await apiRequest<CounselorAvailabilitySlotDto[]>(
+        `/counselor/availability${buildQueryString({ status, limit: pageSize, offset: page * pageSize || undefined })}`,
+        { auth: true },
+      );
+      for (const slot of batch) {
+        if (seen.has(slot.id)) continue;
+        seen.add(slot.id);
+        slots.push(slot);
+      }
+      if (batch.length < pageSize) break;
+    }
+    return slots;
   },
 
   createAvailability(input: SaveCounselorAvailabilityApi): Promise<CounselorAvailabilitySlotDto> {

@@ -98,6 +98,7 @@ function sessionsClient({ missingColumns }) {
       in() { return q; },
       order() { return q; },
       limit() { return q; },
+      range() { return q; },
       then(resolve) {
         if (table === "bookings") return resolve({ data: [{ id: "b1" }], error: null });
         if (missingColumns && fields.includes("missed_reason")) {

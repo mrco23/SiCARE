@@ -265,6 +265,11 @@ function createOwnershipMockDb() {
       const source = tables[table] ?? [];
       return source.filter((row) =>
         op.filters.every((f) => {
+          if (f.kind === "eq" && f.column.startsWith("bookings.")) {
+            // Embedded inner-join filter, e.g. counseling_sessions -> bookings!inner(client_id).
+            const booking = (tables.bookings ?? []).find((b) => b.id === row.booking_id);
+            return booking?.[f.column.slice("bookings.".length)] === f.value;
+          }
           if (f.kind === "eq") return row[f.column] === f.value;
           if (f.kind === "in") return Array.isArray(f.values) && f.values.includes(row[f.column]);
           if (f.kind === "is") return row[f.column] === f.value;

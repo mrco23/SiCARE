@@ -190,8 +190,8 @@ export default function KonselorJadwalPage() {
   const fetchScheduleData = useCallback(async () => {
     const [availRes, bookingsRes, sessionsRes, periodsRes] = await Promise.all([
       counselorApi.getAvailability(),
-      sicareApi.bookings(100).catch(() => [] as BookingRecordBaseDto[]),
-      sicareApi.sessions(100).catch(() => [] as SessionListItemDto[]),
+      sicareApi.allBookings().catch(() => [] as BookingRecordBaseDto[]),
+      sicareApi.allSessions().catch(() => [] as SessionListItemDto[]),
       getPublicAcademicPeriods().catch(() => [] as PublicAcademicPeriod[]),
     ]);
 

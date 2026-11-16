@@ -86,8 +86,8 @@ export default function KonselorBerandaPage() {
       await Promise.all([
         sicareApi.getProfile(),
         counselorApi.getProfile().catch(() => null),
-        sicareApi.bookings(100),
-        sicareApi.sessions(100),
+        sicareApi.allBookings(),
+        sicareApi.allSessions(),
         counselorApi.getFeedback({ limit: 100 }).catch(() => [] as CounselorFeedbackDto[]),
       ]);
 

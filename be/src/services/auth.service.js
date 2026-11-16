@@ -211,6 +211,23 @@ export async function resendConfirmation(input, request) {
   };
 }
 
+/**
+ * Distinguishes a wrong password from Supabase throttling or an outage, so a client is not
+ * told their password is wrong when the auth service only refused or failed the request.
+ * @param {{ status?: number, code?: string, message?: string } | null | undefined} error
+ * @returns {"rate_limited" | "unavailable" | "invalid"}
+ */
+export function classifySignInError(error) {
+  if (!error) return "invalid";
+  const status = Number(error.status);
+  const message = String(error.message ?? "");
+  if (status === 429 || /rate_limit/i.test(String(error.code ?? "")) || /rate limit|too many/i.test(message)) {
+    return "rate_limited";
+  }
+  if (status === 0 || status >= 500 || error.name === "AuthRetryableFetchError") return "unavailable";
+  return "invalid";
+}
+
 export async function loginUser(input) {
   const identifier = (input.identifier ?? input.email ?? "").trim();
   const admin = getSupabaseAdminClient();
@@ -248,8 +265,15 @@ export async function loginUser(input) {
     password: input.password,
   });
   if (error || !data.user || !data.session) {
-    if (error && /email not confirmed/i.test(error.message)) {
+    if (error && (error.code === "email_not_confirmed" || /email not confirmed/i.test(error.message ?? ""))) {
       throw new HttpError(403, "EMAIL_NOT_CONFIRMED", "Email akun Anda belum diverifikasi. Silakan periksa kotak masuk atau spam email Anda untuk mengonfirmasi akun sebelum masuk.");
+    }
+    const failure = classifySignInError(error);
+    if (failure === "rate_limited") {
+      throw new HttpError(429, "RATE_LIMITED", "Terlalu banyak percobaan masuk. Silakan tunggu beberapa menit lalu coba lagi.");
+    }
+    if (failure === "unavailable") {
+      throw new HttpError(503, "AUTH_UNAVAILABLE", "Layanan login sedang tidak dapat dijangkau. Silakan coba beberapa saat lagi.");
     }
     throw new HttpError(401, "INVALID_CREDENTIALS", "NIM/NIP/email atau kata sandi tidak benar.");
   }

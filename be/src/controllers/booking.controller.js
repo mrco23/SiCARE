@@ -23,6 +23,7 @@ export const bookingController = {
       authRole: req.auth.profile.app_role,
       status: filters.data.status,
       limit: filters.data.limit,
+      offset: filters.data.offset,
     });
 
     return sendData(res, data);

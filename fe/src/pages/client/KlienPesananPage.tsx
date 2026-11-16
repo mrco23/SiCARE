@@ -47,7 +47,7 @@ import {
 import type { BookingCounselor } from "../../types/clientCounselor";
 import { sicareApi } from "../../lib/sicareApi";
 import {
-  getPublicAvailability,
+  getAllPublicAvailability,
   getPublicCounselors,
   getPublicPhotoUrl,
   type PublicAvailabilitySlot,
@@ -159,6 +159,8 @@ export default function KlienPesananPage() {
   const [directoryLoading, setDirectoryLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestError, setRequestError] = useState("");
+  // false bila booking dibuat tetapi jawaban formulir gagal tersimpan di server.
+  const [intakeSaved, setIntakeSaved] = useState(true);
   const [step, setStep] = useState<Step>(1);
   const [maxStepReached, setMaxStepReached] = useState<Step>(1);
   const [layanan, setLayanan] = useState<CounselingFormat | null>(null);
@@ -179,7 +181,7 @@ export default function KlienPesananPage() {
     toDate.setDate(toDate.getDate() + MAX_AHEAD_DAYS);
     Promise.all([
       getPublicCounselors(),
-      getPublicAvailability({ from: fromDate, to: toDate, limit: 100 }),
+      getAllPublicAvailability({ from: fromDate, to: toDate }),
     ])
       .then(([profiles, slots]) => {
         if (!active) return;
@@ -399,7 +401,7 @@ export default function KlienPesananPage() {
     setIsSubmitting(true);
     setRequestError("");
     try {
-      await sicareApi.createBooking({
+      const created = await sicareApi.createBooking({
         counselor_id: counselor.entityId,
         availability_slot_id: selectedAvailability.id,
         service_type: layanan === "Kelompok" ? "group" : "individual",
@@ -414,6 +416,7 @@ export default function KlienPesananPage() {
             }
           : { group_name: null, participants: [] }),
       });
+      setIntakeSaved(created.intake_saved !== false);
       goTo(6);
     } catch (cause) {
       submissionLock.current = false;
@@ -441,6 +444,7 @@ export default function KlienPesananPage() {
     setMissing([]);
     setFormError(false);
     setRequestError("");
+    setIntakeSaved(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1159,11 +1163,17 @@ export default function KlienPesananPage() {
             <p className="mt-2 text-sm text-gray-500">
               Status: menunggu konfirmasi konselor.
             </p>
-            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs leading-relaxed text-amber-900">
-              Catatan: jawaban formulir awal tidak ikut dikirim bersama booking
-              dan tidak tersedia bagi konselor. Sampaikan informasi yang
-              diperlukan secara langsung kepada konselor saat sesi.
-            </p>
+            {!intakeSaved && (
+              <p
+                role="alert"
+                className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs leading-relaxed text-amber-900"
+              >
+                Catatan: booking berhasil dikirim, tetapi jawaban formulir awal
+                gagal tersimpan sehingga tidak tersedia bagi konselor. Sampaikan
+                informasi yang diperlukan secara langsung kepada konselor saat
+                sesi.
+              </p>
+            )}
             <button
               type="button"
               onClick={handleRestart}

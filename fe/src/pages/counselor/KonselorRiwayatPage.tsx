@@ -27,11 +27,15 @@ import {
   Save,
 } from "lucide-react";
 import {
+  DEFAULT_PERIODS,
   isInPeriod,
-  loadPeriods,
+  mapAcademicPeriodDto,
   sortPeriods,
   toISO,
 } from "../../lib/academicPeriods";
+import type { AcademicPeriod } from "../../lib/academicPeriods";
+import { getPublicAcademicPeriods } from "../../features/public/api/publicApi";
+import type { AcademicSemesterApi } from "../../types/api";
 import type {
   ClientIntake,
   CounselingFormat as Format,
@@ -522,7 +526,10 @@ function SessionDetailView({
 export default function KonselorRiwayatPage() {
   const navigate = useNavigate();
   const today = useMemo(() => toISO(new Date()), []);
-  const periods = useMemo(() => sortPeriods(loadPeriods()), []);
+  // Periode akademik dari admin (terbit); daftar bawaan hanya dipakai bila API gagal atau kosong.
+  const [periods, setPeriods] = useState<AcademicPeriod[]>(() =>
+    sortPeriods(DEFAULT_PERIODS.map((p) => ({ ...p }))),
+  );
   const defaultSemester =
     periods.find((p) => isInPeriod(today, p)) ??
     periods[periods.length - 1] ??
@@ -541,6 +548,37 @@ export default function KonselorRiwayatPage() {
   const [semesterId, setSemesterId] = useState<string | null>(
     defaultSemester?.id ?? null,
   );
+
+  useEffect(() => {
+    let active = true;
+    void getPublicAcademicPeriods()
+      .then((items) => {
+        if (!active || items.length === 0) return;
+        const next = sortPeriods(
+          items.map((item) =>
+            mapAcademicPeriodDto({
+              ...item,
+              semester: item.semester as AcademicSemesterApi,
+              is_published: true,
+              created_at: "",
+              updated_at: "",
+            }),
+          ),
+        );
+        setPeriods(next);
+        setSemesterId((current) =>
+          current && next.some((p) => p.id === current)
+            ? current
+            : (next.find((p) => isInPeriod(today, p)) ?? next[next.length - 1] ?? null)?.id ?? null,
+        );
+      })
+      .catch(() => {
+        // Tetap memakai daftar periode bawaan bila periode admin tidak dapat dimuat.
+      });
+    return () => {
+      active = false;
+    };
+  }, [today]);
   const [format, setFormat] = useState<Format>("Individu");
   const [query, setQuery] = useState("");
   const [timeSort, setTimeSort] = useState<"terbaru" | "terlama">("terbaru");

@@ -8,6 +8,7 @@ import type {
   BookingConsentReadinessDto,
   GroupConsentSummaryDto,
   ClaimGuestInvitationResultDto,
+  ResendConsentInvitationResultDto,
 } from "../../../types/api";
 
 export const consentApi = {
@@ -83,8 +84,8 @@ export const consentApi = {
   /**
    * Resends an invitation to an unconsented group participant.
    */
-  resendConsentInvitation(bookingId: string, participantId: string): Promise<{ success: boolean; invitationId: string }> {
-    return apiRequest<{ success: boolean; invitationId: string }>(
+  resendConsentInvitation(bookingId: string, participantId: string): Promise<ResendConsentInvitationResultDto> {
+    return apiRequest<ResendConsentInvitationResultDto>(
       `/consents/booking/${encodeURIComponent(bookingId)}/participants/${encodeURIComponent(participantId)}/resend-invitation`,
       {
         method: "POST",

@@ -252,8 +252,8 @@ export default function KlienRiwayatPage() {
   const fetchHistory = useCallback(async () => {
     const [bookingRows, sessionRows, feedbackRows, periodRows] =
       await Promise.all([
-        sicareApi.bookings(100),
-        sicareApi.sessions(100),
+        sicareApi.allBookings(),
+        sicareApi.allSessions(),
         sicareApi.myFeedback(),
         getPublicAcademicPeriods().catch(() => [] as PublicAcademicPeriod[]),
       ]);

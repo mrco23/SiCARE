@@ -252,6 +252,11 @@ export interface BookingRecordBaseDto {
    * "not applicable to this requester", `null` means the client submitted no form.
    */
   intake_answers?: ClientIntakeAnswersDto | null;
+  /**
+   * Only on the POST /bookings response when the client sent intake answers:
+   * false means the booking was created but the form answers were not stored.
+   */
+  intake_saved?: boolean;
 }
 
 export type BookingListItemDto = BookingRecordBaseDto;
@@ -759,6 +764,17 @@ export interface GroupConsentSummaryDto {
   pending_count: number;
   ready_for_session: boolean;
   participants: GroupConsentSummaryParticipantDto[];
+}
+
+/** Hasil membuat ulang undangan consent anggota kelompok (perwakilan/konselor booking). */
+export interface ResendConsentInvitationResultDto {
+  success: boolean;
+  invitationId: string;
+  /** Tautan untuk dibagikan manual; jangan disimpan di storage atau log. */
+  invitation_link: string;
+  expires_at: string;
+  /** true bila pesan WhatsApp masuk antrean (terkirim hanya jika pengiriman WhatsApp aktif). */
+  whatsapp_queued: boolean;
 }
 
 export interface ClaimGuestInvitationResultDto {
