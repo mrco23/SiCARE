@@ -2,18 +2,24 @@ import { HttpError, supabaseError } from "../lib/http.js";
 
 const BASE_SESSION_FIELDS =
   "id,booking_id,counselor_id,starts_at,ends_at,status,format,room,started_at,completed_at,created_at,updated_at";
-// Kolom dari migrasi 20261115120000. Bila migrasi belum diterapkan, query diulang tanpa kolom ini.
-const SESSION_SELECT_FIELDS = `${BASE_SESSION_FIELDS},missed_reason,missed_at`;
+// Kolom missed_* dari migrasi 20261115120000 dan auto_completed_at dari 20261116120000.
+// Bila migrasinya belum diterapkan, query diulang dengan kolom yang lebih sedikit.
+const MISSED_SESSION_FIELDS = `${BASE_SESSION_FIELDS},missed_reason,missed_at`;
+const SESSION_SELECT_FIELDS = `${MISSED_SESSION_FIELDS},auto_completed_at`;
+const SESSION_FIELD_FALLBACKS = [SESSION_SELECT_FIELDS, MISSED_SESSION_FIELDS, BASE_SESSION_FIELDS];
 
 function isMissingColumn(error) {
-  return error?.code === "42703" || /missed_(reason|at)/.test(error?.message ?? "");
+  return error?.code === "42703" || /missed_(reason|at)|auto_completed_at/.test(error?.message ?? "");
 }
 
-/** Menjalankan query dengan kolom terbaru, lalu mengulang dengan kolom dasar bila kolomnya belum ada. */
+/** Menjalankan query dengan kolom terbaru, lalu mengulang dengan kolom lebih sedikit bila kolomnya belum ada. */
 async function selectWithFallback(build) {
-  const first = await build(SESSION_SELECT_FIELDS);
-  if (!first.error || !isMissingColumn(first.error)) return first;
-  return build(BASE_SESSION_FIELDS);
+  let result;
+  for (const fields of SESSION_FIELD_FALLBACKS) {
+    result = await build(fields);
+    if (!result.error || !isMissingColumn(result.error)) return result;
+  }
+  return result;
 }
 
 export const sessionRepository = {
