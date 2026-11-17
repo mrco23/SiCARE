@@ -92,6 +92,17 @@ router.get(
  * POST /api/v1/consents/booking/:bookingId/participants/:participantId/resend-invitation
  * Resends an invitation to an unconsented group participant.
  */
+/**
+ * POST /api/v1/consents/booking/:bookingId/participants/:participantId/remove
+ * Removes an unsigned, non-representative member from a group booking.
+ */
+router.post(
+  "/booking/:bookingId/participants/:participantId/remove",
+  authenticate,
+  allowRoles("client", "counselor", "admin"),
+  asyncHandler(consentController.removeParticipant)
+);
+
 router.post(
   "/booking/:bookingId/participants/:participantId/resend-invitation",
   authenticate,

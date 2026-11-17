@@ -6,6 +6,7 @@ export const SAFE_ACTIONS = new Set([
   "booking.create",
   "booking.status",
   "booking.reschedule",
+  "booking.participant.remove",
   "session.status",
   "feedback.submit",
   "feedback.moderate",

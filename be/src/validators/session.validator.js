@@ -8,5 +8,11 @@ export const sessionListQuerySchema = z.object({
 
 export const sessionStatusSchema = z.object({
   status: z.enum(["ongoing", "completed", "cancelled"]),
-}).strict();
+  // Alasan wajib saat konselor membatalkan sesi; dikirim ke klien (in-app dan WhatsApp).
+  reason: z.string().trim().min(3).max(1000).optional(),
+}).strict().superRefine((input, context) => {
+  if (input.status === "cancelled" && !input.reason) {
+    context.addIssue({ code: "custom", message: "Alasan pembatalan wajib diisi.", path: ["reason"] });
+  }
+});
 

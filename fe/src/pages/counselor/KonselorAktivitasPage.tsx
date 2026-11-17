@@ -39,6 +39,7 @@ import { sicareApi } from "../../lib/sicareApi";
 import { consentApi } from "../../lib/consentApi";
 import { GroupConsentModal } from "../../components/consent/GroupConsentModal";
 import { ClientIntakeView } from "../../components/counselor/ClientIntakeView";
+import { hasUrgentIntake, URGENT_INTAKE_LABEL, urgentIntakeMessage } from "../../lib/intakeRisk";
 import type {
   BookingConsentReadinessDto,
   BookingRecordBaseDto,
@@ -124,6 +125,7 @@ export default function KonselorAktivitasPage() {
     targetStatus: "ongoing" | "completed" | "cancelled";
   } | null>(null);
   const [transitionSubmitting, setTransitionSubmitting] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [consentModalBookingId, setConsentModalBookingId] = useState<string | null>(null);
   const [consentReadiness, setConsentReadiness] = useState<
@@ -357,9 +359,16 @@ export default function KonselorAktivitasPage() {
 
     try {
       const { session, targetStatus } = transitionDialog;
+      const reason = cancelReason.trim();
+      if (targetStatus === "cancelled" && reason.length < 3) {
+        setTransitionError("Tuliskan alasan pembatalan (minimal 3 karakter) agar klien mengetahuinya.");
+        return;
+      }
       const result = await sicareApi.transitionSession(session.id, {
         status: targetStatus,
+        ...(targetStatus === "cancelled" ? { reason } : {}),
       });
+      setCancelReason("");
 
       const booking = bookingMap.get(session.booking_id);
       const clientTitle = formatBookingClientTitle(booking, result.booking?.client_id);
@@ -754,6 +763,14 @@ export default function KonselorAktivitasPage() {
                               Diisi klien saat membuat pesanan ini. Jaga kerahasiaan isi formulir ini.
                             </p>
                             <div className="mt-3">
+                              {hasUrgentIntake(booking.intake_answers) && (
+                        <div role="alert" className="mb-3 flex items-start gap-2 rounded-xl border border-red-300 bg-red-50 p-3 text-xs leading-relaxed text-red-800">
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                          <span>
+                            <strong>{URGENT_INTAKE_LABEL}.</strong> {urgentIntakeMessage(booking.intake_answers)}
+                          </span>
+                        </div>
+                              )}
                               <ClientIntakeView
                                 intake={booking.intake_answers}
                                 emptyText="Klien tidak mengisi formulir saat membuat pesanan ini."
@@ -1096,9 +1113,27 @@ export default function KonselorAktivitasPage() {
                 : transitionDialog.targetStatus === "completed"
                   ? "Status sesi dan booking akan ditandai selesai (completed). Klien akan menerima notifikasi bahwa sesi telah selesai dan dapat memberikan ulasan."
                   : transitionDialog.session.status === "ongoing"
-                    ? "Sesi dan booking terkait akan dihentikan dengan keterangan sistem 'Sesi dibatalkan oleh konselor', serta slot ketersediaan Anda akan dibuka kembali."
-                    : "Sesi dan booking terkait akan diurungkan dengan keterangan sistem 'Sesi dibatalkan oleh konselor', serta slot ketersediaan Anda akan dibuka kembali."}
+                    ? "Sesi dan booking terkait akan dihentikan dan slot ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."
+                    : "Sesi dan booking terkait akan dibatalkan dan slot ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."}
             </p>
+
+            {transitionDialog.targetStatus === "cancelled" && (
+              <label className="mt-4 block text-sm font-semibold text-gray-900">
+                Alasan pembatalan <span className="text-red-600">*</span>
+                <textarea
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                  maxLength={1000}
+                  rows={3}
+                  disabled={transitionSubmitting}
+                  placeholder="Contoh: Konselor berhalangan karena tugas mendadak. Silakan buat booking baru."
+                  className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm font-normal outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
+                />
+                <span className="mt-1 block text-xs font-normal text-gray-500">
+                  Alasan ini dikirim ke klien. Jangan tuliskan isi konseling.
+                </span>
+              </label>
+            )}
 
             {transitionError && (
               <div

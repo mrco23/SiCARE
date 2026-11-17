@@ -2024,3 +2024,117 @@ export async function getGuestSignedDocumentDownloadUrl({
     expiresInSeconds,
   });
 }
+
+/** Status booking yang masih boleh mengubah susunan anggota kelompok. */
+const PARTICIPANT_EDITABLE_BOOKING_STATUSES = ["waiting_confirmation", "confirmed", "reschedule_requested"];
+/** Jumlah minimum anggota aktif sebuah kelompok (sama dengan aturan pembuatan booking). */
+const MIN_ACTIVE_GROUP_PARTICIPANTS = 2;
+
+function participantError(status, code, message) {
+  const err = new Error(message);
+  err.status = status;
+  err.code = code;
+  return err;
+}
+
+/**
+ * Removes one unsigned (non-representative) member from a group booking so that a member
+ * who will not sign does not block the session. Undangan dan pesan WhatsApp consent anggota
+ * itu dicabut. Hanya perwakilan (pembuat booking), konselor booking, atau admin.
+ *
+ * @param {object} params
+ * @param {any} [params.supabaseClient]
+ * @param {string} params.bookingId
+ * @param {string} params.participantId
+ * @param {{ id: string }} params.authUser
+ * @param {string} [params.authRole]
+ * @returns {Promise<{ success: true, participant_id: string, active_participants: number }>}
+ */
+export async function removeGroupParticipant({
+  supabaseClient,
+  bookingId,
+  participantId,
+  authUser,
+  authRole = "client",
+}) {
+  const supa = getClient(supabaseClient);
+
+  const { data: booking, error: bookingError } = await supa
+    .from("bookings")
+    .select("id,client_id,counselor_id,status,service_type")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (bookingError || !booking) throw participantError(404, "BOOKING_NOT_FOUND", "Booking tidak ditemukan.");
+
+  const owns =
+    authRole === "admin" ||
+    (authRole === "client" && booking.client_id === authUser.id) ||
+    (authRole === "counselor" && booking.counselor_id === authUser.id);
+  if (!owns) {
+    throw participantError(403, "BOOKING_FORBIDDEN", "Anda tidak memiliki izin untuk mengelola anggota booking ini.");
+  }
+  if (booking.service_type !== "group") {
+    throw participantError(409, "BOOKING_NOT_GROUP", "Hanya booking kelompok yang memiliki anggota.");
+  }
+  if (!PARTICIPANT_EDITABLE_BOOKING_STATUSES.includes(booking.status)) {
+    throw participantError(409, "BOOKING_CLOSED", "Anggota tidak dapat diubah karena booking sudah ditutup.");
+  }
+
+  const { data: session } = await supa
+    .from("counseling_sessions")
+    .select("status")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (session && ["ongoing", "completed", "missed"].includes(session.status)) {
+    throw participantError(409, "BOOKING_SESSION_CLOSED", "Anggota tidak dapat diubah karena sesi sudah berlangsung atau selesai.");
+  }
+
+  const { data: participants, error: participantsError } = await supa
+    .from("booking_participants")
+    .select("id,is_primary,is_representative,participant_status,informed_consents(status)")
+    .eq("booking_id", bookingId);
+  if (participantsError) throw participantError(503, "PARTICIPANTS_UNAVAILABLE", "Daftar anggota tidak dapat dibaca.");
+
+  const active = (participants ?? []).filter((row) => row.participant_status !== "removed");
+  const target = active.find((row) => row.id === participantId);
+  if (!target) throw participantError(404, "PARTICIPANT_NOT_FOUND", "Anggota tidak ditemukan atau sudah dikeluarkan.");
+  if (target.is_primary || target.is_representative) {
+    throw participantError(409, "PARTICIPANT_IS_REPRESENTATIVE", "Perwakilan kelompok tidak dapat dikeluarkan.");
+  }
+  const consents = Array.isArray(target.informed_consents) ? target.informed_consents : [];
+  if (consents.some((consent) => consent?.status === "signed")) {
+    throw participantError(409, "CONSENT_ALREADY_SIGNED", "Anggota yang sudah menandatangani consent tidak dapat dikeluarkan.");
+  }
+  if (active.length - 1 < MIN_ACTIVE_GROUP_PARTICIPANTS) {
+    throw participantError(
+      409,
+      "GROUP_TOO_SMALL",
+      `Kelompok harus tetap memiliki minimal ${MIN_ACTIVE_GROUP_PARTICIPANTS} anggota aktif. Batalkan booking bila anggota tidak cukup.`,
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+  const { error: removeError } = await supa
+    .from("booking_participants")
+    .update({ participant_status: "removed" })
+    .eq("id", participantId)
+    .eq("booking_id", bookingId)
+    .neq("participant_status", "removed");
+  if (removeError) throw participantError(503, "PARTICIPANT_REMOVE_FAILED", "Anggota belum dapat dikeluarkan. Silakan coba lagi.");
+
+  await supa
+    .from("consent_invitations")
+    .update({ status: "revoked", revoked_at: nowIso, revoked_by: authUser.id, updated_at: nowIso })
+    .eq("booking_participant_id", participantId)
+    .in("status", ["pending", "sent", "claimed"]);
+
+  await supa
+    .from("whatsapp_outbox")
+    .update({ status: "cancelled", updated_at: nowIso })
+    .eq("booking_id", bookingId)
+    .eq("booking_participant_id", participantId)
+    .in("message_type", ["consent_invitation", "consent_reminder"])
+    .in("status", ["pending", "queued", "retry_wait"]);
+
+  return { success: true, participant_id: participantId, active_participants: active.length - 1 };
+}

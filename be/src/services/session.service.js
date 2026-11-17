@@ -4,6 +4,7 @@ import { callDomainRpc } from "../lib/domainRpc.js";
 import { writeAudit } from "../lib/audit.js";
 import { sessionRepository } from "../repositories/session.repository.js";
 import { markMissedSessionsSafely } from "./missedSession.service.js";
+import { applyBookingClosureSideEffects } from "./bookingClosure.service.js";
 
 function getClient() {
   if (!isSupabaseConfigured()) {
@@ -30,7 +31,7 @@ export const sessionService = {
     return sessionRepository.findForParty(client, sessionId, authProfile);
   },
 
-  async transitionSession({ authUser, authProfile, sessionId, targetStatus }) {
+  async transitionSession({ authUser, authProfile, sessionId, targetStatus, reason = null }) {
     const client = getClient();
     await callDomainRpc(
       client,
@@ -48,10 +49,34 @@ export const sessionService = {
       action: "session.status",
       entityType: "session",
       entityId: sessionId,
+      // Alasan tidak disalin ke audit (bisa memuat informasi sensitif).
       metadata: { status: targetStatus, role: "counselor" },
     });
 
-    return sessionRepository.findForParty(client, sessionId, authProfile);
+    const session = await sessionRepository.findForParty(client, sessionId, authProfile);
+
+    if (targetStatus === "cancelled" && session?.booking) {
+      // The RPC already cancelled the session and booking. Store the counselor's reason and
+      // tell the client; failures here are logged but do not undo the cancellation.
+      if (reason) {
+        const { error: reasonError } = await client
+          .from("bookings")
+          .update({ cancellation_reason: reason })
+          .eq("id", session.booking.id);
+        if (reasonError) console.warn("[Session] Alasan pembatalan gagal disimpan:", reasonError.code);
+        else session.booking.cancellation_reason = reason;
+      }
+      const { errors } = await applyBookingClosureSideEffects({
+        supabaseClient: client,
+        booking: { ...session.booking, starts_at: session.starts_at, ends_at: session.ends_at },
+        actorRole: "counselor",
+        reason,
+        actorUserId: authUser.id,
+      });
+      if (errors.length) console.warn("[Session] Efek lanjutan pembatalan sebagian gagal:", errors.join(","));
+    }
+
+    return session;
   },
 };
 

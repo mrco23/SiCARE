@@ -42,6 +42,7 @@ import type {
   BookingStatusApi,
 } from "../../types/api";
 import { EXPIRED_BOOKING_LABEL } from "../../lib/sessionStatus";
+import { hasUrgentIntake, URGENT_INTAKE_LABEL, urgentIntakeMessage } from "../../lib/intakeRisk";
 
 type StatusTab = "waiting_confirmation" | "reschedule_requested" | "confirmed" | "closed" | "all";
 type TypeFilter = "Semua" | "Individu" | "Kelompok";
@@ -207,6 +208,10 @@ export default function KonselorPermintaanPage() {
         );
       })
       .sort((a, b) => {
+        // Permintaan menunggu dengan penanda keselamatan selalu di atas.
+        const urgentA = a.status === "waiting_confirmation" && hasUrgentIntake(a.intake_answers) ? 1 : 0;
+        const urgentB = b.status === "waiting_confirmation" && hasUrgentIntake(b.intake_answers) ? 1 : 0;
+        if (urgentA !== urgentB) return urgentB - urgentA;
         const timeA = new Date(a.created_at).getTime();
         const timeB = new Date(b.created_at).getTime();
         return sortOrder === "terlama" ? timeA - timeB : timeB - timeA;
@@ -487,6 +492,14 @@ export default function KonselorPermintaanPage() {
                           Diisi klien saat membuat pesanan ini. Jaga kerahasiaan isi formulir ini.
                         </p>
                         <div className="mt-3">
+                          {hasUrgentIntake(selectedBooking.intake_answers) && (
+                        <div role="alert" className="mb-3 flex items-start gap-2 rounded-xl border border-red-300 bg-red-50 p-3 text-xs leading-relaxed text-red-800">
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                          <span>
+                            <strong>{URGENT_INTAKE_LABEL}.</strong> {urgentIntakeMessage(selectedBooking.intake_answers)}
+                          </span>
+                        </div>
+                          )}
                           <ClientIntakeView
                             intake={selectedBooking.intake_answers}
                             emptyText="Klien tidak mengisi formulir saat membuat pesanan ini."
@@ -631,6 +644,12 @@ export default function KonselorPermintaanPage() {
                               >
                                 {badge.label}
                               </span>
+                              {hasUrgentIntake(booking.intake_answers) && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                                  <AlertCircle className="h-3.5 w-3.5" />
+                                  {URGENT_INTAKE_LABEL}
+                                </span>
+                              )}
                               <span
                                 className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                   booking.service_type === "group"
