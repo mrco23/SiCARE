@@ -9,6 +9,7 @@ import { ApiError } from "../../lib/api";
 type NotificationFilter = "all" | "unread";
 
 const PAGE_SIZE = 10;
+const NOTIFICATION_REFRESH_MS = 60_000;
 
 type NotificationBellProps = {
   role: NotificationRole;
@@ -110,6 +111,28 @@ export default function NotificationBell({
       .catch((cause: unknown) => { if (active) reportLoadError(cause); });
     return () => { active = false; };
   }, [fetchPage, applyFirstPage, reportLoadError]);
+
+  // Penyegaran otomatis: tiap 60 detik saat tab terlihat dan panel tertutup, serta saat
+  // pengguna kembali ke tab. Panel yang sedang dibuka tidak diganggu (daftar bisa sedang di-scroll).
+  useEffect(() => {
+    if (open) return;
+    let active = true;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void fetchPage(0)
+        .then((result) => { if (active) applyFirstPage(result); })
+        .catch(() => { /* coba lagi pada putaran berikutnya */ });
+    };
+    const timer = window.setInterval(refresh, NOTIFICATION_REFRESH_MS);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [open, fetchPage, applyFirstPage]);
 
   useEffect(() => {
     if (!open) return;

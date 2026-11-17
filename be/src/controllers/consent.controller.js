@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { HttpError, parseBody, sendData } from "../lib/http.js";
 import { env } from "../config/env.js";
+import { writeAudit } from "../lib/audit.js";
 import {
   identitySchema,
   signPayloadSchema,
@@ -16,6 +17,7 @@ import {
   getSignedDocumentDownloadUrl,
   initializeConsentForParticipant,
   resendConsentInvitation,
+  removeGroupParticipant,
   signGuestInformedConsent,
   signInformedConsent,
   updateDraftConsentIdentity,
@@ -163,6 +165,26 @@ export const consentController = {
       authRole: req.auth.profile.app_role,
     });
     return sendData(res, summary);
+  },
+
+  async removeParticipant(req, res) {
+    const bookingId = uuidSchema.parse(req.params.bookingId);
+    const participantId = uuidSchema.parse(req.params.participantId);
+    const result = await removeGroupParticipant({
+      bookingId,
+      participantId,
+      authUser: req.auth.user,
+      authRole: req.auth.profile.app_role,
+    });
+    await writeAudit({
+      actorUserId: req.auth.user.id,
+      action: "booking.participant.remove",
+      entityType: "booking",
+      entityId: bookingId,
+      // Tanpa nama/nomor anggota (AGENTS.md sec. 3).
+      metadata: { role: req.auth.profile.app_role, active_participants: result.active_participants },
+    });
+    return sendData(res, result);
   },
 
   async resendInvitation(req, res) {

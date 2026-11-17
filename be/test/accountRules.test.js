@@ -43,7 +43,9 @@ test("register and admin account schemas apply the shared rules", () => {
   assert.equal(registerSchema.safeParse({ ...base, email: "a@unikadelasalle.ac.id", password: "password123" }).success, false);
   assert.equal(registerSchema.safeParse({ ...base, email: "a@unikadelasalle.ac.id", phone_e164: "081234567890" }).success, false);
 
-  const account = { ...base, email: "lmi@unikadelasalle.ac.id", app_role: "head_lmi", gender: "female" };
+  const account = { ...base, email: "lmi@unikadelasalle.ac.id", identity_code: "NIP-LMI-01", app_role: "head_lmi", gender: "female" };
+  const { identity_code: _nip, ...withoutNip } = account;
+  assert.equal(createAccountSchema.safeParse(withoutNip).success, false, "NIP wajib untuk akun buatan admin");
   assert.equal(createAccountSchema.safeParse(account).success, true);
   assert.equal(createAccountSchema.safeParse({ ...account, email: "lmi@sicare.test" }).success, false);
   assert.equal(createAccountSchema.safeParse({ ...account, password: "Lemah123" }).success, false);

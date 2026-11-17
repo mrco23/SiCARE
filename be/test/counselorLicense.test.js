@@ -14,6 +14,7 @@ const baseAccount = {
   email: "konselor@unikadelasalle.ac.id",
   password: "Sandi#Kuat123",
   full_name: "Konselor Uji",
+  identity_code: "NIP-KU-01",
   app_role: "counselor",
 };
 

@@ -165,6 +165,7 @@ export default function KonselorJadwalPage() {
   const [editorText, setEditorText] = useState("09.00");
   const [editorError, setEditorError] = useState<string | null>(null);
 
+  const [cancelSessionReason, setCancelSessionReason] = useState("");
   const [cancelSessionTarget, setCancelSessionTarget] = useState<{
     sessionId: string;
     clientLabel: string;
@@ -486,12 +487,19 @@ export default function KonselorJadwalPage() {
 
   const handleConfirmCancelSession = async () => {
     if (!cancelSessionTarget || cancelSubmitting) return;
+    const reason = cancelSessionReason.trim();
+    if (reason.length < 3) {
+      toast.error("Tuliskan alasan pembatalan (minimal 3 karakter) agar klien mengetahuinya.");
+      return;
+    }
     setCancelSubmitting(true);
     try {
       await sicareApi.transitionSession(cancelSessionTarget.sessionId, {
         status: "cancelled",
+        reason,
       });
       setCancelSessionTarget(null);
+      setCancelSessionReason("");
       toast.success(`Sesi dengan ${cancelSessionTarget.clientLabel} berhasil dibatalkan dan slot telah dibuka kembali.`);
       const fresh = await fetchScheduleData();
       setRawSlots(fresh.slots);
@@ -1352,13 +1360,28 @@ export default function KonselorJadwalPage() {
               <div className="flex items-start gap-2">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
                 <span>
-                  Pembatalan sesi melalui `PATCH /api/v1/sessions/:id/status` akan
-                  menandai sesi dan booking sebagai <strong>cancelled</strong> dengan
-                  keterangan sistem <em>"Sesi dibatalkan oleh konselor"</em>, serta
-                  membuka kembali slot ketersediaan ini.
+                  Sesi dan booking akan ditandai <strong>dibatalkan</strong> dan slot
+                  ini dibuka kembali. Klien menerima notifikasi beserta alasan di
+                  bawah, dan pengingat yang belum terkirim dibatalkan.
                 </span>
               </div>
             </div>
+
+            <label className="mt-4 block text-xs font-semibold text-gray-900">
+              Alasan pembatalan <span className="text-red-600">*</span>
+              <textarea
+                value={cancelSessionReason}
+                onChange={(event) => setCancelSessionReason(event.target.value)}
+                maxLength={1000}
+                rows={3}
+                disabled={cancelSubmitting}
+                placeholder="Contoh: Konselor berhalangan karena tugas mendadak. Silakan buat booking baru."
+                className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm font-normal outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
+              />
+              <span className="mt-1 block font-normal text-gray-500">
+                Alasan ini dikirim ke klien. Jangan tuliskan isi konseling.
+              </span>
+            </label>
 
             <div className="mt-6 flex justify-end gap-2">
               <button

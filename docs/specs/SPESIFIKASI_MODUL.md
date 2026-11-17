@@ -57,7 +57,7 @@ Keputusan hasil klarifikasi:
 * **<Hak / Akses Role>:** Hanya `admin`: `GET/POST /admin/accounts`, `GET/PATCH/DELETE /admin/accounts/:id`, dan `PATCH /admin/counselors/:counselorId/publication`.
 * **<Alur Kerja>:**
   1. Admin membuka halaman manajemen akun. Frontend memanggil `GET /admin/accounts` dengan filter role atau status.
-  2. Saat membuat akun, admin mengisi data dan memilih role `counselor` atau `head_lmi`. Admin hanya mengetik nama email; akhiran `@unikadelasalle.ac.id` dipasang tetap. Kata sandi awal wajib memenuhi aturan kata sandi akun (§1). Untuk konselor, nomor lisensi SIPP/SILP wajib diisi.
+  2. Saat membuat akun, admin mengisi data dan memilih role `counselor` atau `head_lmi`. Admin hanya mengetik nama email; akhiran `@unikadelasalle.ac.id` dipasang tetap. Kata sandi awal wajib memenuhi aturan kata sandi akun (§1). **NIP wajib diisi** (sejak 2026-11-17; admin hanya membuat akun staf/dosen, sehingga kolomnya berlabel "NIP", bukan "NIM / NIP"). Untuk konselor, nomor lisensi SIPP/SILP wajib diisi.
   3. Backend membuat user Supabase beserta profilnya dan mencatat aktivitas admin.
   4. Admin dapat mengubah data atau status akun (`PATCH`), atau menonaktifkannya (`DELETE`). Penonaktifan adalah soft delete: `account_status = disabled`.
   5. Admin dapat menerbitkan atau menyembunyikan profil konselor di daftar konselor publik.

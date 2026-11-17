@@ -4,12 +4,16 @@ import {
   loginSchema,
   resendConfirmationSchema,
   changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from "../validators/auth.validator.js";
 import {
   registerUser,
   resendConfirmation,
   loginUser,
   changeAccountPassword,
+  requestPasswordReset,
+  resetPasswordWithRecovery,
 } from "../services/auth.service.js";
 
 export const authController = {
@@ -35,6 +39,16 @@ export const authController = {
     const input = parseBody(changePasswordSchema, req.body);
     const result = await changeAccountPassword(req.auth, input);
     return sendData(res, result);
+  },
+
+  async forgotPassword(req, res) {
+    const input = parseBody(forgotPasswordSchema, req.body);
+    return sendData(res, await requestPasswordReset(input, req));
+  },
+
+  async resetPassword(req, res) {
+    const input = parseBody(resetPasswordSchema, req.body);
+    return sendData(res, await resetPasswordWithRecovery(req.auth, input));
   },
 
   getMe(req, res) {

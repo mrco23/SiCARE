@@ -12,8 +12,15 @@ export function ScrollToTop() {
 
   useEffect(() => {
     if (hash) {
-      // Jika terdapat hash tautan jangkar, arahkan elemen ke viewport
-      const element = document.querySelector(hash);
+      // Jika terdapat hash tautan jangkar, arahkan elemen ke viewport. Hash dari tautan
+      // Supabase Auth (#access_token=...&type=recovery, #error=...) bukan selector CSS yang
+      // valid; querySelector akan melempar error dan membuat seluruh aplikasi kosong.
+      let element: Element | null;
+      try {
+        element = document.getElementById(decodeURIComponent(hash.slice(1)));
+      } catch {
+        element = null;
+      }
       if (element) {
         element.scrollIntoView();
         return;

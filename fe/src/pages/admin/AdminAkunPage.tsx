@@ -378,6 +378,12 @@ export default function AdminAkunPage() {
       return;
     }
 
+    // Admin hanya membuat/mengelola akun staf dan dosen; NIP wajib (akun klien tetap boleh kosong).
+    if (!isEditingRestrictedAccount && !code) {
+      setFormError("NIP wajib diisi.");
+      return;
+    }
+
     if (editingId === null) {
       const emailError = validateCampusEmailLocalPart(getCampusEmailLocalPart(email));
       if (emailError) {
@@ -786,7 +792,7 @@ export default function AdminAkunPage() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600">
-                  NIM / NIP (opsional)
+                  {editingAccount?.appRole === "client" ? "NIM / NIP" : "NIP"}
                 </label>
                 <input
                   value={form.code}

@@ -81,6 +81,17 @@ export const consentApi = {
     );
   },
 
+  /** Mengeluarkan anggota kelompok yang belum menandatangani (bukan perwakilan). */
+  removeGroupParticipant(
+    bookingId: string,
+    participantId: string,
+  ): Promise<{ success: boolean; participant_id: string; active_participants: number }> {
+    return apiRequest(
+      `/consents/booking/${encodeURIComponent(bookingId)}/participants/${encodeURIComponent(participantId)}/remove`,
+      { method: "POST", auth: true },
+    );
+  },
+
   /**
    * Resends an invitation to an unconsented group participant.
    */

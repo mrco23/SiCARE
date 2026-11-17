@@ -35,3 +35,11 @@ export const changePasswordSchema = z.object({
   path: ["new_password"],
   message: "Kata sandi baru harus berbeda dari kata sandi saat ini.",
 });
+
+export const forgotPasswordSchema = z.object({
+  identifier: z.string().trim().min(1).max(254),
+}).strict();
+
+export const resetPasswordSchema = z.object({
+  new_password: strongPasswordSchema,
+}).strict();

@@ -50,6 +50,7 @@ export const sessionController = {
       authProfile: req.auth.profile,
       sessionId: req.params.id,
       targetStatus: input.status,
+      reason: input.reason ?? null,
     });
 
     return sendData(res, data);

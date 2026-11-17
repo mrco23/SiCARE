@@ -14,6 +14,7 @@ import {
   FileCheck2,
   Copy,
   Link2,
+  UserMinus,
 } from "lucide-react";
 import { consentApi } from "../../lib/consentApi";
 import type { GroupConsentSummaryDto } from "../../types/api";
@@ -37,6 +38,8 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
   // Tautan undangan per peserta, hanya di memori selama modal terbuka (tidak disimpan ke storage).
   const [links, setLinks] = useState<Record<string, { url: string; expiresAt: string }>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const loadSummary = useCallback(async () => {
     if (!bookingId) return;
@@ -95,6 +98,29 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
       setError(err instanceof Error ? err.message : `Gagal mengirim ulang undangan ke ${participantName}.`);
     } finally {
       setResendingId(null);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!removeTarget || removing) return;
+    setRemoving(true);
+    setError(null);
+    setFeedback(null);
+    try {
+      await consentApi.removeGroupParticipant(bookingId, removeTarget.id);
+      setLinks((previous) => {
+        const next = { ...previous };
+        delete next[removeTarget.id];
+        return next;
+      });
+      setFeedback(`${removeTarget.name} dikeluarkan dari kelompok. Tautan undangannya tidak berlaku lagi.`);
+      setRemoveTarget(null);
+      await loadSummary();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : `Gagal mengeluarkan ${removeTarget.name}.`);
+      setRemoveTarget(null);
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -282,6 +308,19 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
                               </button>
                             )
                           )}
+                          {!isSigned && !isRep && (
+                            <button
+                              type="button"
+                              disabled={removing}
+                              onClick={() =>
+                                setRemoveTarget({ id: participant.participant_id, name: participant.display_name })
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                              Keluarkan
+                            </button>
+                          )}
                         </div>
                         {!isSigned && links[participant.participant_id] && (
                           <div className="w-full space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 sm:basis-full">
@@ -333,6 +372,35 @@ export const GroupConsentModal: React.FC<GroupConsentModalProps> = ({
                   })}
                 </div>
               </div>
+
+              {removeTarget && (
+                <div role="alertdialog" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                  <p className="font-semibold">Keluarkan {removeTarget.name} dari kelompok?</p>
+                  <p className="mt-1 text-xs">
+                    Anggota ini tidak lagi dihitung untuk kelengkapan consent dan tautan undangannya dicabut.
+                    Tindakan ini tidak dapat dibatalkan dari aplikasi.
+                  </p>
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      disabled={removing}
+                      onClick={() => setRemoveTarget(null)}
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={removing}
+                      onClick={() => void handleRemove()}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {removing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Ya, keluarkan
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Privacy Notice */}
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">

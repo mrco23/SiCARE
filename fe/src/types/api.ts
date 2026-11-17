@@ -322,6 +322,8 @@ export interface SessionDetailDto extends SessionListItemDto {
 
 export interface SessionStatusTransitionApi {
   status: "ongoing" | "completed" | "cancelled";
+  /** Wajib saat membatalkan (3–1000 karakter); dikirim ke klien. */
+  reason?: string;
 }
 
 // Feedback DTOs differ by endpoint projection. Do not use one permissive interface

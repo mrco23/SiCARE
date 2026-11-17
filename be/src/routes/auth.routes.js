@@ -13,6 +13,9 @@ router.post("/resend-confirmation", asyncHandler(authController.resendConfirmati
 router.post("/login", asyncHandler(authController.login));
 router.get("/me", authenticate, authController.getMe);
 router.post("/change-password", authenticate, asyncHandler(authController.changePassword));
+router.post("/forgot-password", asyncHandler(authController.forgotPassword));
+// Hanya untuk sesi yang dibuka dari tautan email reset (diperiksa lewat klaim `amr`).
+router.post("/reset-password", authenticate, asyncHandler(authController.resetPassword));
 router.post("/logout", authenticate, authController.logout);
 
 export default router;

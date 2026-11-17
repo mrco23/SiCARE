@@ -2,6 +2,58 @@
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../../config/supabase.js";
 import { HttpError, supabaseError } from "../../lib/http.js";
 import { writeAudit } from "../../lib/audit.js";
+import { cancelActiveBookingsForProfile } from "../bookingClosure.service.js";
+
+const COUNSELOR_UNAVAILABLE_REASON =
+  "Konselor tidak lagi tersedia di SiCARE. Silakan buat booking baru dengan konselor lain.";
+const CLIENT_INACTIVE_REASON = "Akun klien dinonaktifkan sehingga booking dibatalkan otomatis.";
+
+/**
+ * Cancels the active bookings of an account that can no longer take part, so they do not
+ * hang without a counselor or client. Returns the number cancelled (0 when nothing applies).
+ * @param {{ id: string, app_role: string, account_status: string }} before
+ * @param {{ id: string, app_role: string, account_status: string }} after
+ * @param {string} actorUserId
+ */
+async function closeBookingsAfterAccountChange(before, after, actorUserId) {
+  try {
+    return await cancelBookingsForAccount(before, after, actorUserId);
+  } catch (error) {
+    // The account change itself already succeeded; report the cleanup failure instead of 500.
+    console.warn("[Admin] Pembatalan booking akun gagal:", error instanceof Error ? error.name : "Error");
+    return { cancelled: 0, skipped: 0, failed: true };
+  }
+}
+
+/** @param {any} before @param {any} after @param {string} actorUserId */
+async function cancelBookingsForAccount(before, after, actorUserId) {
+  let result = null;
+  if (
+    before.app_role === "counselor" &&
+    (after.app_role !== "counselor" || after.account_status !== "active")
+  ) {
+    result = await cancelActiveBookingsForProfile({
+      supabaseClient: supa(),
+      profileId: after.id,
+      side: "counselor",
+      reason: COUNSELOR_UNAVAILABLE_REASON,
+      actorUserId,
+    });
+  } else if (before.app_role === "client" && after.account_status !== "active") {
+    result = await cancelActiveBookingsForProfile({
+      supabaseClient: supa(),
+      profileId: after.id,
+      side: "client",
+      reason: CLIENT_INACTIVE_REASON,
+      actorUserId,
+    });
+  }
+  if (!result) return { cancelled: 0, skipped: 0, failed: false };
+  if (result.errors.length) {
+    console.warn("[Admin] Pembatalan booking akun sebagian gagal:", result.errors.join(","));
+  }
+  return { cancelled: result.cancelled, skipped: result.skipped, failed: result.errors.length > 0 };
+}
 
 const supa = () => {
   if (!isSupabaseConfigured())
@@ -262,7 +314,8 @@ export const adminAccountsService = {
       metadata: { role: data.app_role, status: data.account_status },
     });
 
-    return data;
+    const closed = await closeBookingsAfterAccountChange(current, data, actorUserId);
+    return { ...data, cancelled_bookings: closed.cancelled, ongoing_bookings_kept: closed.skipped, booking_cleanup_failed: closed.failed };
   },
 
   async deactivateAccount(id, actorUserId) {
@@ -329,7 +382,8 @@ export const adminAccountsService = {
       metadata: { role: data.app_role, status: "disabled" },
     });
 
-    return data;
+    const closed = await closeBookingsAfterAccountChange(current, data, actorUserId);
+    return { ...data, cancelled_bookings: closed.cancelled, ongoing_bookings_kept: closed.skipped, booking_cleanup_failed: closed.failed };
   },
 
   async setCounselorPublication(counselorId, isPublic, actorUserId) {
