@@ -81,16 +81,19 @@ type Session = {
   rawSessionId?: string;
   /** Booking kelompok: perwakilan membagikan tautan consent ke anggota. */
   isGroup?: boolean;
+  /** Konselor meminta jadwal ulang: klien wajib memilih slot pengganti sebelum jam aslinya. */
+  needsNewSlot?: boolean;
+  /** Alasan konselor meminta jadwal ulang. */
+  rescheduleReason?: string | null;
 };
 
 type RescheduleState = {
   sessionId: number | string;
-  reason: string | null;
   date: Date | null;
   slotIndex: number | null;
-  note: string;
   error: string;
   month: Date;
+  submitting: boolean;
 };
 
 type TimeSlot = {
@@ -99,28 +102,7 @@ type TimeSlot = {
   slotId?: string;
 };
 
-const RESCHEDULE_MIN_HOURS = 24;
-const RESCHEDULE_MAX = 1;
-const SESSION_MIN = 60;
 const MAX_AHEAD_DAYS = 60;
-
-const RESCHEDULE_REASONS = [
-  "Bentrok jadwal kuliah",
-  "Sakit",
-  "Keperluan mendesak",
-  "Lainnya",
-];
-
-const COUNSELOR_WEEK: Record<number, string[]> = {
-  2: ["14.00-15.00", "15.00-16.00"],
-  3: ["09.00-10.00", "10.00-11.00"],
-  4: ["14.00-15.00", "15.00-16.00"],
-};
-
-const COUNSELOR_SCHEDULE: Record<string, Record<number, string[]>> = {
-  "Giovanna Yudi, S.Psi., M.Psi.": COUNSELOR_WEEK,
-  "Rico Kornelius Wahani, S.Psi., M.Psi.": COUNSELOR_WEEK,
-};
 
 const formatTime = (date: Date) =>
   `${String(date.getHours()).padStart(2, "0")}.${String(date.getMinutes()).padStart(2, "0")}`;
@@ -177,9 +159,9 @@ const MISSED_VISIBLE_DAYS = 14;
 const canReschedule = (session: Session, now: number) => {
   const hoursLeft = (session.start.getTime() - now) / 3_600_000;
   return (
+    Boolean(session.needsNewSlot) &&
     statusOf(session, now) === "upcoming" &&
-    hoursLeft >= RESCHEDULE_MIN_HOURS &&
-    session.rescheduleCount < RESCHEDULE_MAX
+    hoursLeft > 0
   );
 };
 
@@ -238,10 +220,6 @@ export default function KlienAktivitasPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [dynamicSlots, setDynamicSlots] = useState<PublicAvailabilitySlot[]>([]);
-  const [counselorsList, setCounselorsList] = useState<PublicCounselor[]>([]);
-  const [counselorSchedule, setCounselorSchedule] = useState<
-    Record<string, Record<number, string[]>>
-  >(COUNSELOR_SCHEDULE);
   const [now, setNow] = useState(() => Date.now());
   const [feedbackSessionId, setFeedbackSessionId] = useState<
     number | string | null
@@ -257,8 +235,6 @@ export default function KlienAktivitasPage() {
   const toast = useToast();
   const [view, setView] = useState<"main" | "reschedule">("main");
   const [reschedule, setReschedule] = useState<RescheduleState | null>(null);
-
-  void SESSION_MIN;
 
   const fetchActivity = useCallback(async () => {
     try {
@@ -287,21 +263,6 @@ export default function KlienAktivitasPage() {
       );
       const feedbackMap = new Map(feedbackRows.map((f) => [f.session_id, f]));
 
-      const dynSchedule: Record<string, Record<number, string[]>> = {};
-      for (const slot of slotRows) {
-        const counselorName = counselorMap.get(slot.counselor_id);
-        if (!counselorName) continue;
-        const start = new Date(slot.starts_at);
-        const day = start.getDay();
-        const label = `${formatTime(start)}-${formatTime(new Date(slot.ends_at))}`;
-        if (!dynSchedule[counselorName]) dynSchedule[counselorName] = {};
-        if (!dynSchedule[counselorName][day])
-          dynSchedule[counselorName][day] = [];
-        if (!dynSchedule[counselorName][day].includes(label)) {
-          dynSchedule[counselorName][day].push(label);
-        }
-      }
-
       const consentMap = new Map<string, InformedConsentDto>();
       const activeBookingIds = [
         ...new Set([
@@ -325,8 +286,8 @@ export default function KlienAktivitasPage() {
       const processedBookingIds = new Set<string>();
 
       for (const s of sessionRows) {
-        processedBookingIds.add(s.booking_id);
         if (s.status === "cancelled") continue;
+        processedBookingIds.add(s.booking_id);
         const booking = bookingRows.find((b) => b.id === s.booking_id);
         const counselorName =
           counselorMap.get(s.counselor_id) ||
@@ -352,9 +313,7 @@ export default function KlienAktivitasPage() {
         const fb = feedbackMap.get(s.id);
         const consent = consentMap.get(s.booking_id);
 
-        const isRescheduled =
-          booking?.status === "reschedule_requested" ||
-          Boolean(booking?.reschedule_reason);
+        const isRescheduled = booking?.status === "reschedule_requested";
 
         mappedSessions.push({
           id: s.id,
@@ -397,6 +356,8 @@ export default function KlienAktivitasPage() {
           consentId: consent?.id,
           rawSessionId: s.id,
           isGroup: booking?.service_type === "group",
+          needsNewSlot: isRescheduled,
+          rescheduleReason: isRescheduled ? booking?.reschedule_reason ?? null : null,
         });
       }
 
@@ -454,13 +415,14 @@ export default function KlienAktivitasPage() {
           expiredReason: b.expired_reason ?? null,
           consentId: consent?.id,
           rawSessionId: b.id,
+          isGroup: b.service_type === "group",
+          needsNewSlot: isRescheduled,
+          rescheduleReason: isRescheduled ? b.reschedule_reason ?? null : null,
         });
       }
 
       return {
-        counselors,
         filteredSlots,
-        dynSchedule,
         mappedSessions,
       };
     } catch {
@@ -471,9 +433,7 @@ export default function KlienAktivitasPage() {
   const refreshActivity = useCallback(async () => {
     const res = await fetchActivity();
     if (!res) return;
-    setCounselorsList(res.counselors);
     setDynamicSlots(res.filteredSlots);
-    setCounselorSchedule((prev) => ({ ...prev, ...res.dynSchedule }));
     setSessions(res.mappedSessions);
   }, [fetchActivity]);
 
@@ -482,9 +442,7 @@ export default function KlienAktivitasPage() {
     void fetchActivity()
       .then((res) => {
         if (!active || !res) return;
-        setCounselorsList(res.counselors);
         setDynamicSlots(res.filteredSlots);
-        setCounselorSchedule((prev) => ({ ...prev, ...res.dynSchedule }));
         setSessions(res.mappedSessions);
       })
       .finally(() => {
@@ -586,26 +544,20 @@ export default function KlienAktivitasPage() {
     ? sessions.find((session) => session.id === reschedule.sessionId)
     : undefined;
 
-  const slotsFor = (counselor: string, date: Date): TimeSlot[] => {
-    const counselorObj = counselorsList.find(
-      (c) =>
-        c.public_name.toLowerCase().trim() === counselor.toLowerCase().trim() ||
-        counselor.toLowerCase().includes(c.public_name.toLowerCase().trim()) ||
-        c.public_name.toLowerCase().includes(counselor.toLowerCase().trim()),
-    );
-    const counselorId = counselorObj?.profile_id;
-
-    const matchingDynamicSlots = dynamicSlots.filter((slot) => {
-      if (counselorId && slot.counselor_id !== counselorId) return false;
-      const slotStart = new Date(slot.starts_at);
-      return (
-        sameDay(slotStart, date) &&
-        slotStart.getTime() - now >= RESCHEDULE_MIN_HOURS * 3_600_000
-      );
-    });
-
-    if (matchingDynamicSlots.length > 0) {
-      return matchingDynamicSlots.map((slot) => {
+  /** Slot pengganti: hanya slot server milik konselor yang sama (dicocokkan lewat ID). */
+  const slotsFor = (session: Session, date: Date): TimeSlot[] => {
+    if (!session.counselorId) return [];
+    return dynamicSlots
+      .filter((slot) => {
+        const slotStart = new Date(slot.starts_at);
+        return (
+          slot.counselor_id === session.counselorId &&
+          sameDay(slotStart, date) &&
+          slotStart.getTime() > now
+        );
+      })
+      .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at))
+      .map((slot) => {
         const slotStart = new Date(slot.starts_at);
         const slotEnd = new Date(slot.ends_at);
         return {
@@ -614,26 +566,6 @@ export default function KlienAktivitasPage() {
           slotId: slot.id,
         };
       });
-    }
-
-    const times =
-      (counselorSchedule[counselor] ?? COUNSELOR_WEEK)[date.getDay()] ?? [];
-
-    return times
-      .map((label) => ({
-        label,
-        start: new Date(
-          date.getFullYear(),
-          date.getMonth(),
-          date.getDate(),
-          Number(label.slice(0, 2)),
-          Number(label.slice(3, 5)),
-        ),
-      }))
-      .filter(
-        (slot) =>
-          slot.start.getTime() - now >= RESCHEDULE_MIN_HOURS * 3_600_000,
-      );
   };
 
   const openFeedback = (sessionId: number | string) => {
@@ -687,12 +619,11 @@ export default function KlienAktivitasPage() {
     const today = new Date(now);
     setReschedule({
       sessionId,
-      reason: null,
       date: null,
       slotIndex: null,
-      note: "",
       error: "",
       month: new Date(today.getFullYear(), today.getMonth(), 1),
+      submitting: false,
     });
     setView("reschedule");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -714,20 +645,18 @@ export default function KlienAktivitasPage() {
     if (
       !reschedule ||
       !rescheduleSession ||
-      !reschedule.reason ||
+      reschedule.submitting ||
       !reschedule.date ||
       reschedule.slotIndex === null
     ) {
       return;
     }
 
-    const availableSlots = slotsFor(
-      rescheduleSession.counselor,
-      reschedule.date,
-    );
-    const selectedSlot = availableSlots[reschedule.slotIndex];
+    const selectedSlot = slotsFor(rescheduleSession, reschedule.date)[
+      reschedule.slotIndex
+    ];
 
-    if (!selectedSlot) {
+    if (!selectedSlot?.slotId || !rescheduleSession.bookingId) {
       updateReschedule({
         error: "Jam yang dipilih sudah tidak tersedia. Silakan pilih kembali.",
       });
@@ -737,45 +666,22 @@ export default function KlienAktivitasPage() {
     if (!canReschedule(rescheduleSession, now)) {
       updateReschedule({
         error:
-          "Pengajuan tidak dapat diproses. Periksa batas waktu atau kuota ubah jadwal.",
+          "Jadwal pengganti tidak dapat dipilih lagi karena jadwal semula sudah lewat.",
       });
       return;
     }
 
-    const requestedLabel = `${reschedule.date.toLocaleDateString("id-ID", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    })}, ${selectedSlot.label.replace("-", "–")} WITA`;
-
+    updateReschedule({ submitting: true, error: "" });
     try {
-      if (rescheduleSession.bookingId && selectedSlot.slotId) {
-        await sicareApi.rescheduleBooking(
-          rescheduleSession.bookingId,
-          selectedSlot.slotId,
-        );
-      }
-
-      setSessions((current) =>
-        current.map((session) =>
-          session.id === rescheduleSession.id
-            ? {
-                ...session,
-                rescheduleCount: session.rescheduleCount + 1,
-                pendingSlot: {
-                  reason: reschedule.reason as string,
-                  note: reschedule.note,
-                  label: requestedLabel,
-                },
-              }
-            : session,
-        ),
+      // Sukses hanya ditampilkan setelah server mengonfirmasi.
+      await sicareApi.rescheduleBooking(
+        rescheduleSession.bookingId,
+        selectedSlot.slotId,
       );
-
       setReschedule(null);
       setView("main");
       toast.success(
-        "Pengajuan ubah jadwal dikirim. Kami kabari begitu konselor menyetujuinya.",
+        "Jadwal pengganti dikirim. Menunggu konfirmasi konselor.",
       );
       window.scrollTo({ top: 0, behavior: "smooth" });
       void refreshActivity();
@@ -783,8 +689,8 @@ export default function KlienAktivitasPage() {
       const msg =
         cause instanceof Error
           ? cause.message
-          : "Pengajuan ubah jadwal gagal dikirim. Silakan coba lagi.";
-      updateReschedule({ error: msg });
+          : "Jadwal pengganti gagal dikirim. Silakan coba lagi.";
+      updateReschedule({ error: msg, submitting: false });
     }
   };
 
@@ -946,9 +852,10 @@ export default function KlienAktivitasPage() {
 
   const renderUpcomingCard = (session: Session, isNext: boolean) => {
     const allowed = canReschedule(session, now);
-    const isPending = session.rescheduleCount > 0;
-    const showLimitNote =
-      !allowed && !isPending && session.rescheduleCount < RESCHEDULE_MAX;
+    const awaitingConfirmation =
+      session.bookingStatus === "waiting_confirmation";
+    const canSignConsent =
+      session.serverStatus === "scheduled" && !session.consentSigned;
 
     return (
       <article
@@ -981,32 +888,54 @@ export default function KlienAktivitasPage() {
           </div>
 
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+            {canSignConsent && (
+              <button
+                type="button"
+                onClick={() => setConsentSessionId(session.id)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f]"
+              >
+                <FileSignature className="h-4 w-4" />
+                Tanda tangan consent
+              </button>
+            )}
             {renderGroupConsentButton(session)}
-            {isPending ? (
-              <span className="rounded-xl bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800">
-                Menunggu persetujuan konselor
-              </span>
-            ) : (
+            {session.needsNewSlot ? (
               <button
                 type="button"
                 disabled={!allowed}
                 onClick={() => openReschedule(session.id)}
                 className="rounded-xl border border-[#1e5b3a] px-4 py-2.5 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#e8f9f0] disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent"
               >
-                <IconLabel icon={Pencil}>Ubah jadwal</IconLabel>
+                <IconLabel icon={Pencil}>Pilih jadwal pengganti</IconLabel>
               </button>
-            )}
+            ) : awaitingConfirmation ? (
+              <span className="rounded-xl bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800">
+                Menunggu konfirmasi konselor
+              </span>
+            ) : null}
           </div>
         </div>
 
-        {session.pendingSlot && (
+        {session.needsNewSlot && (
           <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Pengajuan jadwal baru: {session.pendingSlot.label}
+            Konselor meminta jadwal ulang
+            {session.rescheduleReason ? `: ${session.rescheduleReason}` : ""}.
+            Pilih jadwal pengganti sebelum {dayLabel(session.start, now).toLowerCase()},{" "}
+            {formatTime(session.start)} WITA; setelah itu permintaan otomatis
+            kedaluwarsa.
           </p>
         )}
-        {showLimitNote && (
+        {canSignConsent && (
           <p className="mt-3 text-xs text-gray-500">
-            Ubah jadwal hanya bisa diajukan minimal 24 jam sebelum sesi.
+            Tanda tangani informed consent sebelum sesi agar konselor dapat
+            memulai sesi tepat waktu.
+          </p>
+        )}
+        {session.serverStatus === "scheduled" && (
+          <p className="mt-2 text-xs text-gray-500">
+            Perlu mengubah jadwal? Sampaikan kepada konselor; konselor dapat
+            meminta jadwal ulang sehingga kamu bisa memilih jadwal pengganti di
+            sini.
           </p>
         )}
       </article>
@@ -1029,7 +958,7 @@ export default function KlienAktivitasPage() {
       previousMonth >= new Date(today.getFullYear(), today.getMonth(), 1);
     const canGoNext = nextMonth <= maxDate;
     const selectedSlots = reschedule.date
-      ? slotsFor(rescheduleSession.counselor, reschedule.date)
+      ? slotsFor(rescheduleSession, reschedule.date)
       : [];
 
     const calendarCells = [
@@ -1042,7 +971,7 @@ export default function KlienAktivitasPage() {
         const isAvailable =
           date >= today &&
           date <= maxDate &&
-          slotsFor(rescheduleSession.counselor, date).length > 0;
+          slotsFor(rescheduleSession, date).length > 0;
         const isSelected = reschedule.date
           ? sameDay(reschedule.date, date)
           : false;
@@ -1082,7 +1011,7 @@ export default function KlienAktivitasPage() {
 
         <section>
           <h1 className="font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-            Ubah jadwal sesi
+            Pilih jadwal pengganti
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             {rescheduleSession.counselor} · jadwal semula{" "}
@@ -1092,58 +1021,26 @@ export default function KlienAktivitasPage() {
         </section>
 
         <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
-          <section className="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6">
-            <p className="text-sm font-bold text-gray-900">
-              1. Alasan <span className="text-red-600">*</span>
+          <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 sm:p-6">
+            <p className="text-sm font-bold text-amber-900">
+              Alasan dari konselor
             </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {RESCHEDULE_REASONS.map((reason) => {
-                const selected = reschedule.reason === reason;
-                return (
-                  <button
-                    key={reason}
-                    type="button"
-                    onClick={() => updateReschedule({ reason, error: "" })}
-                    className={`rounded-xl border px-3 py-3 text-left text-sm transition ${
-                      selected
-                        ? "border-[#1e5b3a] bg-[#f7fcf9] font-semibold text-[#1e5b3a]"
-                        : "border-gray-200 text-gray-700 hover:border-[#36c08f]"
-                    }`}
-                  >
-                    {reason}
-                  </button>
-                );
-              })}
-            </div>
-
-            <label
-              htmlFor="reschedule-note"
-              className="mt-6 block text-sm font-bold text-gray-900"
-            >
-              Catatan{" "}
-              <span className="text-xs font-normal text-gray-400">
-                (opsional)
-              </span>
-            </label>
-            <textarea
-              id="reschedule-note"
-              rows={3}
-              value={reschedule.note}
-              onChange={(event) =>
-                updateReschedule({ note: event.target.value })
-              }
-              className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none transition focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
-              placeholder="Tambahkan catatan jika diperlukan"
-            />
+            <p className="mt-2 text-sm text-amber-900">
+              {rescheduleSession.rescheduleReason || "Konselor meminta penjadwalan ulang."}
+            </p>
+            <p className="mt-4 text-xs text-amber-800">
+              Pilih salah satu jadwal konselor yang masih kosong. Setelah dikirim,
+              konselor akan mengonfirmasi jadwal baru. Bila tidak dipilih sampai
+              jadwal semula tiba, permintaan otomatis kedaluwarsa.
+            </p>
           </section>
 
           <section className="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6">
             <p className="text-sm font-bold text-gray-900">
-              2. Pilih tanggal <span className="text-red-600">*</span>
+              1. Pilih tanggal <span className="text-red-600">*</span>
             </p>
             <p className="mt-0.5 text-xs text-gray-500">
-              Tanggal berwarna hijau memiliki jadwal konselor. Minimal 24 jam
-              dari sekarang.
+              Tanggal berwarna hijau memiliki jadwal konselor yang masih kosong.
             </p>
 
             <div className="mt-3 rounded-2xl border border-gray-200 p-4">
@@ -1192,7 +1089,7 @@ export default function KlienAktivitasPage() {
             </div>
 
             <p className="mt-6 text-sm font-bold text-gray-900">
-              3. Pilih jam <span className="text-red-600">*</span>
+              2. Pilih jam <span className="text-red-600">*</span>
             </p>
             {!reschedule.date ? (
               <p className="mt-3 text-sm text-gray-500">
@@ -1208,7 +1105,7 @@ export default function KlienAktivitasPage() {
                   const selected = reschedule.slotIndex === index;
                   return (
                     <button
-                      key={slot.label}
+                      key={slot.slotId ?? slot.label}
                       type="button"
                       onClick={() =>
                         updateReschedule({ slotIndex: index, error: "" })
@@ -1245,16 +1142,15 @@ export default function KlienAktivitasPage() {
           <button
             type="button"
             disabled={
-              !(
-                reschedule.reason &&
-                reschedule.date &&
-                reschedule.slotIndex !== null
-              )
+              reschedule.submitting ||
+              !(reschedule.date && reschedule.slotIndex !== null)
             }
-            onClick={submitReschedule}
+            onClick={() => void submitReschedule()}
             className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <IconLabel icon={Send}>Kirim pengajuan</IconLabel>
+            <IconLabel icon={Send}>
+              {reschedule.submitting ? "Mengirim..." : "Kirim jadwal pengganti"}
+            </IconLabel>
           </button>
         </div>
       </div>
