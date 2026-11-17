@@ -14,6 +14,50 @@ async function countRows(table, configure = (q) => q) {
   return count ?? 0;
 }
 
+/** Laporan menghitung bulan dalam WITA (Asia/Makassar, UTC+8, tanpa DST). */
+const WITA_OFFSET_MS = 8 * 60 * 60 * 1000;
+const REPORT_PAGE_SIZE = 1000;
+/** Batas pengaman per tabel; di atas ini laporan ditandai truncated. */
+const REPORT_MAX_ROWS = 20000;
+
+/** "YYYY-MM" menurut kalender WITA. */
+/** @param {string} value */
+export function witaMonthKey(value) {
+  return new Date(Date.parse(value) + WITA_OFFSET_MS).toISOString().slice(0, 7);
+}
+
+/** Awal bulan WITA, 11 bulan sebelum bulan berjalan (12 bulan termasuk bulan ini), dalam ISO UTC. */
+/** @param {number} nowMs */
+export function reportWindowStart(nowMs) {
+  const wita = new Date(nowMs + WITA_OFFSET_MS);
+  return new Date(Date.UTC(wita.getUTCFullYear(), wita.getUTCMonth() - 11, 1) - WITA_OFFSET_MS).toISOString();
+}
+
+/**
+ * Mengambil semua baris sejak `from` per halaman (urut created_at, id), bukan hanya 1000 tertua.
+ * @param {"bookings" | "counseling_sessions" | "feedback"} table
+ * @param {string} fields
+ * @param {string} from
+ * @returns {Promise<{ rows: any[], truncated: boolean }>}
+ */
+async function fetchAllRows(table, fields, from) {
+  /** @type {any[]} */
+  const rows = [];
+  for (let offset = 0; offset < REPORT_MAX_ROWS; offset += REPORT_PAGE_SIZE) {
+    const { data, error } = await supa()
+      .from(table)
+      .select(fields)
+      .gte("created_at", from)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + REPORT_PAGE_SIZE - 1);
+    if (error) supabaseError(error, "Laporan tidak dapat dibuat.");
+    rows.push(...(data ?? []));
+    if (!data || data.length < REPORT_PAGE_SIZE) return { rows, truncated: false };
+  }
+  return { rows, truncated: true };
+}
+
 export const reportingService = {
   async getDashboard() {
     await markMissedSessionsSafely();
@@ -47,52 +91,53 @@ export const reportingService = {
 
   async getReport() {
     await markMissedSessionsSafely();
-    const since = new Date();
-    since.setMonth(since.getMonth() - 11, 1);
-    since.setHours(0, 0, 0, 0);
-    const from = since.toISOString();
+    const from = reportWindowStart(Date.now());
 
-    const [bookingResult, sessionResult, feedbackResult, counselorResult] = await Promise.all([
-      supa().from("bookings").select("id,status,service_type,starts_at,created_at,counselor_id").gte("created_at", from).order("created_at", { ascending: true }).limit(1000),
-      supa().from("counseling_sessions").select("id,status,starts_at,completed_at,counselor_id").gte("created_at", from).order("created_at", { ascending: true }).limit(1000),
-      supa().from("feedback").select("id,rating,moderation_status,created_at,counselor_id").gte("created_at", from).order("created_at", { ascending: true }).limit(1000),
-      supa().from("profiles").select("id,full_name").eq("app_role", "counselor").eq("account_status", "active").limit(500),
+    const [bookings, sessions, feedback, activeCounselorResult] = await Promise.all([
+      fetchAllRows("bookings", "id,status,service_type,starts_at,created_at,counselor_id", from),
+      fetchAllRows("counseling_sessions", "id,status,starts_at,completed_at,counselor_id", from),
+      fetchAllRows("feedback", "id,rating,moderation_status,created_at,counselor_id", from),
+      supa().from("profiles").select("id,full_name,account_status,app_role").eq("app_role", "counselor").eq("account_status", "active").limit(500),
     ]);
+    if (activeCounselorResult.error) supabaseError(activeCounselorResult.error, "Laporan tidak dapat dibuat.");
 
-    for (const result of [bookingResult, sessionResult, feedbackResult, counselorResult]) {
-      if (result.error) supabaseError(result.error, "Laporan tidak dapat dibuat.");
+    // Konselor yang sudah nonaktif/berganti role tetap muncul bila punya data pada periode laporan.
+    const counselorRows = [...(activeCounselorResult.data ?? [])];
+    const known = new Set(counselorRows.map((c) => c.id));
+    const missingIds = [
+      ...new Set(
+        [...bookings.rows, ...sessions.rows, ...feedback.rows]
+          .map((row) => row.counselor_id)
+          .filter((id) => id && !known.has(id)),
+      ),
+    ];
+    if (missingIds.length) {
+      const { data: formerCounselors, error } = await supa()
+        .from("profiles")
+        .select("id,full_name,account_status,app_role")
+        .in("id", missingIds);
+      if (error) supabaseError(error, "Laporan tidak dapat dibuat.");
+      counselorRows.push(...(formerCounselors ?? []));
     }
 
-    const bookings = bookingResult.data ?? [];
-    const sessions = sessionResult.data ?? [];
-    const feedback = feedbackResult.data ?? [];
-    const counselors = counselorResult.data ?? [];
     const monthly = new Map();
-    const monthKey = (value) => value.slice(0, 7);
-
-    for (const row of bookings) {
-      const key = monthKey(row.created_at);
+    const bump = (value, field) => {
+      if (!value) return;
+      const key = witaMonthKey(value);
       if (!monthly.has(key)) monthly.set(key, { month: key, bookings: 0, completed_sessions: 0, feedback_count: 0 });
-      monthly.get(key).bookings += 1;
-    }
-    for (const row of sessions) {
-      if (row.status !== "completed") continue;
-      const key = monthKey(row.completed_at ?? row.starts_at);
-      if (!monthly.has(key)) monthly.set(key, { month: key, bookings: 0, completed_sessions: 0, feedback_count: 0 });
-      monthly.get(key).completed_sessions += 1;
-    }
-    for (const row of feedback) {
-      const key = monthKey(row.created_at);
-      if (!monthly.has(key)) monthly.set(key, { month: key, bookings: 0, completed_sessions: 0, feedback_count: 0 });
-      monthly.get(key).feedback_count += 1;
-    }
+      monthly.get(key)[field] += 1;
+    };
+    for (const row of bookings.rows) bump(row.created_at, "bookings");
+    for (const row of sessions.rows) if (row.status === "completed") bump(row.completed_at ?? row.starts_at, "completed_sessions");
+    for (const row of feedback.rows) bump(row.created_at, "feedback_count");
 
     const byCounselor = new Map(
-      counselors.map((c) => [
+      counselorRows.map((c) => [
         c.id,
         {
           counselor_id: c.id,
           counselor_name: c.full_name,
+          is_active: c.app_role === "counselor" && c.account_status === "active",
           bookings: 0,
           completed_sessions: 0,
           feedback_count: 0,
@@ -100,15 +145,15 @@ export const reportingService = {
         },
       ])
     );
-    for (const row of bookings) {
+    for (const row of bookings.rows) {
       const item = byCounselor.get(row.counselor_id);
       if (item) item.bookings += 1;
     }
-    for (const row of sessions) {
+    for (const row of sessions.rows) {
       const item = byCounselor.get(row.counselor_id);
       if (item && row.status === "completed") item.completed_sessions += 1;
     }
-    for (const row of feedback) {
+    for (const row of feedback.rows) {
       const item = byCounselor.get(row.counselor_id);
       if (item) {
         item.feedback_count += 1;
@@ -116,18 +161,19 @@ export const reportingService = {
       }
     }
 
+    const feedbackRows = feedback.rows;
     return {
       period: { from, to: new Date().toISOString() },
       totals: {
-        bookings: bookings.length,
-        completed_sessions: sessions.filter((x) => x.status === "completed").length,
-        cancelled_sessions: sessions.filter((x) => x.status === "cancelled").length,
-        missed_sessions: sessions.filter((x) => x.status === "missed").length,
-        expired_bookings: bookings.filter((x) => x.status === "expired").length,
-        feedback: feedback.length,
-        shown_feedback: feedback.filter((x) => x.moderation_status === "shown").length,
-        average_rating: feedback.length
-          ? Math.round((feedback.reduce((n, x) => n + x.rating, 0) / feedback.length) * 100) / 100
+        bookings: bookings.rows.length,
+        completed_sessions: sessions.rows.filter((x) => x.status === "completed").length,
+        cancelled_sessions: sessions.rows.filter((x) => x.status === "cancelled").length,
+        missed_sessions: sessions.rows.filter((x) => x.status === "missed").length,
+        expired_bookings: bookings.rows.filter((x) => x.status === "expired").length,
+        feedback: feedbackRows.length,
+        shown_feedback: feedbackRows.filter((x) => x.moderation_status === "shown").length,
+        average_rating: feedbackRows.length
+          ? Math.round((feedbackRows.reduce((n, x) => n + x.rating, 0) / feedbackRows.length) * 100) / 100
           : null,
       },
       monthly: [...monthly.values()].sort((a, b) => a.month.localeCompare(b.month)),
@@ -138,7 +184,7 @@ export const reportingService = {
           rating_total: undefined,
         }))
         .sort((a, b) => b.completed_sessions - a.completed_sessions),
-      truncated: bookings.length === 1000 || sessions.length === 1000 || feedback.length === 1000,
+      truncated: bookings.truncated || sessions.truncated || feedback.truncated,
     };
   },
 };

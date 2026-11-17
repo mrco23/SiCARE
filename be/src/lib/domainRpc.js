@@ -17,6 +17,8 @@ export const DOMAIN_ERRORS = {
   BOOKING_SESSION_ALREADY_STARTED: [409, "SESSION_ALREADY_STARTED", "Booking tidak dapat dibatalkan setelah sesi dimulai atau selesai."],
   BOOKING_FORBIDDEN: [403, "BOOKING_FORBIDDEN", "Kamu tidak memiliki akses ke booking ini."],
   BOOKING_SESSION_CLOSED: [409, "BOOKING_SESSION_CLOSED", "Booking tidak dapat diubah karena sesinya sudah berlangsung, selesai, atau terlewat."],
+  BOOKING_CLIENT_OVERLAP: [409, "BOOKING_CLIENT_OVERLAP", "Anda sudah memiliki booking aktif pada jam yang sama. Pilih jadwal lain."],
+  BOOKING_CLIENT_LIMIT_REACHED: [409, "BOOKING_CLIENT_LIMIT_REACHED", "Anda sudah memiliki 2 booking aktif. Selesaikan atau batalkan salah satunya sebelum membuat booking baru."],
   BOOKING_EXPIRED: [409, "BOOKING_EXPIRED", "Jadwal booking ini sudah tiba atau lewat, sehingga tidak dapat dikonfirmasi lagi."],
   SESSION_FORMAT_REQUIRED: [400, "SESSION_FORMAT_REQUIRED", "Format sesi online atau offline wajib dipilih saat menerima booking."],
   SESSION_ROOM_INVALID: [400, "SESSION_ROOM_INVALID", "Informasi ruang maksimal 240 karakter."],

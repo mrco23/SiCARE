@@ -304,6 +304,11 @@ test("9. signInformedConsent uploads signature and PDF, updates DB, and writes a
       },
     },
     from(table) {
+      if (table === "bookings" || table === "counseling_sessions") {
+        // assertBookingAcceptsConsent: booking aktif, sesi belum ditutup.
+        const row = table === "bookings" ? { id: "booking-uuid", status: "confirmed" } : null;
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row, error: null }) }) }) };
+      }
       if (table === "informed_consents") {
         return {
           select() {

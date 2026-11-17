@@ -292,11 +292,16 @@ export const adminAccountsService = {
             { onConflict: "profile_id", ignoreDuplicates: true },
           );
         if (counselorError) supabaseError(counselorError, "Profil konselor tidak dapat disiapkan.");
-        const { error: hideError } = await supa()
-          .from("counselor_profiles")
-          .update({ is_public: isCounselorActive })
-          .eq("profile_id", data.id);
-        if (hideError) supabaseError(hideError, "Status profil konselor tidak dapat diperbarui.");
+        // Mengaktifkan kembali akun yang dinonaktifkan tidak otomatis menampilkan profil di
+        // halaman publik (admin mungkin sengaja menyembunyikannya); gunakan pengaturan publikasi.
+        const reactivated = current.app_role === "counselor" && current.account_status === "disabled";
+        if (!isCounselorActive || !reactivated) {
+          const { error: hideError } = await supa()
+            .from("counselor_profiles")
+            .update({ is_public: isCounselorActive })
+            .eq("profile_id", data.id);
+          if (hideError) supabaseError(hideError, "Status profil konselor tidak dapat diperbarui.");
+        }
       } else {
         const { error: hideError } = await supa()
           .from("counselor_profiles")

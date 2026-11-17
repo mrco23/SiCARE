@@ -777,6 +777,10 @@ test("10. Guest participant updates identity and signs consent with independent 
 
   const mockClient = {
     from(table) {
+      if (table === "bookings" || table === "counseling_sessions") {
+        const row = table === "bookings" ? { id: "booking-uuid", status: "confirmed" } : null;
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row, error: null }) }) }) };
+      }
       if (table === "informed_consents") {
         return {
           select() {

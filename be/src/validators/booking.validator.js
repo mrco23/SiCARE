@@ -1,11 +1,34 @@
 import { z } from "zod";
+import { INDONESIAN_PHONE_E164_RE } from "./shared.validator.js";
 
 const uuid = z.string().uuid();
+
+/** 08…/62…/+62…/8… → +62… (nomor WhatsApp anggota kelompok disimpan seragam). */
+export function normalizeParticipantPhone(raw) {
+  if (typeof raw !== "string") return raw;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const digits = trimmed.replace(/[^0-9]/g, "");
+  if (digits.startsWith("0")) return `+62${digits.slice(1)}`;
+  if (digits.startsWith("62")) return `+${digits}`;
+  if (digits.startsWith("8")) return `+62${digits}`;
+  return trimmed;
+}
+
+/** Nama untuk mendeteksi anggota ganda: huruf kecil, spasi dirapikan. */
+function participantNameKey(name) {
+  return String(name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 export const participantSchema = z.object({
   display_name: z.string().trim().min(1).max(160),
   full_name: z.string().trim().min(1).max(160).optional(),
-  phone_e164: z.string().trim().min(8).max(25).optional().nullable(),
+  phone_e164: z
+    .preprocess(
+      normalizeParticipantPhone,
+      z.string().regex(INDONESIAN_PHONE_E164_RE, "Nomor WhatsApp anggota tidak valid. Contoh: 081234567890.").nullable(),
+    )
+    .optional(),
   is_representative: z.boolean().default(false),
 }).strict();
 
@@ -58,6 +81,38 @@ export const createBookingSchema = z.object({
     if (input.participants.filter((participant) => participant.is_representative).length !== 1) {
       context.addIssue({ code: "custom", message: "Tepat satu peserta harus ditandai sebagai perwakilan.", path: ["participants"] });
     }
+    // Anggota (selain perwakilan) wajib punya nomor WhatsApp untuk menerima tautan consent,
+    // dan tidak boleh ganda (nama atau nomor sama) dalam satu kelompok.
+    const seenNames = new Set();
+    const seenPhones = new Set();
+    input.participants.forEach((participant, index) => {
+      if (!participant.is_representative && !participant.phone_e164) {
+        context.addIssue({
+          code: "custom",
+          message: `Nomor WhatsApp anggota "${participant.display_name}" wajib diisi.`,
+          path: ["participants", index, "phone_e164"],
+        });
+      }
+      const nameKey = participantNameKey(participant.full_name ?? participant.display_name);
+      if (seenNames.has(nameKey)) {
+        context.addIssue({
+          code: "custom",
+          message: `Anggota "${participant.display_name}" tercantum lebih dari sekali.`,
+          path: ["participants", index, "display_name"],
+        });
+      }
+      seenNames.add(nameKey);
+      if (participant.phone_e164) {
+        if (seenPhones.has(participant.phone_e164)) {
+          context.addIssue({
+            code: "custom",
+            message: `Nomor WhatsApp ${participant.phone_e164} dipakai lebih dari satu anggota.`,
+            path: ["participants", index, "phone_e164"],
+          });
+        }
+        seenPhones.add(participant.phone_e164);
+      }
+    });
   }
 });
 

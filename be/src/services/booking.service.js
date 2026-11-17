@@ -42,6 +42,18 @@ export async function attachIntakeAnswersForCounselor(client, authProfile, booki
   return bookings;
 }
 
+/** Booking terkonfirmasi hanya dapat dibatalkan klien paling lambat sekian jam sebelum mulai. */
+export const CLIENT_CANCEL_CUTOFF_HOURS = 2;
+
+/**
+ * @param {{ status: string, starts_at: string }} booking
+ * @param {number} nowMs
+ */
+export function isPastClientCancelCutoff(booking, nowMs) {
+  if (booking.status !== "confirmed") return false;
+  return Date.parse(booking.starts_at) - nowMs < CLIENT_CANCEL_CUTOFF_HOURS * 3_600_000;
+}
+
 export const bookingService = {
   async listBookings({ authUser, authProfile, authRole, status, limit, offset }) {
     const client = getClient();
@@ -147,6 +159,24 @@ export const bookingService = {
     }
 
     const client = getClient();
+
+    if (authProfile.app_role === "client" && input.status === "cancelled") {
+      // Batas waktu pembatalan klien untuk booking terkonfirmasi (2026-11-17).
+      const { data: current } = await client
+        .from("bookings")
+        .select("status,starts_at")
+        .eq("id", bookingId)
+        .eq("client_id", authUser.id)
+        .maybeSingle();
+      if (current && isPastClientCancelCutoff(current, Date.now())) {
+        throw new HttpError(
+          409,
+          "BOOKING_CANCEL_CUTOFF_PASSED",
+          `Booking terkonfirmasi hanya dapat dibatalkan paling lambat ${CLIENT_CANCEL_CUTOFF_HOURS} jam sebelum jadwal. Hubungi konselor bila ada keperluan mendesak.`,
+        );
+      }
+    }
+
     await callDomainRpc(
       client,
       "sicare_transition_booking",
