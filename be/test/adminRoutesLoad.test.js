@@ -282,6 +282,7 @@ test("POST /admin/accounts with app_role: 'counselor' succeeds (201)", async () 
       headers: { authorization: "Bearer valid-admin-token" },
       body: {
         email: "konselor.baru@unikadelasalle.ac.id",
+        identity_code: "NIP001",
         password: "Sandi#Kuat123",
         full_name: "Konselor Baru",
         gender: "female",
@@ -309,6 +310,7 @@ test("POST /admin/accounts with app_role: 'head_lmi' succeeds (201)", async () =
       headers: { authorization: "Bearer valid-admin-token" },
       body: {
         email: "headlmi.baru@unikadelasalle.ac.id",
+        identity_code: "NIP002",
         password: "Sandi#Kuat123",
         full_name: "Pimpinan LMI Baru",
         gender: "male",

@@ -36,14 +36,13 @@ export const createAccountSchema = z
     email: campusEmailSchema,
     password: strongPasswordSchema,
     full_name: z.string().trim().min(1).max(160),
+    // Admin hanya membuat akun staf/dosen (konselor, Kepala LMI): NIP wajib.
     identity_code: z
-      .string()
+      .string({ error: "NIP wajib diisi." })
       .trim()
-      .min(1)
+      .min(1, "NIP wajib diisi.")
       .max(80)
-      .regex(/^[A-Za-z0-9._/-]+$/)
-      .nullable()
-      .optional(),
+      .regex(/^[A-Za-z0-9._/-]+$/, "NIP hanya boleh berisi huruf, angka, titik, garis miring, garis bawah, dan tanda hubung."),
     member_category: z
       .enum(["student", "faculty_staff", "other"])
       .nullable()
