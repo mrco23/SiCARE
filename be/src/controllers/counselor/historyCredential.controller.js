@@ -1,6 +1,5 @@
 // @ts-check
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../../config/supabase.js";
-import { markMissedSessionsSafely } from "../../services/missedSession.service.js";
 import { env } from "../../config/env.js";
 import { HttpError, parseBody, sendData, supabaseError } from "../../lib/http.js";
 import { writeAudit } from "../../lib/audit.js";
@@ -227,7 +226,8 @@ export const counselorHistoryCredentialController = {
       );
     }
 
-    await markMissedSessionsSafely(client);
+    // Penanda otomatis dijalankan cron worker tiap menit (internal/worker-run), tidak lagi
+    // menahan respons daftar: tiap panggilan RPC menambah waktu tunggu halaman.
     const { data: sessions, error: sessionError } = await client
       .from("counseling_sessions")
       .select(

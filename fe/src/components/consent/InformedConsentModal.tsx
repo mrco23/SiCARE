@@ -231,7 +231,7 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
                 <div className="flex justify-between py-1 border-b border-slate-200">
                   <span className="text-slate-500">Waktu Penandatanganan:</span>
                   <span className="font-semibold text-slate-800">
-                    {consent.signed_at ? new Date(consent.signed_at).toLocaleString("id-ID", { dateStyle: "full", timeStyle: "medium" }) : "-"}
+                    {consent.signed_at ? new Date(consent.signed_at).toLocaleString("id-ID", { timeZone: "Asia/Makassar", dateStyle: "full", timeStyle: "medium" }) : "-"}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-200">
@@ -474,7 +474,7 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
                     <Lock className="w-4 h-4 text-emerald-800" />
                     Tanda Tangan Elektronik Anda
                   </span>
-                  <span className="text-[11px] font-normal text-slate-400">Manado, {new Date().toLocaleDateString("id-ID")}</span>
+                  <span className="text-[11px] font-normal text-slate-400">Manado, {new Date().toLocaleDateString("id-ID", { timeZone: "Asia/Makassar" })}</span>
                 </div>
 
                 <SignaturePad onSignatureChange={setSignatureDataUrl} height={160} />

@@ -241,3 +241,89 @@ test("forgot-password and reset-password routes are registered", () => {
   assert.match(source, /router\.post\("\/forgot-password", asyncHandler/);
   assert.match(source, /router\.post\("\/reset-password", authenticate, asyncHandler/);
 });
+
+/* ---------------- Perbaikan consent/booking/laporan (2026-11-17) ---------------- */
+
+test("consent cannot be signed for inactive bookings or closed sessions", async () => {
+  const { assertBookingAcceptsConsent } = await import("../src/services/consent.service.js");
+  const db = (bookingStatus, sessionStatus) => memoryDb({
+    bookings: [{ id: "b1", status: bookingStatus }],
+    counseling_sessions: sessionStatus ? [{ booking_id: "b1", status: sessionStatus }] : [],
+  });
+  await assert.rejects(assertBookingAcceptsConsent(db("cancelled"), "b1"), { code: "BOOKING_NOT_ACTIVE" });
+  await assert.rejects(assertBookingAcceptsConsent(db("expired"), "b1"), { code: "BOOKING_NOT_ACTIVE" });
+  await assert.rejects(assertBookingAcceptsConsent(db("confirmed", "missed"), "b1"), { code: "SESSION_CLOSED" });
+  await assertBookingAcceptsConsent(db("confirmed", "scheduled"), "b1");
+  await assertBookingAcceptsConsent(db("waiting_confirmation"), "b1");
+});
+
+test("guest signing compares the registered member phone, and resend audit uses an allowed event", () => {
+  const source = readFileSync(new URL("../src/services/consent.service.js", import.meta.url), "utf8");
+  assert.match(source, /authRole === "guest" && registeredPhone[\s\S]*CONSENT_PHONE_MISMATCH/);
+  assert.doesNotMatch(source, /eventType: "invitation_resent"/);
+});
+
+test("group members need a valid, unique WhatsApp number (normalized to +62)", async () => {
+  const { createBookingSchema, normalizeParticipantPhone } = await import("../src/validators/booking.validator.js");
+  assert.equal(normalizeParticipantPhone("0812-3456-7890"), "+6281234567890");
+  assert.equal(normalizeParticipantPhone("6281234567890"), "+6281234567890");
+  const base = {
+    counselor_id: "11111111-1111-4111-8111-111111111111",
+    availability_slot_id: "22222222-2222-4222-8222-222222222222",
+    service_type: "group",
+    group_name: "Kelompok A",
+  };
+  const rep = { display_name: "Perwakilan", is_representative: true };
+  const ok = createBookingSchema.safeParse({ ...base, participants: [rep, { display_name: "Budi", phone_e164: "081234567890" }] });
+  assert.equal(ok.success, true);
+  assert.equal(ok.data.participants[1].phone_e164, "+6281234567890");
+  assert.equal(createBookingSchema.safeParse({ ...base, participants: [rep, { display_name: "Budi" }] }).success, false);
+  assert.equal(createBookingSchema.safeParse({ ...base, participants: [rep, { display_name: "Budi", phone_e164: "12345" }] }).success, false);
+  assert.equal(
+    createBookingSchema.safeParse({
+      ...base,
+      participants: [rep, { display_name: "Budi", phone_e164: "081234567890" }, { display_name: "Ani", phone_e164: "+6281234567890" }],
+    }).success,
+    false,
+  );
+  assert.equal(
+    createBookingSchema.safeParse({
+      ...base,
+      participants: [rep, { display_name: "Budi", phone_e164: "081234567890" }, { display_name: " budi ", phone_e164: "081234567891" }],
+    }).success,
+    false,
+  );
+});
+
+test("clients cannot cancel a confirmed booking less than 2 hours before it starts", async () => {
+  const { isPastClientCancelCutoff } = await import("../src/services/booking.service.js");
+  const now = Date.parse("2026-11-20T00:00:00Z");
+  assert.equal(isPastClientCancelCutoff({ status: "confirmed", starts_at: "2026-11-20T01:00:00Z" }, now), true);
+  assert.equal(isPastClientCancelCutoff({ status: "confirmed", starts_at: "2026-11-20T03:00:00Z" }, now), false);
+  assert.equal(isPastClientCancelCutoff({ status: "waiting_confirmation", starts_at: "2026-11-20T00:30:00Z" }, now), false);
+});
+
+test("reports bucket months in WITA and start 11 WITA months back", async () => {
+  const { witaMonthKey, reportWindowStart } = await import("../src/services/reporting.service.js");
+  assert.equal(witaMonthKey("2026-10-31T17:00:00Z"), "2026-11");
+  assert.equal(witaMonthKey("2026-10-31T15:59:00Z"), "2026-10");
+  assert.equal(reportWindowStart(Date.parse("2026-11-17T00:00:00Z")), "2025-11-30T16:00:00.000Z");
+  const source = readFileSync(new URL("../src/services/reporting.service.js", import.meta.url), "utf8");
+  assert.match(source, /\.range\(offset, offset \+ REPORT_PAGE_SIZE - 1\)/);
+  assert.doesNotMatch(source, /\.limit\(1000\)/);
+});
+
+test("migration 20261117120000 uses WITA dates, client limits, and template-independent readiness", () => {
+  const sql = readFileSync(new URL("../../supabase/migrations/20261117120000_sicare_wita_dates_booking_limits.sql", import.meta.url), "utf8");
+  assert.doesNotMatch(sql, /starts_at::date|ends_at::date/);
+  assert.equal((sql.match(/at time zone 'Asia\/Makassar'\)::date/g) ?? []).length, 5);
+  assert.match(sql, /BOOKING_CLIENT_OVERLAP/);
+  assert.match(sql, /\) >= 2 then\s+raise exception using errcode = 'P0001', message = 'BOOKING_CLIENT_LIMIT_REACHED'/);
+  assert.doesNotMatch(sql, /ic\.consent_template_id = v_active_template\.id;/);
+});
+
+test("new booking error codes map to 409", async () => {
+  const source = readFileSync(new URL("../src/lib/domainRpc.js", import.meta.url), "utf8");
+  assert.match(source, /BOOKING_CLIENT_OVERLAP: \[409/);
+  assert.match(source, /BOOKING_CLIENT_LIMIT_REACHED: \[409/);
+});

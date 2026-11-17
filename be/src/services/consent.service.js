@@ -861,6 +861,47 @@ export async function updateDraftConsentIdentity({
  * @param {string} [params.idempotencyKey]
  * @returns {Promise<{ success: boolean, consent: any, pdfSha256: string, pdfPath: string, signaturePath: string }>}
  */
+/** Status booking yang masih menerima tanda tangan consent. */
+const CONSENT_SIGNABLE_BOOKING_STATUSES = ["waiting_confirmation", "confirmed", "reschedule_requested"];
+
+/**
+ * Menolak tanda tangan untuk booking yang sudah dibatalkan/ditolak/kedaluwarsa atau sesi yang
+ * sudah selesai, batal, atau terlewat (2026-11-17).
+ * @param {any} supa
+ * @param {string} bookingId
+ */
+export async function assertBookingAcceptsConsent(supa, bookingId) {
+  const { data: booking } = await supa
+    .from("bookings")
+    .select("id,status")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!booking || !CONSENT_SIGNABLE_BOOKING_STATUSES.includes(booking.status)) {
+    const err = new Error("Booking ini sudah tidak aktif (dibatalkan, ditolak, atau kedaluwarsa), sehingga consent tidak dapat ditandatangani.");
+    err.status = 409;
+    err.code = "BOOKING_NOT_ACTIVE";
+    throw err;
+  }
+  const { data: session } = await supa
+    .from("counseling_sessions")
+    .select("status")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (session && ["completed", "cancelled", "missed"].includes(session.status)) {
+    const err = new Error("Sesi ini sudah ditutup, sehingga consent tidak dapat ditandatangani.");
+    err.status = 409;
+    err.code = "SESSION_CLOSED";
+    throw err;
+  }
+}
+
+/** Nomor WhatsApp dianggap sama bila hasil normalisasinya sama (08…, 62…, +62…). */
+function samePhone(a, b) {
+  const left = normalizePhoneNumber(a ?? "");
+  const right = normalizePhoneNumber(b ?? "");
+  return Boolean(left) && left === right;
+}
+
 export async function signInformedConsent({
   supabaseClient,
   consentId,
@@ -898,6 +939,18 @@ export async function signInformedConsent({
   // 3. Validate explicit agreement
   if (!agreementAccepted) {
     throw new Error("Persetujuan kesediaan (agreement checkbox) wajib disetujui secara eksplisit sebelum menandatangani.");
+  }
+
+  await assertBookingAcceptsConsent(supa, consent.booking_id);
+
+  // Tamu (lewat tautan undangan) harus memakai nomor WhatsApp yang didaftarkan perwakilan
+  // untuknya, supaya tautan yang diteruskan ke orang lain tidak dapat dipakai atas nama anggota.
+  const registeredPhone = consent.booking_participants?.phone_e164;
+  if (authRole === "guest" && registeredPhone && identityData.phone_e164 && !samePhone(identityData.phone_e164, registeredPhone)) {
+    const err = new Error("Nomor WhatsApp tidak sesuai dengan nomor yang didaftarkan untuk anggota ini. Gunakan nomor yang didaftarkan perwakilan kelompok, atau minta perwakilan memperbaikinya.");
+    err.status = 400;
+    err.code = "CONSENT_PHONE_MISMATCH";
+    throw err;
   }
 
   // 4. Merge & validate identity data
@@ -1590,8 +1643,11 @@ export async function resendConsentInvitation({
     invitationId: inv.invitationId,
     actorUserId: authUser.id,
     actorType: "user",
-    eventType: "invitation_resent",
+    // "invitation_resent" tidak ada di constraint consent_audit_logs.event_type; catat sebagai
+    // undangan baru dengan penanda resent agar audit benar-benar tersimpan.
+    eventType: "invitation_created",
     metadata: {
+      resent: true,
       recipient_phone: participant.phone_e164 ? `${participant.phone_e164.slice(0, 5)}***` : null,
     },
   });

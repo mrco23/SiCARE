@@ -23,6 +23,7 @@ import {
   validateStrongPassword,
 } from "../../lib/accountRules";
 import type {
+  AccountBookingCleanupDto,
   AccountStatusApi,
   AdminAccountDto,
   AdminAccountRecordDto,
@@ -174,6 +175,7 @@ const fmtDate = (iso: string) => {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return "-";
   return parsed.toLocaleDateString("id-ID", {
+    timeZone: "Asia/Makassar",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -498,6 +500,15 @@ export default function AdminAkunPage() {
     }
   };
 
+  /** Ringkasan booking yang ikut dibatalkan otomatis, untuk pesan toast admin. */
+  const bookingCleanupNote = (result: AccountBookingCleanupDto): string => {
+    const parts: string[] = [];
+    if (result.cancelled_bookings) parts.push(`${result.cancelled_bookings} booking aktif dibatalkan dan pihak terkait diberi tahu`);
+    if (result.ongoing_bookings_kept) parts.push(`${result.ongoing_bookings_kept} sesi yang sedang berlangsung dibiarkan`);
+    if (result.booking_cleanup_failed) parts.push("sebagian booking gagal dibatalkan otomatis, periksa halaman Konseling");
+    return parts.length ? ` ${parts.join("; ")}.` : "";
+  };
+
   const toggleActive = async (account: ManagedAccount) => {
     if (account.id === currentUser?.id && account.active) {
       toast.error("Akun admin yang sedang digunakan tidak dapat dinonaktifkan.");
@@ -507,7 +518,7 @@ export default function AdminAkunPage() {
     setBusyId(account.id);
     try {
       if (account.active) {
-        await adminApi.deactivateAccount(account.id);
+        const result = await adminApi.deactivateAccount(account.id);
         setAccounts((prev) =>
           prev.map((a) =>
             a.id === account.id
@@ -515,7 +526,7 @@ export default function AdminAkunPage() {
               : a,
           ),
         );
-        toast.success(`Akun ${account.name} dinonaktifkan.`);
+        toast.success(`Akun ${account.name} dinonaktifkan.${bookingCleanupNote(result)}`);
       } else {
         const updated = await adminApi.updateAccount(account.id, {
           account_status: "active",
@@ -524,7 +535,11 @@ export default function AdminAkunPage() {
         setAccounts((prev) =>
           prev.map((a) => (a.id === account.id ? mapped : a)),
         );
-        toast.success(`Akun ${mapped.name} diaktifkan.`);
+        toast.success(
+          updated.app_role === "counselor"
+            ? `Akun ${mapped.name} diaktifkan. Profil publiknya tidak otomatis ditampilkan; atur publikasi bila perlu.`
+            : `Akun ${mapped.name} diaktifkan.`,
+        );
       }
     } catch (err) {
       toast.error(
@@ -983,8 +998,7 @@ export default function AdminAkunPage() {
                         Terakhir diperbarui konselor:{" "}
                         {new Date(editingAccount.sippSilpUpdatedAt).toLocaleString(
                           "id-ID",
-                          { dateStyle: "medium", timeStyle: "short" },
-                        )}
+                          { timeZone: "Asia/Makassar", dateStyle: "medium", timeStyle: "short" })}
                       </p>
                     )}
                   </div>

@@ -25,6 +25,7 @@ import type {
   SessionListItemDto,
 } from "../../types/api";
 import { EXPIRED_BOOKING_LABEL, MISSED_SESSION_LABEL } from "../../lib/sessionStatus";
+import { formatWitaTime } from "../../lib/witaTime";
 
 type BookingStatus = "pending" | "scheduled" | "done" | "missed" | "expired" | "cancelled";
 
@@ -91,12 +92,13 @@ const addDays = (d: Date, n: number) =>
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 const fmtDateLong = (d: Date) =>
   d.toLocaleDateString("id-ID", {
+    timeZone: "Asia/Makassar",
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 const formatClock = (d: Date) =>
-  `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  formatWitaTime(d, ":");
 
 export default function BerandaKlienPage() {
   const { profile } = useAuth();
@@ -326,6 +328,7 @@ export default function BerandaKlienPage() {
                     <div>
                       <p className="text-base text-gray-800">
                         {upcoming.date.toLocaleDateString("id-ID", {
+                          timeZone: "Asia/Makassar",
                           weekday: "long",
                         })}
                       </p>

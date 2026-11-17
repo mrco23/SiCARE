@@ -300,6 +300,7 @@ export default function GuestConsentPage() {
                     <span className="font-semibold text-slate-900">
                       {consent.signed_at
                         ? new Date(consent.signed_at).toLocaleString("id-ID", {
+                            timeZone: "Asia/Makassar",
                             dateStyle: "full",
                             timeStyle: "medium",
                           })
@@ -582,7 +583,7 @@ export default function GuestConsentPage() {
                       Tanda Tangan Elektronik Anda
                     </span>
                     <span className="text-[11px] font-normal text-slate-400">
-                      Manado, {new Date().toLocaleDateString("id-ID")}
+                      Manado, {new Date().toLocaleDateString("id-ID", { timeZone: "Asia/Makassar" })}
                     </span>
                   </div>
 

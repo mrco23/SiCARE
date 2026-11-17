@@ -8,7 +8,7 @@ const PAGE_SIZE = 4;
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Tanggal tidak tersedia";
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Makassar", day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
 function Stars({ value }: { value: number }) {

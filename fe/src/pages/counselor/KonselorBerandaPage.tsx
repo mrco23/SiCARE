@@ -48,6 +48,7 @@ import type {
   ProfileDto,
   SessionListItemDto,
 } from "../../types/api";
+import { formatWitaTime } from "../../lib/witaTime";
 
 function getWeekBounds(now: Date): { start: Date; end: Date } {
   const day = now.getDay(); // 0 = Sun, 1 = Mon, ...
@@ -195,6 +196,7 @@ export default function KonselorBerandaPage() {
   const todayLabel = useMemo(
     () =>
       new Date().toLocaleDateString("id-ID", {
+        timeZone: "Asia/Makassar",
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -631,7 +633,7 @@ export default function KonselorBerandaPage() {
                     const isCompleted = session.status === "completed";
                     const isMissed = session.status === "missed";
                     const startDate = new Date(session.starts_at);
-                    const timeStr = `${String(startDate.getHours()).padStart(2, "0")}.${String(startDate.getMinutes()).padStart(2, "0")}`;
+                    const timeStr = formatWitaTime(startDate);
 
                     return (
                       <button

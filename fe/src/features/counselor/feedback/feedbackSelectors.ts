@@ -24,6 +24,7 @@ export function parseFeedbackDate(value: string): Date {
 
 export function formatFeedbackShortDate(date: Date): string {
   return date.toLocaleDateString("id-ID", {
+    timeZone: "Asia/Makassar",
     day: "numeric",
     month: "short",
   });

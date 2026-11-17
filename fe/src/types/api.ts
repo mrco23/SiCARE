@@ -422,10 +422,17 @@ export interface AdminAccountDto extends AdminAccountRecordDto {
 }
 
 /** PATCH account response contains the profile projection but not email. */
-export type UpdatedAdminAccountDto = AdminAccountRecordDto;
+/** Hasil pembatalan otomatis booking aktif saat akun dinonaktifkan/role konselor berubah. */
+export interface AccountBookingCleanupDto {
+  cancelled_bookings?: number;
+  ongoing_bookings_kept?: number;
+  booking_cleanup_failed?: boolean;
+}
+
+export type UpdatedAdminAccountDto = AdminAccountRecordDto & AccountBookingCleanupDto;
 
 /** DELETE account is a soft-disable operation with a deliberately smaller response. */
-export interface DeactivatedAdminAccountDto {
+export interface DeactivatedAdminAccountDto extends AccountBookingCleanupDto {
   id: string;
   app_role: AppRoleApi;
   account_status: "disabled";

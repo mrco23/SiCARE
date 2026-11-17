@@ -88,10 +88,13 @@ test("worker-run claims a cron batch with a lease covering the whole batch", asy
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { data: { claimed: 0, processed: 0 } });
-  assert.equal(rpcCalls.length, 1);
-  assert.equal(rpcCalls[0].name, "sicare_claim_whatsapp_jobs");
-  assert.equal(rpcCalls[0].params.p_batch_size, 10);
-  assert.equal(rpcCalls[0].params.p_lease_seconds, calculateLeaseSeconds(10));
+  // Worker cron also runs the automatic status marking before claiming WhatsApp jobs.
+  const claims = rpcCalls.filter((call) => call.name === "sicare_claim_whatsapp_jobs");
+  assert.equal(claims.length, 1);
+  assert.equal(claims[0].params.p_batch_size, 10);
+  assert.equal(claims[0].params.p_lease_seconds, calculateLeaseSeconds(10));
+  const marking = rpcCalls.filter((call) => call.name !== "sicare_claim_whatsapp_jobs").map((call) => call.name);
+  assert.deepEqual(marking, ["sicare_mark_expired_bookings", "sicare_auto_complete_sessions", "sicare_mark_missed_sessions"]);
 });
 
 test("scheduler-run returns only aggregate counts", async () => {

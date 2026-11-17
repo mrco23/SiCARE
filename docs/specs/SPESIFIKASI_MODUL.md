@@ -189,6 +189,8 @@ Keputusan hasil klarifikasi:
   6. Klien dapat membatalkan booking dengan alasan.
 * **<Aturan & Batasan>:**
   * Status booking: `waiting_confirmation`, `confirmed`, `rejected`, `reschedule_requested`, `cancelled`, `expired` (otomatis, tidak dapat dipilih pengguna).
+  * Sejak 2026-11-17 (migrasi `20261117120000`): maksimal 2 booking aktif (`waiting_confirmation`/`confirmed`/`reschedule_requested` yang belum selesai) per klien, dan klien tidak dapat memiliki dua booking aktif pada jam yang bentrok. Klien dapat membatalkan booking dari Aktivitas Klien; booking terkonfirmasi paling lambat 2 jam sebelum mulai.
+  * Booking kelompok: setiap anggota selain perwakilan wajib memiliki nomor WhatsApp valid, tanpa nama atau nomor ganda.
   * Klien hanya boleh mengubah status ke `cancelled`, dari status `waiting_confirmation`, `confirmed`, atau `reschedule_requested`.
   * Konselor tidak boleh memakai status `cancelled` pada booking. Konselor hanya boleh menerima atau menolak dari `waiting_confirmation`, dan meminta jadwal ulang dari `waiting_confirmation` atau `confirmed`.
   * Booking tidak dapat dibatalkan atau dijadwal ulang jika sesinya sudah `ongoing`, `completed`, atau `missed` (`409 BOOKING_SESSION_CLOSED` / `SESSION_ALREADY_STARTED`).

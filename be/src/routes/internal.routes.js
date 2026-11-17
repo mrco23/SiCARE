@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from "../config/supabase.js";
 import { asyncHandler, HttpError, sendData } from "../lib/http.js";
 import { runSchedulerPass } from "../workers/whatsapp.scheduler.js";
 import { runWorkerPass } from "../workers/whatsapp.worker.js";
+import { markMissedSessionsSafely } from "../services/missedSession.service.js";
 import { timingSafeEqualString } from "./webhook.routes.js";
 
 // WHATSAPP_WORKER_CONCURRENCY (default 1) suits a daemon polling every 5 seconds.
@@ -34,6 +35,9 @@ function requireCronAccess(request, _response, next) {
 }
 
 router.post("/whatsapp/worker-run", requireCronAccess, asyncHandler(async (_request, response) => {
+  // Cron worker berjalan tiap menit: jalankan juga penanda otomatis (kedaluwarsa, ditutup
+  // otomatis, terlewat) agar status dan notifikasinya tidak menunggu scheduler 10 menit.
+  await markMissedSessionsSafely();
   const result = await runWorkerPass({ batchSize: CRON_WORKER_BATCH_SIZE });
   return sendData(response, result);
 }));

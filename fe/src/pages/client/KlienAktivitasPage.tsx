@@ -42,6 +42,7 @@ import {
   MISSED_SESSION_LABEL,
   missedReasonText,
 } from "../../lib/sessionStatus";
+import { formatWitaTime } from "../../lib/witaTime";
 
 // "waiting": jam sesi sudah tiba/lewat tetapi konselor belum memulai (status server masih `scheduled`).
 // "missed": ditandai otomatis oleh server setelah lewat jam selesai + toleransi.
@@ -103,9 +104,23 @@ type TimeSlot = {
 };
 
 const MAX_AHEAD_DAYS = 60;
+/** Sama dengan aturan server: booking terkonfirmasi dibatalkan paling lambat 2 jam sebelumnya. */
+const CLIENT_CANCEL_CUTOFF_HOURS = 2;
+
+/** null bila boleh dibatalkan; selain itu alasan tidak bisa dibatalkan dari aplikasi. */
+const cancelBlockReason = (session: Session, now: number): string | null => {
+  if (!session.bookingId || now >= session.start.getTime()) return "Jadwal sudah lewat.";
+  const confirmed = session.serverStatus === "scheduled";
+  const pending = session.bookingStatus === "waiting_confirmation" || session.needsNewSlot;
+  if (!confirmed && !pending) return "Booking ini tidak dapat dibatalkan.";
+  if (confirmed && session.start.getTime() - now < CLIENT_CANCEL_CUTOFF_HOURS * 3_600_000) {
+    return `Sesi terkonfirmasi hanya dapat dibatalkan paling lambat ${CLIENT_CANCEL_CUTOFF_HOURS} jam sebelum jadwal. Hubungi konselor bila mendesak.`;
+  }
+  return null;
+};
 
 const formatTime = (date: Date) =>
-  `${String(date.getHours()).padStart(2, "0")}.${String(date.getMinutes()).padStart(2, "0")}`;
+  formatWitaTime(date);
 
 const startOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -124,6 +139,7 @@ const dayLabel = (date: Date, now: number) => {
   if (difference === -1) return "Kemarin";
 
   return date.toLocaleDateString("id-ID", {
+    timeZone: "Asia/Makassar",
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -174,7 +190,7 @@ const dateBadge = (date: Date) => (
       {date.getDate()}
     </span>
     <span className="mt-1 text-[11px] font-semibold uppercase tracking-wide">
-      {date.toLocaleDateString("id-ID", { month: "short" })}
+      {date.toLocaleDateString("id-ID", { timeZone: "Asia/Makassar", month: "short" })}
     </span>
   </div>
 );
@@ -232,6 +248,10 @@ export default function KlienAktivitasPage() {
   const [groupConsentBookingId, setGroupConsentBookingId] = useState<
     string | null
   >(null);
+  const [cancelTarget, setCancelTarget] = useState<Session | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const toast = useToast();
   const [view, setView] = useState<"main" | "reschedule">("main");
   const [reschedule, setReschedule] = useState<RescheduleState | null>(null);
@@ -337,6 +357,7 @@ export default function KlienAktivitasPage() {
                 note: "",
                 label: booking?.starts_at
                   ? `${new Date(booking.starts_at).toLocaleDateString("id-ID", {
+                      timeZone: "Asia/Makassar",
                       weekday: "long",
                       day: "numeric",
                       month: "long",
@@ -850,8 +871,42 @@ export default function KlienAktivitasPage() {
     </div>
   );
 
+  const openCancel = (session: Session) => {
+    setCancelTarget(session);
+    setCancelReason("");
+    setCancelError("");
+  };
+
+  const submitCancel = async () => {
+    if (!cancelTarget?.bookingId || cancelSubmitting) return;
+    const reason = cancelReason.trim();
+    if (reason.length < 3) {
+      setCancelError("Tuliskan alasan pembatalan (minimal 3 karakter).");
+      return;
+    }
+    const blocked = cancelBlockReason(cancelTarget, Date.now());
+    if (blocked) {
+      setCancelError(blocked);
+      return;
+    }
+    setCancelSubmitting(true);
+    setCancelError("");
+    try {
+      // Sukses hanya setelah server mengonfirmasi pembatalan.
+      await sicareApi.transitionBooking(cancelTarget.bookingId, { status: "cancelled", reason });
+      setCancelTarget(null);
+      toast.success("Booking dibatalkan. Konselor sudah diberi tahu.");
+      void refreshActivity();
+    } catch (cause) {
+      setCancelError(cause instanceof Error ? cause.message : "Booking tidak dapat dibatalkan.");
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
   const renderUpcomingCard = (session: Session, isNext: boolean) => {
     const allowed = canReschedule(session, now);
+    const cancelBlocked = cancelBlockReason(session, now);
     const awaitingConfirmation =
       session.bookingStatus === "waiting_confirmation";
     const canSignConsent =
@@ -913,6 +968,17 @@ export default function KlienAktivitasPage() {
                 Menunggu konfirmasi konselor
               </span>
             ) : null}
+            {session.bookingId && (
+              <button
+                type="button"
+                disabled={Boolean(cancelBlocked)}
+                title={cancelBlocked ?? undefined}
+                onClick={() => openCancel(session)}
+                className="rounded-xl px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
+              >
+                Batalkan booking
+              </button>
+            )}
           </div>
         </div>
 
@@ -1162,6 +1228,7 @@ export default function KlienAktivitasPage() {
       <header>
         <p className="text-sm text-gray-500">
           {new Date(now).toLocaleDateString("id-ID", {
+            timeZone: "Asia/Makassar",
             weekday: "long",
             day: "numeric",
             month: "long",
@@ -1291,6 +1358,61 @@ export default function KlienAktivitasPage() {
           onClose={() => setConsentSessionId(null)}
           onSuccess={handleConsentSigned}
         />
+      )}
+
+      {cancelTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/40 p-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !cancelSubmitting) setCancelTarget(null);
+          }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 id="cancel-booking-title" className="text-lg font-bold text-gray-900">
+              Batalkan booking?
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              {cancelTarget.counselor} · {dayLabel(cancelTarget.start, now)}, {formatTime(cancelTarget.start)} WITA.
+              Konselor akan diberi tahu dan slot dibuka kembali.
+            </p>
+            <label className="mt-4 block text-sm font-semibold text-gray-900">
+              Alasan pembatalan <span className="text-red-600">*</span>
+              <textarea
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                maxLength={1000}
+                rows={3}
+                disabled={cancelSubmitting}
+                placeholder="Contoh: bentrok dengan jadwal ujian."
+                className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm font-normal outline-none focus:border-[#1e5b3a] focus:ring-4 focus:ring-[#1e5b3a]/15"
+              />
+            </label>
+            {cancelError && (
+              <p role="alert" className="mt-2 text-sm text-red-600">
+                {cancelError}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={cancelSubmitting}
+                onClick={() => setCancelTarget(null)}
+                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                disabled={cancelSubmitting}
+                onClick={() => void submitCancel()}
+                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {cancelSubmitting ? "Membatalkan..." : "Ya, batalkan"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {groupConsentBookingId && (
