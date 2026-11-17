@@ -1,5 +1,4 @@
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase.js";
-import { markMissedSessionsSafely } from "./missedSession.service.js";
 import { HttpError } from "../lib/http.js";
 import { callDomainRpc } from "../lib/domainRpc.js";
 import { writeAudit } from "../lib/audit.js";
@@ -57,7 +56,8 @@ export function isPastClientCancelCutoff(booking, nowMs) {
 export const bookingService = {
   async listBookings({ authUser, authProfile, authRole, status, limit, offset }) {
     const client = getClient();
-    await markMissedSessionsSafely(client);
+    // Penanda otomatis dijalankan cron worker tiap menit (internal/worker-run), tidak lagi
+    // menahan respons daftar: tiap panggilan RPC menambah waktu tunggu halaman.
     const bookings = await bookingRepository.list(client, {
       userId: authUser.id,
       role: authRole,

@@ -3,7 +3,6 @@ import { HttpError } from "../lib/http.js";
 import { callDomainRpc } from "../lib/domainRpc.js";
 import { writeAudit } from "../lib/audit.js";
 import { sessionRepository } from "../repositories/session.repository.js";
-import { markMissedSessionsSafely } from "./missedSession.service.js";
 import { applyBookingClosureSideEffects } from "./bookingClosure.service.js";
 
 function getClient() {
@@ -16,7 +15,8 @@ function getClient() {
 export const sessionService = {
   async listSessions({ authUser, authRole, status, limit, offset }) {
     const client = getClient();
-    await markMissedSessionsSafely(client);
+    // Penanda otomatis dijalankan cron worker tiap menit (internal/worker-run), tidak lagi
+    // menahan respons daftar: tiap panggilan RPC menambah waktu tunggu halaman.
     return sessionRepository.list(client, {
       userId: authUser.id,
       role: authRole,
