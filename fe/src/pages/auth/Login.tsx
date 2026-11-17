@@ -396,6 +396,14 @@ export default function Login() {
             onChange={(event) => setField("password", event.target.value)}
           />
         </Field>
+        <div className="-mt-2 text-right">
+          <Link
+            to="/auth/reset-password"
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            Lupa kata sandi?
+          </Link>
+        </div>
 
         <button
           type="submit"

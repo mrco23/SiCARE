@@ -337,3 +337,119 @@ export async function changeAccountPassword(auth, input) {
 
   return { password_changed: true };
 }
+
+const passwordResetCooldowns = new Map();
+const PASSWORD_RESET_COOLDOWN_MS = 60 * 1000;
+/** Sesi pemulihan hanya boleh dipakai untuk mengganti kata sandi dalam 1 jam. */
+const RECOVERY_SESSION_MAX_AGE_MS = 60 * 60 * 1000;
+
+const PASSWORD_RESET_GENERIC_MESSAGE =
+  "Jika akun terdaftar, tautan untuk mengatur ulang kata sandi telah dikirim ke email akun tersebut. Periksa juga folder spam.";
+
+/**
+ * Halaman frontend tujuan tautan reset, dari origin tepercaya (sama seperti tautan verifikasi).
+ * @param {import("express").Request} request
+ */
+export function getTrustedPasswordResetUrl(request) {
+  const originHeader = request.headers.origin;
+  const isAllowedOrigin = originHeader && env.frontendOrigins.includes(originHeader);
+  const baseUrl = isAllowedOrigin ? originHeader : env.appBaseUrl;
+  return `${baseUrl.replace(/\/+$/, "")}/auth/reset-password`;
+}
+
+/**
+ * Sends a password reset email for an email, NIM, or NIP. Always answers with the same
+ * message so the endpoint does not reveal which accounts exist.
+ * @param {{ identifier: string }} input
+ * @param {import("express").Request} request
+ */
+export async function requestPasswordReset(input, request) {
+  const identifier = input.identifier.trim();
+  const admin = getSupabaseAdminClient();
+  let email = z.string().email().safeParse(identifier).success ? identifier : null;
+
+  if (!email) {
+    const escapedIdentifier = identifier.replace(/[\\%_]/g, "\\$&");
+    const { data: identityProfile } = await admin
+      .from("profiles")
+      .select("id")
+      .ilike("identity_code", escapedIdentifier)
+      .maybeSingle();
+    if (identityProfile) {
+      const { data: authUserData } = await admin.auth.admin.getUserById(identityProfile.id);
+      email = authUserData?.user?.email ?? null;
+    }
+  }
+  if (!email) return { sent: true, message: PASSWORD_RESET_GENERIC_MESSAGE };
+
+  const normalizedEmail = email.toLowerCase();
+  const now = Date.now();
+  const lastSent = passwordResetCooldowns.get(normalizedEmail);
+  if (lastSent && now - lastSent < PASSWORD_RESET_COOLDOWN_MS) {
+    const remainingSeconds = Math.ceil((PASSWORD_RESET_COOLDOWN_MS - (now - lastSent)) / 1000);
+    throw new HttpError(429, "RATE_LIMITED", `Mohon tunggu ${remainingSeconds} detik sebelum meminta tautan baru.`);
+  }
+
+  const { error } = await getPublicAuthClient().auth.resetPasswordForEmail(normalizedEmail, {
+    redirectTo: getTrustedPasswordResetUrl(request),
+  });
+  if (error && classifySignInError(error) === "rate_limited") {
+    throw new HttpError(429, "RATE_LIMITED", "Terlalu banyak permintaan. Silakan coba beberapa saat lagi.");
+  }
+  if (error && classifySignInError(error) === "unavailable") {
+    throw new HttpError(503, "AUTH_UNAVAILABLE", "Layanan email sedang tidak dapat dijangkau. Silakan coba beberapa saat lagi.");
+  }
+
+  passwordResetCooldowns.set(normalizedEmail, now);
+  if (passwordResetCooldowns.size > 1000) {
+    for (const [key, timestamp] of passwordResetCooldowns.entries()) {
+      if (now - timestamp > PASSWORD_RESET_COOLDOWN_MS) passwordResetCooldowns.delete(key);
+    }
+  }
+  return { sent: true, message: PASSWORD_RESET_GENERIC_MESSAGE };
+}
+
+/**
+ * Reads the `amr` claim of an access token that Supabase already verified (authenticate
+ * middleware) and returns when the session was opened through a recovery link, if it was.
+ * @param {string} token
+ * @returns {number | null} epoch ms of the recovery sign-in
+ */
+export function recoverySignInTime(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(String(token).split(".")[1] ?? "", "base64url").toString("utf8"));
+    const entry = Array.isArray(payload?.amr)
+      ? payload.amr.find((item) => item?.method === "recovery")
+      : null;
+    return entry && Number.isFinite(entry.timestamp) ? entry.timestamp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sets a new password for a session opened from the reset email (no current password).
+ * @param {{ user: { id: string }, token: string }} auth
+ * @param {{ new_password: string }} input
+ */
+export async function resetPasswordWithRecovery(auth, input) {
+  const recoveredAt = recoverySignInTime(auth.token);
+  if (!recoveredAt || Date.now() - recoveredAt > RECOVERY_SESSION_MAX_AGE_MS) {
+    throw new HttpError(
+      403,
+      "RECOVERY_SESSION_REQUIRED",
+      "Tautan atur ulang kata sandi tidak valid atau sudah kedaluwarsa. Minta tautan baru dari halaman masuk.",
+    );
+  }
+
+  const { error } = await getSupabaseAdminClient().auth.admin.updateUserById(auth.user.id, {
+    password: input.new_password,
+  });
+  if (error) {
+    if (/password/i.test(error.message ?? "")) {
+      throw new HttpError(400, "PASSWORD_REJECTED", "Kata sandi baru ditolak oleh sistem autentikasi. Gunakan kata sandi lain.");
+    }
+    throw new HttpError(503, "PASSWORD_UPDATE_FAILED", "Kata sandi belum dapat diperbarui. Silakan coba lagi.");
+  }
+  return { updated: true, message: "Kata sandi berhasil diperbarui. Silakan masuk dengan kata sandi baru." };
+}
