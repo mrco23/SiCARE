@@ -94,6 +94,7 @@ function localDateISO(value: string) {
 }
 function localTime(value: string) {
   return new Date(value).toLocaleTimeString("id-ID", {
+    timeZone: "Asia/Makassar",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -385,6 +386,24 @@ export default function KlienPesananPage() {
           `Nomor WhatsApp untuk anggota "${invalidMember.display_name}" tidak valid atau belum diisi. Format per baris: Nama Lengkap, Nomor WhatsApp (contoh: ${invalidMember.display_name}, 081234567890).`,
         );
         return;
+      }
+
+      // Anggota ganda (nama atau nomor sama, termasuk nama perwakilan) ditolak server; cek lebih awal.
+      const seenNames = new Set([(profile?.full_name ?? "").trim().toLowerCase().replace(/\s+/g, " ")]);
+      const seenPhones = new Set<string>(
+        profile?.phone_e164 ? [normalizePhoneToE164(profile.phone_e164)].filter(Boolean) as string[] : [],
+      );
+      for (const member of parsedGroupParticipants) {
+        const nameKey = member.display_name.trim().toLowerCase().replace(/\s+/g, " ");
+        if (seenNames.has(nameKey) || (member.phone_e164 && seenPhones.has(member.phone_e164))) {
+          setMissing((previous) => [...new Set([...previous, "groupMembers"])]);
+          setRequestError(
+            `Anggota "${member.display_name}" tercantum lebih dari sekali (nama atau nomor WhatsApp sama). Setiap anggota hanya ditulis satu kali.`,
+          );
+          return;
+        }
+        seenNames.add(nameKey);
+        if (member.phone_e164) seenPhones.add(member.phone_e164);
       }
     }
 

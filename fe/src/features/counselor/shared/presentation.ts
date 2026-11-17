@@ -3,6 +3,7 @@ import type {
   PublicAcademicPeriodDto,
   SessionListItemDto,
 } from "../../../types/api";
+import { formatWitaTime } from "../../../lib/witaTime";
 
 export function getCounselorInitials(name: string): string {
   const cleaned = name.replace(/[^a-zA-Z0-9\s]/g, " ").trim();
@@ -54,6 +55,7 @@ export function formatIsoDateId(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("id-ID", {
+    timeZone: "Asia/Makassar",
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -65,6 +67,7 @@ export function formatIsoShortDateId(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("id-ID", {
+    timeZone: "Asia/Makassar",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -81,7 +84,7 @@ export function formatIsoTimeRangeWita(
     return "—";
   }
   const fmt = (d: Date) =>
-    `${String(d.getHours()).padStart(2, "0")}.${String(d.getMinutes()).padStart(2, "0")}`;
+    formatWitaTime(d);
   return `${fmt(start)} – ${fmt(end)} WITA`;
 }
 

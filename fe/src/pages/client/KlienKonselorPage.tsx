@@ -30,6 +30,7 @@ const MAX_AHEAD_DAYS = 60;
 
 function formatSlotRange(startsAt: string, endsAt: string): string {
   const fmt = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Makassar",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,

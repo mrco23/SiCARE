@@ -1213,8 +1213,7 @@ export default function CounselingReportView({
                       <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                         {new Date(`${row.date}T00:00:00`).toLocaleDateString(
                           "id-ID",
-                          { day: "2-digit", month: "short", year: "numeric" },
-                        )}
+                          { timeZone: "Asia/Makassar", day: "2-digit", month: "short", year: "numeric" })}
                       </td>
                       <td className="px-4 py-3">{row.format}</td>
                       <td className="px-4 py-3">{row.deliveryFormat}</td>

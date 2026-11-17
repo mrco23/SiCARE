@@ -12,6 +12,7 @@ import {
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Makassar",
     weekday: "long",
     day: "numeric",
     month: "short",
@@ -136,6 +137,7 @@ function CounselorCard({
                 <p className="mt-1 text-xs text-gray-500">
                   Sampai{" "}
                   {new Intl.DateTimeFormat("id-ID", {
+                    timeZone: "Asia/Makassar",
                     hour: "2-digit",
                     minute: "2-digit",
                   }).format(new Date(slot.ends_at))}

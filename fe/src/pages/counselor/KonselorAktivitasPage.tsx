@@ -247,7 +247,8 @@ export default function KonselorAktivitasPage() {
     return map;
   }, [bookings]);
 
-  const todayKey = useMemo(() => toLocalDateKey(new Date()), []);
+  // Ikut berganti setelah tengah malam (jam `now` diperbarui tiap 30 detik).
+  const todayKey = useMemo(() => toLocalDateKey(new Date(now)), [now]);
 
   const tabCounts = useMemo(() => {
     return {
@@ -676,19 +677,19 @@ export default function KonselorAktivitasPage() {
                       {selectedSession.started_at && (
                         <span>
                           <strong className="text-gray-800">Dimulai:</strong>{" "}
-                          {new Date(selectedSession.started_at).toLocaleString("id-ID")}
+                          {new Date(selectedSession.started_at).toLocaleString("id-ID", { timeZone: "Asia/Makassar" })}
                         </span>
                       )}
                       {selectedSession.completed_at && (
                         <span>
                           <strong className="text-gray-800">Diselesaikan:</strong>{" "}
-                          {new Date(selectedSession.completed_at).toLocaleString("id-ID")}
+                          {new Date(selectedSession.completed_at).toLocaleString("id-ID", { timeZone: "Asia/Makassar" })}
                         </span>
                       )}
                       {selectedSession.status === "cancelled" && (
                         <span>
                           <strong className="text-red-700">Diperbarui (Batal):</strong>{" "}
-                          {new Date(selectedSession.updated_at).toLocaleString("id-ID")}
+                          {new Date(selectedSession.updated_at).toLocaleString("id-ID", { timeZone: "Asia/Makassar" })}
                         </span>
                       )}
                       {selectedSession.status === "missed" && (

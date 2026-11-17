@@ -111,11 +111,11 @@ const initials = (n: string) =>
     .toUpperCase() || "KS";
 
 const fmtT = (d: Date) =>
-  d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  d.toLocaleTimeString("id-ID", { timeZone: "Asia/Makassar", hour: "2-digit", minute: "2-digit" });
 const fmtDT = (d: Date) =>
-  `${d.toLocaleDateString("id-ID", { day: "numeric", month: "short" })}, ${fmtT(d)}`;
+  `${d.toLocaleDateString("id-ID", { timeZone: "Asia/Makassar", day: "numeric", month: "short" })}, ${fmtT(d)}`;
 const fmtShort = (d: Date) =>
-  d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+  d.toLocaleDateString("id-ID", { timeZone: "Asia/Makassar", day: "numeric", month: "short" });
 
 type Range = CounselingDateRange;
 const inR = (t: number, r: Range) => t >= r.s.getTime() && t < r.e.getTime();

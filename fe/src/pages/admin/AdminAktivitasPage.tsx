@@ -114,6 +114,7 @@ function formatDateTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleString("id-ID", {
+    timeZone: "Asia/Makassar",
     day: "numeric",
     month: "short",
     year: "numeric",

@@ -58,6 +58,7 @@ export function formatIsoDateTime(iso: string | null | undefined): string {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return "-";
   return parsed.toLocaleString("id-ID", {
+    timeZone: "Asia/Makassar",
     day: "numeric",
     month: "long",
     year: "numeric",

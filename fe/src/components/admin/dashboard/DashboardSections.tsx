@@ -424,6 +424,7 @@ export function RecentClientBookings({
             `Konselor #${booking.counselor_id.slice(0, 6).toUpperCase()}`;
           const startDate = new Date(booking.starts_at);
           const timeText = startDate.toLocaleTimeString("id-ID", {
+            timeZone: "Asia/Makassar",
             hour: "2-digit",
             minute: "2-digit",
           });

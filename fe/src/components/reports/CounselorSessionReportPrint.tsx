@@ -11,11 +11,11 @@ const longDate = (value: string | Date | null | undefined) => {
   if (!value) return EMPTY;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return EMPTY;
-  return date.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  return date.toLocaleDateString("id-ID", { timeZone: "Asia/Makassar", day: "numeric", month: "long", year: "numeric" });
 };
 
 const clock = (value: string) =>
-  new Date(value).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  new Date(value).toLocaleTimeString("id-ID", { timeZone: "Asia/Makassar", hour: "2-digit", minute: "2-digit" });
 
 function Row({ label, value }: { label: string; value: string }) {
   return (

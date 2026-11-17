@@ -43,7 +43,7 @@ const percent = (part: number, whole: number) =>
   whole ? `${Math.round((part / whole) * 100)}%` : "0%";
 
 const longDate = (value: Date) =>
-  value.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  value.toLocaleDateString("id-ID", { timeZone: "Asia/Makassar", day: "numeric", month: "long", year: "numeric" });
 
 function Row({ label, value }: { label: string; value: string | number }) {
   return (

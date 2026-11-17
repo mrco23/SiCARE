@@ -104,16 +104,18 @@ const MAX_COMMENT_LENGTH = 5000;
 /* ========================= HELPER ========================= */
 
 const dateLabel = (value: string) =>
-  new Date(value).toLocaleDateString("id-ID", { dateStyle: "full" });
+  new Date(value).toLocaleDateString("id-ID", { timeZone: "Asia/Makassar", dateStyle: "full" });
 
 const timeLabel = (value: string) =>
   new Date(value).toLocaleTimeString("id-ID", {
+    timeZone: "Asia/Makassar",
     hour: "2-digit",
     minute: "2-digit",
   });
 
 const dateTimeLabel = (value: string) =>
   new Date(value).toLocaleString("id-ID", {
+    timeZone: "Asia/Makassar",
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -171,7 +173,7 @@ function DateBadge({ iso, className = "" }: { iso: string; className?: string })
     >
       <span className="text-lg font-bold leading-none">{date.getDate()}</span>
       <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">
-        {date.toLocaleDateString("id-ID", { month: "short" })}
+        {date.toLocaleDateString("id-ID", { timeZone: "Asia/Makassar", month: "short" })}
       </span>
     </div>
   );

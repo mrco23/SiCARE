@@ -37,6 +37,7 @@ import type {
   AdminReportDto,
 } from "../../types/api";
 import { Calendar, RefreshCw } from "lucide-react";
+import { formatWitaTime } from "../../lib/witaTime";
 
 type PeriodFilter = (typeof periodFilters)[number];
 
@@ -316,7 +317,7 @@ export default function AdminBerandaPage() {
       const startDate = new Date(b.starts_at);
       const key =
         period === "Hari Ini"
-          ? `${String(startDate.getHours()).padStart(2, "0")}:00`
+          ? `${formatWitaTime(startDate, ":").slice(0, 2)}:00`
           : toISO(startDate).slice(5);
       grouped.set(key, (grouped.get(key) ?? 0) + 1);
     }
