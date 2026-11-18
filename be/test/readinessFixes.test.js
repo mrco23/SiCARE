@@ -327,3 +327,18 @@ test("new booking error codes map to 409", async () => {
   assert.match(source, /BOOKING_CLIENT_OVERLAP: \[409/);
   assert.match(source, /BOOKING_CLIENT_LIMIT_REACHED: \[409/);
 });
+
+test("sign-up errors map to specific causes instead of one generic 400", async () => {
+  const { signUpErrorToHttp } = await import("../src/services/auth.service.js");
+  const original = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(signUpErrorToHttp({ status: 429, code: "over_email_send_rate_limit", message: "email rate limit exceeded" }).code, "RATE_LIMITED");
+    assert.equal(signUpErrorToHttp({ status: 500, code: "unexpected_failure", message: "Error sending confirmation email" }).code, "EMAIL_SEND_FAILED");
+    assert.equal(signUpErrorToHttp({ status: 422, code: "weak_password", message: "Password should be" }).code, "PASSWORD_REJECTED");
+    assert.equal(signUpErrorToHttp({ status: 400, code: "email_address_invalid", message: "Email address is invalid" }).code, "EMAIL_REJECTED");
+    assert.equal(signUpErrorToHttp({ status: 422, code: "user_already_exists", message: "User already registered" }).code, "ACCOUNT_EXISTS");
+  } finally {
+    console.error = original;
+  }
+});

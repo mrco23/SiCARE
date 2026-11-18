@@ -53,6 +53,39 @@ export async function rollbackCreatedAuthUser(userId) {
   }
 }
 
+/**
+ * Maps a Supabase signUp error to a specific API error and logs only its status/code (never the
+ * email), so the real cause (SMTP, rate limit, password policy) is visible in the server logs.
+ * @param {{ status?: number, code?: string, message?: string } | null | undefined} error
+ * @returns {HttpError}
+ */
+export function signUpErrorToHttp(error) {
+  const status = Number(error?.status);
+  const code = String(error?.code ?? "");
+  const message = String(error?.message ?? "");
+  console.error("Registration sign-up failed", { status: Number.isFinite(status) ? status : null, code: code || "UNKNOWN" });
+
+  if (code === "user_already_exists" || code === "email_exists" || /already registered|already exists/i.test(message)) {
+    return new HttpError(409, "ACCOUNT_EXISTS", "Email sudah terdaftar.");
+  }
+  if (status === 429 || /rate_limit/i.test(code) || /rate limit|too many/i.test(message)) {
+    return new HttpError(429, "RATE_LIMITED", "Batas pengiriman email verifikasi sedang tercapai. Silakan coba lagi beberapa menit lagi.");
+  }
+  if (code === "weak_password" || /password/i.test(message)) {
+    return new HttpError(400, "PASSWORD_REJECTED", "Kata sandi ditolak sistem autentikasi. Gunakan kata sandi lain yang lebih kuat.");
+  }
+  if (code === "email_address_invalid" || code === "email_address_not_authorized" || /email address.*invalid|not authorized/i.test(message)) {
+    return new HttpError(400, "EMAIL_REJECTED", "Alamat email ditolak sistem autentikasi. Periksa kembali email kampus Anda.");
+  }
+  if (code === "signup_disabled") {
+    return new HttpError(503, "SIGNUP_DISABLED", "Pendaftaran akun sedang dinonaktifkan. Hubungi admin LMI.");
+  }
+  if (!status || status >= 500 || /sending|smtp|email/i.test(message)) {
+    return new HttpError(503, "EMAIL_SEND_FAILED", "Email verifikasi tidak dapat dikirim saat ini. Silakan coba lagi nanti atau hubungi admin LMI.");
+  }
+  return new HttpError(400, "REGISTER_FAILED", "Registrasi tidak dapat diproses. Periksa kembali data Anda.");
+}
+
 export async function registerUser(input, request) {
   const admin = getSupabaseAdminClient();
   const authClient = getPublicAuthClient();
@@ -77,10 +110,7 @@ export async function registerUser(input, request) {
     },
   });
   if (error) {
-    if (/already registered|already exists/i.test(error.message)) {
-      throw new HttpError(409, "ACCOUNT_EXISTS", "Email sudah terdaftar.");
-    }
-    throw new HttpError(400, "REGISTER_FAILED", "Registrasi tidak dapat diproses. Periksa data dan konfigurasi email Supabase.");
+    throw signUpErrorToHttp(error);
   }
 
   const createdUser = data?.user;
