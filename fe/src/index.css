@@ -498,6 +498,12 @@ body {
   size: A4;
   margin: 26mm 22mm 20mm;
 
+
+  /* Kosongkan margin box lain agar header/footer browser (judul tab & URL website) tidak tercetak. */
+  @top-left { content: ""; }
+  @top-center { content: ""; }
+  @bottom-left { content: ""; }
+  @bottom-center { content: ""; }
   @top-right {
     content: "CONFIDENTIAL";
     color: #ff0000;
@@ -519,7 +525,7 @@ body {
 
 @page sicare-report:first {
   @bottom-right {
-    content: none;
+    content: "";
   }
 }
 
@@ -660,12 +666,6 @@ body {
     margin-top: 10mm;
     text-align: right;
   }
-  .rp-sign-two {
-    justify-content: space-between;
-  }
-  .rp-sign-two > div:first-child {
-    text-align: left;
-  }
   .rp-sign-name {
     margin-top: 16mm;
     font-weight: 700;
@@ -680,6 +680,12 @@ body {
   size: A4;
   margin: 26mm 22mm 20mm;
 
+
+  /* Kosongkan margin box lain agar header/footer browser (judul tab & URL website) tidak tercetak. */
+  @top-left { content: ""; }
+  @top-center { content: ""; }
+  @bottom-left { content: ""; }
+  @bottom-center { content: ""; }
   @top-right {
     content: "CONFIDENTIAL";
     color: #ff0000;

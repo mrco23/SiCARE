@@ -308,23 +308,22 @@ export default function CounselingReportPrint({ data }: { data: ReportPrintData 
           <div className="rp-blank" />
         )}
 
-        <div className={`rp-sign ${isAdmin ? "rp-sign-two" : ""}`}>
-          {isAdmin && (
-            <div>
-              <p>&nbsp;</p>
-              <p>Mengetahui,</p>
-              <p>Kepala LMI</p>
-              <p className="rp-sign-name">{SIGN_LINE}</p>
-            </div>
-          )}
+        {/* Tanda tangan laporan hanya oleh Kepala LMI. Laporan admin menyisakan garis nama kosong. */}
+        <div className="rp-sign">
           <div>
             <p>Manado, {longDate(new Date())}</p>
-            <p>{isAdmin ? "Disusun oleh," : "Kepala LMI,"}</p>
-            <p>{isAdmin ? "Admin LMI" : " "}</p>
-            <p className="rp-sign-name">
-              <u>{data.signer.name}</u>
-            </p>
-            {data.signer.identityCode && <p className="rp-sign-id">{data.signer.identityCode}</p>}
+            <p>Mengetahui,</p>
+            <p>Kepala LMI</p>
+            {isAdmin ? (
+              <p className="rp-sign-name">{SIGN_LINE}</p>
+            ) : (
+              <>
+                <p className="rp-sign-name">
+                  <u>{data.signer.name}</u>
+                </p>
+                {data.signer.identityCode && <p className="rp-sign-id">{data.signer.identityCode}</p>}
+              </>
+            )}
           </div>
         </div>
       </section>
