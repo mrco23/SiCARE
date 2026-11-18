@@ -108,19 +108,34 @@ export function formatBookingReference(bookingId) {
  * Translates format to Indonesian readable description
  * @param {string|null|undefined} format
  * @param {string|null|undefined} room
- * @returns {{ sessionFormat: string, roomInfo: string }}
+ * @returns {{ sessionFormat: string, roomInfo: string, formatIcon: string }}
  */
 export function describeFormatAndRoom(format, room) {
   const isOnline = format === "online";
   const sessionFormat = isOnline ? "Online (Daring)" : "Tatap Muka (Luring)";
+  const formatIcon = isOnline ? "💻" : "🏫";
   let roomInfo = "";
   if (!isOnline && room && room.trim()) {
-    roomInfo = `Ruangan: ${room.trim()}\n`;
+    roomInfo = `📍 Ruangan: ${room.trim()}\n`;
   } else if (isOnline && room && room.trim()) {
-    roomInfo = `Tautan: ${room.trim()}\n`;
+    roomInfo = `🔗 Tautan: ${room.trim()}\n`;
   }
-  return { sessionFormat, roomInfo };
+  return { sessionFormat, roomInfo, formatIcon };
 }
+
+/**
+ * @param {Record<string, any>} vars
+ * @returns {{ date: string, time: string }}
+ */
+function sessionWhen(vars) {
+  return {
+    date: vars.starts_at ? formatIndonesianDate(vars.starts_at) : vars.session_date || "-",
+    time: vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-",
+  };
+}
+
+// Emoji dan *tebal* WhatsApp membuat pesan mudah dipindai; tidak ada data sensitif di dalamnya.
+const SIGNATURE = "Terima kasih 🙏\n*Tim SiCARE*";
 
 /**
  * Template definitions registry
@@ -130,25 +145,25 @@ export const WHATSAPP_TEMPLATES = {
     const counselorName = vars.counselor_name || vars.recipient_name || "Konselor";
     const clientName = vars.client_name || "Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const date = vars.starts_at ? formatIndonesianDate(vars.starts_at) : vars.session_date || "-";
-    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
+    const { date, time } = sessionWhen(vars);
     const serviceType = vars.service_type === "group" ? "Konseling Kelompok" : "Konseling Individu";
 
     return (
-`Halo ${counselorName},
+`Halo ${counselorName} 👋
 
+📥 *Permintaan Konseling Baru*
 Anda menerima permintaan jadwal konseling baru di SiCARE.
 
-Nomor Booking: ${ref}
-Klien: ${clientName}
-Tanggal: ${date}
-Waktu: ${time}
-Layanan: ${serviceType}
+🔖 Nomor Booking: ${ref}
+👤 Klien: ${clientName}
+📅 Tanggal: ${date}
+⏰ Waktu: ${time}
+🧾 Layanan: ${serviceType}
 
-Silakan buka website SiCARE untuk meninjau dan mengonfirmasi permintaan ini.
+👉 Silakan buka website SiCARE untuk meninjau dan mengonfirmasi permintaan ini.
 
-Terima kasih.
-Tim Layanan Mahasiswa dan Inklusi (LMI)`
+Terima kasih 🙏
+*Tim Layanan Mahasiswa dan Inklusi (LMI)*`
     );
   },
 
@@ -156,23 +171,22 @@ Tim Layanan Mahasiswa dan Inklusi (LMI)`
     const clientName = vars.client_name || vars.recipient_name || "Klien";
     const counselorName = vars.counselor_name || "Konselor";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const date = vars.starts_at ? formatIndonesianDate(vars.starts_at) : vars.session_date || "-";
-    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
+    const { date, time } = sessionWhen(vars);
 
     return (
-`Halo ${clientName},
+`Halo ${clientName} 👋
 
+📨 *Permintaan Diterima*
 Permintaan jadwal konseling Anda telah kami terima dan sedang menunggu konfirmasi dari konselor.
 
-Nomor Booking: ${ref}
-Konselor: ${counselorName}
-Tanggal: ${date}
-Waktu: ${time}
+🔖 Nomor Booking: ${ref}
+👤 Konselor: ${counselorName}
+📅 Tanggal: ${date}
+⏰ Waktu: ${time}
 
-Kami akan mengirimkan pemberitahuan setelah konselor mengonfirmasi jadwal Anda. Detail booking dapat dilihat di website SiCARE.
+⏳ Kami akan mengirimkan pemberitahuan setelah konselor mengonfirmasi jadwal Anda. Detail booking dapat dilihat di website SiCARE.
 
-Terima kasih.
-Tim SiCARE`
+${SIGNATURE}`
     );
   },
 
@@ -180,24 +194,24 @@ Tim SiCARE`
     const clientName = vars.client_name || vars.recipient_name || "Klien";
     const counselorName = vars.counselor_name || "Konselor";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const date = vars.starts_at ? formatIndonesianDate(vars.starts_at) : vars.session_date || "-";
-    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
-    const { sessionFormat, roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
+    const { date, time } = sessionWhen(vars);
+    const { sessionFormat, roomInfo, formatIcon } = describeFormatAndRoom(vars.session_format, vars.room);
 
     return (
-`Halo ${clientName},
+`Halo ${clientName} 👋
 
+✅ *Jadwal Dikonfirmasi*
 Permintaan konseling Anda telah dikonfirmasi.
 
-Nomor Booking: ${ref}
-Konselor: ${counselorName}
-Tanggal: ${date}
-Waktu: ${time}
-Format: ${sessionFormat}
-${roomInfo}Silakan buka website SiCARE untuk melihat detail booking Anda.
+🔖 Nomor Booking: ${ref}
+👤 Konselor: ${counselorName}
+📅 Tanggal: ${date}
+⏰ Waktu: ${time}
+${formatIcon} Format: ${sessionFormat}
+${roomInfo}
+👉 Silakan buka website SiCARE untuk melihat detail booking Anda.
 
-Terima kasih.
-Tim SiCARE`
+${SIGNATURE}`
     );
   },
 
@@ -205,20 +219,21 @@ Tim SiCARE`
     const clientName = vars.client_name || vars.recipient_name || "Klien";
     const counselorName = vars.counselor_name || "Konselor";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const reason = vars.reason ? `Alasan: ${vars.reason}\n` : "";
+    const reason = vars.reason ? `📝 Alasan: ${vars.reason}\n` : "";
 
     return (
-`Halo ${clientName},
+`Halo ${clientName} 👋
 
+❌ *Permintaan Belum Dapat Dijadwalkan*
 Mohon maaf, permintaan konseling Anda belum dapat kami jadwalkan saat ini.
 
-Nomor Booking: ${ref}
-Konselor: ${counselorName}
+🔖 Nomor Booking: ${ref}
+👤 Konselor: ${counselorName}
 ${reason}
-Silakan memilih jadwal atau konselor lain yang tersedia melalui website SiCARE.
+👉 Silakan memilih jadwal atau konselor lain yang tersedia melalui website SiCARE.
 
-Terima kasih atas pengertian Anda.
-Tim SiCARE`
+Terima kasih atas pengertian Anda 🙏
+*Tim SiCARE*`
     );
   },
 
@@ -226,20 +241,20 @@ Tim SiCARE`
     const recipientName = vars.recipient_name || "Pengguna SiCARE";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
     const initiator = vars.initiator_role === "counselor" ? "Konselor" : "Klien";
-    const reason = vars.reason ? `Alasan: ${vars.reason}\n` : "";
+    const reason = vars.reason ? `📝 Alasan: ${vars.reason}\n` : "";
 
     return (
-`Halo ${recipientName},
+`Halo ${recipientName} 👋
 
+🔄 *Permintaan Jadwal Ulang*
 Terdapat permintaan penjadwalan ulang untuk sesi konseling Anda di SiCARE.
 
-Nomor Booking: ${ref}
-Diajukan oleh: ${initiator}
+🔖 Nomor Booking: ${ref}
+👤 Diajukan oleh: ${initiator}
 ${reason}
-Silakan buka website SiCARE untuk memilih atau meninjau slot jadwal pengganti.
+👉 Silakan buka website SiCARE untuk memilih atau meninjau slot jadwal pengganti.
 
-Terima kasih.
-Tim SiCARE`
+${SIGNATURE}`
     );
   },
 
@@ -247,20 +262,20 @@ Tim SiCARE`
     const recipientName = vars.recipient_name || "Pengguna SiCARE";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
     const initiator = vars.initiator_role === "counselor" ? "Konselor" : "Klien";
-    const reasonInfo = vars.reason ? `Alasan pembatalan: ${vars.reason}\n` : "";
+    const reasonInfo = vars.reason ? `📝 Alasan pembatalan: ${vars.reason}\n` : "";
 
     return (
-`Halo ${recipientName},
+`Halo ${recipientName} 👋
 
+🚫 *Sesi Dibatalkan*
 Pemberitahuan bahwa sesi konseling Anda di SiCARE telah dibatalkan.
 
-Nomor Booking: ${ref}
-Dibatalkan oleh: ${initiator}
+🔖 Nomor Booking: ${ref}
+👤 Dibatalkan oleh: ${initiator}
 ${reasonInfo}
-Silakan kunjungi website SiCARE jika Anda ingin menjadwalkan sesi konseling baru.
+👉 Silakan kunjungi website SiCARE jika Anda ingin menjadwalkan sesi konseling baru.
 
-Terima kasih.
-Tim SiCARE`
+${SIGNATURE}`
     );
   },
 
@@ -268,25 +283,24 @@ Tim SiCARE`
     const recipientName = vars.recipient_name || "Pengguna SiCARE";
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const date = vars.starts_at ? formatIndonesianDate(vars.starts_at) : vars.session_date || "-";
-    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
-    const { sessionFormat, roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
+    const { date, time } = sessionWhen(vars);
+    const { sessionFormat, roomInfo, formatIcon } = describeFormatAndRoom(vars.session_format, vars.room);
 
     return (
-`Halo ${recipientName},
+`Halo ${recipientName} 👋
 
-Pengingat: Anda memiliki jadwal sesi konseling besok di SiCARE.
+🔔 *Pengingat Sesi Besok*
+Anda memiliki jadwal sesi konseling besok di SiCARE.
 
-Nomor Booking: ${ref}
-Dengan: ${partnerName}
-Tanggal: ${date}
-Waktu: ${time}
-Format: ${sessionFormat}
+🔖 Nomor Booking: ${ref}
+👤 Dengan: ${partnerName}
+📅 Tanggal: ${date}
+⏰ Waktu: ${time}
+${formatIcon} Format: ${sessionFormat}
 ${roomInfo}
-Mohon hadir tepat waktu sesuai jadwal yang disepakati.
+🙂 Mohon hadir tepat waktu sesuai jadwal yang disepakati.
 
-Terima kasih.
-Tim SiCARE`
+${SIGNATURE}`
     );
   },
 
@@ -294,23 +308,23 @@ Tim SiCARE`
     const recipientName = vars.recipient_name || "Pengguna SiCARE";
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
-    const { sessionFormat, roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
+    const { time } = sessionWhen(vars);
+    const { sessionFormat, roomInfo, formatIcon } = describeFormatAndRoom(vars.session_format, vars.room);
 
     return (
-`Halo ${recipientName},
+`Halo ${recipientName} 👋
 
-Pengingat: Anda memiliki jadwal sesi konseling hari ini di SiCARE.
+☀️ *Pengingat Sesi Hari Ini*
+Anda memiliki jadwal sesi konseling hari ini di SiCARE.
 
-Nomor Booking: ${ref}
-Dengan: ${partnerName}
-Waktu: ${time}
-Format: ${sessionFormat}
+🔖 Nomor Booking: ${ref}
+👤 Dengan: ${partnerName}
+⏰ Waktu: ${time}
+${formatIcon} Format: ${sessionFormat}
 ${roomInfo}
-Mohon hadir tepat waktu. Detail sesi dapat dilihat di website SiCARE.
+🙂 Mohon hadir tepat waktu. Detail sesi dapat dilihat di website SiCARE.
 
-Terima kasih.
-Tim SiCARE`
+${SIGNATURE}`
     );
   },
 
@@ -318,23 +332,23 @@ Tim SiCARE`
     const recipientName = vars.recipient_name || "Pengguna SiCARE";
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
-    const time = vars.starts_at ? formatIndonesianTimeWindow(vars.starts_at, vars.ends_at) : vars.session_time || "-";
-    const { sessionFormat, roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
+    const { time } = sessionWhen(vars);
+    const { sessionFormat, roomInfo, formatIcon } = describeFormatAndRoom(vars.session_format, vars.room);
 
     return (
-`Halo ${recipientName},
+`Halo ${recipientName} 👋
 
-Pengingat: Sesi konseling Anda di SiCARE akan dimulai dalam 1 jam.
+⏰ *Sesi Dimulai dalam 1 Jam*
+Sesi konseling Anda di SiCARE akan dimulai dalam 1 jam.
 
-Nomor Booking: ${ref}
-Dengan: ${partnerName}
-Waktu: ${time}
-Format: ${sessionFormat}
+🔖 Nomor Booking: ${ref}
+👤 Dengan: ${partnerName}
+⏰ Waktu: ${time}
+${formatIcon} Format: ${sessionFormat}
 ${roomInfo}
-Silakan persiapkan diri Anda dan buka website SiCARE untuk detail sesi.
+👉 Silakan persiapkan diri Anda dan buka website SiCARE untuk detail sesi.
 
-Terima kasih.
-Tim SiCARE`
+${SIGNATURE}`
     );
   },
 
@@ -343,17 +357,17 @@ Tim SiCARE`
     const link = vars.invitation_link || "https://sicare.ac.id/consent/invite";
 
     return (
-`Halo ${recipientName},
+`Halo ${recipientName} 👋
 
+📝 *Undangan Informed Consent*
 Anda menerima undangan untuk melengkapi Informed Consent (Surat Pernyataan Kesediaan) konseling melalui SiCARE.
 
-Silakan buka tautan berikut untuk memeriksa data, membaca dokumen persetujuan resmi, dan melakukan tanda tangan secara mandiri:
+👉 Silakan buka tautan berikut untuk memeriksa data, membaca dokumen persetujuan resmi, dan melakukan tanda tangan secara mandiri:
 ${link}
 
-Tautan ini bersifat pribadi dan rahasia. Jangan bagikan kepada orang lain.
+🔒 Tautan ini bersifat pribadi dan rahasia. Jangan bagikan kepada orang lain.
 
-Terima kasih.
-Tim SiCARE`
+${SIGNATURE}`
     );
   },
 
@@ -362,17 +376,17 @@ Tim SiCARE`
     const link = vars.invitation_link || "https://sicare.ac.id/consent/invite";
 
     return (
-`Halo ${recipientName},
+`Halo ${recipientName} 👋
 
-Pengingat: Anda belum melengkapi Informed Consent untuk sesi konseling di SiCARE.
+🔔 *Pengingat Informed Consent*
+Anda belum melengkapi Informed Consent untuk sesi konseling di SiCARE.
 
-Mohon buka tautan berikut untuk melengkapi data dan menandatangani dokumen persetujuan sebelum sesi konseling dimulai:
+👉 Mohon buka tautan berikut untuk melengkapi data dan menandatangani dokumen persetujuan sebelum sesi konseling dimulai:
 ${link}
 
-Tautan ini bersifat pribadi dan rahasia. Jangan bagikan kepada orang lain.
+🔒 Tautan ini bersifat pribadi dan rahasia. Jangan bagikan kepada orang lain.
 
-Terima kasih.
-Tim SiCARE`
+${SIGNATURE}`
     );
   },
 };

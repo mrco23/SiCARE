@@ -86,14 +86,30 @@ export const adminAccountsService = {
     const { data, error } = await query;
     if (error) supabaseError(error, "Daftar akun tidak dapat dibaca.");
 
+    // Email dan status verifikasi email ada di Supabase Auth, bukan di profiles.
+    // Diambil paralel (per 10) agar daftar akun tidak menunggu satu per satu.
     const ids = (data ?? []).map((p) => p.id);
-    const emails = new Map();
-    for (const id of ids) {
-      const { data: authUser, error: authError } = await supa().auth.admin.getUserById(id);
-      if (!authError && authUser?.user) emails.set(id, authUser.user.email ?? null);
+    const authInfo = new Map();
+    for (let start = 0; start < ids.length; start += 10) {
+      await Promise.all(
+        ids.slice(start, start + 10).map(async (id) => {
+          const { data: authUser, error: authError } = await supa().auth.admin.getUserById(id);
+          if (!authError && authUser?.user) {
+            authInfo.set(id, {
+              email: authUser.user.email ?? null,
+              emailVerified: Boolean(authUser.user.email_confirmed_at || authUser.user.confirmed_at),
+            });
+          }
+        }),
+      );
     }
 
-    return (data ?? []).map((p) => ({ ...p, email: emails.get(p.id) ?? null }));
+    return (data ?? []).map((p) => ({
+      ...p,
+      email: authInfo.get(p.id)?.email ?? null,
+      // null bila data Auth tidak dapat dibaca (jangan dianggap belum terverifikasi).
+      email_verified: authInfo.has(p.id) ? authInfo.get(p.id).emailVerified : null,
+    }));
   },
 
   async getAccount(id) {

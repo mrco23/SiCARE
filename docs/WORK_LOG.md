@@ -2073,3 +2073,40 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   2. Frontend: 34 halaman dimuat lazy (`React.lazy` + `Suspense` per rute; path rute tidak berubah). JS awal turun dari **1,52 MB** menjadi **±540 KB** (+215 KB klien Supabase).
   3. `GET /bookings`, `GET /sessions`, dan riwayat konselor tidak lagi menunggu 3 RPC penanda status; penanda dijalankan cron `worker-run` tiap menit (laporan dan dashboard tetap menjalankannya). Di lingkungan lokal tanpa cron, status otomatis hanya diperbarui saat laporan dibuka atau cron dipanggil manual.
 - **Pemeriksaan:** `be: npm test` **334/335** (gagal: `heroMotivations.test.js`, baseline), `typecheck` **PASS**; `fe: tsc`, `lint`, `build` **PASS**; browser lokal: halaman lazy (Tentang Kami, Lupa kata sandi) tampil tanpa error konsol. Efek wilayah `sin1` belum terukur (perlu deploy).
+
+## 2026-11-18 — Skrip reset data transaksi dan seed dummy periode berjalan
+
+- **Permintaan pengguna:** query untuk membersihkan data Supabase tanpa menghapus akun, dan query data dummy untuk periode akademik berjalan (tanpa membuat akun admin, Kepala LMI, dan konselor).
+- **File baru:** `be/scripts/reset-transactional-data.sql` (TRUNCATE tabel transaksi tanpa `cascade`; akun, `consent_templates`, `academic_periods`, `hero_motivations`, `homepage_logo` dipertahankan; file Storage consent tidak ikut terhapus) dan `be/scripts/seed-dummy-current-period.sql` (memakai konselor aktif/publik yang sudah ada; membuat/memakai ulang 12 akun klien `@sicare-dummy.test`; slot, booking individu/kelompok berbagai status, intake, sesi, consent tanpa file PDF, catatan sesi `[DUMMY]`, feedback, notifikasi; tanpa `whatsapp_outbox`).
+- **Pemeriksaan:** **NOT RUN** di database mana pun (Docker/Postgres lokal tidak tersedia); hanya ditinjau manual terhadap constraint dan trigger di `supabase/migrations/`. Jalankan hanya di project non-produksi.
+
+## 2026-11-18 — Diagnosis registrasi 400 dan verifikasi wilayah backend
+
+- **Laporan pengguna:** konsol browser menampilkan `POST /auth/register` 400 berulang dan `POST /auth/login` 401.
+- **Temuan:** semua galat `signUp` Supabase (gagal kirim email SMTP, batas email, kebijakan kata sandi, email ditolak) dipetakan ke satu `400 REGISTER_FAILED` tanpa log, sehingga penyebab asli tidak terlihat. Login 401 konsisten dengan akun yang belum pernah berhasil dibuat.
+- **Perubahan:** `signUpErrorToHttp` di `auth.service.js` memetakan penyebab spesifik (`429 RATE_LIMITED`, `503 EMAIL_SEND_FAILED`, `400 PASSWORD_REJECTED`, `400 EMAIL_REJECTED`, `409 ACCOUNT_EXISTS`, `503 SIGNUP_DISABLED`) dan mencatat status/kode galat Supabase ke log server (tanpa email). Tes baru di `readinessFixes.test.js`.
+- **Verifikasi production:** header kini `X-Vercel-Id: sin1::sin1` (fungsi backend di Singapura); `GET /public/periods` turun dari ±1,3 dtk menjadi ±0,3–0,5 dtk.
+- **Pemeriksaan:** `be: npm test` **335/336** (gagal: `heroMotivations.test.js`, baseline), `typecheck` **PASS**.
+
+## 2026-11-18 — Status "Aktif" untuk akun yang belum verifikasi email
+
+- **Laporan pengguna:** akun klien yang baru mendaftar dan belum mengklik tautan verifikasi sudah tampil "Aktif" di halaman Akun Admin.
+- **Penyebab:** `profiles.account_status` default `active` (migrasi inti) dan hanya menandai akun tidak dinonaktifkan admin; status verifikasi email disimpan terpisah di Supabase Auth (`email_confirmed_at`). Login tetap menolak akun yang belum verifikasi (`403 EMAIL_NOT_CONFIRMED`), jadi tidak ada celah akses; yang keliru hanya tampilan admin.
+- **Perubahan:** `GET /admin/accounts` menambahkan `email_verified` (dari Supabase Auth; `null` bila tidak terbaca) dan kini mengambil data Auth secara paralel per 10 akun (sebelumnya satu per satu). Tabel Akun Admin menampilkan keterangan "Email belum diverifikasi" di bawah status.
+- **Pemeriksaan:** `be: npm test` **335/336** (gagal: `heroMotivations.test.js`, baseline), `typecheck` **PASS**; `fe: tsc`, `lint` **PASS**. Uji browser halaman admin **NOT RUN**.
+
+## 2026-11-18 — Emoji pesan WhatsApp, tanda tangan laporan, dan catatan anggota kelompok
+
+- **Permintaan pengguna:** pesan WhatsApp memakai emoji agar tidak terlihat seperti teks penuh; tanda tangan laporan hanya Kepala LMI dan nama/tautan website tidak ikut tercetak; form konseling kelompok memberi tahu bahwa nama pemilik akun tidak perlu ditulis.
+- **Perubahan:**
+  - `be/src/templates/whatsapp/index.js`: semua 11 template memakai judul *tebal* WhatsApp dan emoji per baris (🔖 nomor booking, 👤, 📅, ⏰, 💻/🏫 format, 📍 ruangan/🔗 tautan, 📝 alasan, 🔒 kerahasiaan). Isi dan data yang dikirim tidak berubah; tidak ada data sensitif yang ditambahkan. Template dirender saat worker mengirim, jadi outbox yang masih `pending` ikut memakai format baru.
+  - `fe/src/components/reports/CounselingReportPrint.tsx`: blok tanda tangan kini hanya "Mengetahui, Kepala LMI". Laporan admin menyisakan garis nama kosong (blok "Disusun oleh, Admin LMI" dihapus); laporan Kepala LMI menampilkan nama dan NIP penanda tangan.
+  - `fe/src/index.css`: margin box `@top-left/@top-center/@bottom-left/@bottom-center` pada `@page sicare-report` dan `sicare-session` dikosongkan, dan footer halaman sampul `content: ""` (sebelumnya `none`), agar header/footer bawaan browser (judul tab dan URL website) tidak tercetak. Kelas `.rp-sign-two` yang tidak dipakai dihapus.
+  - `fe/src/pages/client/KlienPesananPage.tsx`: kotak informasi di atas daftar anggota kelompok: "Tidak perlu menuliskan nama kamu sendiri", beserta jumlah anggota yang perlu ditulis (jumlah peserta - 1).
+- **Pemeriksaan:** `be: npm test` **335/336** (gagal: `heroMotivations.test.js`, baseline, file tidak diubah); tes WhatsApp **47/47 PASS**; `fe: tsc -b`, `lint`, `build` **PASS**. Cetak laporan di browser dan tampilan form kelompok **NOT RUN**. Penyembunyian header/footer browser lewat margin box bergantung pada dukungan browser (Chrome 131+); bila URL masih tercetak, matikan opsi "Header dan footer" di dialog cetak.
+
+## 2026-11-18 — Judul halaman admin
+
+- `AdminKonselingPage.tsx`: judul "Monitoring Konseling" menjadi "Pemantauan Konseling".
+- `AdminBerandaPage.tsx`: judul "Dashboard Monitoring Konseling" menjadi "Beranda Admin".
+- **Pemeriksaan:** `fe: tsc -b` **PASS**. Uji browser **NOT RUN**.

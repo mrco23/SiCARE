@@ -850,6 +850,15 @@ export default function KlienPesananPage() {
                   error={missing.includes("groupMembers")}
                   errorText="Wajib diisi sesuai jumlah anggota dengan format: Nama Lengkap, Nomor WhatsApp."
                 >
+                  <div className="mb-2 rounded-lg border border-[#064E3B]/20 bg-[#064E3B]/5 px-3 py-2 text-xs text-[#064E3B]">
+                    <strong>Tidak perlu menuliskan nama kamu sendiri.</strong>{" "}
+                    Kamu sebagai pemilik akun sudah otomatis terdaftar sebagai
+                    peserta. Cukup tuliskan anggota lainnya
+                    {Number(form.groupSize) >= 2 && Number(form.groupSize) <= 10
+                      ? ` (${Number(form.groupSize) - 1} orang)`
+                      : ""}
+                    .
+                  </div>
                   <p className="mb-2 text-xs text-gray-500">
                     Tuliskan satu anggota per baris dengan format:{" "}
                     <strong>Nama Lengkap, Nomor WhatsApp</strong>. Setiap

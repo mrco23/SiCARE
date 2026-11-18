@@ -62,6 +62,8 @@ type ManagedAccount = {
   memberCategory: MemberCategoryApi | null;
   status: AccountStatusApi;
   active: boolean;
+  /** false bila email belum diverifikasi (status akun tetap "Aktif" tetapi belum bisa login). */
+  emailVerified: boolean | null;
   created: string;
   gender: GenderApi | "";
   siapNumber: string;
@@ -145,6 +147,7 @@ function mapAccountDto(
     memberCategory: dto.member_category,
     status: dto.account_status,
     active: dto.account_status === "active",
+    emailVerified: "email_verified" in dto ? (dto.email_verified ?? null) : null,
     created: dto.created_at,
     gender: dto.gender ?? "",
     siapNumber: dto.siap_number ?? "",
@@ -726,6 +729,14 @@ export default function AdminAkunPage() {
                           />
                           {STATUS_LABEL[a.status]}
                         </span>
+                        {a.emailVerified === false && (
+                          <span
+                            title="Akun belum bisa login sampai pemiliknya mengklik tautan verifikasi di email."
+                            className="mt-1 block text-[11px] font-semibold text-amber-700"
+                          >
+                            Email belum diverifikasi
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-xs font-medium text-slate-500">
                         {fmtDate(a.created)}

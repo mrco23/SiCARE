@@ -1,0 +1,795 @@
+<title>Peta Relasi SiCARE</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a 16:9 "video" stage that flies a camera over one ERD world, subtitles inside the frame, study notes below. */
+:root {
+  --bg: #eaf1ee;
+  --paper: #f7faf8;
+  --card: #ffffff;
+  --ink: #0f241d;
+  --muted: #5a6f67;
+  --line: #c9d8d1;
+  --brand: #064e3b;
+  --brand-ink: #ecfdf5;
+  --accent: #e8962a;
+  --accent-soft: #fdebd0;
+  --fk: #0f766e;
+  --uq: #7c3aed;
+  --stage: #f2f7f4;
+  --grid: #d9e6df;
+  --edge: #a8bdb4;
+  --cascade: #d9485f;
+  --restrict: #b7791f;
+  --setnull: #2f6fd6;
+  --caption-bg: rgba(6, 30, 23, 0.86);
+  --caption-ink: #f4fbf7;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #08120f; --paper: #0e1b17; --card: #13241e; --ink: #e3f1eb; --muted: #93aaa1;
+    --line: #24403a; --brand: #0d6b52; --brand-ink: #ecfdf5; --accent: #f2a93b; --accent-soft: #3a2a12;
+    --fk: #2dd4bf; --uq: #a78bfa; --stage: #0b1814; --grid: #142822; --edge: #3d5a51;
+    --cascade: #f0667c; --restrict: #e0a645; --setnull: #6ea0f5;
+    --caption-bg: rgba(3, 12, 9, 0.88); --caption-ink: #f4fbf7; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #08120f; --paper: #0e1b17; --card: #13241e; --ink: #e3f1eb; --muted: #93aaa1;
+  --line: #24403a; --brand: #0d6b52; --brand-ink: #ecfdf5; --accent: #f2a93b; --accent-soft: #3a2a12;
+  --fk: #2dd4bf; --uq: #a78bfa; --stage: #0b1814; --grid: #142822; --edge: #3d5a51;
+  --cascade: #f0667c; --restrict: #e0a645; --setnull: #6ea0f5;
+  --caption-bg: rgba(3, 12, 9, 0.88); --caption-ink: #f4fbf7; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+header.top h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 4vw, 44px); line-height: 1.05; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+header.top p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
+:root:not([data-theme="light"]) .eyebrow { color: var(--fk); }
+@media (prefers-color-scheme: light) { .eyebrow { color: var(--brand); } }
+:root[data-theme="light"] .eyebrow { color: var(--brand); }
+
+/* ---------- Player ---------- */
+.player { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: 0 18px 50px -30px rgba(6, 78, 59, 0.45); }
+.player:fullscreen { border-radius: 0; display: flex; flex-direction: column; justify-content: center; background: #000; }
+.stage { position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 100%; background: var(--stage); container-type: inline-size; overflow: hidden; user-select: none; }
+.player:fullscreen .stage { max-height: calc(100vh - 64px); width: auto; margin: 0 auto; aspect-ratio: 16/9; height: auto; max-width: calc((100vh - 64px) * 16 / 9); }
+.stage svg.world-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#world { transition: transform 1.4s cubic-bezier(.65, 0, .25, 1); transform-origin: 0 0; }
+.node { transition: opacity .7s ease, transform .7s ease; transform-box: fill-box; transform-origin: center; }
+.node.hidden { opacity: 0; transform: scale(.92); }
+.node.ghost { opacity: .16; }
+.node.dim { opacity: .32; }
+.node.focus .frame { stroke: var(--accent); stroke-width: 4; }
+.node.focus .glow { opacity: 1; }
+.node .glow { opacity: 0; transition: opacity .6s; }
+.node .frame { fill: var(--card); stroke: var(--line); stroke-width: 1.5; transition: stroke .4s; }
+.node .head { fill: var(--brand); }
+.node.auth .head { fill: #3b4a63; }
+.node .tname { font-family: var(--font-mono); font-weight: 600; font-size: 17px; fill: var(--brand-ink); }
+.node .schema { font-family: var(--font-mono); font-size: 11px; fill: var(--brand-ink); opacity: .7; letter-spacing: .08em; }
+.node .col { font-family: var(--font-mono); font-size: 14px; fill: var(--ink); }
+.node .ref { font-family: var(--font-mono); font-size: 11.5px; fill: var(--muted); }
+.node .rowhl { fill: var(--accent-soft); opacity: 0; transition: opacity .4s; }
+.node .rowhl.on { opacity: 1; }
+.badge rect { rx: 4; }
+.badge.pk rect { fill: var(--accent); }
+.badge.fk rect { fill: var(--fk); }
+.badge.uq rect { fill: var(--uq); }
+.badge text { font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; fill: #fff; }
+.edge { transition: opacity .6s; }
+.edge path.line { fill: none; stroke: var(--edge); stroke-width: 2.4; transition: stroke .4s, stroke-width .4s; }
+.edge.hidden { opacity: 0; }
+.edge.ghost { opacity: .12; }
+.edge.dim { opacity: .35; }
+.edge.active path.line { stroke: var(--accent); stroke-width: 3.6; stroke-dasharray: 12 8; animation: flow 1.1s linear infinite; }
+.edge.rule-cascade path.line { stroke: var(--cascade); stroke-width: 3.6; }
+.edge.rule-restrict path.line { stroke: var(--restrict); stroke-width: 3.6; }
+.edge.rule-set_null path.line { stroke: var(--setnull); stroke-width: 3.6; stroke-dasharray: 3 6; }
+.edge .card circle { fill: var(--card); stroke: var(--edge); stroke-width: 1.5; }
+.edge.active .card circle { stroke: var(--accent); }
+.edge .card text { font-family: var(--font-mono); font-size: 12px; font-weight: 600; fill: var(--ink); }
+@keyframes flow { to { stroke-dashoffset: -40; } }
+.bgdot { fill: var(--grid); }
+
+/* overlay layer, sized in container units so it scales with the frame */
+.overlay { position: absolute; inset: 0; pointer-events: none; }
+.callout { position: absolute; right: 2.6cqw; top: 3cqw; width: 37cqw; background: var(--card); border: 1px solid var(--line); border-radius: 1.4cqw; padding: 1.8cqw 2cqw; box-shadow: 0 1.2cqw 3cqw -1.6cqw rgba(0,0,0,.35); font-size: 1.45cqw; line-height: 1.45; opacity: 0; transform: translateY(1cqw); transition: opacity .5s ease, transform .5s ease; pointer-events: auto; }
+.callout.show { opacity: 1; transform: none; }
+.callout.center { left: 50%; right: auto; top: 44%; width: 62cqw; transform: translate(-50%, -46%); }
+.callout.center.show { transform: translate(-50%, -50%); }
+.callout h3 { font-family: var(--font-display); font-weight: 700; font-size: 2.2cqw; line-height: 1.1; margin: 0 0 .9cqw; text-wrap: balance; }
+.callout p { margin: 0 0 .8cqw; }
+.callout ul { margin: 0; padding-left: 1.6cqw; display: grid; gap: .5cqw; }
+.callout code, .caption code, .notes code, table code { font-family: var(--font-mono); font-size: .92em; background: var(--accent-soft); padding: 0 .3em; border-radius: .25em; }
+.caption code { background: rgba(242, 169, 59, .22); color: #ffd79a; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: .6cqw; margin-top: .6cqw; }
+.pill { font-family: var(--font-mono); font-size: 1.2cqw; padding: .35cqw .8cqw; border-radius: 99px; border: 1px solid var(--line); background: var(--paper); white-space: nowrap; }
+.pill.go { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+.pill.bad { border-color: var(--cascade); color: var(--cascade); }
+.arrow { color: var(--muted); font-size: 1.3cqw; }
+.rule-cards { display: grid; gap: .8cqw; }
+.rule-card { border-radius: 1cqw; padding: .8cqw 1.1cqw; border: 2px solid; }
+.rule-card b { font-family: var(--font-mono); }
+.rule-card.cascade { border-color: var(--cascade); }
+.rule-card.restrict { border-color: var(--restrict); }
+.rule-card.set_null { border-color: var(--setnull); border-style: dashed; }
+.rule-card.off { opacity: .35; }
+.mini { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1.2cqw; margin: 1cqw 0 .4cqw; }
+.mini .tbl { border: 1px solid var(--line); border-radius: .8cqw; overflow: hidden; font-family: var(--font-mono); font-size: 1.2cqw; }
+.mini .tbl .h { background: var(--brand); color: var(--brand-ink); padding: .4cqw .8cqw; font-weight: 600; }
+.mini .tbl .r { padding: .3cqw .8cqw; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: .6cqw; }
+.mini .tbl .r.hl { background: var(--accent-soft); }
+.mini .link { font-family: var(--font-mono); font-size: 1.2cqw; color: var(--accent); text-align: center; }
+
+.title-card { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--stage) 70%, transparent), var(--stage) 75%); opacity: 0; transition: opacity .6s; pointer-events: none; }
+.title-card.show { opacity: 1; pointer-events: auto; }
+.title-card .inner { display: grid; gap: 1.4cqw; justify-items: center; max-width: 70cqw; }
+.title-card .kicker { font-family: var(--font-mono); font-size: 1.4cqw; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.title-card h2 { font-family: var(--font-display); font-weight: 800; font-size: 6cqw; line-height: .98; margin: 0; letter-spacing: -0.03em; text-wrap: balance; }
+.title-card h2 em { font-style: normal; color: var(--accent); }
+.bigplay { pointer-events: auto; font: 600 1.7cqw var(--font-body); background: var(--brand); color: var(--brand-ink); border: 0; border-radius: 99px; padding: 1.1cqw 2.6cqw; cursor: pointer; display: inline-flex; align-items: center; gap: .9cqw; }
+.bigplay:hover { filter: brightness(1.12); }
+.bigplay:focus-visible, .ctl button:focus-visible, .seg:focus-visible, .chapter button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.caption { position: absolute; left: 13cqw; right: 3cqw; bottom: 2.4cqw; background: var(--caption-bg); color: var(--caption-ink); border-radius: 1.2cqw; padding: 1.2cqw 1.8cqw; font-size: 1.75cqw; line-height: 1.45; min-height: 7cqw; display: flex; align-items: center; transition: opacity .3s; }
+.caption.empty { opacity: 0; }
+.mascot { position: absolute; left: 2.2cqw; bottom: 2cqw; width: 9.5cqw; height: auto; }
+.mascot .body { transform-origin: 50% 100%; transform-box: fill-box; }
+.talking .mascot .body { animation: bob .55s ease-in-out infinite alternate; }
+.talking .mascot .mouth { animation: talk .22s ease-in-out infinite alternate; transform-origin: center; transform-box: fill-box; }
+@keyframes bob { from { transform: translateY(0) rotate(-1.5deg); } to { transform: translateY(-4%) rotate(1.5deg); } }
+@keyframes talk { from { transform: scaleY(.35); } to { transform: scaleY(1.1); } }
+.chip-scene { position: absolute; left: 2.4cqw; top: 2.4cqw; font-family: var(--font-mono); font-size: 1.25cqw; background: var(--card); border: 1px solid var(--line); border-radius: 99px; padding: .4cqw 1.1cqw; color: var(--muted); }
+.chip-scene b { color: var(--ink); font-weight: 600; }
+
+/* controls */
+.controls { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 14px; border-top: 1px solid var(--line); background: var(--paper); }
+.player:fullscreen .controls { max-width: calc((100vh - 64px) * 16 / 9); width: 100%; margin: 0 auto; }
+.track { display: flex; gap: 3px; height: 10px; }
+.seg { position: relative; flex: 1 1 0; background: var(--line); border-radius: 3px; overflow: hidden; cursor: pointer; border: 0; padding: 0; }
+.seg span { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--brand); }
+:root:not([data-theme="light"]) .seg span { background: var(--accent); }
+@media (prefers-color-scheme: light) { .seg span { background: var(--brand); } }
+:root[data-theme="light"] .seg span { background: var(--brand); }
+.seg:hover { filter: brightness(.92); }
+.ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.ctl button, .ctl select { font: 500 14px var(--font-body); color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.ctl button.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); min-width: 96px; justify-content: center; }
+.ctl button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ctl .spacer { flex: 1; }
+.ctl .now { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ctl .now b { color: var(--ink); }
+.voice-note { font-size: 12.5px; color: var(--muted); }
+
+/* study notes */
+.cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+section h2 { font-family: var(--font-display); font-weight: 700; font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+section > p.lead { margin: 0 0 14px; color: var(--muted); }
+.chapters { display: grid; gap: 10px; }
+.chapter { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.chapter.current { border-color: var(--accent); }
+.chapter button { all: unset; cursor: pointer; display: flex; gap: 10px; align-items: baseline; width: 100%; }
+.chapter .num { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-width: 24px; font-variant-numeric: tabular-nums; }
+.chapter .t { font-family: var(--font-display); font-weight: 700; font-size: 17px; }
+.chapter .go { margin-left: auto; font-size: 12.5px; color: var(--fk); white-space: nowrap; }
+.chapter ol { margin: 8px 0 0 34px; padding: 0; display: grid; gap: 6px; font-size: 14px; color: var(--ink); }
+.chapter ol li::marker { color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 520px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; background: var(--card); position: sticky; top: 0; }
+tr:last-child td { border-bottom: 0; }
+td code { white-space: nowrap; }
+.rule { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; border: 1.5px solid; white-space: nowrap; }
+.rule.cascade { color: var(--cascade); border-color: var(--cascade); }
+.rule.restrict { color: var(--restrict); border-color: var(--restrict); }
+.rule.set_null { color: var(--setnull); border-color: var(--setnull); border-style: dashed; }
+.tips { margin-top: 18px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; }
+.tips h3 { margin: 0 0 6px; font-family: var(--font-display); font-size: 17px; }
+.tips ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
+.foot { font-size: 12.5px; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .caption { left: 3cqw; font-size: 2.6cqw; bottom: 2cqw; }
+  .mascot { display: none; }
+  .callout { width: 50cqw; font-size: 2cqw; }
+  .callout h3 { font-size: 2.8cqw; }
+  .ctl .now { width: 100%; order: 10; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #world, .node, .edge, .callout, .title-card { transition: none !important; }
+  .edge.active path.line { animation: none; }
+  .talking .mascot .body, .talking .mascot .mouth { animation: none; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Supabase · PostgreSQL · 22 tabel</div>
+      <h1>Peta Relasi SiCARE</h1>
+      <p>Video animasi tentang cara tabel-tabel SiCARE saling terhubung, mengikuti perjalanan satu booking konseling dari login sampai feedback. Putar dari awal, atau lompat ke bab tertentu lewat daftar di bawah.</p>
+    </div>
+  </header>
+
+  <div class="player" id="player">
+    <div class="stage" id="stage">
+      <svg class="world-svg" id="svg" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet" aria-label="Diagram relasi tabel SiCARE" role="img">
+        <defs>
+          <pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse"><circle class="bgdot" cx="2" cy="2" r="1.6"></circle></pattern>
+          <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="10"></feGaussianBlur></filter>
+        </defs>
+        <g id="world">
+          <rect x="-2000" y="-2000" width="7000" height="6000" fill="url(#dots)"></rect>
+          <g id="edges"></g>
+          <g id="nodes"></g>
+        </g>
+      </svg>
+      <div class="overlay" id="overlay">
+        <div class="chip-scene" id="chip"></div>
+        <div class="callout" id="callout"></div>
+        <div class="title-card" id="titleCard">
+          <div class="inner">
+            <div class="kicker">Belajar basis data SiCARE</div>
+            <h2>Kok bisa SiCARE <em>ingat</em> semuanya?</h2>
+            <button class="bigplay" id="bigPlay" type="button">
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 2.5v13l11-6.5z" fill="currentColor"></path></svg>
+              Putar video
+            </button>
+          </div>
+        </div>
+        <svg class="mascot" viewBox="0 0 120 130" aria-hidden="true">
+          <g class="body">
+            <ellipse cx="60" cy="118" rx="38" ry="7" fill="#000" opacity=".12"></ellipse>
+            <path d="M18 30 v68 c0 11 19 18 42 18 s42-7 42-18 V30" fill="#0b7a5c"></path>
+            <path d="M18 64 c0 11 19 18 42 18 s42-7 42-18" fill="none" stroke="#065f46" stroke-width="3"></path>
+            <ellipse cx="60" cy="30" rx="42" ry="17" fill="#10a37a"></ellipse>
+            <ellipse cx="60" cy="30" rx="30" ry="9" fill="#34d399" opacity=".55"></ellipse>
+            <ellipse cx="45" cy="88" rx="7.5" ry="8.5" fill="#fff"></ellipse>
+            <ellipse cx="75" cy="88" rx="7.5" ry="8.5" fill="#fff"></ellipse>
+            <circle cx="47" cy="90" r="4" fill="#0f241d"></circle>
+            <circle cx="77" cy="90" r="4" fill="#0f241d"></circle>
+            <ellipse class="mouth" cx="61" cy="104" rx="6" ry="3.5" fill="#0f241d"></ellipse>
+            <path d="M96 52 l14 -10" stroke="#e8962a" stroke-width="4" stroke-linecap="round"></path>
+            <circle cx="112" cy="40" r="5" fill="#e8962a"></circle>
+          </g>
+        </svg>
+        <div class="caption empty" id="caption" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="track" id="track"></div>
+      <div class="ctl">
+        <button type="button" id="prevBtn" aria-label="Kalimat sebelumnya">◀︎</button>
+        <button type="button" class="primary" id="playBtn">▶︎ Putar</button>
+        <button type="button" id="nextBtn" aria-label="Kalimat berikutnya">▶︎▶︎</button>
+        <select id="speed" aria-label="Kecepatan">
+          <option value="0.75">0.75×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.25">1.25×</option>
+          <option value="1.5">1.5×</option>
+        </select>
+        <button type="button" id="voiceBtn" aria-pressed="false">🔈 Suara narasi</button>
+        <select id="voiceSel" aria-label="Pilih suara narasi" hidden></select>
+        <button type="button" id="fsBtn">⛶ Layar penuh</button>
+        <span class="spacer"></span>
+        <span class="now" id="now"></span>
+      </div>
+      <div class="voice-note" id="voiceNote" hidden></div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <section>
+      <h2>Naskah per bab</h2>
+      <p class="lead">Ini naskah lengkap videonya. Klik judul bab untuk memutar dari bagian itu, atau baca ulang saat menyiapkan penjelasan untuk tim.</p>
+      <div class="chapters" id="chapters"></div>
+    </section>
+    <section>
+      <h2>Kartu relasi</h2>
+      <p class="lead">Semua garis di peta, beserta kolom foreign key dan aturan saat baris induk dihapus.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Induk → Anak</th><th>Tipe</th><th>Kolom FK</th><th>On delete</th></tr></thead>
+          <tbody id="relRows"></tbody>
+        </table>
+      </div>
+      <div class="tips">
+        <h3>Urutan menjelaskan ke tim</h3>
+        <ol>
+          <li>Mulai dari tiga poros: <code>profiles</code>, <code>bookings</code>, <code>counseling_sessions</code>.</li>
+          <li>Jelaskan <code>auth.users</code> → <code>profiles</code> dan kenapa <code>auth.users</code> tidak muncul di schema public.</li>
+          <li>Ikuti satu booking: slot → booking → peserta → consent → sesi → feedback.</li>
+          <li>Tutup dengan aturan hapus: cascade, restrict, set null.</li>
+        </ol>
+      </div>
+      <p class="foot">Sumber: migrasi di <code>supabase/migrations/</code> per 17 November 2026. Kolom yang ditampilkan di peta hanya kolom kunci dan beberapa kolom penting, bukan seluruh kolom.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------------- Data: tables ----------------
+  const C = [60, 440, 820, 1200, 1580, 1960];
+  const R = [60, 380, 700, 1040, 1340];
+  const W = 290, HEAD = 44, ROW = 28;
+  const T = {
+    auth_users: { name: 'users', schema: 'auth', x: C[0], y: R[2], auth: true, cols: [['id','pk','uuid'],['email','','text'],['encrypted_password','','hash'],['last_sign_in_at','','timestamptz']] },
+    profiles: { name: 'profiles', x: C[1], y: R[2], cols: [['id','pk fk','→ auth.users'],['full_name','','text'],['app_role','','client|counselor|…'],['identity_code','uq','NIM/NIP'],['phone_e164','','text']] },
+    counselor_profiles: { name: 'counselor_profiles', x: C[1], y: R[0], cols: [['profile_id','pk fk','→ profiles'],['public_name','','text'],['specialties','','text[]'],['is_public','','boolean']] },
+    counselor_history_credentials: { name: 'counselor_history_credentials', x: C[0], y: R[0], cols: [['counselor_id','pk fk','→ profiles'],['password_hash','','bcrypt/argon2']] },
+    academic_periods: { name: 'academic_periods', x: C[2], y: R[0], cols: [['id','pk','uuid'],['academic_year','uq','2026/2027'],['semester','uq','Ganjil|Genap'],['starts_on','','date']] },
+    availability_slots: { name: 'availability_slots', x: C[2], y: R[1], cols: [['id','pk','uuid'],['counselor_id','fk','→ profiles'],['academic_period_id','fk','→ academic_periods'],['starts_at','','timestamptz'],['status','','available|…']] },
+    bookings: { name: 'bookings', x: C[3], y: R[2], cols: [['id','pk','uuid'],['client_id','fk','→ profiles'],['counselor_id','fk','→ profiles'],['availability_slot_id','fk','→ slots'],['service_type','','individual|group'],['status','','waiting_…']] },
+    booking_participants: { name: 'booking_participants', x: C[3], y: R[3], cols: [['id','pk','uuid'],['booking_id','fk','→ bookings'],['user_id','fk','→ profiles (boleh kosong)'],['full_name','','text'],['is_representative','','boolean']] },
+    booking_intakes: { name: 'booking_intakes', x: C[4], y: R[2], cols: [['booking_id','pk fk','→ bookings'],['client_id','fk','→ profiles'],['answers','','jsonb ≤ 32 KB']] },
+    counseling_sessions: { name: 'counseling_sessions', x: C[4], y: R[1], cols: [['id','pk','uuid'],['booking_id','fk uq','→ bookings'],['counselor_id','fk','→ profiles'],['format','','online|offline'],['status','','scheduled|…']] },
+    session_notes: { name: 'session_notes', x: C[4], y: R[0], cols: [['session_id','pk fk','→ sessions'],['counselor_id','fk','→ profiles'],['counselor_note','','text'],['follow_up','','text']] },
+    feedback: { name: 'feedback', x: C[5], y: R[1], cols: [['id','pk','uuid'],['session_id','fk uq','→ sessions'],['client_id','fk uq','→ profiles'],['rating','','1–5'],['moderation_status','','pending|…']] },
+    consent_templates: { name: 'consent_templates', x: C[5], y: R[3], cols: [['id','pk','uuid'],['template_code','uq','SICARE_IC_STD'],['version','uq','v1.0'],['file_sha256','','hex 64']] },
+    informed_consents: { name: 'informed_consents', x: C[4], y: R[3], cols: [['id','pk','uuid'],['booking_id','fk','→ bookings'],['booking_participant_id','fk','→ participants'],['consent_template_id','fk','→ templates'],['status','','pending|signed|…']] },
+    consent_invitations: { name: 'consent_invitations', x: C[3], y: R[4], cols: [['id','pk','uuid'],['booking_participant_id','fk','→ participants'],['consent_id','fk','→ consents'],['token_hash','uq','text'],['status','','pending|sent|…']] },
+    consent_invitation_secrets: { name: 'consent_invitation_secrets', x: C[2], y: R[4], cols: [['invitation_id','pk fk','→ invitations'],['encrypted_token','','AES'],['key_version','','v1']] },
+    consent_audit_logs: { name: 'consent_audit_logs', x: C[5], y: R[4], cols: [['id','pk','uuid'],['consent_id','fk','→ consents'],['actor_user_id','fk','→ profiles'],['event_type','','consent_signed|…']] },
+    notifications: { name: 'notifications', x: C[1], y: R[3], cols: [['id','pk','uuid'],['recipient_user_id','fk','→ profiles'],['title','','text'],['read_at','','null = belum dibaca']] },
+    whatsapp_outbox: { name: 'whatsapp_outbox', x: C[2], y: R[3], cols: [['id','pk','uuid'],['booking_id','fk','→ bookings'],['recipient_user_id','fk','→ profiles'],['idempotency_key','uq','text'],['status','','pending|…']] },
+    audit_events: { name: 'audit_events', x: C[0], y: R[3], cols: [['id','pk','uuid'],['actor_user_id','fk','→ profiles'],['action','','text'],['entity_type','','text']] },
+    hero_motivations: { name: 'hero_motivations', x: C[0], y: R[4], cols: [['id','pk','uuid'],['content','','≤ 180 char'],['is_active','','boolean']] },
+    homepage_logo: { name: 'homepage_logo', x: C[1], y: R[4], cols: [['id','pk','selalu 1'],['storage_path','','png|webp'],['updated_by','fk','→ profiles']] },
+  };
+  for (const k in T) { T[k].h = HEAD + T[k].cols.length * ROW + 12; T[k].w = W; }
+  const rowY = (k, col) => { const t = T[k]; const i = Math.max(0, t.cols.findIndex(c => c[0] === col)); return t.y + HEAD + i * ROW + ROW / 2 + 4; };
+
+  // ---------------- Data: relations ----------------
+  // [id, parent, parentCol, child, childCol, type, onDelete, bulge]
+  const E = [
+    ['e_auth', 'auth_users','id','profiles','id','1:1','cascade'],
+    ['e_cp', 'profiles','id','counselor_profiles','profile_id','1:1','cascade', -1],
+    ['e_cred', 'profiles','id','counselor_history_credentials','counselor_id','1:1','cascade'],
+    ['e_period', 'academic_periods','id','availability_slots','academic_period_id','1:N','set_null', -1],
+    ['e_slotc', 'profiles','id','availability_slots','counselor_id','1:N','restrict'],
+    ['e_client', 'profiles','id','bookings','client_id','1:N','restrict'],
+    ['e_couns', 'profiles','id','bookings','counselor_id','1:N','restrict'],
+    ['e_slot', 'availability_slots','id','bookings','availability_slot_id','1:N','set_null'],
+    ['e_part', 'bookings','id','booking_participants','booking_id','1:N','cascade', 1],
+    ['e_intake', 'bookings','id','booking_intakes','booking_id','1:1','cascade'],
+    ['e_sess', 'bookings','id','counseling_sessions','booking_id','1:1','restrict'],
+    ['e_notes', 'counseling_sessions','id','session_notes','session_id','1:1','cascade', 1],
+    ['e_fb', 'counseling_sessions','id','feedback','session_id','1:N','restrict'],
+    ['e_tpl', 'consent_templates','id','informed_consents','consent_template_id','1:N','restrict'],
+    ['e_icp', 'booking_participants','id','informed_consents','booking_participant_id','1:N','restrict'],
+    ['e_icb', 'bookings','id','informed_consents','booking_id','1:N','restrict'],
+    ['e_inv', 'booking_participants','id','consent_invitations','booking_participant_id','1:N','cascade', -1],
+    ['e_invc', 'informed_consents','id','consent_invitations','consent_id','1:N','cascade'],
+    ['e_sec', 'consent_invitations','id','consent_invitation_secrets','invitation_id','1:1','cascade'],
+    ['e_clog', 'informed_consents','id','consent_audit_logs','consent_id','1:N','set_null'],
+    ['e_notif', 'profiles','id','notifications','recipient_user_id','1:N','cascade', 1],
+    ['e_wa', 'bookings','id','whatsapp_outbox','booking_id','1:N','restrict'],
+    ['e_audit', 'profiles','id','audit_events','actor_user_id','1:N','set_null'],
+  ];
+  const EBY = Object.fromEntries(E.map(e => [e[0], e]));
+
+  // ---------------- Script: scenes & beats ----------------
+  // beat: { say, focus:[], edges:[], rows:{table:[cols]}, callout:{html, pos}, ghostAll, title, dimAll, rule }
+  const pill = (s, cls='') => `<span class="pill ${cls}">${s}</span>`;
+  const ar = '<span class="arrow">→</span>';
+  const S = [
+    { t: 'Pembuka', beats: [
+      { title: true, ghostAll: true, say: 'Setiap kali mahasiswa memesan sesi konseling, SiCARE harus ingat banyak hal: siapa kliennya, siapa konselornya, jam berapa, siapa saja pesertanya, dan apakah informed consent sudah ditandatangani.' },
+      { ghostAll: true, say: 'Semua ingatan itu disimpan di 22 tabel PostgreSQL di Supabase. Tabel-tabel ini saling menunjuk lewat relasi. Yuk kita telusuri satu per satu, mengikuti perjalanan satu booking.' },
+    ]},
+    { t: 'Tabel, primary key, foreign key', beats: [
+      { dimAll: true, callout: { pos: 'center', html: `<h3>Tabel = lemari arsip</h3><p>Setiap <b>baris</b> adalah satu map. Setiap map punya nomor unik yang tidak pernah kembar, yaitu <b>primary key (PK)</b>. Di SiCARE hampir semua PK berupa <code>uuid</code>.</p><div class="mini"><div class="tbl"><div class="h">profiles</div><div class="r hl"><span>id (PK)</span><span>7f3a…</span></div><div class="r"><span>full_name</span><span>Rina</span></div></div><div class="link"></div><div></div></div>` },
+        say: 'Bayangkan tabel sebagai lemari arsip. Setiap baris adalah satu map, dan setiap map punya nomor unik yang tidak pernah kembar. Nomor itu disebut primary key. Di SiCARE, primary key hampir selalu berupa UUID.' },
+      { dimAll: true, callout: { pos: 'center', html: `<h3>Foreign key = catatan nomor map lain</h3><p>Kalau sebuah baris perlu menyebut baris di tabel lain, ia cukup menyimpan nomornya. Kolom itu disebut <b>foreign key (FK)</b>.</p><div class="mini"><div class="tbl"><div class="h">bookings</div><div class="r"><span>id (PK)</span><span>b21c…</span></div><div class="r hl"><span>client_id (FK)</span><span>7f3a…</span></div></div><div class="link">menunjuk ke<br>────▶</div><div class="tbl"><div class="h">profiles</div><div class="r hl"><span>id (PK)</span><span>7f3a…</span></div><div class="r"><span>full_name</span><span>Rina</span></div></div></div>` },
+        say: 'Kalau sebuah map perlu menyebut map lain, ia cukup mencatat nomornya. Catatan nomor milik tabel lain itu disebut foreign key. Contohnya, kolom client_id di tabel bookings berisi id dari tabel profiles.' },
+      { ghostAll: true, callout: { html: `<h3>Cara membaca garis</h3><ul><li>Ujung <b>1</b>: tabel yang dirujuk (induk).</li><li>Ujung <b>N</b>: tabel yang merujuk (anak). Satu induk bisa punya banyak anak.</li><li><b>1–1</b>: satu induk paling banyak punya satu anak, biasanya karena FK-nya juga PK atau unik.</li></ul>` },
+        say: 'Setiap garis di peta ini adalah foreign key. Ujung bertanda satu adalah tabel induk yang dirujuk. Ujung bertanda N adalah tabel anak yang merujuk. Jadi satu profil bisa punya banyak booking.' },
+    ]},
+    { t: 'Pintu masuk: akun & profil', beats: [
+      { focus: ['auth_users'], say: 'Semua dimulai dari login. Akun disimpan oleh Supabase Auth di tabel auth.users: email, password yang sudah di-hash, dan waktu login. Tabel ini ada di schema auth, bukan public. Itu sebabnya ia tidak muncul di Table Editor bawaan.' },
+      { focus: ['auth_users','profiles'], edges: ['e_auth'], rows: { profiles: ['id'], auth_users: ['id'] }, callout: { html: `<h3>Trigger otomatis</h3><p>Saat akun baru dibuat, trigger <code>on_auth_user_created_sicare</code> langsung menyisipkan satu baris ke <code>profiles</code> dengan <code>id</code> yang sama.</p><div class="flow">${pill('auth.users INSERT')}${ar}${pill('trigger')}${ar}${pill('profiles INSERT','go')}</div>` },
+        say: 'Setiap kali akun baru dibuat, trigger langsung membuat satu baris di profiles dengan id yang sama persis. Inilah relasi satu ke satu: profiles.id adalah primary key sekaligus foreign key ke auth.users.' },
+      { focus: ['profiles'], rows: { profiles: ['app_role'] }, callout: { html: `<h3>Empat peran</h3><div class="flow">${pill('client','go')}${pill('counselor')}${pill('admin')}${pill('head_lmi')}</div><p style="margin-top:.8cqw">Pendaftar publik selalu menjadi <code>client</code>. Peran lain diatur oleh backend.</p>` },
+        say: 'profiles adalah tabel user versi SiCARE. Kolom app_role menentukan perannya: client, counselor, admin, atau head_lmi. Pendaftar publik selalu menjadi client. Peran lain hanya bisa diatur oleh backend.' },
+    ]},
+    { t: 'Konselor', beats: [
+      { focus: ['profiles','counselor_profiles'], edges: ['e_cp'], rows: { counselor_profiles: ['profile_id'] },
+        say: 'Konselor juga punya baris di profiles. Data yang boleh dilihat publik, seperti nama tampilan, bio, spesialisasi, dan foto, dipisah ke counselor_profiles. Primary key-nya adalah profile_id, jadi satu konselor punya tepat satu profil publik.' },
+      { focus: ['counselor_profiles'], rows: { counselor_profiles: ['is_public'] }, callout: { html: `<h3>Kenapa dipisah?</h3><ul><li><code>profiles</code> berisi data pribadi, misalnya nomor WhatsApp.</li><li><code>counselor_profiles</code> berisi data yang aman dipajang.</li><li>Konselor baru tampil di halaman publik kalau <code>is_public = true</code>.</li></ul>` },
+        say: 'Kenapa dipisah? Supaya data pribadi di profiles, seperti nomor WhatsApp, tidak ikut terbaca saat halaman publik menampilkan daftar konselor. Konselor baru tampil kalau kolom is_public bernilai true.' },
+      { focus: ['profiles','counselor_history_credentials'], edges: ['e_cred'], rows: { counselor_history_credentials: ['password_hash'] },
+        say: 'Ada juga counselor_history_credentials. Tabel ini menyimpan hash password kedua yang dipakai konselor untuk membuka riwayat konseling. Isinya hash bcrypt atau argon2, tidak pernah password aslinya.' },
+    ]},
+    { t: 'Jadwal konselor', beats: [
+      { focus: ['academic_periods'], rows: { academic_periods: ['academic_year','semester'] },
+        say: 'Sebelum bisa dipesan, harus ada jadwal. academic_periods menyimpan tahun akademik dan semesternya, Ganjil atau Genap. Pasangan tahun dan semester tidak boleh kembar.' },
+      { focus: ['profiles','academic_periods','availability_slots'], edges: ['e_period','e_slotc'], rows: { availability_slots: ['counselor_id','academic_period_id'] },
+        say: 'Setiap baris di availability_slots menunjuk ke satu konselor lewat counselor_id, dan ke satu periode lewat academic_period_id. Satu konselor bisa punya banyak slot, dan satu periode bisa berisi banyak slot.' },
+      { focus: ['availability_slots'], rows: { availability_slots: ['status'] }, callout: { html: `<h3>Status slot</h3><div class="flow">${pill('available','go')}${pill('blocked')}${pill('cancelled')}</div><p style="margin-top:.8cqw">Hanya slot <code>available</code> yang muncul di halaman pemesanan.</p>` },
+        say: 'Slot punya tiga status: available, blocked, atau cancelled. Hanya slot yang available yang muncul untuk dipesan.' },
+    ]},
+    { t: 'Booking, jantung sistem', beats: [
+      { focus: ['profiles','bookings'], edges: ['e_client','e_couns'], rows: { bookings: ['client_id','counselor_id'] },
+        say: 'Sekarang bagian intinya: bookings. Perhatikan, tabel ini menunjuk ke profiles dua kali. client_id untuk orang yang memesan, dan counselor_id untuk konselornya. Satu tabel boleh punya beberapa foreign key ke tabel yang sama.' },
+      { focus: ['availability_slots','bookings'], edges: ['e_slot'], rows: { bookings: ['availability_slot_id'] }, callout: { html: `<h3>Anti rebutan slot</h3><p>Unique index <code>bookings_one_active_per_slot_uq</code> hanya mengizinkan <b>satu booking aktif</b> per slot.</p><p>Dua orang menekan Booking di detik yang sama? Database menolak salah satunya.</p>` },
+        say: 'bookings juga mencatat availability_slot_id. Ada unique index khusus: satu slot hanya boleh punya satu booking aktif. Jadi kalau dua orang menekan tombol Booking di detik yang sama, database sendiri yang menolak salah satunya.' },
+      { focus: ['bookings'], rows: { bookings: ['status'] }, callout: { html: `<h3>Perjalanan status booking</h3><div class="flow">${pill('waiting_confirmation')}${ar}${pill('confirmed','go')}</div><div class="flow">${pill('waiting_confirmation')}${ar}${pill('rejected','bad')}</div><div class="flow">${pill('reschedule_requested')}${pill('cancelled','bad')}${pill('expired','bad')}</div>` },
+        say: 'Status booking dimulai dari waiting_confirmation, lalu menjadi confirmed atau rejected. Booking juga bisa berstatus reschedule_requested, cancelled, atau expired kalau tidak dikonfirmasi tepat waktu.' },
+      { focus: ['bookings'], rows: { bookings: ['service_type'] }, callout: { html: `<h3>Individual atau kelompok</h3><ul><li><code>individual</code>: tepat 1 peserta, tanpa nama kelompok.</li><li><code>group</code>: 2 sampai 10 peserta, wajib punya nama kelompok.</li></ul><p style="margin-top:.8cqw">Dijaga oleh check constraint, jadi data yang salah ditolak walau lolos dari form.</p>` },
+        say: 'Kolom service_type menentukan jenisnya. Individual berarti tepat satu peserta. Group berarti dua sampai sepuluh peserta dengan nama kelompok. Aturan ini dijaga oleh check constraint di database, jadi data yang salah tetap ditolak walau lolos dari form.' },
+    ]},
+    { t: 'Peserta & intake', beats: [
+      { focus: ['bookings','booking_participants'], edges: ['e_part'], rows: { booking_participants: ['booking_id','is_representative'] },
+        say: 'Siapa saja yang ikut? booking_participants menyimpan satu baris per peserta. Satu booking punya banyak peserta, dan hanya satu yang boleh menjadi perwakilan.' },
+      { focus: ['booking_participants'], rows: { booking_participants: ['user_id'] }, callout: { html: `<h3>Peserta tamu</h3><p><code>user_id</code> boleh kosong, karena anggota kelompok belum tentu punya akun SiCARE.</p><p>Identitas seperti NIM, fakultas, dan tanggal lahir disimpan di sini untuk kebutuhan informed consent.</p>` },
+        say: 'Peserta tidak wajib punya akun. Kolom user_id boleh kosong untuk anggota tamu. Data identitas seperti NIM, fakultas, dan tanggal lahir disimpan di sini untuk kebutuhan informed consent.' },
+      { focus: ['bookings','booking_intakes'], edges: ['e_intake'], rows: { booking_intakes: ['booking_id','answers'] },
+        say: 'Jawaban formulir awal disimpan di booking_intakes. Primary key-nya adalah booking_id, jadi satu booking punya paling banyak satu intake. Jawabannya berbentuk JSON dengan batas 32 kilobyte.' },
+    ]},
+    { t: 'Sesi konseling', beats: [
+      { focus: ['bookings','counseling_sessions'], edges: ['e_sess'], rows: { counseling_sessions: ['booking_id'] },
+        say: 'Begitu booking dikonfirmasi, dibuatlah satu baris di counseling_sessions. Kolom booking_id di sini unik, jadi satu booking hanya punya satu sesi. Sesi mencatat format online atau offline, ruangan, serta waktu mulai dan selesai.' },
+      { focus: ['counseling_sessions'], rows: { counseling_sessions: ['status'] }, callout: { html: `<h3>Perjalanan status sesi</h3><div class="flow">${pill('scheduled')}${ar}${pill('ongoing')}${ar}${pill('completed','go')}</div><div class="flow">${pill('cancelled','bad')}${pill('missed','bad')}</div><p style="margin-top:.8cqw"><code>missed</code> punya alasan: <code>consent_unsigned</code> atau <code>not_started</code>.</p>` },
+        say: 'Status sesi berjalan dari scheduled, ke ongoing, lalu completed. Sesi juga bisa cancelled, atau missed kalau consent belum ditandatangani atau sesi tidak pernah dimulai.' },
+      { focus: ['counseling_sessions','session_notes'], edges: ['e_notes'], rows: { session_notes: ['session_id','counselor_note'] },
+        say: 'Catatan konselor disimpan di session_notes, satu catatan untuk satu sesi. Ini termasuk data paling sensitif, jadi aksesnya dibatasi ketat oleh backend.' },
+    ]},
+    { t: 'Informed consent', beats: [
+      { focus: ['consent_templates'], rows: { consent_templates: ['version','file_sha256'] },
+        say: 'Sebelum sesi dimulai, setiap peserta harus menandatangani informed consent. consent_templates menyimpan dokumen resminya, lengkap dengan versi dan hash SHA-256 untuk membuktikan file tidak diubah.' },
+      { focus: ['consent_templates','informed_consents','booking_participants','bookings'], edges: ['e_tpl','e_icp','e_icb'], rows: { informed_consents: ['booking_id','booking_participant_id','consent_template_id'] },
+        say: 'informed_consents adalah persetujuan milik satu peserta. Ia menunjuk ke tiga tabel sekaligus: template, peserta, dan booking. Statusnya bisa pending, viewed, signed, revoked, atau expired.' },
+      { focus: ['booking_participants','consent_invitations','consent_invitation_secrets','informed_consents'], edges: ['e_inv','e_invc','e_sec'], rows: { consent_invitations: ['token_hash'], consent_invitation_secrets: ['encrypted_token'] },
+        say: 'Untuk peserta kelompok, SiCARE mengirim undangan. consent_invitations hanya menyimpan hash token-nya. Token terenkripsi disimpan terpisah di consent_invitation_secrets, dengan relasi satu ke satu.' },
+      { focus: ['informed_consents','consent_audit_logs'], edges: ['e_clog'], rows: { consent_audit_logs: ['consent_id','event_type'] },
+        say: 'Setiap langkah, dari undangan dibuat sampai consent ditandatangani, dicatat di consent_audit_logs. Kalau consent-nya dihapus, log tetap ada, karena foreign key-nya memakai on delete set null.' },
+    ]},
+    { t: 'Feedback', beats: [
+      { focus: ['counseling_sessions','feedback'], edges: ['e_fb'], rows: { feedback: ['session_id','client_id','rating'] },
+        say: 'Setelah sesi selesai, klien bisa memberi feedback dengan rating satu sampai lima. Pasangan session_id dan client_id dibuat unik, jadi satu klien hanya bisa memberi satu feedback untuk satu sesi.' },
+      { focus: ['feedback'], rows: { feedback: ['moderation_status'] }, callout: { html: `<h3>Moderasi dulu</h3><div class="flow">${pill('pending')}${ar}${pill('shown','go')}</div><div class="flow">${pill('pending')}${ar}${pill('disabled','bad')}</div><p style="margin-top:.8cqw">Admin yang memutuskan apakah feedback tampil.</p>` },
+        say: 'Feedback tidak langsung tampil. moderation_status dimulai dari pending, lalu admin memutuskan apakah statusnya menjadi shown atau disabled.' },
+    ]},
+    { t: 'Notifikasi & WhatsApp', beats: [
+      { focus: ['profiles','notifications'], edges: ['e_notif'], rows: { notifications: ['recipient_user_id','read_at'] },
+        say: 'Selama semua ini terjadi, pengguna perlu diberi kabar. notifications menyimpan pesan di dalam aplikasi untuk satu penerima. Kalau read_at masih kosong, artinya pesan belum dibaca.' },
+      { focus: ['bookings','whatsapp_outbox'], edges: ['e_wa'], rows: { whatsapp_outbox: ['booking_id','idempotency_key','status'] }, callout: { html: `<h3>Pola outbox</h3><div class="flow">${pill('backend menulis antrean')}${ar}${pill('worker mengambil')}${ar}${pill('Fonnte','go')}</div><p style="margin-top:.8cqw"><code>idempotency_key</code> yang unik mencegah pesan sama terkirim dua kali.</p>` },
+        say: 'Pesan WhatsApp, misalnya konfirmasi booking dan pengingat jadwal, masuk dulu ke whatsapp_outbox. Worker di backend mengambil antrean ini lalu mengirimnya lewat Fonnte. idempotency_key yang unik mencegah pesan yang sama terkirim dua kali.' },
+    ]},
+    { t: 'Jejak audit & konten', beats: [
+      { focus: ['profiles','audit_events'], edges: ['e_audit'], rows: { audit_events: ['actor_user_id','action'] },
+        say: 'audit_events mencatat siapa melakukan apa, misalnya admin yang mengubah status booking. Metadata-nya sengaja minimal, tanpa isi konseling atau jawaban intake.' },
+      { focus: ['hero_motivations','homepage_logo'], rows: { homepage_logo: ['id','updated_by'] },
+        say: 'Terakhir, dua tabel konten beranda. hero_motivations menyimpan kalimat motivasi dan tidak punya relasi sama sekali. homepage_logo hanya boleh berisi satu baris, dan cuma mencatat siapa yang terakhir mengubahnya lewat updated_by.' },
+    ]},
+    { t: 'Kalau induk dihapus?', beats: [
+      { rule: 'all', callout: { html: rulesHtml('all') },
+        say: 'Pertanyaan penting: kalau satu baris induk dihapus, apa yang terjadi pada baris anak yang menunjuknya? Di SiCARE ada tiga jawaban, dan warnanya bisa kamu lihat di peta.' },
+      { rule: 'cascade', focus: ['consent_invitations','consent_invitation_secrets','auth_users','profiles'], callout: { html: rulesHtml('cascade') },
+        say: 'Cascade artinya anak ikut terhapus. Hapus akun di auth.users, profilnya ikut hilang. Hapus undangan consent, token terenkripsinya ikut hilang. Cascade hanya jalan kalau tidak ada aturan restrict lain yang menghalangi.' },
+      { rule: 'restrict', focus: ['profiles','bookings','counseling_sessions'], callout: { html: rulesHtml('restrict') },
+        say: 'Restrict artinya penghapusan ditolak. Profil yang masih punya booking tidak bisa dihapus, dan booking yang sudah punya sesi juga tidak bisa dihapus. Aturan ini melindungi riwayat konseling.' },
+      { rule: 'set_null', focus: ['availability_slots','bookings','audit_events','consent_audit_logs'], callout: { html: rulesHtml('set_null') },
+        say: 'Set null artinya rujukannya dikosongkan. Kalau slot dihapus, booking tetap ada, hanya availability_slot_id yang menjadi kosong. Log audit juga tetap ada walaupun pelakunya sudah dihapus.' },
+    ]},
+    { t: 'Rekap: tiga poros', beats: [
+      { focus: ['profiles','bookings','counseling_sessions'], allEdgesDim: true, callout: { html: `<h3>Tiga poros</h3><ul><li><code>profiles</code>: <b>siapa</b> yang terlibat.</li><li><code>bookings</code>: <b>apa</b> yang dipesan.</li><li><code>counseling_sessions</code>: <b>apa yang benar-benar terjadi</b>.</li></ul>` },
+        say: 'Kalau diringkas, peta SiCARE punya tiga poros. profiles menjawab siapa yang terlibat. bookings menjawab apa yang dipesan. counseling_sessions menjawab apa yang benar-benar terjadi.' },
+      { overview: true, allEdgesDim: true,
+        say: 'Semua tabel lain menempel ke salah satu poros itu. Saat menjelaskan ke tim, mulai dari tiga poros ini, lalu ikuti perjalanan satu booking seperti tadi.' },
+      { overview: true, allEdgesActive: true,
+        say: 'Jadi, kok bisa SiCARE ingat semuanya? Rahasianya ada di banyak tabel kecil yang saling menunjuk dengan rapi lewat primary key dan foreign key. Sampai jumpa di penjelasan berikutnya!' },
+    ]},
+  ];
+
+  function rulesHtml(on) {
+    const c = (k, title, body) => `<div class="rule-card ${k} ${on !== 'all' && on !== k ? 'off' : ''}"><b>${title}</b><br>${body}</div>`;
+    return `<h3>Aturan on delete</h3><div class="rule-cards">${c('cascade','CASCADE','Anak ikut terhapus.')}${c('restrict','RESTRICT','Penghapusan induk ditolak.')}${c('set_null','SET NULL','FK di anak dikosongkan.')}</div>`;
+  }
+
+  // Flatten beats; accumulate reveal sets
+  const beats = [];
+  const revealedSoFar = new Set();
+  const edgesSoFar = new Set();
+  S.forEach((sc, si) => sc.beats.forEach((b, bi) => {
+    (b.focus || []).forEach(n => revealedSoFar.add(n));
+    (b.edges || []).forEach(e => edgesSoFar.add(e));
+    beats.push({ ...b, si, bi, revealed: new Set(revealedSoFar), seenEdges: new Set(edgesSoFar) });
+  }));
+  const ALLN = Object.keys(T);
+  const plain = s => s.replace(/<[^>]+>/g, '');
+  const estimate = b => Math.max(4200, plain(b.say).length * 62 + 900);
+
+  // ---------------- Render world ----------------
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+  const nodesG = document.getElementById('nodes'), edgesG = document.getElementById('edges');
+  const nodeEls = {}, edgeEls = {}, rowEls = {};
+  for (const k of ALLN) {
+    const t = T[k];
+    const g = el('g', { class: 'node hidden' + (t.auth ? ' auth' : ''), 'data-id': k }, nodesG);
+    el('rect', { class: 'glow', x: t.x - 6, y: t.y - 6, width: t.w + 12, height: t.h + 12, rx: 16, fill: 'var(--accent)', filter: 'url(#soft)' }, g);
+    el('rect', { class: 'frame', x: t.x, y: t.y, width: t.w, height: t.h, rx: 12 }, g);
+    const clip = el('clipPath', { id: 'clip_' + k }, g); el('rect', { x: t.x, y: t.y, width: t.w, height: t.h, rx: 12 }, clip);
+    el('rect', { class: 'head', x: t.x, y: t.y, width: t.w, height: HEAD, 'clip-path': `url(#clip_${k})` }, g);
+    if (t.schema) { const s = el('text', { class: 'schema', x: t.x + 14, y: t.y + 17 }, g); s.textContent = t.schema.toUpperCase() + ' SCHEMA'; }
+    const nm = el('text', { class: 'tname', x: t.x + 14, y: t.y + (t.schema ? 36 : 29) }, g);
+    nm.textContent = (t.schema ? t.schema + '.' : '') + t.name;
+    if (t.name.length > 24) nm.setAttribute('textLength', t.w - 28), nm.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+    rowEls[k] = {};
+    t.cols.forEach(([cn, keys, ref], i) => {
+      const y = t.y + HEAD + 6 + i * ROW;
+      const hl = el('rect', { class: 'rowhl', x: t.x + 4, y: y, width: t.w - 8, height: ROW - 2, rx: 6 }, g);
+      rowEls[k][cn] = hl;
+      let bx = t.x + 12;
+      const ks = keys ? keys.split(' ') : [];
+      ks.forEach(kk => { const bg = el('g', { class: 'badge ' + kk }, g); el('rect', { x: bx, y: y + 6, width: 22, height: 15 }, bg); const tx = el('text', { x: bx + 11, y: y + 17, 'text-anchor': 'middle' }, bg); tx.textContent = kk.toUpperCase(); bx += 25; });
+      const cx = t.x + 12 + Math.max(ks.length, 1) * 25 + 2;
+      const ct = el('text', { class: 'col', x: cx, y: y + 18 }, g); ct.textContent = cn;
+      const rt = el('text', { class: 'ref', x: t.x + t.w - 12, y: y + 18, 'text-anchor': 'end' }, g); rt.textContent = ref;
+      // avoid overlap: if name+ref too long, shrink ref
+      const maxRef = t.w - (cx - t.x) - cn.length * 8.6 - 22;
+      if (ref.length * 7 > maxRef) { rt.setAttribute('textLength', Math.max(30, maxRef)); rt.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }
+    });
+    nodeEls[k] = g;
+  }
+  for (const [id, p, pc, c, cc, type, rule, bulge] of E) {
+    const P = T[p], Ch = T[c];
+    const py = rowY(p, pc), cy = rowY(c, cc);
+    let x1, x2, d, lx1, lx2;
+    const sameCol = P.x === Ch.x;
+    if (sameCol) {
+      const side = bulge === -1 ? -1 : 1;
+      x1 = side === 1 ? P.x + P.w : P.x; x2 = x1;
+      const bx = x1 + side * 70;
+      d = `M${x1},${py} C${bx},${py} ${bx},${cy} ${x2},${cy}`;
+      lx1 = x1 + side * 18; lx2 = x2 + side * 18;
+    } else {
+      const right = Ch.x > P.x;
+      x1 = right ? P.x + P.w : P.x; x2 = right ? Ch.x : Ch.x + Ch.w;
+      const mx = (x1 + x2) / 2;
+      d = `M${x1},${py} C${mx},${py} ${mx},${cy} ${x2},${cy}`;
+      lx1 = x1 + (right ? 18 : -18); lx2 = x2 + (right ? -18 : 18);
+    }
+    const g = el('g', { class: 'edge hidden', 'data-id': id }, edgesG);
+    el('path', { class: 'line', d }, g);
+    const [a, b] = type.split(':');
+    const mk = (x, y, s) => { const cg = el('g', { class: 'card' }, g); el('circle', { cx: x, cy: y - 14, r: 10 }, cg); const tx = el('text', { x, y: y - 10, 'text-anchor': 'middle' }, cg); tx.textContent = s; };
+    mk(lx1, py, a); mk(lx2, cy, b);
+    edgeEls[id] = g;
+  }
+
+  // ---------------- Camera ----------------
+  const world = document.getElementById('world');
+  const bounds = ids => {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    ids.forEach(k => { const t = T[k]; x0 = Math.min(x0, t.x); y0 = Math.min(y0, t.y); x1 = Math.max(x1, t.x + t.w); y1 = Math.max(y1, t.y + t.h); });
+    return { x0, y0, x1, y1 };
+  };
+  function camFor(b) {
+    let ids;
+    if (b.overview || b.ghostAll || b.dimAll || b.rule === 'all' || !(b.focus && b.focus.length)) ids = ALLN;
+    else ids = b.focus;
+    const bb = bounds(ids);
+    const pad = 70;
+    const hasSide = b.callout && b.callout.pos !== 'center';
+    // usable frame: below the chapter chip (y≈64) and above the subtitle box (y≈556)
+    const regW = hasSide ? 1280 * 0.6 : 1280, regTop = 64, regH = 492;
+    const w = bb.x1 - bb.x0 + pad * 2, h = bb.y1 - bb.y0 + pad * 2;
+    const z = Math.min(1.2, regW / w, regH / h);
+    const cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+    const tx = regW / 2 - cx * z, ty = regTop + regH / 2 - cy * z;
+    return `translate(${tx}px, ${ty}px) scale(${z})`;
+  }
+
+  // ---------------- Apply beat ----------------
+  const callout = document.getElementById('callout'), caption = document.getElementById('caption'), titleCard = document.getElementById('titleCard'), chip = document.getElementById('chip');
+  function apply(i) {
+    const b = beats[i];
+    world.style.transform = camFor(b);
+    const focus = new Set(b.focus || []);
+    const finalReveal = b.overview || b.rule;
+    for (const k of ALLN) {
+      let st;
+      if (focus.has(k)) st = 'focus';
+      else if (b.ghostAll || b.dimAll) st = b.dimAll ? 'ghost' : 'ghost';
+      else if (finalReveal || b.revealed.has(k)) st = (b.overview && !b.allEdgesActive) || b.rule === 'all' ? '' : 'dim';
+      else st = 'hidden';
+      if (b.overview) st = focus.has(k) ? 'focus' : '';
+      nodeEls[k].setAttribute('class', 'node ' + st + (T[k].auth ? ' auth' : ''));
+      for (const cn in rowEls[k]) rowEls[k][cn].classList.toggle('on', !!(b.rows && b.rows[k] && b.rows[k].includes(cn)));
+    }
+    const act = new Set(b.edges || []);
+    for (const [id, p, , c, , , rule] of E) {
+      let st;
+      if (b.rule) {
+        st = (b.rule === 'all' || b.rule === rule) ? 'rule-' + rule : 'ghost';
+      } else if (act.has(id)) st = 'active';
+      else if (b.allEdgesActive) st = 'active';
+      else if (b.ghostAll && !b.dimAll) st = 'ghost';
+      else if (b.dimAll) st = 'hidden';
+      else if (b.allEdgesDim || b.overview) st = 'dim';
+      else if (b.seenEdges.has(id) && b.revealed.has(p) && b.revealed.has(c)) st = 'dim';
+      else st = 'hidden';
+      edgeEls[id].setAttribute('class', 'edge ' + st);
+    }
+    if (b.callout) { callout.innerHTML = b.callout.html; callout.className = 'callout show' + (b.callout.pos === 'center' ? ' center' : ''); }
+    else callout.className = 'callout' + (callout.classList.contains('center') ? ' center' : '');
+    titleCard.classList.toggle('show', !!b.title && !started);
+    caption.innerHTML = b.title && !started ? '' : '<span>' + b.say.replace(/\b([a-z]+(?:_[a-z0-9]+)+|auth\.users|profiles\.id)\b/g, '<code>$1</code>') + '</span>';
+    caption.classList.toggle('empty', !!b.title && !started);
+    chip.innerHTML = `Bab ${b.si + 1}/${S.length} · <b>${S[b.si].t}</b>`;
+    document.querySelectorAll('.chapter').forEach((c, ci) => c.classList.toggle('current', ci === b.si));
+    renderNow();
+  }
+
+  // ---------------- Playback ----------------
+  let idx = 0, elapsed = 0, playing = false, started = false, speed = 1, last = 0;
+  let voiceOn = false, speaking = false, speechDone = true, voice = null;
+  const playBtn = document.getElementById('playBtn'), stage = document.getElementById('stage');
+  const durs = beats.map(estimate);
+  const sceneBeats = S.map((_, si) => beats.map((b, i) => [b, i]).filter(([b]) => b.si === si).map(([, i]) => i));
+  const track = document.getElementById('track');
+  const segs = S.map((sc, si) => {
+    const btn = document.createElement('button'); btn.className = 'seg'; btn.type = 'button'; btn.title = `Bab ${si + 1}: ${sc.t}`; btn.setAttribute('aria-label', btn.title);
+    btn.style.flexGrow = sceneBeats[si].reduce((a, i) => a + durs[i], 0);
+    const fill = document.createElement('span'); btn.appendChild(fill);
+    btn.addEventListener('click', () => go(sceneBeats[si][0], true));
+    track.appendChild(btn); return fill;
+  });
+  function renderNow() {
+    const b = beats[idx];
+    const sb = sceneBeats[b.si];
+    segs.forEach((f, si) => {
+      if (si < b.si) f.style.width = '100%';
+      else if (si > b.si) f.style.width = '0%';
+      else {
+        const tot = sb.reduce((a, i) => a + durs[i], 0);
+        const done = sb.filter(i => i < idx).reduce((a, i) => a + durs[i], 0) + Math.min(elapsed, durs[idx]);
+        f.style.width = (done / tot * 100).toFixed(2) + '%';
+      }
+    });
+    document.getElementById('now').innerHTML = `Kalimat <b>${idx + 1}</b> dari ${beats.length}`;
+  }
+  function speak() {
+    if (!voiceOn || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(plain(beats[idx].say).replace(/_/g, ' ').replace(/\bauth\.users\b/g, 'auth users').replace(/\bprofiles\.id\b/g, 'profiles id'));
+      if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'id-ID';
+      u.rate = Math.min(2, 0.95 * speed);
+      speechDone = false; speaking = true;
+      const myIdx = idx;
+      u.onend = u.onerror = () => { if (myIdx === idx) { speechDone = true; speaking = false; } };
+      speechSynthesis.speak(u);
+    } catch (e) { speechDone = true; }
+  }
+  function go(i, keepPlaying) {
+    idx = Math.max(0, Math.min(beats.length - 1, i)); elapsed = 0;
+    if (!started && idx > 0) started = true;
+    apply(idx);
+    if (playing) speak(); else if ('speechSynthesis' in window) try { speechSynthesis.cancel(); } catch (e) {}
+    if (keepPlaying && !playing) play();
+  }
+  function play() {
+    if (!started) { started = true; apply(idx); }
+    if (idx === beats.length - 1 && elapsed >= durs[idx]) { go(0); }
+    playing = true; stage.classList.add('talking'); playBtn.textContent = '❚❚ Jeda';
+    elapsed = voiceOn ? 0 : elapsed; speak(); last = performance.now(); requestAnimationFrame(tick);
+  }
+  function pause() {
+    playing = false; stage.classList.remove('talking'); playBtn.textContent = '▶︎ Putar';
+    if ('speechSynthesis' in window) try { speechSynthesis.cancel(); } catch (e) {}
+    speechDone = true;
+  }
+  function tick(now) {
+    if (!playing) return;
+    const dt = Math.min(100, now - last); last = now;
+    elapsed += dt * speed;
+    const d = durs[idx];
+    const waitSpeech = voiceOn && !speechDone && elapsed < d * 1.8;
+    if (elapsed >= d && !waitSpeech) {
+      if (idx < beats.length - 1) { go(idx + 1); }
+      else { elapsed = d; renderNow(); pause(); return; }
+    } else renderNow();
+    requestAnimationFrame(tick);
+  }
+  playBtn.addEventListener('click', () => playing ? pause() : play());
+  document.getElementById('bigPlay').addEventListener('click', () => { started = true; apply(idx); play(); });
+  document.getElementById('prevBtn').addEventListener('click', () => go(idx - 1));
+  document.getElementById('nextBtn').addEventListener('click', () => go(idx + 1));
+  document.getElementById('speed').addEventListener('change', e => { speed = parseFloat(e.target.value) || 1; segs.forEach(() => {}); });
+  document.getElementById('fsBtn').addEventListener('click', async () => {
+    const p = document.getElementById('player');
+    try { if (document.fullscreenElement) await document.exitFullscreen(); else await p.requestFullscreen(); } catch (e) {}
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('select, input, textarea')) return;
+    if (e.code === 'Space' && !e.target.closest('button')) { e.preventDefault(); playing ? pause() : play(); }
+    if (e.key === 'ArrowRight') go(idx + 1);
+    if (e.key === 'ArrowLeft') go(idx - 1);
+  });
+
+  // voice
+  const voiceBtn = document.getElementById('voiceBtn'), voiceNote = document.getElementById('voiceNote');
+  // Prefer Indonesian voices; among them prefer natural/online ones (Edge: Gadis/Ardi, Chrome: Google Bahasa Indonesia).
+  const voiceSel = document.getElementById('voiceSel');
+  let voices = [], userPicked = false;
+  const isIndo = v => /^(id|in)([-_]|$)/i.test(v.lang) || /indonesia|bahasa/i.test(v.name);
+  const score = v => (isIndo(v) ? 100 : 0) + (/natural|online|google|neural/i.test(v.name) ? 10 : 0);
+  function loadVoices() {
+    try {
+      voices = speechSynthesis.getVoices().slice().sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name));
+    } catch (e) { voices = []; }
+    const keep = voice && voices.find(v => v.voiceURI === voice.voiceURI);
+    if (!userPicked || !keep) voice = voices.find(isIndo) || null;
+    voiceSel.innerHTML = '';
+    voices.forEach((v, i) => {
+      const o = document.createElement('option'); o.value = String(i);
+      o.textContent = (isIndo(v) ? '★ ' : '') + v.name.replace(/^Microsoft /, '').replace(/ - .*$/, '') + ' (' + v.lang + ')';
+      if (voice && v.voiceURI === voice.voiceURI) o.selected = true;
+      voiceSel.appendChild(o);
+    });
+    if (!voice && voices.length) { const o = document.createElement('option'); o.value = ''; o.textContent = 'Belum ada suara Indonesia'; o.selected = true; voiceSel.prepend(o); }
+    updateVoiceNote();
+  }
+  function updateVoiceNote() {
+    voiceSel.hidden = !voiceOn || !voices.length;
+    voiceNote.hidden = !voiceOn;
+    if (!voiceOn) return;
+    if (voice && isIndo(voice)) voiceNote.textContent = `Narasi memakai suara Bahasa Indonesia: ${voice.name}.`;
+    else voiceNote.innerHTML = '<b>Browser ini belum punya suara Bahasa Indonesia</b>, jadi narasi akan beraksen asing. Pilihan termudah: buka halaman ini di <b>Microsoft Edge</b> (suara Gadis atau Ardi) atau <b>Google Chrome</b> (Google Bahasa Indonesia). Atau pasang suara Indonesia di Windows lewat Settings › Time &amp; language › Speech › Add voices › Indonesian, lalu buka ulang browser.';
+  }
+  voiceSel.addEventListener('change', () => {
+    const v = voices[parseInt(voiceSel.value, 10)];
+    voice = v || null; userPicked = !!v; updateVoiceNote();
+    if (playing && voiceOn) { elapsed = 0; speak(); }
+  });
+  if ('speechSynthesis' in window) { loadVoices(); try { speechSynthesis.addEventListener('voiceschanged', loadVoices); } catch (e) {} }
+  else { voiceBtn.disabled = true; voiceNote.hidden = false; voiceNote.textContent = 'Browser ini tidak mendukung suara narasi. Subtitle tetap berjalan.'; }
+  voiceBtn.addEventListener('click', () => {
+    voiceOn = !voiceOn; voiceBtn.setAttribute('aria-pressed', String(voiceOn));
+    voiceBtn.textContent = voiceOn ? '🔊 Suara narasi' : '🔈 Suara narasi';
+    loadVoices();
+    if (playing && voiceOn) { elapsed = 0; speak(); }
+    else if (!voiceOn) try { speechSynthesis.cancel(); } catch (e) {}
+  });
+
+  // ---------------- Study notes ----------------
+  const chWrap = document.getElementById('chapters');
+  S.forEach((sc, si) => {
+    const d = document.createElement('div'); d.className = 'chapter';
+    const btn = document.createElement('button'); btn.type = 'button';
+    btn.innerHTML = `<span class="num">${String(si + 1).padStart(2, '0')}</span><span class="t">${sc.t}</span><span class="go">Putar ▸</span>`;
+    btn.addEventListener('click', () => { go(sceneBeats[si][0], true); document.getElementById('player').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    const ol = document.createElement('ol');
+    sc.beats.forEach(b => { const li = document.createElement('li'); li.innerHTML = b.say.replace(/\b([a-z]+(?:_[a-z0-9]+)+|auth\.users|profiles\.id)\b/g, '<code>$1</code>'); ol.appendChild(li); });
+    d.append(btn, ol); chWrap.appendChild(d);
+  });
+  const nm = k => (T[k].schema ? T[k].schema + '.' : '') + T[k].name;
+  const tb = document.getElementById('relRows');
+  E.forEach(([, p, , c, cc, type, rule]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><code>${nm(p)}</code> → <code>${nm(c)}</code></td><td>${type.replace(':', '–')}</td><td><code>${cc}</code></td><td><span class="rule ${rule}">${rule.replace('_', ' ').toUpperCase()}</span></td>`;
+    tb.appendChild(tr);
+  });
+
+  apply(0);
+})();
+</script>

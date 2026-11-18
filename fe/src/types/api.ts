@@ -419,6 +419,8 @@ export interface AdminAccountRecordDto {
 /** List/detail/create responses add email after reading Supabase Auth metadata. */
 export interface AdminAccountDto extends AdminAccountRecordDto {
   email: string | null;
+  /** false = email belum dikonfirmasi lewat tautan verifikasi (akun belum bisa login). */
+  email_verified?: boolean | null;
 }
 
 /** PATCH account response contains the profile projection but not email. */
