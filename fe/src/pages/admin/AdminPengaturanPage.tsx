@@ -400,6 +400,7 @@ export default function AdminPengaturanPage() {
         <Panel
           icon={<UserRound className="h-5 w-5" />}
           title="Informasi Akun"
+          forceOpen={showErrors && Boolean(errors.name || errors.phone)}
           description="Perbarui nama tampilan dan nomor telepon akun administrator Anda."
         >
           <div className="space-y-5">
@@ -450,6 +451,7 @@ export default function AdminPengaturanPage() {
         <Panel
           icon={<FileText className="h-5 w-5" />}
           title="Kalimat Motivasi Beranda"
+          forceOpen={showErrors && Object.keys(errors).some((key) => key.startsWith("content-"))}
           description="Kelola kalimat singkat yang ditampilkan secara bergantian pada bagian Hero halaman utama."
           action={
             <button
@@ -695,18 +697,6 @@ export default function AdminPengaturanPage() {
         </Panel>
 
         <HomepageLogoPanel />
-
-        <Panel
-          className="lg:col-span-2"
-          icon={<ShieldCheck className="h-5 w-5" />}
-          title="Status Sinkronisasi"
-          description="Penyimpanan terpusat di database SiCARE."
-        >
-          <p className="text-sm leading-relaxed text-gray-600">
-            Profil akun administrator dan kalimat motivasi Hero disimpan secara
-            permanen di database melalui backend SiCARE.
-          </p>
-        </Panel>
       </div>
 
       {heroModal && (
