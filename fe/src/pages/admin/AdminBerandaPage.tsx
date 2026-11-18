@@ -390,7 +390,7 @@ export default function AdminBerandaPage() {
   return (
     <PageContainer role="admin">
       <PageHeader
-        title="Dashboard Monitoring Konseling"
+        title="Beranda Admin"
         description="Ringkasan statistik dan operasional layanan konseling kampus."
         actions={
           <div className="flex flex-wrap items-center gap-2">

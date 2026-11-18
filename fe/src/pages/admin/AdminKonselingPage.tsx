@@ -906,7 +906,7 @@ export default function AdminKonselingPage() {
     <PageContainer role="admin">
       {/* ================= HEADER ================= */}
       <PageHeader
-        title="Monitoring Konseling"
+        title="Pemantauan Konseling"
         description="Pantau sesi konseling individu dan kelompok, serta pembatalan."
         actions={
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
