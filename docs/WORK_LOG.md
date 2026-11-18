@@ -2110,3 +2110,18 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - `AdminKonselingPage.tsx`: judul "Monitoring Konseling" menjadi "Pemantauan Konseling".
 - `AdminBerandaPage.tsx`: judul "Dashboard Monitoring Konseling" menjadi "Beranda Admin".
 - **Pemeriksaan:** `fe: tsc -b` **PASS**. Uji browser **NOT RUN**.
+
+## 2026-11-19 — Tata letak Pengaturan dan marquee feedback beranda
+
+- **Pengaturan Klien, Konselor, Kepala LMI:** kartu section kini ditumpuk satu kolom penuh (`flex flex-col gap-4 sm:gap-5 lg:gap-6`) seperti Pengaturan Admin; sebelumnya grid 2 kolom. Isi, urutan, dan perilaku kartu tidak berubah. Skeleton loading mengikuti tata letak yang sama.
+- **Marquee feedback beranda (`HomePage.tsx`):**
+  - Animasi tidak pernah berjalan karena efeknya hanya dipasang sekali saat halaman dimuat, sebelum feedback dari API tiba (elemen marquee belum ada). Efek kini bergantung pada `testimonials.length`.
+  - Kartu bergerak dari kiri ke kanan.
+  - Bila feedback sedikit, kartu diulang dalam satu set agar loop tidak kosong.
+  - Marquee dapat digulir manual (swipe di mobile) tanpa ujung karena posisinya dikembalikan ke set lain saat mencapai tepi.
+  - `touch-pan-x` dihapus agar halaman tetap bisa digulir vertikal saat jari berada di atas marquee.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Browser lokal dengan feedback tiruan (fetch di-mock di tab uji, karena data feedback produksi kosong):
+  - `scrollLeft` berkurang dari waktu ke waktu, artinya kartu bergerak ke kanan.
+  - Di mobile 375px, area marquee dapat digulir (`overflow-x: auto`, `touch-action: auto`) tanpa overflow halaman.
+  - Wrap di tepi kiri dan kanan bekerja.
+  - Swipe sentuh asli dan tampilan halaman Pengaturan (butuh login) **NOT RUN**.
