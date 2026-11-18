@@ -439,7 +439,9 @@ function Testimonials({ testimonials }: { testimonials: PublicFeedback[] }) {
     ).matches;
     if (reduceMotion) return;
 
-    const speed = 0.3; // px per frame, arah ke kanan
+    const speed = 0.4; // px per frame; kartu bergerak dari kiri ke kanan
+    // Mulai dari set kedua agar ada ruang bergulir ke kiri maupun ke kanan.
+    el.scrollLeft = el.scrollWidth / 2;
     let pos = el.scrollLeft;
     let frame = 0;
 
@@ -448,10 +450,14 @@ function Testimonials({ testimonials }: { testimonials: PublicFeedback[] }) {
       const paused = hoverRef.current || touchRef.current;
 
       if (paused) {
-        // Ikuti posisi scroll dari user (swipe / momentum)
+        // Ikuti posisi scroll dari user (swipe / momentum), lalu jaga loop tetap mulus.
         pos = el.scrollLeft;
-        if (pos >= half) {
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        if (half > 0 && pos >= maxScroll - 1) {
           pos -= half;
+          el.scrollLeft = pos;
+        } else if (half > 0 && pos <= 1) {
+          pos += half;
           el.scrollLeft = pos;
         }
       } else {
@@ -470,7 +476,16 @@ function Testimonials({ testimonials }: { testimonials: PublicFeedback[] }) {
       cancelAnimationFrame(frame);
       window.clearTimeout(resumeTimer.current);
     };
-  }, []);
+    // Dijalankan ulang setelah feedback dari API dimuat; sebelumnya efek hanya berjalan
+    // saat elemen marquee belum ada sehingga animasi tidak pernah dimulai.
+  }, [testimonials.length]);
+
+  // Ulangi kartu dalam satu set agar lebar set melebihi layar, sehingga loop tidak kosong
+  // dan tetap bisa digulir walau feedback yang disetujui sedikit.
+  const repeat = testimonials.length > 0 ? Math.max(1, Math.ceil(8 / testimonials.length)) : 1;
+  const setItems = Array.from({ length: repeat }, (_, r) =>
+    testimonials.map((item) => ({ item, key: `${r}-${item.id}`, copy: r > 0 })),
+  ).flat();
 
   // Sentuhan: jeda saat jari menyentuh, lanjut 1.5 detik setelah dilepas
   const handleTouchStart = () => {
@@ -515,7 +530,7 @@ function Testimonials({ testimonials }: { testimonials: PublicFeedback[] }) {
         /* Marquee: bisa di-swipe di mobile, auto-scroll ke kanan */
         <div
           ref={scrollRef}
-          className="mt-8 touch-pan-x overflow-x-auto overscroll-x-contain md:mt-12 [&::-webkit-scrollbar]:hidden"
+          className="mt-8 overflow-x-auto overscroll-x-contain [scrollbar-width:none] md:mt-12 [&::-webkit-scrollbar]:hidden"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
@@ -530,9 +545,9 @@ function Testimonials({ testimonials }: { testimonials: PublicFeedback[] }) {
                 className="flex shrink-0 gap-3 pr-3 sm:gap-4 sm:pr-4 md:gap-5 md:pr-5 lg:gap-8 lg:pr-8"
                 aria-hidden={setIndex === 1}
               >
-                {testimonials.map((item) => (
+                {setItems.map(({ item, key }) => (
                   <TestimonialCard
-                    key={`${setIndex}-${item.id}`}
+                    key={`${setIndex}-${key}`}
                     name="Klien SiCARE"
                     rating={item.rating}
                     text={

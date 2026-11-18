@@ -425,9 +425,9 @@ export default function KlienPengaturanPage() {
       />
 
 {loading ? (
-        <SkeletonFormGrid className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6" />
+        <SkeletonFormGrid className="mt-6 flex flex-col gap-4 sm:gap-5 lg:gap-6" />
       ) : (
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6">
+      <div className="mt-6 flex flex-col gap-4 sm:gap-5 lg:gap-6">
         {/* Data pribadi dan akademik (read-only) */}
         <Panel
           icon={<IdCard className="h-5 w-5" />}
