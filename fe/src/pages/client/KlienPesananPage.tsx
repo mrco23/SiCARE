@@ -1,8 +1,6 @@
 import IconLabel from "../../components/shared/IconLabel";
-import {
-  PageHeader,
-  SkeletonCardGrid,
-} from "../../components/shared";
+import BookingPageSkeleton from "../../components/client/booking/BookingPageSkeleton";
+import { PageHeader } from "../../components/shared";
 import {
   BackButton,
   CheckRow,
@@ -481,11 +479,9 @@ export default function KlienPesananPage() {
           {requestError}
         </p>
       )}
-      {directoryLoading && (
-        <SkeletonCardGrid count={3} label="Memuat konselor dan jadwal dari backend..." className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" />
-      )}
+      {directoryLoading && step <= 5 && <BookingPageSkeleton step={step} stepCount={STEPS.length} />}
 
-      {step <= 5 && (
+      {!directoryLoading && step <= 5 && (
         <Stepper
           step={step}
           steps={STEPS}
@@ -495,7 +491,7 @@ export default function KlienPesananPage() {
       )}
 
       {/* ===== 1. JENIS LAYANAN ===== */}
-      {step === 1 && (
+      {!directoryLoading && step === 1 && (
         <section className="mt-6">
           <h2 className="font-display text-2xl font-bold sm:text-3xl">
             Pilih Jenis Layanan
@@ -554,7 +550,7 @@ export default function KlienPesananPage() {
       )}
 
       {/* ===== 2. PILIH KONSELOR ===== */}
-      {step === 2 && (
+      {!directoryLoading && step === 2 && (
         <section className="mt-6">
           <h2 className="font-display text-2xl font-bold sm:text-3xl">
             Pilih Konselor
@@ -654,7 +650,7 @@ export default function KlienPesananPage() {
       )}
 
       {/* ===== 3. PILIH JADWAL ===== */}
-      {step === 3 && counselor && (
+      {!directoryLoading && step === 3 && counselor && (
         <section className="mt-6">
           <h2 className="font-display text-2xl font-bold sm:text-3xl">
             Daftar Konselor
@@ -667,9 +663,12 @@ export default function KlienPesananPage() {
           <article className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
             <div className="flex flex-col gap-6 md:flex-row md:items-start">
               <div className="flex items-start gap-5 md:w-1/2">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary-soft text-2xl font-bold text-primary sm:h-24 sm:w-24">
-                  {counselor.initials}
-                </div>
+                <CounselorPhoto
+                  key={counselor.id}
+                  photoUrl={counselor.photoUrl}
+                  name={counselor.name}
+                  initials={counselor.initials}
+                />
                 <div className="min-w-0">
                   <p className="whitespace-pre-line font-display text-lg font-bold leading-snug">
                     {counselor.short}
@@ -1220,3 +1219,31 @@ export default function KlienPesananPage() {
 const CARD = "rounded-2xl border border-gray-200 bg-white p-4 sm:p-5";
 const INPUT =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
+
+/** Foto konselor di langkah Pilih Jadwal; kembali ke inisial bila foto tidak ada atau gagal dimuat. */
+function CounselorPhoto({
+  photoUrl,
+  name,
+  initials,
+}: {
+  photoUrl: string | null | undefined;
+  name: string;
+  initials: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (photoUrl && !failed) {
+    return (
+      <img
+        src={photoUrl}
+        alt={`Foto ${name}`}
+        onError={() => setFailed(true)}
+        className="h-20 w-20 shrink-0 rounded-full object-cover sm:h-24 sm:w-24"
+      />
+    );
+  }
+  return (
+    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary-soft text-2xl font-bold text-primary sm:h-24 sm:w-24">
+      {initials}
+    </div>
+  );
+}

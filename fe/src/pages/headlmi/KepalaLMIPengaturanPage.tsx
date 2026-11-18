@@ -479,6 +479,7 @@ export default function KepalaLMIPengaturanPage() {
           compactHeader
           icon={<UserRound className="h-5 w-5" />}
           title="Informasi Akun"
+          forceOpen={showErrors && Object.keys(errors).length > 0}
           description="Perbarui nama tampilan dan nomor kontak akun Kepala LMI."
         >
           <div className="space-y-4">

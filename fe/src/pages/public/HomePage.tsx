@@ -825,7 +825,7 @@ export default function HomePage() {
     <>
       <div className="overflow-x-clip bg-white">
         {/* ================= HERO ================= */}
-        <section className="relative isolate flex min-h-[420px] items-center justify-center overflow-hidden md:min-h-[460px] lg:min-h-[480px]">
+        <section className="relative isolate flex min-h-[420px] items-center justify-center overflow-hidden md:min-h-[460px] lg:min-h-[max(30rem,56vh)]">
           {/* Foto latar bergantian */}
           <HeroSlideshow />
 

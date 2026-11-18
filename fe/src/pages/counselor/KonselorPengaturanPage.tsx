@@ -681,6 +681,7 @@ export default function KonselorPengaturanPage() {
         <Panel
           icon={<UserRound className="h-5 w-5" />}
           title="Profil Publik"
+          forceOpen={showErrors && Object.keys(errors).length > 0}
           description="Informasi yang dilihat klien sebelum memilih konselor."
         >
           <div className="flex flex-col gap-5">

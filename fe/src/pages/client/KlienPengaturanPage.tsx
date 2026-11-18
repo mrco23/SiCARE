@@ -1,5 +1,6 @@
 import IconLabel from "../../components/shared/IconLabel";
 import {
+  SettingsPanel as Panel,
   PageHeader,
   SkeletonFormGrid,
   useToast,
@@ -449,6 +450,7 @@ export default function KlienPengaturanPage() {
         <Panel
           icon={<Phone className="h-5 w-5" />}
           title="Kontak"
+          forceOpen={showErrors && Object.keys(errors).length > 0}
           description="Informasi ini dipakai untuk koordinasi jadwal sesi dengan konselor."
         >
           <div className="flex flex-col gap-5">
@@ -745,39 +747,6 @@ export default function KlienPengaturanPage() {
 
 const inputClass =
   "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-gray-100";
-
-function Panel({
-  icon,
-  title,
-  description,
-  className = "",
-  children,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section
-      className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 ${className}`}
-    >
-      <div className="mb-5 flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
-          {icon}
-        </span>
-        <div>
-          <h2 className="text-base font-bold">{title}</h2>
-          <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
-            {description}
-          </p>
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
 
 function Field({
   label,

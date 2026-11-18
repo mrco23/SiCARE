@@ -9,7 +9,8 @@ export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={`block animate-pulse rounded-md bg-slate-200/80 ${className}`}
+      // rounded-md hanya default; className dengan rounded-* (mis. rounded-full untuk avatar) harus menang.
+      className={`block animate-pulse bg-slate-200/80 ${/(^|\s)rounded(-|\s|$)/.test(className) ? "" : "rounded-md"} ${className}`}
     />
   );
 }
