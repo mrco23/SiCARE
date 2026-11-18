@@ -1,4 +1,5 @@
 import IconLabel from "../../components/shared/IconLabel";
+import TypingGreeting from "../../components/mood/TypingGreeting";
 import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -307,10 +308,11 @@ export default function KonselorBerandaPage() {
           <div>
             <p className="text-sm text-gray-500">{todayLabel}</p>
             <h1 className="mt-0.5 text-2xl font-bold text-gray-900">
-              {greeting}, {counselorName}{" "}
-              <span aria-hidden="true" className="wave-hand">
-                👋
-              </span>
+              {/* Tunggu profil (nama & jenis kelamin) selesai dimuat agar sapaan diketik sekali saja. */}
+              <TypingGreeting
+                ready={profile !== null || !loading}
+                segments={[{ text: `${greeting}, ${counselorName}` }]}
+              />
             </h1>
           </div>
           <button

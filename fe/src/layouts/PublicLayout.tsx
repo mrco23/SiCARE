@@ -4,7 +4,7 @@ import Navbar from "../components/home/Navbar";
 
 export default function PublicLayout() {
   return (
-    <div className="min-h-screen overflow-x-clip bg-white">
+    <div className="public-layout min-h-screen overflow-x-clip bg-white">
       <Navbar />
       <main>
         <Outlet />

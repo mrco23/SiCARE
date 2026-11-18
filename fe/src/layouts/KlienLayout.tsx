@@ -1,4 +1,7 @@
-import { NavLink, Outlet } from "react-router-dom";
+import AuthBackground from "../components/auth/AuthBackground";
+import { useLayoutEffect, useRef, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import BrandMark from "../components/brand/BrandMark";
 import NotificationBell from "../components/shared/NotificationBell";
 import NavbarProfileDropdown from "../components/shared/NavbarProfileDropdown";
 import {
@@ -36,45 +39,22 @@ const NAV_ITEMS: {
 
 export default function KlienLayout() {
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-900 antialiased lg:pb-0">
+    <div className="relative isolate min-h-screen bg-bg pb-24 font-sans text-gray-900 antialiased lg:pb-0">
+      {/* Latar dekoratif sama dengan halaman login; tetap di tempat saat halaman digulir. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+        <AuthBackground />
+        {/* Lapisan putih tipis agar latar lebih terang di halaman yang padat konten */}
+        <div className="absolute inset-0 bg-white/55" />
+      </div>
+
       {/* ================= NAVBAR ================= */}
       <header className="sticky top-0 z-50 px-3 pt-2 sm:px-5">
         <div className="relative mx-auto flex h-14 w-full max-w-7xl items-center justify-between rounded-full bg-white/90 px-4 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur sm:h-16 sm:px-5 lg:px-6">
           <NavLink to="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-brand-gold bg-white sm:h-10 sm:w-10">
-              <img
-                src="/icon-512x512.png"
-                alt="Logo Unika De La Salle Manado"
-                className="h-6 w-6 rounded-full object-contain sm:h-7 sm:w-7"
-              />
-            </div>
-            <div className="min-w-0">
-              <div className="text-lg font-semibold leading-none sm:text-xl">
-                <span className="text-brand-mark">Si</span>
-                <span className="text-blue-900">CARE</span>
-              </div>
-              <p className="mt-1 truncate text-[10px] font-semibold text-[#2b2b2b] sm:text-[11px]">
-                Universitas Katolik De La Salle Manado
-              </p>
-            </div>
+            <BrandMark />
           </NavLink>
 
-          <nav className="hidden items-center gap-6 font-display text-[13px] text-gray-900 lg:flex xl:gap-10">
-            {NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/klien"}
-                className={({ isActive }) =>
-                  isActive
-                    ? "border-b-2 border-primary pb-1 font-semibold text-primary"
-                    : "hover:text-primary"
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+          <DesktopNav />
 
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <NotificationBell
@@ -121,5 +101,53 @@ export default function KlienLayout() {
         <Outlet />
       </main>
     </div>
+  );
+}
+
+/**
+ * Navigasi desktop: bobot huruf tetap sama saat aktif (tidak "membesar"), dan garis bawah
+ * meluncur ke menu yang aktif saat diklik.
+ */
+function DesktopNav() {
+  const { pathname } = useLocation();
+  const navRef = useRef<HTMLElement>(null);
+  const [bar, setBar] = useState<{ left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const measure = () => {
+      const active = nav.querySelector<HTMLElement>('a[aria-current="page"]');
+      setBar(active ? { left: active.offsetLeft, width: active.offsetWidth } : null);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    void document.fonts?.ready.then(measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [pathname]);
+
+  return (
+    <nav
+      ref={navRef}
+      className="relative hidden items-center gap-6 font-display text-[13px] font-medium text-gray-900 lg:flex xl:gap-10"
+    >
+      {NAV_ITEMS.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.to === "/klien"}
+          className={({ isActive }) =>
+            `py-1 transition-colors duration-200 ${isActive ? "text-primary" : "hover:text-primary"}`
+          }
+        >
+          {item.label}
+        </NavLink>
+      ))}
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute -bottom-0.5 h-0.5 rounded-full bg-primary transition-all duration-300 ease-out ${bar ? "opacity-100" : "opacity-0"}`}
+        style={{ left: bar?.left ?? 0, width: bar?.width ?? 0 }}
+      />
+    </nav>
   );
 }

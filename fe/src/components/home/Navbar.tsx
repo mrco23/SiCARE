@@ -34,7 +34,7 @@ export default function Navbar() {
             viewBox="0 0 170 76"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="absolute -top-1 right-0 hidden h-auto w-42.5 lg:block"
+            className="absolute -right-1 -top-1 hidden h-auto w-42.5 lg:block"
           >
             <path
               d="M59.5569 18.6848C62.4072 16.5369 66.3356 16.5369 69.186 18.6848L125.542 61.1524C131.674 65.7737 128.406 75.5415 120.727 75.5415H8.01556C0.336674 75.5415 -2.93159 65.7737 3.20101 61.1524L59.5569 18.6848Z"
@@ -130,9 +130,9 @@ export default function Navbar() {
             onClick={() => setOpen((prev) => !prev)}
             aria-label={open ? "Tutup menu" : "Buka menu"}
             aria-expanded={open}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white lg:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-primary transition hover:bg-primary/10 lg:hidden"
           >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {open ? <X className="h-7 w-7" strokeWidth={2.4} /> : <Menu className="h-7 w-7" strokeWidth={2.4} />}
           </button>
         </div>
       </div>

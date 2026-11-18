@@ -1,4 +1,5 @@
 import { SkeletonBlock } from "../../components/shared";
+import TypingGreeting from "../../components/mood/TypingGreeting";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -101,7 +102,7 @@ const formatClock = (d: Date) =>
   formatWitaTime(d, ":");
 
 export default function BerandaKlienPage() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [bookings, setBookings] = useState<BookingListItemDto[]>([]);
   const [sessions, setSessions] = useState<SessionListItemDto[]>([]);
   const [counselorNames, setCounselorNames] = useState<Record<string, string>>({});
@@ -274,9 +275,13 @@ export default function BerandaKlienPage() {
     <div className="space-y-6">
       <section>
         <h1 className="font-display text-2xl font-extrabold leading-tight text-gray-900 sm:text-3xl">
-          Selamat datang kembali,{" "}
-          <span className="text-[#1e5b3a]">{userName}!</span>{" "}
-          <span className="inline-block">👋</span>
+          <TypingGreeting
+            ready={Boolean(profile) || !authLoading}
+            segments={[
+              { text: "Selamat datang kembali, " },
+              { text: `${userName}!`, className: "text-[#1e5b3a]" },
+            ]}
+          />
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-gray-600 sm:text-base">
           Jaga kesehatan mentalmu, karena kamu juga penting.

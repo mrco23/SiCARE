@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Loader2, MailCheck } from "lucide-react";
+import { Loader2, LogIn, MailCheck } from "lucide-react";
 
 import CenteredAuthLayout from "../../components/auth/CenteredAuthLayout";
 import {
@@ -416,7 +416,10 @@ export default function Login() {
               Memproses...
             </>
           ) : (
-            "Masuk"
+            <>
+              <LogIn className="h-4 w-4" strokeWidth={2.2} />
+              Masuk
+            </>
           )}
         </button>
 
