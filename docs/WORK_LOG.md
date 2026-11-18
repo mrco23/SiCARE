@@ -2125,3 +2125,105 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - Di mobile 375px, area marquee dapat digulir (`overflow-x: auto`, `touch-action: auto`) tanpa overflow halaman.
   - Wrap di tepi kiri dan kanan bekerja.
   - Swipe sentuh asli dan tampilan halaman Pengaturan (butuh login) **NOT RUN**.
+
+## 2026-11-19 — Kartu Pengaturan dapat dilipat (akordeon)
+
+- **Klarifikasi pengguna:** yang diminta bukan sekadar satu kolom, tetapi kartu section yang default-nya tertutup. Kartu tertutup hanya menampilkan ikon, judul, subjudul, dan panah ke bawah di kanan; klik membuka isinya seperti FAQ di halaman Panduan.
+- **Perubahan:**
+  - `components/shared/SettingsPrimitives.tsx`: `SettingsPanel` dapat dilipat.
+    - Default tertutup.
+    - Seluruh header dan tombol panah dapat diklik (`aria-expanded`, `aria-controls`); panah berputar 180° saat terbuka.
+    - Isi dianimasikan dengan `grid-rows` seperti FAQ. Isi tetap ter-mount dan `inert` saat tertutup sehingga isian form tidak hilang.
+    - Tombol `action` (mis. "Tambah" kalimat motivasi) hanya tampil saat panel terbuka.
+    - Prop baru `defaultOpen` dan `forceOpen`. `forceOpen` membuka panel otomatis saat simpan gagal validasi, supaya pesan error tidak tersembunyi.
+  - `components/counselor/settings/SettingsPrimitives.tsx` kini me-reexport panel/field bersama.
+  - `KlienPengaturanPage.tsx` memakai panel bersama (panel lokal dihapus).
+  - `forceOpen` dipasang pada panel yang berisi field tervalidasi:
+    - Admin: Informasi Akun, Kalimat Motivasi;
+    - Klien: Kontak;
+    - Konselor: Profil Publik;
+    - Kepala LMI: Informasi Akun.
+  - Berlaku di keempat halaman Pengaturan, termasuk panel Logo Lasallian DNA.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Komponen dirender langsung di dev server: default tertutup; klik membuka isi, memutar panah, dan memunculkan tombol aksi. Halaman Pengaturan asli per role (butuh login) **NOT RUN**.
+
+## 2026-11-19 — Hapus panel Status Sinkronisasi; diagnosis tautan verifikasi email
+
+- `AdminPengaturanPage.tsx`: panel "Status Sinkronisasi" dihapus. `fe: tsc -b`, `lint` **PASS**.
+- **Laporan pengguna:** tautan verifikasi email klien mengarah ke `https://si-care-markod1rs-projects.vercel.app/#access_token=...&type=signup`, deployment preview lama yang sudah dihapus Vercel (410 GONE).
+- **Diagnosis:**
+  - Backend mengirim `emailRedirectTo = <origin frontend>/auth/confirmed` (`getTrustedConfirmationCallbackUrl`).
+  - URL yang diterima tidak memuat `/auth/confirmed`. Artinya Supabase menolak `emailRedirectTo` karena tidak ada di daftar Redirect URLs, lalu memakai **Site URL** proyek Supabase, yang masih menunjuk deployment preview lama.
+- **Perbaikan (konfigurasi, oleh pengguna):** Supabase Dashboard → Authentication → URL Configuration:
+  - Site URL `https://si-care.vercel.app`;
+  - Redirect URLs `https://si-care.vercel.app/auth/confirmed` dan `https://si-care.vercel.app/auth/reset-password`.
+  - Periksa juga `APP_BASE_URL` dan `FRONTEND_ORIGINS` di environment Vercel backend.
+- Tidak ada perubahan kode backend.
+
+## 2026-11-19 — Skeleton booking, foto konselor langkah 3, ikon sapaan SiCARE
+
+- **Skeleton Booking Jadwal Konseling:**
+  - Komponen baru `components/client/booking/BookingPageSkeleton.tsx` mengikuti bentuk langkah yang akan tampil: stepper, judul, lalu isi langkah.
+    - Langkah 1: dua kartu layanan dan kotak privasi.
+    - Langkah 2: kotak pencarian dan grid kartu konselor.
+    - Langkah 3: profil konselor, kalender 7 kolom, dan slot jam.
+  - `KlienPesananPage.tsx` menampilkannya selama direktori konselor dan jadwal dimuat. Sebelumnya tampil tiga kartu generik di atas stepper, sementara isi langkah ikut tampil.
+- **Foto konselor di langkah 3 (Pilih Jadwal):** sebelumnya hanya inisial. Sekarang memakai `photoUrl` yang sama dengan langkah 2, dan kembali ke inisial bila foto tidak ada atau gagal dimuat.
+- **Ikon sapaan:** komponen baru `components/shared/WaveHandIcon.tsx`, SVG sarung tangan putih bergaya maskot dengan garis hijau brand, manset emas, dan garis gerak. Ikon ini menggantikan emoji 👋 di Beranda Klien dan Beranda Konselor. Animasi lambaian memakai `.wave-hand` dan nonaktif untuk `prefers-reduced-motion`.
+- **`Skeleton`:** kelas `rounded-*` dari pemanggil kini menggantikan `rounded-md` bawaan. Sebelumnya avatar `rounded-full` tampil kotak di semua skeleton.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Ikon dan skeleton dirender di dev server dan diperiksa lewat screenshot. Halaman booking asli dengan foto konselor (butuh login klien) **NOT RUN**.
+
+## 2026-11-19 — Ikon sapaan gaya logo, hamburger, gunung navbar, layar lebar
+
+- **`WaveHandIcon.tsx` didesain ulang mengikuti gaya logo SiCARE:**
+  - bentuk flat tanpa garis tepi;
+  - tangan navy (warna lambang Ψ);
+  - manset heliks emas-hijau dengan latar ungu (motif DNA);
+  - bintang emas berinti hijau;
+  - lengkung gerak emas/hijau.
+  - Hanya tangan yang melambai (kelas `.wave-hand-svg`, `transform-box: fill-box`); animasi nonaktif untuk `prefers-reduced-motion`.
+- **Navbar publik:**
+  - Hamburger kini tiga garis hijau primary tanpa latar (hover tipis `bg-primary/10`).
+  - SVG gunung digeser `-right-1` agar melewati tepi kanan bar dan terpotong oleh `overflow-hidden`. Sebelumnya path berakhir di x=169.2 dari 170, sehingga tersisa garis putih.
+- **Layar lebar (27", 2560px):**
+  - Halaman publik menaikkan skala `rem` menjadi 112.5% (≥1920px) dan 125% (≥2400px) lewat `html:has(.public-layout)` (kelas baru di `PublicLayout`). Teks, jarak, dan kartu tetap proporsional. Halaman dashboard tidak terpengaruh.
+  - Tinggi hero beranda di desktop kini `max(30rem, 56vh)`, sebelumnya tetap 480px sehingga foto ter-crop menjadi pita tipis.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Diperiksa di browser lokal:
+  - 2560×1440: foto hero utuh dan SVG gunung melewati tepi kanan 5px tanpa celah;
+  - 1600×900: tampilan setara sebelumnya;
+  - 375px: hamburger tiga garis hijau;
+  - ikon sapaan dirender pada ukuran judul dan ukuran besar.
+
+## 2026-11-19 — Latar halaman klien dan maskot sapaan
+
+- **`KlienLayout.tsx`:** semua halaman klien memakai latar halaman login: warna `bg-bg` dan `AuthBackground` (cahaya lembut, simbol Ψ, garis detak jantung, ikon konseling). Latar dipasang `fixed` di belakang konten (`-z-10`, `pointer-events-none`), jadi tetap di tempat saat halaman digulir. Sebelumnya latarnya `bg-gray-50`.
+- **Sapaan beranda:** komponen baru `components/mood/MascotGreeting.tsx` menampilkan maskot SiCARE pose `wave` dari `AnimatedMascot` dengan ukuran mengikuti font judul. Dipakai di Beranda Klien dan Beranda Konselor, menggantikan ikon tangan SVG. Maskot diam untuk `prefers-reduced-motion`.
+- `components/shared/WaveHandIcon.tsx` serta CSS `.wave-hand`, `.wave-hand-svg`, dan `@keyframes wave-hand` dihapus karena tidak dipakai lagi.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Latar dan maskot dirender di dev server dan diperiksa lewat screenshot. Halaman klien asli (butuh login) **NOT RUN**.
+
+## 2026-11-19 — Navbar klien, latar lebih terang, sapaan mengetik, ikon tombol Masuk
+
+- **Navbar klien (`KlienLayout.tsx`):**
+  - Logo dan teks SiCARE kini memakai komponen baru `components/brand/BrandMark.tsx`, salinan persis markup navbar publik: ukuran logo, warna Si/CARE, dan ikon pesan.
+  - Menu desktop dipindah ke `DesktopNav`. Bobot huruf tetap `font-medium` saat aktif (sebelumnya `font-semibold`, sehingga teks melebar).
+  - Garis bawah tunggal meluncur ke menu aktif (`transition-all 300ms`), diukur dari `aria-current="page"` saat rute berubah, saat resize, dan setelah font termuat.
+- **Latar halaman klien:** lapisan `bg-white/55` di atas `AuthBackground` agar lebih terang.
+- **Sapaan beranda klien dan konselor:** komponen baru `components/mood/TypingGreeting.tsx`.
+  - Kalimat diketik per huruf (55 ms) dengan kursor berkedip. Lebar kalimat dipesan oleh teks penuh tak terlihat, sehingga maskot tetap di tempatnya dan pengetikan berhenti tepat sebelum maskot.
+  - Pembaca layar menerima kalimat utuh. Untuk `prefers-reduced-motion` kalimat langsung utuh.
+  - Pengetikan diulang bila nama selesai dimuat.
+- **Login:** tombol "Masuk" diberi ikon `LogIn`.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. `KlienLayout` asli dirender di dev server (MemoryRouter + AuthProvider):
+  - logo dan teks sama dengan navbar publik;
+  - semua menu berbobot 500;
+  - setelah klik, garis berada tepat di bawah menu aktif (x dan lebar sama);
+  - selama pengetikan, posisi maskot tetap (x=565 di empat sampel).
+  - Halaman login tidak dibuka di browser.
+
+## 2026-11-19 — Sapaan mengetik menunggu data profil
+
+- **Masalah:** Beranda Konselor langsung mengetik sapaan sementara ("Halo, Konselor") saat profil masih dimuat. Setelah jenis kelamin dan nama tiba, pengetikan diulang dari awal dengan "Halo ma'am/Sir".
+- **Perubahan:**
+  - `TypingGreeting` menerima prop `ready`. Selama `ready=false` hanya kursor yang berkedip (`role="status"`), tanpa teks dan tanpa maskot. Penghitung huruf juga tidak berjalan, sehingga kalimat final diketik sekali.
+  - Beranda Konselor memakai `ready={profile !== null || !loading}`. Bila jenis kelamin tidak ada, sapaan netral "Halo" diketik setelah data selesai. Bila pemuatan gagal, sapaan tetap tampil setelah `loading` selesai.
+  - Beranda Klien memakai `ready={Boolean(profile) || !authLoading}`.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Simulasi di dev server dengan data tiba setelah 1,5 detik: 0–1,3 s hanya kursor; mulai 1,5 s mengetik "Halo ma'am, Dr. Rina" satu kali tanpa pengulangan.
