@@ -23,11 +23,6 @@ const T = {
   'academic_periods': { col: 2, cols: [
     ['id','uuid','PN'],['academic_year','text','N'],['semester','text','N'],['starts_on','date','N'],['ends_on','date','N'],['is_published','bool','N'],ts('created_at'),ts('updated_at'),
   ]},
-  'consent_templates': { col: 2, cols: [
-    ['id','uuid','PN'],['template_code','text','N'],['version','text','N'],['title','text','N'],['description','text',''],['storage_bucket','text','N'],
-    ['storage_path','text','N'],['mime_type','text','N'],['file_sha256','text','N'],['file_size_bytes','int8','N'],['is_active','bool','N'],
-    ts('effective_at'),['created_by','uuid','','profiles.id'],ts('created_at'),ts('updated_at'),
-  ]},
   'notifications': { col: 2, cols: [
     ['id','uuid','PN'],['recipient_user_id','uuid','N','profiles.id'],['type','text','N'],['title','text','N'],['body','text','N'],
     ['entity_type','text',''],['entity_id','uuid',''],ts('created_at'),ts('read_at',false),ts('updated_at'),
@@ -73,7 +68,7 @@ const T = {
   ]},
   'informed_consents': { col: 6, cols: [
     ['id','uuid','PN'],['booking_id','uuid','N','bookings.id'],['session_id','uuid','','counseling_sessions.id'],['booking_participant_id','uuid','N','booking_participants.id'],
-    ['consent_template_id','uuid','N','consent_templates.id'],['status','text','N'],['signer_user_id','uuid','','profiles.id'],['signer_name_snapshot','text',''],
+    ['status','text','N'],['signer_user_id','uuid','','profiles.id'],['signer_name_snapshot','text',''],
     ['identity_snapshot','jsonb','N'],['consent_statement_version','text','N'],ts('viewed_at',false),ts('signed_at',false),ts('revoked_at',false),
     ['revocation_reason','text',''],['signature_method','text',''],['signature_storage_path','text',''],['signed_document_storage_path','text',''],
     ['signed_document_sha256','text',''],['signed_document_size_bytes','int8',''],ts('created_at'),ts('updated_at'),
@@ -120,14 +115,14 @@ const rowCY = (k, cname) => { const t = T[k]; const i = t.cols.findIndex(c => c[
 
 // ---------- edges ----------
 const edges = [];
-for (const k in T) T[k].cols.forEach(c => { if (c[3]) { const parts = c[3].split('.'); const col = parts.pop(); edges.push({ child: k, ccol: c[0], parent: parts.join('.'), pcol: col }); } });
+for (const k in T) T[k].cols.forEach(c => { if (c[3]) { const parts = c[3].split('.'); const col = parts.pop(); edges.push({ child: k, ccol: c[0], parent: parts.join('.'), pcol: col, one: /[PU]/.test(c[2]), optional: !c[2].includes('N') }); } });
 // lane offsets per destination column so vertical segments don't overlap
 const lanes = {};
 edges.forEach(e => { const c = T[e.child].col; (lanes[c] ||= []).push(e); });
 for (const c in lanes) {
   lanes[c].sort((a, b) => rowCY(a.parent, a.pcol) - rowCY(b.parent, b.pcol));
-  const n = lanes[c].length, span = COLGAP - 50;
-  lanes[c].forEach((e, i) => { e.laneX = T[e.child].x - 25 - (n > 1 ? (i * span) / (n - 1) : span / 2); });
+  const n = lanes[c].length, span = COLGAP - 85;
+  lanes[c].forEach((e, i) => { e.laneX = T[e.child].x - 48 - (n > 1 ? (i * span) / (n - 1) : span / 2); });
 }
 const R = 10;
 function smooth(x1, y1, mx, x2, y2) {
@@ -149,12 +144,19 @@ svg += `<defs><pattern id="dots" width="22" height="22" patternUnits="userSpaceO
 svg += `<rect width="${WIDTH}" height="${HEIGHT}" fill="#121212"/><rect width="${WIDTH}" height="${HEIGHT}" fill="url(#dots)"/>`;
 // title + legend
 svg += `<text x="${MARGIN}" y="72" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="600" fill="#ededed">Skema Database SiCARE</text>`;
-svg += `<text x="${MARGIN}" y="106" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="#8f8f8f">Supabase PostgreSQL · schema public (21 tabel) + auth.users · berdasarkan supabase/migrations per 17 November 2026</text>`;
-let lx = WIDTH - MARGIN - 760;
+svg += `<text x="${MARGIN}" y="106" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="#8f8f8f">Supabase PostgreSQL · schema public (20 tabel) + auth.users · berdasarkan supabase/migrations per 19 November 2026</text>`;
+let lx = WIDTH - MARGIN - 1500;
 const leg = [[keyIcon, 'Primary key'], [uniq, 'Unique'], [(x, y) => diamond(x, y, false), 'Nullable'], [(x, y) => diamond(x, y, true), 'Non-nullable']];
-svg += `<rect x="${lx - 20}" y="48" width="780" height="52" rx="8" fill="#1c1c1c" stroke="#2e2e2e"/>`;
+svg += `<rect x="${lx - 20}" y="48" width="1520" height="52" rx="8" fill="#1c1c1c" stroke="#2e2e2e"/>`;
 leg.forEach(([fn, label]) => { svg += fn(lx, 66); svg += `<text x="${lx + 24}" y="79" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#b4b4b4">${label}</text>`; lx += 150; });
-svg += `<path d="M${lx} 74 H${lx + 34}" stroke="#4a8f6f" stroke-width="2"/><circle cx="${lx}" cy="74" r="3.5" fill="#3ecf8e"/><circle cx="${lx + 34}" cy="74" r="3.5" fill="#3ecf8e"/><text x="${lx + 44}" y="79" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#b4b4b4">Foreign key</text>`;
+const CF = '#3ecf8e';
+const oneBars = (x, y) => `<path d="M${x + 6} ${y - 7} V${y + 7} M${x + 11} ${y - 7} V${y + 7}" stroke="${CF}" stroke-width="1.8"/>`; // || tepat satu (sisi induk)
+const zeroOne = (x, y) => `<path d="M${x - 8} ${y - 7} V${y + 7}" stroke="${CF}" stroke-width="1.8"/><circle cx="${x - 17}" cy="${y}" r="4.5" fill="#121212" stroke="${CF}" stroke-width="1.6"/>`; // o| nol atau satu (sisi anak)
+const zeroMany = (x, y) => `<path d="M${x - 14} ${y} L${x} ${y - 8} M${x - 14} ${y} L${x} ${y} M${x - 14} ${y} L${x} ${y + 8}" stroke="${CF}" stroke-width="1.8" fill="none"/><circle cx="${x - 20}" cy="${y}" r="4.5" fill="#121212" stroke="${CF}" stroke-width="1.6"/>`; // o< nol atau banyak (sisi anak)
+const legLine = (x, y, w) => `<path d="M${x} ${y} H${x + w}" stroke="#4a8f6f" stroke-width="2"/>`;
+svg += legLine(lx, 74, 34) + oneBars(lx, 74) + `<text x="${lx + 44}" y="79" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#b4b4b4">Tepat satu (induk)</text>`; lx += 210;
+svg += legLine(lx, 74, 34) + zeroOne(lx + 34, 74) + `<text x="${lx + 44}" y="79" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#b4b4b4">Nol atau satu (1:1)</text>`; lx += 210;
+svg += legLine(lx, 74, 34) + zeroMany(lx + 34, 74) + `<text x="${lx + 44}" y="79" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#b4b4b4">Nol atau banyak (1:N)</text>`;
 
 // edges below cards
 svg += '<g fill="none" stroke="#4a8f6f" stroke-width="1.6" opacity="0.85">';
@@ -189,13 +191,15 @@ for (const k in T) {
   if (t.note) svg += `<text x="${t.x + 14}" y="${t.y + HEAD + t.cols.length * ROW + 19}" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-style="italic" fill="#7c7c7c">${esc(t.note)}</text>`;
   svg += `</g>`;
 }
-// handle dots on top of cards
-const dots = new Set();
+// cardinality markers (crow's foot) on top of cards
+const parentEnds = new Set();
 for (const e of edges) {
-  dots.add(`${T[e.parent].x + W},${rowCY(e.parent, e.pcol)}`);
-  dots.add(`${T[e.child].x},${rowCY(e.child, e.ccol)}`);
+  const px = T[e.parent].x + W, py = rowCY(e.parent, e.pcol);
+  const key = `${px},${py}`;
+  if (!parentEnds.has(key)) { parentEnds.add(key); svg += oneBars(px, py); }
+  const cx = T[e.child].x, cy = rowCY(e.child, e.ccol);
+  svg += e.one ? zeroOne(cx, cy) : zeroMany(cx, cy);
 }
-dots.forEach(d => { const [x, y] = d.split(','); svg += `<circle cx="${x}" cy="${y}" r="4" fill="#3ecf8e" stroke="#121212" stroke-width="1.5"/>`; });
 
 const full = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">${svg}</svg>`;
 fs.writeFileSync(out + '.svg', full);

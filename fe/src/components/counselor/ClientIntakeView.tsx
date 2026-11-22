@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import type { ClientIntake, IntakeAnswer } from "../../types/counseling";
 import {
   INTAKE_ESSAY_OPTIONS,
@@ -59,11 +60,9 @@ export function ClientIntakeView({
           return (
             <div key={key} className="flex items-start justify-between gap-3">
               <p className="text-sm text-gray-700">{label}</p>
-              <span
-                className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${YN_PILL[answer]}`}
-              >
+              <Badge size="md" weight="semibold" className={`shrink-0 ring-1 ring-inset ${YN_PILL[answer]}`}>
                 {answer}
-              </span>
+              </Badge>
             </div>
           );
         })}

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getSupabaseAdminClient, isSupabaseConfigured } from "../config/supabase.js";
 import {
+  OFFICIAL_CONSENT_TEMPLATE,
   generateInformedConsentPdf,
   validateConsentIdentity,
   validateSignaturePng,
@@ -69,23 +70,24 @@ export function generateInvitationToken() {
 }
 
 /**
- * Retrieves the currently active Informed Consent template.
+ * Returns the active Informed Consent template metadata.
+ * The template is a backend constant (see consentPdf.service.js); there is no database table.
  *
- * @param {object} [supabaseClient]
- * @param {string} [templateCode='SICARE_IC_STD']
- * @returns {Promise<any>}
+ * @returns {{ template_code: string, version: string, title: string, file_sha256: string }}
  */
-export async function getActiveConsentTemplate(supabaseClient, templateCode = "SICARE_IC_STD") {
-  const supa = getClient(supabaseClient);
-  const { data, error } = await supa
-    .from("consent_templates")
-    .select("*")
-    .eq("template_code", templateCode)
-    .eq("is_active", true)
-    .maybeSingle();
+export function getActiveConsentTemplate() {
+  return OFFICIAL_CONSENT_TEMPLATE;
+}
 
-  if (error) throw error;
-  return data;
+/**
+ * Template metadata for a consent record. Only the active version is known to the backend;
+ * a consent signed against an older version reports that version without title/hash.
+ *
+ * @param {string | null | undefined} version
+ */
+function templateForVersion(version) {
+  if (!version || version === OFFICIAL_CONSENT_TEMPLATE.version) return OFFICIAL_CONSENT_TEMPLATE;
+  return { template_code: OFFICIAL_CONSENT_TEMPLATE.template_code, version, title: null, file_sha256: null };
 }
 
 /**
@@ -246,7 +248,6 @@ export async function ensureBookingParticipants({ supabaseClient, bookingId }) {
  * @param {object} [params.supabaseClient]
  * @param {string} params.bookingId
  * @param {string} params.participantId
- * @param {string} [params.templateId]
  * @param {string} [params.sessionId]
  * @returns {Promise<{ consent: any, created: boolean }>}
  */
@@ -254,25 +255,12 @@ export async function initializeConsentForParticipant({
   supabaseClient,
   bookingId,
   participantId,
-  templateId = null,
   sessionId = null,
 }) {
   const supa = getClient(supabaseClient);
 
-  // 1. Resolve template
-  let template = null;
-  if (templateId) {
-    const { data, error } = await supa
-      .from("consent_templates")
-      .select("*")
-      .eq("id", templateId)
-      .maybeSingle();
-    if (error || !data) throw new Error("Template not found");
-    template = data;
-  } else {
-    template = await getActiveConsentTemplate(supa);
-    if (!template) throw new Error("No active consent template configured");
-  }
+  // 1. Resolve template (backend constant)
+  const template = getActiveConsentTemplate();
 
   // 2. Fetch participant
   const { data: participant, error: partError } = await supa
@@ -291,7 +279,7 @@ export async function initializeConsentForParticipant({
     .from("informed_consents")
     .select("*")
     .eq("booking_participant_id", participantId)
-    .eq("consent_template_id", template.id)
+    .eq("consent_statement_version", template.version)
     .in("status", ["pending", "viewed", "signed"])
     .maybeSingle();
 
@@ -318,7 +306,6 @@ export async function initializeConsentForParticipant({
     booking_id: bookingId,
     session_id: sessionId,
     booking_participant_id: participantId,
-    consent_template_id: template.id,
     status: "pending",
     signer_user_id: participant.user_id || null,
     signer_name_snapshot: participant.full_name || participant.display_name,
@@ -675,13 +662,24 @@ export async function getBookingConsentStatus({ supabaseClient, bookingId }) {
       p_booking_id: bookingId,
     });
     if (!error && data) {
+      const activeVersion = getActiveConsentTemplate().version;
+      const participants = (data.participants || []).map((p) => ({
+        ...p,
+        template_compliant: p.consent_statement_version ? p.consent_statement_version === activeVersion : null,
+      }));
+      // Informasional saja (tidak memblokir sesi): kelompok yang punya consent bertanda tangan
+      // dengan versi template lama dilaporkan tidak compliant, seperti perilaku RPC sebelumnya.
+      const templateCompliant =
+        data.service_type === "individual" ||
+        !participants.some((p) => p.consent_status === "signed" && p.template_compliant === false);
       return {
         isFullyConsented: Boolean(data.is_fully_consented),
         totalParticipants: data.total_participants || 0,
         signedParticipants: data.signed_participants || 0,
         pendingParticipants: data.pending_participants || 0,
-        templateCompliant: data.template_compliant !== false,
-        participants: data.participants || [],
+        templateCompliant,
+        activeTemplateVersion: activeVersion,
+        participants,
       };
     }
   } catch {
@@ -699,7 +697,7 @@ export async function getBookingConsentStatus({ supabaseClient, bookingId }) {
 
   const { data: participants } = await supa
     .from("booking_participants")
-    .select("id,full_name,display_name,is_primary,participant_status,informed_consents(id,status,signed_at,consent_template_id)")
+    .select("id,full_name,display_name,is_primary,participant_status,informed_consents(id,status,signed_at,consent_statement_version)")
     .eq("booking_id", bookingId);
 
   const list = (participants || []).filter((p) => p.participant_status !== "removed");
@@ -712,6 +710,7 @@ export async function getBookingConsentStatus({ supabaseClient, bookingId }) {
     signedParticipants: signed,
     pendingParticipants: Math.max(0, total - signed),
     templateCompliant: true,
+    activeTemplateVersion: getActiveConsentTemplate().version,
     participants: list.map((p) => ({
       participant_id: p.id,
       full_name: p.full_name || p.display_name,
@@ -738,13 +737,14 @@ export async function getConsentById({ supabaseClient, consentId, authUser, auth
   const supa = getClient(supabaseClient);
   const { data: consent, error } = await supa
     .from("informed_consents")
-    .select("*,booking_participants(*),bookings(*),consent_templates(*)")
+    .select("*,booking_participants(*),bookings(*)")
     .eq("id", consentId)
     .maybeSingle();
 
   if (error || !consent) {
     throw new Error("Consent record not found");
   }
+  consent.consent_templates = templateForVersion(consent.consent_statement_version);
 
   const hasAccess = assertConsentAccess({
     consent,
@@ -1325,7 +1325,7 @@ export async function validateGuestCapabilityState({
   // 4. Verify consent record
   const { data: consent, error: cErr } = await supa
     .from("informed_consents")
-    .select("*,consent_templates(*)")
+    .select("*")
     .eq("id", consentId)
     .eq("booking_participant_id", participantId)
     .maybeSingle();
@@ -1972,7 +1972,7 @@ export async function getGuestConsent({ supabaseClient, guestCapability }) {
 
   const { data: consent, error: cErr } = await supa
     .from("informed_consents")
-    .select("*,consent_templates(*),booking_participants(*)")
+    .select("*,booking_participants(*)")
     .eq("id", consentId)
     .eq("booking_participant_id", participantId)
     .maybeSingle();
@@ -1986,7 +1986,7 @@ export async function getGuestConsent({ supabaseClient, guestCapability }) {
   return {
     consent,
     participant: consent.booking_participants,
-    template: consent.consent_templates,
+    template: templateForVersion(consent.consent_statement_version),
   };
 }
 

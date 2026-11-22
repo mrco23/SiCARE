@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -509,11 +510,9 @@ export default function AdminPeriodePage() {
                         {fmtDate(p.end)}
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${STATUS_STYLE[st]}`}
-                        >
+                        <Badge bordered className={STATUS_STYLE[st]}>
                           {st}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="px-6 py-4">
                         <button

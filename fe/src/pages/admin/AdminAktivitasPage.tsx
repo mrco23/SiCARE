@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -442,21 +443,17 @@ export default function AdminActivityPage() {
                 >
                   <div className="min-w-0 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${meta.badgeClass}`}
-                      >
+                      <Badge bordered className={meta.badgeClass}>
                         {meta.label}
-                      </span>
-                      <span
-                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${statusInfo.badgeClass}`}
-                      >
+                      </Badge>
+                      <Badge bordered className={statusInfo.badgeClass}>
                         {statusInfo.label}
-                      </span>
+                      </Badge>
                       {item.review_status && (
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                        <Badge size="xs" weight="semibold" bordered className="border-slate-200 bg-slate-50 text-slate-600">
                           {REVIEW_LABELS[item.review_status] ??
                             item.review_status}
-                        </span>
+                        </Badge>
                       )}
                       <span className="font-mono text-xs font-semibold text-slate-400">
                         #{shortEntityId}

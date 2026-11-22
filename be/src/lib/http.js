@@ -12,11 +12,6 @@ export function asyncHandler(handler) {
   return (request, response, next) => Promise.resolve(handler(request, response, next)).catch(next);
 }
 
-export function requireData(data, message = "Data tidak ditemukan.") {
-  if (!data) throw new HttpError(404, "NOT_FOUND", message);
-  return data;
-}
-
 export function parseBody(schema, body) {
   const result = schema.safeParse(body);
   if (!result.success) {

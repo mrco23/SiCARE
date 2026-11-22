@@ -8,10 +8,21 @@ import { HttpError } from "../lib/http.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Official template constant metadata
+// Official template constant metadata. Ini satu-satunya sumber kebenaran template Informed
+// Consent (tabel consent_templates sudah dihapus). Untuk merilis versi baru: ganti berkas PDF,
+// perbarui VERSION dan SHA256 di sini. informed_consents.consent_statement_version mencatat
+// versi yang ditandatangani tiap peserta.
 export const OFFICIAL_TEMPLATE_SHA256 = "59012141d8a54336928a4c076d9d0ad7276bbbc36064c37d9654cc031f14cd8f";
 export const OFFICIAL_TEMPLATE_CODE = "SICARE_IC_STD";
 export const OFFICIAL_TEMPLATE_VERSION = "v1.0";
+export const OFFICIAL_TEMPLATE_TITLE = "INFORMED CONSENT (Surat Pernyataan Kesediaan)";
+
+export const OFFICIAL_CONSENT_TEMPLATE = Object.freeze({
+  template_code: OFFICIAL_TEMPLATE_CODE,
+  version: OFFICIAL_TEMPLATE_VERSION,
+  title: OFFICIAL_TEMPLATE_TITLE,
+  file_sha256: OFFICIAL_TEMPLATE_SHA256,
+});
 
 // Deterministic coordinate mapping onto the official A4 (595.3 x 841.9 pt) single-page template
 export const CONSENT_PDF_COORDINATES = {
@@ -157,7 +168,7 @@ export function validateSignaturePng(signatureBuffer) {
 export async function loadOfficialTemplatePdf(customPath = null) {
   const templatePath =
     customPath ||
-    path.resolve(__dirname, "../../../docs/reference/infromed-consent/informed-consent.pdf");
+    path.resolve(__dirname, "../../assets/informed-consent.pdf");
 
   const bytes = await fs.readFile(templatePath);
   const actualHash = crypto.createHash("sha256").update(bytes).digest("hex");

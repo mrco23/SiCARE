@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import type { ReactNode } from "react";
 import { Briefcase, GraduationCap, Presentation } from "lucide-react";
 
@@ -9,11 +8,6 @@ export type GuideStep = {
   numClass: string;
   desc: string;
 };
-
-export const DEFAULT_GUIDE_DESC =
-  "Informasi tahapan prosedur bimbingan konseling di SiCARE untuk kenyamanan dan kejelasan proses konseli.";
-
-export const LOREM_LONG = DEFAULT_GUIDE_DESC;
 
 export const audiences: { title: string; icon: ReactNode; desc: string }[] = [
   {

@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
@@ -158,9 +159,9 @@ function isInAcademicPeriod(iso: string, period: PublicAcademicPeriod) {
 
 function StatusPill({ label, style }: { label: string; style: string }) {
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${style}`}>
+    <Badge size="md" weight="semibold" className={style}>
       {label}
-    </span>
+    </Badge>
   );
 }
 

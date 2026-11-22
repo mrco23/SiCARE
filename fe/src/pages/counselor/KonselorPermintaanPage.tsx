@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -324,24 +325,14 @@ export default function KonselorPermintaanPage() {
                       <h2 className="text-lg font-bold text-gray-900">
                         {formatBookingClientTitle(selectedBooking)}
                       </h2>
-                      <span
-                        className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                          getStatusBadge(selectedBooking.status).className
-                        }`}
-                      >
+                      <Badge size="md" weight="semibold" bordered className={getStatusBadge(selectedBooking.status).className}>
                         {getStatusBadge(selectedBooking.status).label}
-                      </span>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          selectedBooking.service_type === "group"
-                            ? "bg-purple-50 text-purple-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
+                      </Badge>
+                      <Badge size="md" weight="semibold" className={selectedBooking.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}>
                         {selectedBooking.service_type === "group"
                           ? `Kelompok (${selectedBooking.participant_count} orang)`
                           : "Individu"}
-                      </span>
+                      </Badge>
                     </div>
                     <p className="mt-1 text-xs text-gray-500">
                       ID Booking: <code className="font-mono">{selectedBooking.id}</code> · Diajukan{" "}
@@ -441,9 +432,9 @@ export default function KonselorPermintaanPage() {
                             {idx + 1}. {participant.display_name}
                           </span>
                           {participant.is_representative && (
-                            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-800">
+                            <Badge weight="semibold" className="bg-purple-100 text-purple-800">
                               Perwakilan
-                            </span>
+                            </Badge>
                           )}
                         </li>
                       ))}
@@ -539,13 +530,9 @@ export default function KonselorPermintaanPage() {
                     }`}
                   >
                     <span>{label}</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                        active ? "bg-white/20 text-white" : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
+                    <Badge className={active ? "bg-white/20 text-white" : "bg-gray-100 text-gray-700"}>
                       {count}
-                    </span>
+                    </Badge>
                   </button>
                 );
               })}
@@ -639,28 +626,20 @@ export default function KonselorPermintaanPage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-bold text-gray-900">{title}</p>
-                              <span
-                                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badge.className}`}
-                              >
+                              <Badge size="md" weight="semibold" bordered className={badge.className}>
                                 {badge.label}
-                              </span>
+                              </Badge>
                               {hasUrgentIntake(booking.intake_answers) && (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                                <Badge size="md" weight="semibold" bordered className="border-red-300 bg-red-50 text-red-700">
                                   <AlertCircle className="h-3.5 w-3.5" />
                                   {URGENT_INTAKE_LABEL}
-                                </span>
+                                </Badge>
                               )}
-                              <span
-                                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                  booking.service_type === "group"
-                                    ? "bg-purple-50 text-purple-700"
-                                    : "bg-gray-100 text-gray-700"
-                                }`}
-                              >
+                              <Badge size="md" weight="semibold" className={booking.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}>
                                 {booking.service_type === "group"
                                   ? `Kelompok · ${booking.participant_count} orang`
                                   : "Individu"}
-                              </span>
+                              </Badge>
                             </div>
 
                             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">

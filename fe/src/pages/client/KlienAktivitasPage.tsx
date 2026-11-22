@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
 import {
   SkeletonList,
@@ -222,11 +223,9 @@ const SectionHeader = ({
         <p className="mt-0.5 text-xs text-gray-500">{description}</p>
       </div>
       {count !== undefined && count > 0 && (
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${badgeClass}`}
-        >
+        <Badge size="md" className={`shrink-0 ${badgeClass}`}>
           {count}
-        </span>
+        </Badge>
       )}
     </div>
   );
@@ -920,9 +919,9 @@ export default function KlienAktivitasPage() {
         }`}
       >
         {isNext && (
-          <span className="mb-3 inline-block rounded-full bg-[#1e5b3a] px-2.5 py-1 text-[11px] font-semibold text-white">
+          <Badge weight="semibold" className="mb-3 bg-[#1e5b3a] text-white">
             Sesi berikutnya · {countdown(session.start.getTime() - now)}
-          </span>
+          </Badge>
         )}
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

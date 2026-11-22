@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import { EXPIRED_BOOKING_LABEL, MISSED_SESSION_LABEL } from "../../lib/sessionStatus";
 import {
   useCallback,
@@ -1219,17 +1220,9 @@ export default function CounselingReportView({
                       <td className="px-4 py-3">{row.deliveryFormat}</td>
                       <td className="px-4 py-3">{row.counselor}</td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            row.outcome === "Selesai"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : row.outcome === "Dibatalkan"
-                                ? "bg-red-50 text-red-700"
-                                : "bg-amber-50 text-amber-800"
-                          }`}
-                        >
+                        <Badge size="md" weight="semibold" className={row.outcome === "Selesai" ? "bg-emerald-50 text-emerald-700" : row.outcome === "Dibatalkan" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}>
                           {row.outcome}
-                        </span>
+                        </Badge>
                       </td>
                     </tr>
                   ))

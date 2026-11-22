@@ -23,3 +23,5 @@ export {
 export { default as ToastProvider } from "./Toast";
 export { useToast } from "./useToast";
 export type { ToastApi, ToastVariant } from "./useToast";
+export { default as Badge } from "./Badge";
+export type { BadgeSize, BadgeTone } from "./Badge";

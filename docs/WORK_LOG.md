@@ -2227,3 +2227,95 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - Beranda Konselor memakai `ready={profile !== null || !loading}`. Bila jenis kelamin tidak ada, sapaan netral "Halo" diketik setelah data selesai. Bila pemuatan gagal, sapaan tetap tampil setelah `loading` selesai.
   - Beranda Klien memakai `ready={Boolean(profile) || !authLoading}`.
 - **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Simulasi di dev server dengan data tiba setelah 1,5 detik: 0–1,3 s hanya kursor; mulai 1,5 s mengetik "Halo ma'am, Dr. Rina" satu kali tanpa pengulangan.
+
+## 2026-11-19 — Hapus tabel consent_templates, template consent menjadi konstanta backend
+
+- **Keputusan (pengguna):** tabel `consent_templates` dihapus; versi template Informed Consent disimpan sebagai konstanta di backend. Sebelumnya isi PDF memang sudah dibaca dari berkas lokal dan diverifikasi terhadap konstanta SHA-256; tabel hanya menyimpan metadata, dan kolom `storage_bucket`/`storage_path` tidak dipakai kode.
+- **Migrasi baru `supabase/migrations/20261119120000_sicare_drop_consent_templates.sql`:**
+  - pengaman: batal bila ada `informed_consents.consent_statement_version` yang berbeda dari versi template yang direferensikan;
+  - trigger `prohibit_signed_consent_tampering` dibuat ulang tanpa `consent_template_id`; `consent_statement_version` tetap imutabel setelah `signed`;
+  - `sicare_check_booking_consent_readiness` tidak membaca `consent_templates`; RPC mengembalikan `consent_statement_version` per peserta, tanpa `active_template_version`/`template_compliant`. Aturan `is_fully_consented` tidak berubah;
+  - index unik aktif dipindah ke `(booking_participant_id, consent_statement_version)`; kolom `consent_template_id` dihapus; default `'v1.0'` pada `consent_statement_version` dihapus dan diberi check panjang 1–32;
+  - tabel `consent_templates` dihapus. Bucket `informed-consent-templates` dan policy storage-nya tidak disentuh.
+- **Backend:**
+  - `consentPdf.service.js`: konstanta `OFFICIAL_TEMPLATE_TITLE` dan `OFFICIAL_CONSENT_TEMPLATE` (frozen).
+  - `consent.service.js`: `getActiveConsentTemplate()` kini sinkron dan mengembalikan konstanta; parameter `templateId` di `initializeConsentForParticipant` dihapus (tidak ada pemanggil); idempotensi memakai `consent_statement_version`; join `consent_templates(*)` diganti metadata dari konstanta. Respons `consent_templates` (detail consent) dan `template` (consent tamu) tetap ada, tanpa `id`; untuk versi lama `title`/`file_sha256` bernilai `null`.
+  - `getBookingConsentStatus`: `templateCompliant` dihitung backend (kelompok dengan consent bertanda tangan versi lama = `false`, individu selalu `true`, sama dengan perilaku RPC sebelumnya); respons menambah `activeTemplateVersion` dan `participants[].template_compliant`.
+  - `database.types.ts` diedit manual (belum di-generate ulang karena migrasi belum diterapkan).
+  - Seed `seed-dummy-current-period.sql` mengisi `consent_statement_version = 'v1.0'`; komentar `reset-transactional-data.sql` diperbarui.
+- **Frontend:** `InformedConsentDto` tanpa `consent_template_id`; `consent_templates` tanpa `id`, `title`/`file_sha256` nullable. Tidak ada komponen yang memakai field tersebut.
+- **Tes:** `consentTemplateDrop.test.js` baru (7 tes migrasi dan konstanta); `consentFoundation`, `consentSecurity` (tes 18 memakai `consent_statement_version`), dan `groupConsent` disesuaikan.
+- **Pemeriksaan:**
+  - `be: npm test` 342/343 PASS. Satu FAIL sama dengan baseline sebelum perubahan (`heroMotivations.test.js`: "admin settings manages one motivational sentence per input", tidak terkait).
+  - `be: npm run check` PASS (82 berkas), `be: npm run typecheck` PASS.
+  - `fe: tsc -b`, `lint`, `build` PASS.
+  - Migrasi pada Postgres/Supabase nyata **NOT RUN** (tidak ada database lokal; tidak ada mutasi remote).
+- **Baseline issue ditemukan (tidak diubah):** `GET /consents/booking/:bookingId/readiness` mengirim camelCase (`isFullyConsented`, `pendingParticipants`), sedangkan `BookingConsentReadinessDto` dan `KonselorAktivitasPage` membaca snake_case (`is_fully_consented`, `pending_participants`). Akibatnya `consentBlockReason` selalu mengembalikan alasan "Menunggu peserta menandatangani informed consent." walaupun consent sudah lengkap.
+- **Langkah berikutnya:** terapkan migrasi ke database non-produksi, jalankan `npm run db:types`, uji tanda tangan consent individu dan kelompok, lalu rilis backend dan migrasi bersamaan.
+
+## 2026-11-22 — Seed dummy terarah untuk semester berjalan
+
+- **Permintaan pengguna:** ganti seed acak dengan data dummy terarah: 4 konseling selesai + feedback, 2 konseling diurungkan, 3 jadwal kosong per konselor, dan notifikasi terkait; ditambah saran alur aktif.
+- **Perubahan:** `be/scripts/seed-dummy-current-period.sql` ditulis ulang. 4 klien dummy (`klien01..04@sicare-dummy.test`); skenario C1–C4 (3 individu + 1 kelompok, rating 5/4/4/3, moderasi shown/shown/pending/disabled, consent signed, catatan sesi `[DUMMY]`), X1 (dibatalkan klien saat menunggu konfirmasi), X2 (sesi dibatalkan konselor), opsional W1 (menunggu konfirmasi) dan U1 (terkonfirmasi, consent pending) lewat `c_include_active_flows`; 3 slot kosong mendatang per konselor aktif/publik. Notifikasi memakai type yang dibuat RPC (`booking.created`, `booking.submitted`, `booking.confirmed`, `booking.cancelled`, `session.cancelled`, `session.completed`, `feedback.submitted` ke admin/Kepala LMI); slot kosong tidak diberi notifikasi karena jenisnya tidak ada. Consent memakai `consent_statement_version = 'v1.0'` (pasca migrasi `20261119120000`).
+- **Pemeriksaan:** **NOT RUN** di database mana pun (Postgres/Docker lokal tidak tersedia); ditinjau manual terhadap constraint dan trigger. Jalankan hanya di project non-produksi setelah `reset-transactional-data.sql`.
+
+## 2026-11-22 — Penyesuaian template WhatsApp
+
+- `be/src/templates/whatsapp/index.js`:
+  - `booking-accepted`: baris Format dihapus. Ruangan tetap disebut bila ada.
+  - `session-reminder-h1`: baris Format dan Tautan dihapus. Untuk sesi tatap muka, ruangan tetap disebut.
+  - `session-reminder-morning`: baris Format dihapus.
+  - Emoji 🙂 diganti 😇.
+  - Template lain tidak berubah.
+- **Pemeriksaan:** tes WhatsApp **47/47 PASS**; pratinjau render keempat kasus sudah diperiksa.
+
+## 2026-11-22 — Perbaikan skrip reset & seed; komposisi akun dummy 70/30
+
+- **Permintaan pengguna:** perbaiki seed dan reset; akun test 70% mahasiswa dan 30% dosen/staf. Sebelumnya seed gagal di Supabase (`consent_template_id` not-null) karena database belum menerapkan `20261119120000_sicare_drop_consent_templates.sql`.
+- **Reset:** TRUNCATE dinamis hanya untuk tabel yang ada (tabel yang belum dimigrasi dilewati dan dilaporkan), verifikasi jumlah baris 0 setelahnya, opsi hapus akun `@sicare-dummy.test` (dikomentari).
+- **Seed:** 10 akun klien dummy `klien01..10` (7 `student` dengan NIM dummy, 3 `faculty_staff` dengan NIP dummy, gelar/jabatan dan pendidikan sesuai); skenario C2/U1 dosen dan X1 staf; teks intake menyesuaikan kategori. Prasyarat kolom diperiksa dengan pesan jelas; `booking_intakes`/`session_notes` dilewati bila tabelnya belum ada; consent mengisi `consent_template_id` lewat SQL dinamis bila kolom itu masih ada.
+- **Pemeriksaan:** **NOT RUN** di database (tidak ada Postgres lokal); hanya pemeriksaan keseimbangan blok/kurung dan tinjauan manual.
+
+## 2026-11-22 — Label kategori klien di Admin Akun
+
+- **Masalah:** `AdminAkunPage.tsx` memetakan `member_category: faculty_staff` ke label "Dosen" dan `other` ke "Staff". Padahal form Daftar menyebut kategori `faculty_staff` sebagai "Dosen / Staff", sehingga staf tampil sebagai dosen.
+- **Perubahan:** label menjadi "Dosen / Staff" untuk `faculty_staff` dan "Lainnya" untuk `other` (`types/admin.ts` ikut diperbarui). Data dan kontrak API tidak berubah.
+- **Pemeriksaan:** `fe: tsc -b`, `lint` **PASS**.
+
+## 2026-11-22 — Komponen Badge bersama
+
+- **Komponen baru `fe/src/components/shared/Badge.tsx`** (juga diekspor dari `components/shared/index.ts`). Prop:
+  - `size`: `xs` 10px, `sm` 11px (default), `md` 12px;
+  - `weight`: `bold` atau `semibold`;
+  - `bordered`, `icon`, `title`;
+  - `tone`: 14 warna bawaan, termasuk `gold` (emas Lasallian);
+  - `className`: untuk warna khusus halaman, misalnya peta status yang sudah ada.
+- **Migrasi:** 63 badge inline di 18 file kini memakai `<Badge>`, dengan warna masing-masing tetap dipertahankan. File: dashboard admin dan Kepala LMI, kartu konselor, intake, moderasi feedback, laporan, filter periode, Admin Aktivitas/Akun/Konseling/Periode, Aktivitas/Riwayat Klien, Aktivitas/Beranda/Permintaan/Riwayat Konselor, Mood Check.
+  - Tidak dimigrasi: tombol dan tab yang bergaya mirip badge (Feedback Konselor, Jadwal Konselor, dll.) serta badge Admin Pengaturan yang memakai `hidden sm:inline-block`.
+- **Konsekuensi visual kecil:** padding kini seragam per ukuran (mis. beberapa badge 11px yang sebelumnya `py-0.5` menjadi `py-1`, dan badge 12px yang sebelumnya `py-1` menjadi `py-0.5`). Badge role di modal Admin Akun kini sama dengan badge di tabel.
+- **Warna role Admin Akun:** `ROLE_STYLE` diganti `ROLE_TONE`. Kepala LMI memakai `gold` agar berbeda dari Dosen / Staff (`indigo`); sebelumnya violet, mirip indigo.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Badge role, ukuran, dan semua tone dirender di dev server dan diperiksa lewat screenshot. Halaman yang dimigrasi (butuh login) tidak dibuka satu per satu.
+
+## 2026-11-22 — Halaman publik Profil Konselor
+
+- **Prototype:** `docs/prototypes/profil-konselor.html` (Tailwind CDN, data fiktif) disetujui pengguna. `.claude/launch.json` mendapat konfigurasi `prototype` (server statis `docs/prototypes`, port 5500) untuk membukanya.
+- **`fe/src/pages/public/CounselorPage.tsx` ditulis ulang mengikuti prototype.** Sumber data dan endpoint tidak berubah.
+  - **Kartu ringkas:**
+    - foto bulat bercincin emas (96/128/144 px untuk mobile/tablet/desktop), dengan inisial bila foto tidak ada atau gagal dimuat, dan titik hijau bila ada jadwal;
+    - nama, jabatan, dan pengalaman;
+    - maksimal 3 topik lalu "+N";
+    - ringkasan "Jadwal terdekat · N slot tersedia".
+    - Di mobile, foto ditumpuk di atas nama dan isi kartu rata tengah.
+  - **Buka/tutup:** animasi `grid-rows` seperti FAQ (`aria-expanded`, `aria-controls`, `inert` saat tertutup, tanpa animasi untuk `prefers-reduced-motion`). Beberapa kartu dapat terbuka sekaligus.
+  - **Isi kartu:**
+    - Kiri: bio, pengalaman, bidang, dan semua topik.
+    - Kanan: jadwal berupa chip tanggal per hari WITA (dengan jumlah slot) dan pil jam untuk tanggal terpilih.
+    - Tombol "Booking dengan konselor ini" mengarah ke `/klien/pesanan` dengan `state.counselorProfileId`; halaman pesanan sudah mendukung prapilih ini.
+  - **Loading:** skeleton kartu menggantikan teks "Memuat...". Topik memakai komponen `Badge`.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Halaman asli diuji di dev server dengan respons API tiruan (fetch di-mock di tab uji):
+  - dua kartu terbuka bersamaan;
+  - klik chip tanggal mengganti daftar jam;
+  - kartu tertutup `inert`;
+  - tautan booking ada;
+  - mobile 375px tanpa overflow.
+- **Catatan:** pengunjung yang belum login diarahkan ke halaman login, dan prapilih konselor tidak terbawa setelah login (`RouteGuards` hanya menyimpan `from`).

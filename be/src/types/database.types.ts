@@ -511,68 +511,6 @@ export type Database = {
           },
         ]
       }
-      consent_templates: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          description: string | null
-          effective_at: string
-          file_sha256: string
-          file_size_bytes: number
-          id: string
-          is_active: boolean
-          mime_type: string
-          storage_bucket: string
-          storage_path: string
-          template_code: string
-          title: string
-          updated_at: string
-          version: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          effective_at?: string
-          file_sha256: string
-          file_size_bytes: number
-          id?: string
-          is_active?: boolean
-          mime_type?: string
-          storage_bucket?: string
-          storage_path?: string
-          template_code?: string
-          title?: string
-          updated_at?: string
-          version?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          effective_at?: string
-          file_sha256?: string
-          file_size_bytes?: number
-          id?: string
-          is_active?: boolean
-          mime_type?: string
-          storage_bucket?: string
-          storage_path?: string
-          template_code?: string
-          title?: string
-          updated_at?: string
-          version?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "consent_templates_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       counseling_sessions: {
         Row: {
           booking_id: string
@@ -802,7 +740,6 @@ export type Database = {
           booking_id: string
           booking_participant_id: string
           consent_statement_version: string
-          consent_template_id: string
           created_at: string
           id: string
           identity_snapshot: Json
@@ -824,8 +761,7 @@ export type Database = {
         Insert: {
           booking_id: string
           booking_participant_id: string
-          consent_statement_version?: string
-          consent_template_id: string
+          consent_statement_version: string
           created_at?: string
           id?: string
           identity_snapshot?: Json
@@ -848,7 +784,6 @@ export type Database = {
           booking_id?: string
           booking_participant_id?: string
           consent_statement_version?: string
-          consent_template_id?: string
           created_at?: string
           id?: string
           identity_snapshot?: Json
@@ -880,13 +815,6 @@ export type Database = {
             columns: ["booking_participant_id"]
             isOneToOne: false
             referencedRelation: "booking_participants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "informed_consents_consent_template_id_fkey"
-            columns: ["consent_template_id"]
-            isOneToOne: false
-            referencedRelation: "consent_templates"
             referencedColumns: ["id"]
           },
           {

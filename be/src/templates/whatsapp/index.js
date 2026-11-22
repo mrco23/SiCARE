@@ -195,7 +195,7 @@ ${SIGNATURE}`
     const counselorName = vars.counselor_name || "Konselor";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
     const { date, time } = sessionWhen(vars);
-    const { sessionFormat, roomInfo, formatIcon } = describeFormatAndRoom(vars.session_format, vars.room);
+    const { roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
 
     return (
 `Halo ${clientName} 👋
@@ -207,7 +207,6 @@ Permintaan konseling Anda telah dikonfirmasi.
 👤 Konselor: ${counselorName}
 📅 Tanggal: ${date}
 ⏰ Waktu: ${time}
-${formatIcon} Format: ${sessionFormat}
 ${roomInfo}
 👉 Silakan buka website SiCARE untuk melihat detail booking Anda.
 
@@ -284,7 +283,9 @@ ${SIGNATURE}`
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
     const { date, time } = sessionWhen(vars);
-    const { sessionFormat, roomInfo, formatIcon } = describeFormatAndRoom(vars.session_format, vars.room);
+    // Format dan tautan sesi tidak dicantumkan; ruangan tetap disebut untuk sesi tatap muka.
+    const { roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
+    const roomLine = vars.session_format === "online" ? "" : roomInfo;
 
     return (
 `Halo ${recipientName} 👋
@@ -296,9 +297,8 @@ Anda memiliki jadwal sesi konseling besok di SiCARE.
 👤 Dengan: ${partnerName}
 📅 Tanggal: ${date}
 ⏰ Waktu: ${time}
-${formatIcon} Format: ${sessionFormat}
-${roomInfo}
-🙂 Mohon hadir tepat waktu sesuai jadwal yang disepakati.
+${roomLine}
+😇 Mohon hadir tepat waktu sesuai jadwal yang disepakati.
 
 ${SIGNATURE}`
     );
@@ -309,7 +309,7 @@ ${SIGNATURE}`
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
     const { time } = sessionWhen(vars);
-    const { sessionFormat, roomInfo, formatIcon } = describeFormatAndRoom(vars.session_format, vars.room);
+    const { roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
 
     return (
 `Halo ${recipientName} 👋
@@ -320,9 +320,8 @@ Anda memiliki jadwal sesi konseling hari ini di SiCARE.
 🔖 Nomor Booking: ${ref}
 👤 Dengan: ${partnerName}
 ⏰ Waktu: ${time}
-${formatIcon} Format: ${sessionFormat}
 ${roomInfo}
-🙂 Mohon hadir tepat waktu. Detail sesi dapat dilihat di website SiCARE.
+😇 Mohon hadir tepat waktu. Detail sesi dapat dilihat di website SiCARE.
 
 ${SIGNATURE}`
     );

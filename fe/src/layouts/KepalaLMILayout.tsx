@@ -11,7 +11,6 @@ import {
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import NotificationBell from "../components/shared/NotificationBell";
 import NavbarProfileDropdown from "../components/shared/NavbarProfileDropdown";
-import { DEMO_NOTIFICATION_RECIPIENTS } from "../features/notification/notificationStore";
 
 type MenuItem = {
   label: string;
@@ -182,7 +181,6 @@ function Navbar() {
       <div className="absolute right-[174px] top-1/2 -translate-y-1/2 z-40 flex items-center">
         <NotificationBell
           role="headlmi"
-          recipientId={DEMO_NOTIFICATION_RECIPIENTS.headlmi}
           wrapperClassName="relative shrink-0"
           buttonClassName="flex h-9 w-9 items-center justify-center rounded-full text-slate-700 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         />

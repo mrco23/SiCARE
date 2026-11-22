@@ -9,28 +9,6 @@ export interface ClientCounselorIdentity {
   initials: string;
 }
 
-export const CLIENT_COUNSELOR_IDENTITIES: Record<
-  ClientCounselorKey,
-  ClientCounselorIdentity
-> = {
-  GY: {
-    entityId: "counselor-giovanna-yudi",
-    id: 1,
-    key: "GY",
-    name: "Giovanna Yudi, S.Psi., M.Psi., Psikolog",
-    historyName: "Giovanna Yudi, S.Psi., M.Psi.",
-    initials: "GY",
-  },
-  RW: {
-    entityId: "counselor-rico-kornelius-wahani",
-    id: 2,
-    key: "RW",
-    name: "Rico Kornelius Wahani, S.Psi., M.Psi., Psikolog",
-    historyName: "Rico Kornelius Wahani, S.Psi., M.Psi.",
-    initials: "RW",
-  },
-};
-
 export interface CounselorEducation {
   school: string;
   year: string;

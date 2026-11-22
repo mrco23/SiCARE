@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
@@ -631,17 +632,9 @@ function CounselorPanel({
                       · {s.durasi} menit
                     </p>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                      s.outcome === "completed"
-                        ? "bg-emerald-50 text-[#15803d]"
-                        : s.outcome === "cancelled"
-                          ? "bg-rose-50 text-rose-600"
-                          : "bg-amber-50 text-amber-700"
-                    }`}
-                  >
+                  <Badge size="xs" className={`shrink-0 ${ s.outcome === "completed" ? "bg-emerald-50 text-[#15803d]" : s.outcome === "cancelled" ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-700" }`}>
                     {s.statusLabel}
-                  </span>
+                  </Badge>
                 </button>
               ))
             ) : (
@@ -1083,13 +1076,13 @@ export default function AdminKonselingPage() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3.5">
                         {s.type === "individu" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-sky-100 bg-sky-50 px-2 py-1 text-[10px] font-bold text-sky-700">
+                          <Badge size="xs" bordered className="border-sky-100 bg-sky-50 text-sky-700">
                             <User className="h-3 w-3" /> Individu
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
+                          <Badge size="xs" bordered className="border-violet-100 bg-violet-50 text-violet-700">
                             <Users className="h-3 w-3" /> Kelompok
-                          </span>
+                          </Badge>
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-500">
@@ -1097,14 +1090,14 @@ export default function AdminKonselingPage() {
                       </td>
                       <td className="px-6 py-3.5">
                         {s.outcome === "completed" ? (
-                          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-[#15803d]">
+                          <Badge size="xs" bordered className="border-emerald-100 bg-emerald-50 text-[#15803d]">
                             {s.statusLabel}
-                          </span>
+                          </Badge>
                         ) : s.outcome === "cancelled" ? (
                           <div className="space-y-1">
-                            <span className="rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700">
+                            <Badge size="xs" bordered className="border-rose-100 bg-rose-50 text-rose-700">
                               {s.statusLabel}
-                            </span>
+                            </Badge>
                             {s.reason && (
                               <p className="text-[11px] text-slate-400">
                                 {s.reason}
@@ -1112,10 +1105,10 @@ export default function AdminKonselingPage() {
                             )}
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800">
+                          <Badge size="xs" bordered className="border-amber-200 bg-amber-50 text-amber-800">
                             <Clock className="h-3 w-3" />
                             {s.statusLabel}
-                          </span>
+                          </Badge>
                         )}
                       </td>
                     </tr>
@@ -1195,30 +1188,16 @@ export default function AdminKonselingPage() {
         {sesi && (
           <div className="flex-1 space-y-5 overflow-y-auto p-6">
             <div className="flex flex-wrap gap-2">
-              <span
-                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                  sesi.type === "individu"
-                    ? "bg-sky-50 text-sky-700"
-                    : "bg-violet-50 text-violet-700"
-                }`}
-              >
+              <Badge size="xs" className={sesi.type === "individu" ? "bg-sky-50 text-sky-700" : "bg-violet-50 text-violet-700"}>
                 {sesi.type === "individu" ? "Individu" : "Kelompok"}
-              </span>
-              <span
-                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                  sesi.outcome === "completed"
-                    ? "bg-emerald-50 text-[#15803d]"
-                    : sesi.outcome === "cancelled"
-                      ? "bg-rose-50 text-rose-700"
-                      : "bg-amber-50 text-amber-800"
-                }`}
-              >
+              </Badge>
+              <Badge size="xs" className={sesi.outcome === "completed" ? "bg-emerald-50 text-[#15803d]" : sesi.outcome === "cancelled" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-800"}>
                 {sesi.statusLabel}
-              </span>
+              </Badge>
               {sesi.format && (
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                <Badge size="xs" className="bg-slate-100 text-slate-600">
                   {sesi.format}
-                </span>
+                </Badge>
               )}
             </div>
 

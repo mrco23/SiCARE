@@ -176,28 +176,3 @@ export async function verifyCounselorHistoryPasswordWithServer(
     return { status: "error", message: "Gagal memverifikasi kata sandi dengan server." };
   }
 }
-
-/**
- * Changes history password in backend database.
- */
-export async function changeCounselorHistoryPassword(
-  currentPassword: string,
-  nextPassword: string,
-  confirmPassword = nextPassword,
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const res = await counselorApi.changeHistoryPassword({
-      current_password: currentPassword,
-      new_password: nextPassword,
-      confirm_password: confirmPassword,
-    });
-    clearCounselorHistoryAccess();
-    clearCounselorHistoryAttempts();
-    return res;
-  } catch (err: unknown) {
-    if (err instanceof ApiError) {
-      return { success: false, message: err.message };
-    }
-    return { success: false, message: "Gagal memperbarui kata sandi riwayat." };
-  }
-}

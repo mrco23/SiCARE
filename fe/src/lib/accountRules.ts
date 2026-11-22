@@ -107,10 +107,6 @@ export function toIndonesianE164(raw: string): string {
   return digits ? `${PHONE_COUNTRY_PREFIX}${digits}` : "";
 }
 
-export function isValidIndonesianPhone(raw: string): boolean {
-  return INDONESIAN_PHONE_E164_RE.test(toIndonesianE164(raw));
-}
-
 export function validateIndonesianPhone(raw: string, { required = false } = {}): string {
   const e164 = toIndonesianE164(raw);
   if (!e164) return required ? "Nomor telepon wajib diisi." : "";

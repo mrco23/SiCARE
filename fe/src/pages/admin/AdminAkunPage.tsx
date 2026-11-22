@@ -1,3 +1,4 @@
+import Badge, { type BadgeTone } from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -92,13 +93,14 @@ const ROLES: Role[] = ["Konselor", "Kepala LMI"];
 // Akun admin sengaja tidak ditampilkan di halaman ini (tanpa tab maupun baris).
 const TABS: Tab[] = ["Semua", "Konselor", "Klien", "Kepala LMI"];
 
-const ROLE_STYLE: Record<Role, string> = {
-  Konselor: "bg-primary-subtle text-primary border-emerald-100",
-  Mahasiswa: "bg-sky-50 text-sky-700 border-sky-100",
-  Dosen: "bg-indigo-50 text-indigo-700 border-indigo-100",
-  Staff: "bg-teal-50 text-teal-700 border-teal-100",
-  "Kepala LMI": "bg-violet-50 text-violet-700 border-violet-100",
-  Admin: "bg-amber-50 text-amber-700 border-amber-100",
+// Kepala LMI memakai emas Lasallian agar jelas berbeda dari badge Dosen / Staff (indigo).
+const ROLE_TONE: Record<Role, BadgeTone> = {
+  Konselor: "primary",
+  Mahasiswa: "sky",
+  "Dosen / Staff": "indigo",
+  Lainnya: "teal",
+  "Kepala LMI": "gold",
+  Admin: "warning",
 };
 
 const STATUS_LABEL: Record<AccountStatusApi, string> = {
@@ -112,8 +114,9 @@ function mapDtoToUiRole(dto: AdminAccountRecordDto): Role {
   if (dto.app_role === "counselor") return "Konselor";
   if (dto.app_role === "head_lmi") return "Kepala LMI";
   if (dto.app_role === "admin") return "Admin";
-  if (dto.member_category === "faculty_staff") return "Dosen";
-  if (dto.member_category === "other") return "Staff";
+  // Sama dengan label kategori di form Daftar: "faculty_staff" = Dosen / Staff.
+  if (dto.member_category === "faculty_staff") return "Dosen / Staff";
+  if (dto.member_category === "other") return "Lainnya";
   return "Mahasiswa";
 }
 
@@ -208,15 +211,9 @@ function LicenseBadge({ validUntil }: { validUntil: string }) {
   const expiry = getLicenseExpiry(validUntil);
   if (!expiry || expiry.state === "valid") return null;
   return (
-    <span
-      className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${
-        expiry.state === "expired"
-          ? "border-red-200 bg-red-50 text-red-700"
-          : "border-amber-200 bg-amber-50 text-amber-800"
-      }`}
-    >
+    <Badge bordered className={expiry.state === "expired" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-800"}>
       {expiry.label}
-    </span>
+    </Badge>
   );
 }
 
@@ -684,9 +681,9 @@ export default function AdminAkunPage() {
                             <p className="font-semibold">
                               {a.name}
                               {isSelf && (
-                                <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-primary">
+                                <Badge size="xs" className="ml-2 bg-emerald-50 text-primary">
                                   Anda
-                                </span>
+                                </Badge>
                               )}
                             </p>
                             <p className="text-xs text-slate-400">{a.email}</p>
@@ -698,11 +695,9 @@ export default function AdminAkunPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span
-                            className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${ROLE_STYLE[a.role]}`}
-                          >
+                          <Badge bordered tone={ROLE_TONE[a.role]}>
                             {a.role}
-                          </span>
+                          </Badge>
                           {a.appRole === "counselor" && (
                             <LicenseBadge validUntil={a.sippSilpValidUntil} />
                           )}
@@ -893,11 +888,9 @@ export default function AdminAkunPage() {
                   {isEditingRestrictedAccount ? (
                     <div>
                       <div className="mt-1 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                        <span
-                          className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-xs font-semibold ${ROLE_STYLE[form.role]}`}
-                        >
+                        <Badge bordered tone={ROLE_TONE[form.role]}>
                           {form.role}
-                        </span>
+                        </Badge>
                         <span className="text-xs text-slate-500">
                           {editingAccount?.appRole === "admin" ? "Admin" : "Klien"}
                         </span>

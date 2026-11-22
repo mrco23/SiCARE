@@ -1,3 +1,4 @@
+import Badge from "./Badge";
 import {
   useEffect,
   useLayoutEffect,
@@ -203,11 +204,9 @@ export default function AcademicPeriodFilter<T extends AcademicPeriodLike>({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {triggerStatus && (
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLE[triggerStatus]}`}
-            >
+            <Badge size="xs" bordered className={STATUS_STYLE[triggerStatus]}>
               {triggerStatus}
-            </span>
+            </Badge>
           )}
           <ChevronDown
             className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
@@ -314,15 +313,9 @@ export default function AcademicPeriodFilter<T extends AcademicPeriodLike>({
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
                           {badgeContent && (
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                active
-                                  ? "bg-white/20 text-white"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
+                            <Badge size="xs" className={active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}>
                               {badgeContent(p.original)}
-                            </span>
+                            </Badge>
                           )}
                           <span
                             className={`text-[10px] font-bold ${

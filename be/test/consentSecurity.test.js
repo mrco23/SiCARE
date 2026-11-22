@@ -415,7 +415,6 @@ test("15. Readiness RPC includes all active participants", async () => {
           total_participants: 3,
           signed_participants: 3,
           pending_participants: 0,
-          template_compliant: true,
           is_fully_consented: true,
           participants: [
             { participant_id: "p1", is_primary: true, consent_status: "signed" },
@@ -443,7 +442,6 @@ test("16. Missing consent blocks readiness", async () => {
         total_participants: 3,
         signed_participants: 2,
         pending_participants: 1,
-        template_compliant: true,
         is_fully_consented: false,
         participants: [
           { participant_id: "p1", is_primary: true, consent_status: "signed" },
@@ -467,7 +465,6 @@ test("17. Revoked consent blocks readiness", async () => {
         total_participants: 2,
         signed_participants: 1,
         pending_participants: 1,
-        template_compliant: true,
         is_fully_consented: false,
         participants: [
           { participant_id: "p1", is_primary: true, consent_status: "signed" },
@@ -491,11 +488,12 @@ test("18. Outdated template consent is handled correctly", async () => {
         total_participants: 2,
         signed_participants: 2,
         pending_participants: 0,
-        template_compliant: false, // Signed but with old template version
+        service_type: "group",
         is_fully_consented: false,
         participants: [
-          { participant_id: "p1", is_primary: true, consent_status: "signed", template_compliant: true },
-          { participant_id: "p2", is_primary: false, consent_status: "signed", template_compliant: false },
+          { participant_id: "p1", is_primary: true, consent_status: "signed", consent_statement_version: "v1.0" },
+          // Signed but with an old template version (backend constant is v1.0)
+          { participant_id: "p2", is_primary: false, consent_status: "signed", consent_statement_version: "v0.9" },
         ],
       },
       error: null,
@@ -505,4 +503,7 @@ test("18. Outdated template consent is handled correctly", async () => {
   const status = await getBookingConsentStatus({ supabaseClient: mockClient, bookingId: "book-outdated-1" });
   assert.equal(status.isFullyConsented, false, "Consent signed with outdated template must NOT allow session readiness");
   assert.equal(status.templateCompliant, false);
+  assert.equal(status.activeTemplateVersion, "v1.0");
+  assert.equal(status.participants[0].template_compliant, true);
+  assert.equal(status.participants[1].template_compliant, false);
 });
