@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { createPortal } from "react-dom";
 import { Bell, CheckCheck, ChevronRight, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { NotificationRole } from "../../features/notification/notificationStore";
+export type NotificationRole = "client" | "counselor" | "admin" | "headlmi";
 import { sicareApi, type NotificationRecordApi } from "../../lib/sicareApi";
 import { ApiError } from "../../lib/api";
 
@@ -13,8 +13,6 @@ const NOTIFICATION_REFRESH_MS = 60_000;
 
 type NotificationBellProps = {
   role: NotificationRole;
-  /** Deprecated compatibility prop. Notifications are scoped by the authenticated API session. */
-  recipientId?: string;
   wrapperClassName?: string;
   buttonClassName?: string;
 };

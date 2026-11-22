@@ -3,7 +3,6 @@ import type { AcademicPeriod } from "../../../lib/academicPeriods";
 import type {
   AdminReportDto,
   PublicAcademicPeriodDto,
-  PublicCounselorDto,
 } from "../../../types/api";
 
 /** Kepala LMI membaca periode dari direktori publik (hanya yang dipublikasikan). */
@@ -107,33 +106,6 @@ export function fillMonthlyRange(report: AdminReportDto): MonthlyRow[] {
   return filled.sort((a, b) => a.month.localeCompare(b.month));
 }
 
-/** Short administrative reference for UUIDs; never derived from client identity. */
-export function shortRef(id: string): string {
-  return id.replace(/-/g, "").slice(0, 8).toUpperCase() || "-";
-}
-
-/**
- * Builds a counselor-name lookup from backend sources available to `head_lmi`:
- * report counselors (active profiles) take precedence, public directory is the fallback.
- */
-export function buildCounselorNameMap(
-  reportCounselors: AdminReportDto["counselors"] | null | undefined,
-  publicCounselors: PublicCounselorDto[] | null | undefined,
-): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const counselor of publicCounselors ?? []) {
-    if (counselor.profile_id && counselor.public_name) map.set(counselor.profile_id, counselor.public_name);
-  }
-  for (const counselor of reportCounselors ?? []) {
-    if (counselor.counselor_id && counselor.counselor_name) map.set(counselor.counselor_id, counselor.counselor_name);
-  }
-  return map;
-}
-
-export function counselorLabel(map: Map<string, string>, counselorId: string): string {
-  return map.get(counselorId) ?? `Konselor #${shortRef(counselorId)}`;
-}
-
 /** Converts API/network failures into user-facing Indonesian messages. */
 export function describeApiError(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
@@ -148,31 +120,4 @@ export function describeApiError(error: unknown, fallback: string): string {
 
 export function formatRating(value: number | null | undefined, digits = 1): string {
   return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "–";
-}
-
-export const percent = (value: number, total: number): number =>
-  total > 0 ? Math.round((value / total) * 100) : 0;
-
-/** Normalizes Indonesian phone numbers to E.164 format (+62...). */
-export function normalizePhoneToE164(raw: string): string | null {
-  const cleaned = raw.replace(/[\s()-]/g, "").trim();
-  if (!cleaned) return null;
-  if (cleaned.startsWith("0")) {
-    return `+62${cleaned.slice(1)}`;
-  }
-  if (cleaned.startsWith("62")) {
-    return `+${cleaned}`;
-  }
-  return cleaned;
-}
-
-/** Validates phone string for backend compatibility (min 7, max 20, E.164). */
-export function validatePhoneInput(phone: string): string | null {
-  const cleaned = phone.replace(/[\s()-]/g, "").trim();
-  if (!cleaned) return null;
-  const e164 = normalizePhoneToE164(cleaned);
-  if (!e164 || !/^\+[1-9][0-9]{6,14}$/.test(e164)) {
-    return "Format nomor telepon tidak valid. Gunakan format 08... atau +628... (8-15 digit).";
-  }
-  return null;
 }

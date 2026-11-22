@@ -7,8 +7,6 @@ import type {
 export const MAX_COUNSELOR_TOPICS = 6;
 export const MAX_COUNSELOR_TOPIC_LENGTH = 40;
 export const MAX_COUNSELOR_BIO_LENGTH = 500;
-export const MAX_COUNSELOR_PHOTO_BYTES = 2 * 1024 * 1024;
-export const COUNSELOR_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 export const MIN_ACCOUNT_PASSWORD_LENGTH = 8;
 
 export function cloneCounselorProfile(profile: CounselorProfile): CounselorProfile {

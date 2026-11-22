@@ -16,15 +16,6 @@ export function getCounselorInitials(name: string): string {
     .toUpperCase();
 }
 
-export function formatCounselorTime(minutes: number): string {
-  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}.${String(minutes % 60).padStart(2, "0")}`;
-}
-
-export function getCurrentLocalMinutes(): number {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
-}
-
 export function formatBookingClientTitle(
   booking?: BookingRecordBaseDto | null,
   fallbackClientId?: string | null,
@@ -92,12 +83,6 @@ export function toLocalDateKey(isoOrDate: string | Date): string {
   const d = typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
   if (Number.isNaN(d.getTime())) return "";
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-export function getMinutesFromIso(iso: string): number {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 0;
-  return d.getHours() * 60 + d.getMinutes();
 }
 
 export function formatSessionFormatLabel(

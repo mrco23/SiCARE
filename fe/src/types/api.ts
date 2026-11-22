@@ -664,7 +664,6 @@ export interface InformedConsentDto {
   booking_id: string;
   session_id: string | null;
   booking_participant_id: string;
-  consent_template_id: string;
   status: ConsentStatusApi;
   signer_user_id: string | null;
   signer_name_snapshot: string | null;
@@ -697,12 +696,12 @@ export interface InformedConsentDto {
     is_primary: boolean;
     participant_status: string;
   };
+  /** Metadata template dari konstanta backend; title/file_sha256 null untuk versi lama. */
   consent_templates?: {
-    id: string;
     template_code: string;
     version: string;
-    title: string;
-    file_sha256: string;
+    title: string | null;
+    file_sha256: string | null;
   };
 }
 
