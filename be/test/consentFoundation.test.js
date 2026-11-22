@@ -36,44 +36,12 @@ test("generateInvitationToken produces high-entropy 64-character hex token", () 
   assert.match(t1, /^[0-9a-f]{64}$/);
 });
 
-test("getActiveConsentTemplate queries active template by code", async () => {
-  const mockTemplate = {
-    id: "tpl-uuid-1",
-    template_code: "SICARE_IC_STD",
-    version: "v1.0",
-    is_active: true,
-    file_sha256: "59012141d8a54336928a4c076d9d0ad7276bbbc36064c37d9654cc031f14cd8f",
-  };
-
-  const mockClient = {
-    from(table) {
-      assert.equal(table, "consent_templates");
-      return {
-        select() {
-          return {
-            eq(col1, val1) {
-              assert.equal(col1, "template_code");
-              assert.equal(val1, "SICARE_IC_STD");
-              return {
-                eq(col2, val2) {
-                  assert.equal(col2, "is_active");
-                  assert.equal(val2, true);
-                  return {
-                    maybeSingle: async () => ({ data: mockTemplate, error: null }),
-                  };
-                },
-              };
-            },
-          };
-        },
-      };
-    },
-  };
-
-  const tpl = await getActiveConsentTemplate(mockClient);
-  assert.equal(tpl.id, "tpl-uuid-1");
+test("getActiveConsentTemplate returns the backend constant without querying the database", () => {
+  const tpl = getActiveConsentTemplate();
+  assert.equal(tpl.template_code, "SICARE_IC_STD");
   assert.equal(tpl.version, "v1.0");
   assert.equal(tpl.file_sha256, "59012141d8a54336928a4c076d9d0ad7276bbbc36064c37d9654cc031f14cd8f");
+  assert.ok(Object.isFrozen(tpl));
 });
 
 test("ensureBookingParticipants initializes primary client participant for individual booking", async () => {
@@ -168,24 +136,6 @@ test("initializeConsentForParticipant creates pending consent and snapshot idemp
 
   const mockClient = {
     from(table) {
-      if (table === "consent_templates") {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({
-                  data: {
-                    id: "tpl-1",
-                    template_code: "SICARE_IC_STD",
-                    version: "v1.0",
-                  },
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        };
-      }
       if (table === "booking_participants") {
         return {
           select: () => ({
@@ -216,11 +166,15 @@ test("initializeConsentForParticipant creates pending consent and snapshot idemp
         return {
           select: () => ({
             eq: () => ({
-              eq: () => ({
-                in: () => ({
-                  maybeSingle: async () => ({ data: null, error: null }), // None yet
-                }),
-              }),
+              eq: (col, val) => {
+                assert.equal(col, "consent_statement_version");
+                assert.equal(val, "v1.0");
+                return {
+                  in: () => ({
+                    maybeSingle: async () => ({ data: null, error: null }), // None yet
+                  }),
+                };
+              },
             }),
           }),
           insert: (row) => {
@@ -257,6 +211,8 @@ test("initializeConsentForParticipant creates pending consent and snapshot idemp
 
   assert.equal(result.created, true);
   assert.equal(insertedConsent.status, "pending");
+  assert.equal(insertedConsent.consent_statement_version, "v1.0");
+  assert.equal("consent_template_id" in insertedConsent, false);
   assert.equal(insertedConsent.signer_user_id, "user-1");
   assert.equal(insertedConsent.signer_name_snapshot, "Budi Santoso");
   assert.equal(insertedConsent.identity_snapshot.faculty, "Fakultas Teknik");

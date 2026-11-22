@@ -652,26 +652,6 @@ test("7. Resending invitation revokes old invitation, cancels outbox, and enqueu
           },
         };
       }
-      if (table === "consent_templates") {
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  eq() {
-                    return {
-                      maybeSingle: async () => ({
-                        data: { id: "tmpl-1", template_code: "SICARE_IC_STD", version: "v1.0", is_active: true },
-                        error: null,
-                      }),
-                    };
-                  },
-                };
-              },
-            };
-          },
-        };
-      }
       if (table === "informed_consents") {
         return {
           select() {
@@ -792,7 +772,7 @@ test("10. Guest participant updates identity and signs consent with independent 
                       id: consentId,
                       booking_id: bookingId,
                       booking_participant_id: participantId,
-                      consent_template_id: "tmpl-1",
+                      consent_statement_version: "v1.0",
                       status: "pending",
                       identity_snapshot: {
                         full_name: "Guest Participant",
@@ -812,12 +792,6 @@ test("10. Guest participant updates identity and signs consent with independent 
                         user_id: null, // Guest!
                         is_primary: false,
                         participant_status: "active",
-                      },
-                      consent_templates: {
-                        id: "tmpl-1",
-                        template_code: "SICARE_IC_STD",
-                        version: "v1.0",
-                        file_sha256: "59012141d8a54336928a4c076d9d0ad7276bbbc36064c37d9654cc031f14cd8f",
                       },
                       bookings: {
                         id: bookingId,

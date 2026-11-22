@@ -59,24 +59,10 @@ erDiagram
     PROFILES ||--o{ BOOKING_PARTICIPANTS : "user_id (optional)"
     BOOKINGS ||--|{ BOOKING_PARTICIPANTS : "booking_id"
     BOOKINGS ||--o| COUNSELING_SESSIONS : "booking_id"
-    CONSENT_TEMPLATES ||--o{ INFORMED_CONSENTS : "consent_template_id"
     BOOKING_PARTICIPANTS ||--o{ INFORMED_CONSENTS : "booking_participant_id"
     BOOKING_PARTICIPANTS ||--o{ CONSENT_INVITATIONS : "booking_participant_id"
     INFORMED_CONSENTS ||--o{ CONSENT_INVITATIONS : "consent_id (optional)"
     INFORMED_CONSENTS ||--o{ CONSENT_AUDIT_LOGS : "consent_id"
-
-    CONSENT_TEMPLATES {
-        uuid id PK
-        text template_code
-        text version
-        text title
-        text storage_bucket
-        text storage_path
-        text file_sha256
-        bigint file_size_bytes
-        boolean is_active
-        timestamptz effective_at
-    }
 
     BOOKING_PARTICIPANTS {
         uuid id PK
@@ -100,12 +86,11 @@ erDiagram
         uuid booking_id FK
         uuid session_id FK "nullable"
         uuid booking_participant_id FK
-        uuid consent_template_id FK
         text status
         uuid signer_user_id FK "nullable"
         text signer_name_snapshot
         jsonb identity_snapshot
-        text consent_statement_version
+        text consent_statement_version "versi template dari konstanta backend"
         timestamptz signed_at
         text signature_method
         text signature_storage_path
@@ -217,9 +202,9 @@ Supabase Storage dikonfigurasi sepenuhnya **privat** tanpa akses baca publik:
 
 ## 7. Keamanan Akses dan Row Level Security (RLS)
 
-1. **`consent_templates`:**
-   - Pembacaan (`SELECT`): Diizinkan untuk semua pengguna terautentikasi aktif (`client`, `counselor`, `admin`, `head_lmi`).
-   - Modifikasi: Hanya `service_role` (atau admin institusional).
+1. **Template consent (tanpa tabel, sejak migrasi `20261119120000`):**
+   - Metadata template (`SICARE_IC_STD`, versi, judul, SHA-256) adalah konstanta `OFFICIAL_CONSENT_TEMPLATE` di `be/src/services/consentPdf.service.js`. Berkas PDF resmi dibaca dari `docs/reference/infromed-consent/informed-consent.pdf` dan diverifikasi SHA-256 sebelum dipakai.
+   - Versi yang ditandatangani tiap peserta tercatat di `informed_consents.consent_statement_version` (imutabel setelah `signed`). Merilis versi baru berarti mengganti berkas PDF, memperbarui konstanta, lalu deploy backend.
 2. **`booking_participants`:**
    - Pembacaan (`SELECT`): Klien pemilik booking, konselor yang ditugaskan, atau peserta terautentikasi yang `user_id`-nya cocok.
    - Modifikasi: `service_role` backend.
