@@ -2295,3 +2295,27 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Konsekuensi visual kecil:** padding kini seragam per ukuran (mis. beberapa badge 11px yang sebelumnya `py-0.5` menjadi `py-1`, dan badge 12px yang sebelumnya `py-1` menjadi `py-0.5`). Badge role di modal Admin Akun kini sama dengan badge di tabel.
 - **Warna role Admin Akun:** `ROLE_STYLE` diganti `ROLE_TONE`. Kepala LMI memakai `gold` agar berbeda dari Dosen / Staff (`indigo`); sebelumnya violet, mirip indigo.
 - **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Badge role, ukuran, dan semua tone dirender di dev server dan diperiksa lewat screenshot. Halaman yang dimigrasi (butuh login) tidak dibuka satu per satu.
+
+## 2026-11-22 — Halaman publik Profil Konselor
+
+- **Prototype:** `docs/prototypes/profil-konselor.html` (Tailwind CDN, data fiktif) disetujui pengguna. `.claude/launch.json` mendapat konfigurasi `prototype` (server statis `docs/prototypes`, port 5500) untuk membukanya.
+- **`fe/src/pages/public/CounselorPage.tsx` ditulis ulang mengikuti prototype.** Sumber data dan endpoint tidak berubah.
+  - **Kartu ringkas:**
+    - foto bulat bercincin emas (96/128/144 px untuk mobile/tablet/desktop), dengan inisial bila foto tidak ada atau gagal dimuat, dan titik hijau bila ada jadwal;
+    - nama, jabatan, dan pengalaman;
+    - maksimal 3 topik lalu "+N";
+    - ringkasan "Jadwal terdekat · N slot tersedia".
+    - Di mobile, foto ditumpuk di atas nama dan isi kartu rata tengah.
+  - **Buka/tutup:** animasi `grid-rows` seperti FAQ (`aria-expanded`, `aria-controls`, `inert` saat tertutup, tanpa animasi untuk `prefers-reduced-motion`). Beberapa kartu dapat terbuka sekaligus.
+  - **Isi kartu:**
+    - Kiri: bio, pengalaman, bidang, dan semua topik.
+    - Kanan: jadwal berupa chip tanggal per hari WITA (dengan jumlah slot) dan pil jam untuk tanggal terpilih.
+    - Tombol "Booking dengan konselor ini" mengarah ke `/klien/pesanan` dengan `state.counselorProfileId`; halaman pesanan sudah mendukung prapilih ini.
+  - **Loading:** skeleton kartu menggantikan teks "Memuat...". Topik memakai komponen `Badge`.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Halaman asli diuji di dev server dengan respons API tiruan (fetch di-mock di tab uji):
+  - dua kartu terbuka bersamaan;
+  - klik chip tanggal mengganti daftar jam;
+  - kartu tertutup `inert`;
+  - tautan booking ada;
+  - mobile 375px tanpa overflow.
+- **Catatan:** pengunjung yang belum login diarahkan ke halaman login, dan prapilih konselor tidak terbawa setelah login (`RouteGuards` hanya menyimpan `from`).
