@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, RotateCcw } from "lucide-react";
@@ -129,9 +130,9 @@ export default function MoodCheckPage() {
             <span>
               <strong className="font-bold text-primary">{done}</strong> dari {total} pertanyaan terjawab
             </span>
-            <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-[11px] font-bold text-primary sm:text-xs">
+            <Badge className="bg-primary-soft text-primary sm:text-xs">
               {pct}%
-            </span>
+            </Badge>
           </div>
           <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-primary-soft">
             <div
@@ -169,9 +170,9 @@ export default function MoodCheckPage() {
                 />
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="inline-block rounded-full bg-primary-soft px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary sm:text-xs">
+                  <Badge className="bg-primary-soft uppercase tracking-wide text-primary sm:text-xs">
                     Pertanyaan {qi + 1}
-                  </span>
+                  </Badge>
                   {answered && (
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#36c08f]">
                       <svg

@@ -1,3 +1,4 @@
+import Badge from "../../../components/shared/Badge";
 import { SkeletonBlock } from "../../shared/Skeleton";
 import type { ReactNode } from "react";
 import {
@@ -284,14 +285,7 @@ export function CounselorSummary({
                     {counselor.completed_sessions} sesi selesai · {counselor.bookings} booking
                   </p>
                 </div>
-                <span
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                    counselor.average_rating !== null
-                      ? "bg-amber-50 text-amber-700"
-                      : "bg-slate-100 text-slate-500"
-                  }`}
-                  title={`${counselor.feedback_count} feedback`}
-                >
+                <Badge size="xs" className={`shrink-0 ${ counselor.average_rating !== null ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500" }`} title={`${counselor.feedback_count} feedback`}>
                   {counselor.average_rating !== null ? (
                     <>
                       <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
@@ -300,7 +294,7 @@ export function CounselorSummary({
                   ) : (
                     "Belum ada rating"
                   )}
-                </span>
+                </Badge>
               </div>
             ))}
           </div>

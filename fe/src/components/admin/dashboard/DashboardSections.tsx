@@ -1,3 +1,4 @@
+import Badge from "../../../components/shared/Badge";
 import type { ElementType } from "react";
 import { useNavigate } from "react-router-dom";
 import type {
@@ -353,15 +354,9 @@ export function CounselorWorkload({
                     {c.activeBookings} Jadwal
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
-                        c.isActiveAccount
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : "border-slate-200 bg-slate-100 text-slate-500"
-                      }`}
-                    >
+                    <Badge size="xs" bordered className={c.isActiveAccount ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-500"}>
                       {c.isActiveAccount ? "AKTIF" : "NONAKTIF"}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button
@@ -463,20 +458,9 @@ export function RecentClientBookings({
                   · {timeText} WITA
                 </p>
               </div>
-              <span
-                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                  booking.status === "waiting_confirmation"
-                    ? "bg-amber-50 text-amber-700"
-                    : booking.status === "confirmed" || isCompletedSession
-                      ? "bg-emerald-50 text-emerald-700"
-                      : booking.status === "rejected" ||
-                          booking.status === "cancelled"
-                        ? "bg-red-50 text-red-700"
-                        : "bg-slate-100 text-slate-600"
-                }`}
-              >
+              <Badge size="xs" className={booking.status === "waiting_confirmation" ? "bg-amber-50 text-amber-700" : booking.status === "confirmed" || isCompletedSession ? "bg-emerald-50 text-emerald-700" : booking.status === "rejected" || booking.status === "cancelled" ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-600"}>
                 {displayStatusLabel}
-              </span>
+              </Badge>
             </li>
           );
         })}

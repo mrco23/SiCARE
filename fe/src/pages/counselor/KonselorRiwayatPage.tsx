@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
 import {
   PageContainer,
@@ -229,11 +230,9 @@ function IntakeSection({ intake }: { intake: ClientIntake | null }) {
                   className="flex items-start justify-between gap-3"
                 >
                   <p className="text-sm text-gray-700">{label}</p>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${YN_PILL[answer]}`}
-                  >
+                  <Badge size="md" weight="semibold" className={`shrink-0 ring-1 ring-inset ${YN_PILL[answer]}`}>
                     {answer}
-                  </span>
+                  </Badge>
                 </div>
               );
             })}
@@ -387,20 +386,12 @@ function SessionDetailView({
       <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${historyStatusClass(session.status)}`}
-            >
+            <Badge size="md" weight="semibold" className={historyStatusClass(session.status)}>
               {session.status}
-            </span>
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                session.format === "Kelompok"
-                  ? "bg-yellow-100 text-yellow-800"
-                  : "bg-emerald-100 text-emerald-800"
-              }`}
-            >
+            </Badge>
+            <Badge size="md" weight="semibold" className={session.format === "Kelompok" ? "bg-yellow-100 text-yellow-800" : "bg-emerald-100 text-emerald-800"}>
               {session.format}
-            </span>
+            </Badge>
           </div>
           <h2 className="mt-2 text-lg font-bold text-gray-900 sm:text-xl">
             {session.topic}
@@ -1239,9 +1230,9 @@ export default function KonselorRiwayatPage() {
                           <span className="text-xs text-gray-500">
                             Konseling terbaru
                           </span>
-                          <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary">
+                          <Badge size="md" weight="semibold" className="bg-primary-soft text-primary">
                             {count} sesi {format.toLowerCase()}
-                          </span>
+                          </Badge>
                         </div>
                       </button>
                     </li>
@@ -1365,22 +1356,14 @@ export default function KonselorRiwayatPage() {
                             {s.code}
                           </p>
                         </div>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            s.format === "Kelompok"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-emerald-100 text-emerald-800"
-                          }`}
-                        >
+                        <Badge size="md" weight="semibold" className={s.format === "Kelompok" ? "bg-yellow-100 text-yellow-800" : "bg-emerald-100 text-emerald-800"}>
                           {s.format}
-                        </span>
+                        </Badge>
                       </div>
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${historyStatusClass(s.status)}`}
-                        >
+                        <Badge size="md" weight="semibold" className={historyStatusClass(s.status)}>
                           {s.status}
-                        </span>
+                        </Badge>
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"

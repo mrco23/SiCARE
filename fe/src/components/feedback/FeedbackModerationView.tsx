@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import IconLabel from "../shared/IconLabel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -467,18 +468,18 @@ export default function FeedbackModerationView({
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">
+            <Badge bordered className="border-amber-200 bg-amber-50 text-amber-800">
               <Clock className="h-3 w-3" />
               {pendingCount} menunggu
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-primary">
+            </Badge>
+            <Badge bordered className="border-emerald-200 bg-emerald-50 text-primary">
               <Eye className="h-3 w-3" />
               {shownCount} ditampilkan
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700">
+            </Badge>
+            <Badge bordered className="border-rose-200 bg-rose-50 text-rose-700">
               <Ban className="h-3 w-3" />
               {disabledCount} dinonaktifkan
-            </span>
+            </Badge>
           </div>
 
           <div className="mt-5 border-t border-slate-100 pt-4">
@@ -698,24 +699,24 @@ export default function FeedbackModerationView({
                         <span className="text-sm font-bold">{anon(f.id)}</span>
                         <Stars value={f.rating} className="h-3.5 w-3.5" />
                         {isPending ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                          <Badge size="xs" bordered className="border-amber-200 bg-amber-50 text-amber-800">
                             <Clock className="h-3 w-3" />
                             Menunggu pemeriksaan
-                          </span>
+                          </Badge>
                         ) : isDisabled ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                          <Badge size="xs" bordered className="border-rose-200 bg-rose-50 text-rose-700">
                             <Ban className="h-3 w-3" />
                             Dinonaktifkan
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-primary">
+                          <Badge size="xs" bordered className="border-emerald-200 bg-emerald-50 text-primary">
                             <CheckCircle2 className="h-3 w-3" />
                             Ditampilkan
-                          </span>
+                          </Badge>
                         )}
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                        <Badge size="xs" weight="semibold" bordered className="border-slate-200 bg-slate-50 text-slate-600">
                           {REVIEW_LABEL[f.reviewStatus]}
-                        </span>
+                        </Badge>
                       </div>
                       <span className="text-[11px] font-medium text-slate-400">
                         {formatDate(f.date)}
@@ -733,10 +734,10 @@ export default function FeedbackModerationView({
                       </div>
                     )}
                     <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-[#f0fdf4] px-2.5 py-1 text-[10px] font-bold text-[#15803d]">
+                      <Badge size="xs" bordered className="border-emerald-100 bg-[#f0fdf4] text-[#15803d]">
                         <Stethoscope className="h-3 w-3" />
                         {f.psikolog}
-                      </span>
+                      </Badge>
 
                       {!readOnly && (
                       <div className="flex flex-wrap items-center gap-2">

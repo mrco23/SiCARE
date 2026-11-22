@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -486,9 +487,7 @@ export default function KonselorAktivitasPage() {
                           <h2 className="text-lg font-bold text-gray-900">
                             {title}
                           </h2>
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badge.className}`}
-                          >
+                          <Badge size="md" weight="semibold" bordered className={`gap-1.5 ${badge.className}`}>
                             {selectedSession.status === "ongoing" && (
                               <span className="relative flex h-2 w-2 shrink-0">
                                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
@@ -496,21 +495,15 @@ export default function KonselorAktivitasPage() {
                               </span>
                             )}
                             {badge.label}
-                          </span>
-                          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
+                          </Badge>
+                          <Badge size="md" weight="semibold" className="bg-gray-100 text-gray-700">
                             {formatSessionFormatLabel(selectedSession.format)}
-                          </span>
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              booking?.service_type === "group"
-                                ? "bg-purple-50 text-purple-700"
-                                : "bg-gray-100 text-gray-700"
-                            }`}
-                          >
+                          </Badge>
+                          <Badge size="md" weight="semibold" className={booking?.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}>
                             {booking?.service_type === "group"
                               ? `Kelompok (${booking.participant_count} orang)`
                               : "Individu"}
-                          </span>
+                          </Badge>
                         </div>
                         <p className="mt-1 text-xs text-gray-500">
                           ID Sesi:{" "}
@@ -724,9 +717,9 @@ export default function KonselorAktivitasPage() {
                                 {idx + 1}. {p.display_name}
                               </span>
                               {p.is_representative && (
-                                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-800">
+                                <Badge weight="semibold" className="bg-purple-100 text-purple-800">
                                   Perwakilan
-                                </span>
+                                </Badge>
                               )}
                             </li>
                           ))}
@@ -817,13 +810,9 @@ export default function KonselorAktivitasPage() {
                     }`}
                   >
                     <span>{label}</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                        active ? "bg-white/20 text-white" : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
+                    <Badge className={active ? "bg-white/20 text-white" : "bg-gray-100 text-gray-700"}>
                       {count}
-                    </span>
+                    </Badge>
                   </button>
                 );
               })}
@@ -917,9 +906,7 @@ export default function KonselorAktivitasPage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-bold text-gray-900">{title}</p>
-                              <span
-                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badge.className}`}
-                              >
+                              <Badge size="md" weight="semibold" bordered className={`gap-1.5 ${badge.className}`}>
                                 {session.status === "ongoing" && (
                                   <span className="relative flex h-2 w-2 shrink-0">
                                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
@@ -927,21 +914,15 @@ export default function KonselorAktivitasPage() {
                                   </span>
                                 )}
                                 {badge.label}
-                              </span>
-                              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
+                              </Badge>
+                              <Badge size="md" weight="semibold" className="bg-gray-100 text-gray-700">
                                 {formatSessionFormatLabel(session.format)}
-                              </span>
-                              <span
-                                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                  booking?.service_type === "group"
-                                    ? "bg-purple-50 text-purple-700"
-                                    : "bg-gray-100 text-gray-700"
-                                }`}
-                              >
+                              </Badge>
+                              <Badge size="md" weight="semibold" className={booking?.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}>
                                 {booking?.service_type === "group"
                                   ? `Kelompok · ${booking.participant_count} orang`
                                   : "Individu"}
-                              </span>
+                              </Badge>
                             </div>
 
                             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">

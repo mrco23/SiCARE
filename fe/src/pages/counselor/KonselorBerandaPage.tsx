@@ -1,3 +1,4 @@
+import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
 import TypingGreeting from "../../components/mood/TypingGreeting";
 import { Link } from "react-router-dom";
@@ -540,17 +541,11 @@ export default function KonselorBerandaPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-bold text-gray-900">{title}</p>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                booking.service_type === "group"
-                                  ? "bg-purple-50 text-purple-700"
-                                  : "bg-gray-100 text-gray-700"
-                              }`}
-                            >
+                            <Badge size="md" weight="semibold" className={booking.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}>
                               {booking.service_type === "group"
                                 ? `Kelompok · ${booking.participant_count} orang`
                                 : "Individu"}
-                            </span>
+                            </Badge>
                             <span className="ml-auto text-xs font-semibold text-amber-600">
                               Diajukan {formatIsoShortDateId(booking.created_at)}
                             </span>
@@ -673,21 +668,21 @@ export default function KonselorBerandaPage() {
                           </div>
                         </div>
                         {isOngoing ? (
-                          <span className="rounded-full bg-[#064E3B] px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                          <Badge weight="semibold" className="bg-[#064E3B] text-white">
                             Berlangsung
-                          </span>
+                          </Badge>
                         ) : isCompleted ? (
-                          <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-semibold text-teal-700">
+                          <Badge weight="semibold" className="bg-teal-50 text-teal-700">
                             Selesai
-                          </span>
+                          </Badge>
                         ) : isMissed ? (
-                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+                          <Badge weight="semibold" className="bg-slate-100 text-slate-700">
                             {MISSED_SESSION_LABEL}
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600">
+                          <Badge weight="semibold" className="bg-gray-100 text-gray-600">
                             Mendatang
-                          </span>
+                          </Badge>
                         )}
                       </button>
                     );

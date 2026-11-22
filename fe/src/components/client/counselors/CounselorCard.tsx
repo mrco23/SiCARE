@@ -1,3 +1,4 @@
+import Badge from "../../../components/shared/Badge";
 import { Link } from "react-router-dom";
 import { ArrowRight, Briefcase, GraduationCap } from "lucide-react";
 import type { ClientDirectoryCounselor } from "../../../types/clientCounselor";
@@ -30,12 +31,9 @@ function CounselorSchedule({
             <div className="flex min-w-0 flex-1 flex-wrap justify-end gap-1.5 sm:justify-start">
               {slots.length > 0 ? (
                 slots.map((slot) => (
-                  <span
-                    key={slot}
-                    className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700"
-                  >
+                  <Badge size="md" weight="semibold" className="bg-blue-50 text-blue-700" key={slot}>
                     {slot}
-                  </span>
+                  </Badge>
                 ))
               ) : (
                 <span className="text-xs text-gray-400">Tidak tersedia</span>
@@ -68,9 +66,9 @@ export function CounselorCard({ counselor }: { counselor: ClientDirectoryCounsel
           )}
         </div>
         <div className="min-w-0">
-          <span className="inline-block rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
+          <Badge weight="semibold" className="bg-blue-50 text-blue-700">
             Profil Konselor
-          </span>
+          </Badge>
           <h2 className="mt-1.5 font-display text-base font-bold leading-snug text-gray-900">
             {counselor.name}
           </h2>
