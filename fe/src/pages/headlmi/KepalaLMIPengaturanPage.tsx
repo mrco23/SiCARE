@@ -418,28 +418,44 @@ export default function KepalaLMIPengaturanPage() {
         <SkeletonFormGrid className="mt-6 flex flex-col gap-4 sm:gap-5 lg:gap-6" />
       ) : (
       <div className="mt-6 flex flex-col gap-4 sm:gap-5 lg:gap-6">
-        {/* Panel Foto Profil */}
+        {/* Panel Profil Akun: foto profil (kiri) dan informasi akun (kanan) dalam satu panel. */}
         <Panel
-          compactHeader
-          icon={<Camera className="h-5 w-5" />}
-          title="Foto Profil"
-          description="Foto identitas pimpinan LMI. Ditampilkan pada navbar dan profil akun."
+          icon={<UserRound className="h-5 w-5" />}
+          title="Profil Akun"
+          forceOpen={showErrors && Object.keys(errors).length > 0}
+          description="Foto identitas dan informasi kontak akun Kepala LMI."
         >
-          <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-            <div className="aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-primary-tint">
-              {photoPreview ? (
-                <img
-                  src={photoPreview}
-                  alt="Foto profil Kepala LMI"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-gray-300">
-                  <UserRound className="h-14 w-14" />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,15rem)_1fr] md:gap-8">
+            {/* Kiri: foto profil */}
+            <div className="flex flex-col items-center rounded-2xl bg-primary-tint p-5 text-center md:self-start">
+              <div className="relative">
+                <div className="rounded-full bg-linear-to-br from-brand-gold to-[#f6d98a] p-1">
+                  <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white">
+                    {photoPreview ? (
+                      <img
+                        src={photoPreview}
+                        alt="Foto profil Kepala LMI"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <UserRound className="h-14 w-14 text-gray-300" />
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-            <div className="flex w-full flex-col gap-2 sm:pt-1">
+                <button
+                  type="button"
+                  title="Ubah foto"
+                  aria-label="Ubah foto profil"
+                  onClick={() => photoInput.current?.click()}
+                  className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white shadow-md ring-4 ring-white transition hover:bg-primary-dark"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="mt-4 text-sm font-semibold text-gray-900">Foto profil</p>
+              <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                Ditampilkan pada navbar dan profil akun.
+              </p>
               <input
                 ref={photoInput}
                 type="file"
@@ -447,86 +463,80 @@ export default function KepalaLMIPengaturanPage() {
                 className="hidden"
                 onChange={handlePhoto}
               />
-              <button
-                type="button"
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
-                onClick={() => photoInput.current?.click()}
-              >
-                <Camera className="h-4 w-4" />
-                Unggah foto baru
-              </button>
-              {profile.photo && (
+              <div className="mt-4 flex w-full flex-col gap-2">
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-red-300 hover:bg-gray-50 hover:text-red-600"
-                  onClick={handleDeletePhoto}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
+                  onClick={() => photoInput.current?.click()}
                 >
-                  <IconLabel icon={Trash2}>Hapus foto</IconLabel>
+                  <Camera className="h-4 w-4" />
+                  Unggah foto baru
                 </button>
-              )}
-              <p className="text-xs leading-relaxed text-gray-500">
-                Format JPG, PNG, atau WEBP. Ukuran maksimal 2 MB. Foto dapat digeser dan disesuaikan bingkainya.
-              </p>
-              {photoError && (
-                <p className="text-xs text-red-600">{photoError}</p>
-              )}
-            </div>
-          </div>
-        </Panel>
-
-        {/* Panel Informasi Akun */}
-        <Panel
-          compactHeader
-          icon={<UserRound className="h-5 w-5" />}
-          title="Informasi Akun"
-          forceOpen={showErrors && Object.keys(errors).length > 0}
-          description="Perbarui nama tampilan dan nomor kontak akun Kepala LMI."
-        >
-          <div className="space-y-4">
-            <Field
-              label="Nama Lengkap"
-              required
-              error={showErrors ? errors.displayName : ""}
-            >
-              <input
-                autoComplete="name"
-                disabled={saving}
-                value={profile.displayName}
-                onChange={(e) => updateProfile("displayName", e.target.value)}
-                placeholder="Masukkan nama lengkap pimpinan"
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Alamat Email">
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  disabled
-                  value={profile.email}
-                  className={`${inputClass} cursor-not-allowed bg-gray-50 pl-10 text-gray-500`}
-                />
+                {profile.photo && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                    onClick={handleDeletePhoto}
+                  >
+                    <IconLabel icon={Trash2}>Hapus foto</IconLabel>
+                  </button>
+                )}
               </div>
-              <p className="mt-1 text-[11px] text-gray-400">
-                Email terikat pada akun autentikasi Supabase.
+              <p className="mt-3 text-[11px] leading-relaxed text-gray-400">
+                JPG, PNG, atau WEBP · maks. 2 MB · bingkai dapat disesuaikan
               </p>
-            </Field>
+              {photoError && <p className="mt-2 text-xs text-red-600">{photoError}</p>}
+            </div>
 
-            <Field
-              label="Nomor Telepon (WhatsApp)"
-              error={showErrors ? errors.phone : ""}
-            >
-              <PhoneE164Input
-                disabled={saving}
-                value={profile.phone}
-                invalid={Boolean(showErrors && errors.phone)}
-                onChange={(e164) => updateProfile("phone", e164)}
-              />
-              <p className="mt-1 text-[11px] text-gray-400">
-                Digunakan untuk koordinasi operasional SiCARE.
-              </p>
-            </Field>
+            {/* Kanan: informasi akun */}
+            <div className="min-w-0">
+              <div className="space-y-4">
+                <Field
+                  label="Nama Lengkap"
+                  required
+                  error={showErrors ? errors.displayName : ""}
+                >
+                  <input
+                    autoComplete="name"
+                    disabled={saving}
+                    value={profile.displayName}
+                    onChange={(e) => updateProfile("displayName", e.target.value)}
+                    placeholder="Masukkan nama lengkap pimpinan"
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Alamat Email">
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="email"
+                      disabled
+                      value={profile.email}
+                      className={`${inputClass} cursor-not-allowed bg-gray-50 pl-10 text-gray-500`}
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Email terikat pada akun autentikasi Supabase.
+                  </p>
+                </Field>
+
+                <Field
+                  label="Nomor Telepon (WhatsApp)"
+                  error={showErrors ? errors.phone : ""}
+                >
+                  <PhoneE164Input
+                    disabled={saving}
+                    value={profile.phone}
+                    invalid={Boolean(showErrors && errors.phone)}
+                    onChange={(e164) => updateProfile("phone", e164)}
+                  />
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Digunakan untuk koordinasi operasional SiCARE.
+                  </p>
+                </Field>
+              </div>
+            </div>
           </div>
         </Panel>
 
