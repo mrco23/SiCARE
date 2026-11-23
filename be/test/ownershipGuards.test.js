@@ -72,7 +72,7 @@ test("booking list, detail, and active SQL transition enforce party ownership", 
   const transition = latestFunctionDefinition("sicare_transition_booking");
   assert.equal(
     transition.filename,
-    "20261031180000_sicare_group_consent_workflow.sql",
+    "20261123120000_sicare_drop_session_format.sql",
     "Must inspect the latest active sicare_transition_booking definition rather than the superseded migration",
   );
   assert.match(transition.body, /where p\.id = p_actor_id and p\.account_status = 'active'/);
@@ -81,8 +81,9 @@ test("booking list, detail, and active SQL transition enforce party ownership", 
   assert.match(transition.body, /if p_target_status <> 'cancelled'/);
   assert.match(transition.body, /BOOKING_SESSION_ALREADY_STARTED/);
   assert.match(transition.body, /else\s+raise exception using errcode = 'P0001', message = 'BOOKING_FORBIDDEN'/);
-  assert.match(transition.tail, /revoke all on function public\.sicare_transition_booking\(uuid, uuid, text, text, text, text\)\s+from public, anon, authenticated/i);
-  assert.match(transition.tail, /grant execute on function public\.sicare_transition_booking\(uuid, uuid, text, text, text, text\)\s+to service_role/i);
+  assert.doesNotMatch(transition.body, /p_session_format|\bformat\b/);
+  assert.match(transition.tail, /revoke all on function public\.sicare_transition_booking\(uuid, uuid, text, text, text\)\s+from public, anon, authenticated/i);
+  assert.match(transition.tail, /grant execute on function public\.sicare_transition_booking\(uuid, uuid, text, text, text\)\s+to service_role/i);
 });
 
 test("booking creation and rescheduling validate the canonical client identity", () => {
@@ -723,7 +724,7 @@ test("runtime booking ownership: counselors cannot access or transition bookings
     method: "PATCH",
     path: `/api/v1/bookings/${IDS.BOOKING_A}/status`,
     token: TOKENS.COUNSELOR_B,
-    body: { status: "confirmed", session_format: "online" },
+    body: { status: "confirmed" },
   });
   assert.equal(transitionOtherCounselor.status, 403);
   assert.equal(transitionOtherCounselor.body.error.code, "BOOKING_FORBIDDEN");
@@ -760,7 +761,7 @@ test("runtime booking ownership: unauthorized rescheduling and cancellation atte
     method: "PATCH",
     path: `/api/v1/bookings/${IDS.BOOKING_A}/status`,
     token: TOKENS.CLIENT_A,
-    body: { status: "confirmed", session_format: "online" },
+    body: { status: "confirmed" },
   });
   assert.equal(confirmByClient.status, 403);
   assert.equal(confirmByClient.body.error.code, "BOOKING_FORBIDDEN");
@@ -1110,13 +1111,23 @@ test("runtime admin & head_lmi authorization: role boundaries are enforced and A
   assert.equal(headLmiReviewOk.status, 200);
   assert.equal(headLmiReviewOk.body.data.review_status, "reviewed");
 
-  // Admin self-demotion / self-deactivation safeguard
-  const selfDemote = await requestApp(db, {
+  // Admin tidak boleh mengubah role lewat endpoint ubah akun (hanya status).
+  const roleChange = await requestApp(db, {
     method: "PATCH",
     path: `/api/v1/admin/accounts/${IDS.ADMIN}`,
     token: TOKENS.ADMIN,
     body: { app_role: "counselor" },
   });
-  assert.equal(selfDemote.status, 409);
-  assert.equal(selfDemote.body.error.code, "SELF_ADMIN_CHANGE_BLOCKED");
+  assert.equal(roleChange.status, 400);
+  assert.equal(roleChange.body.error.code, "VALIDATION_ERROR");
+
+  // Admin self-deactivation safeguard
+  const selfDisable = await requestApp(db, {
+    method: "PATCH",
+    path: `/api/v1/admin/accounts/${IDS.ADMIN}`,
+    token: TOKENS.ADMIN,
+    body: { account_status: "disabled" },
+  });
+  assert.equal(selfDisable.status, 409);
+  assert.equal(selfDisable.body.error.code, "SELF_ADMIN_CHANGE_BLOCKED");
 });

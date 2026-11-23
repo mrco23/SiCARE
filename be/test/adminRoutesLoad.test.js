@@ -358,7 +358,7 @@ test("PATCH /admin/accounts/:id with app_role: 'client' or 'admin' is rejected w
   }
 });
 
-test("PATCH /admin/accounts/:id rejecting role changes on non-counselor/non-head_lmi accounts", async () => {
+test("PATCH /admin/accounts/:id rejects role changes (admin may only change account status)", async () => {
   const mockDb = createMockSupabase();
   setSupabaseAdminClientForTests(mockDb);
   try {
@@ -374,13 +374,13 @@ test("PATCH /admin/accounts/:id rejecting role changes on non-counselor/non-head
       },
     });
     assert.equal(res.status, 400);
-    assert.equal(res.body.error.code, "ROLE_CHANGE_NOT_ALLOWED");
+    assert.equal(res.body.error.code, "VALIDATION_ERROR");
   } finally {
     setSupabaseAdminClientForTests(null);
   }
 });
 
-test("PATCH /admin/accounts/:id allows transitioning counselor to head_lmi", async () => {
+test("PATCH /admin/accounts/:id rejects data edits but allows reactivating a counselor", async () => {
   const mockDb = createMockSupabase();
   setSupabaseAdminClientForTests(mockDb);
   try {
@@ -395,8 +395,25 @@ test("PATCH /admin/accounts/:id allows transitioning counselor to head_lmi", asy
         app_role: "head_lmi",
       },
     });
-    assert.equal(res.status, 200);
-    assert.equal(res.body.data.app_role, "head_lmi");
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "VALIDATION_ERROR");
+
+    const editName = await invokeApp(app, {
+      method: "PATCH",
+      url: `/api/v1/admin/accounts/${counselorId}`,
+      headers: { authorization: "Bearer valid-admin-token" },
+      body: { full_name: "Nama Diubah Admin" },
+    });
+    assert.equal(editName.status, 400);
+
+    const reactivate = await invokeApp(app, {
+      method: "PATCH",
+      url: `/api/v1/admin/accounts/${counselorId}`,
+      headers: { authorization: "Bearer valid-admin-token" },
+      body: { account_status: "active" },
+    });
+    assert.equal(reactivate.status, 200);
+    assert.equal(reactivate.body.data.account_status, "active");
   } finally {
     setSupabaseAdminClientForTests(null);
   }

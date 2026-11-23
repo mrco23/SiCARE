@@ -50,9 +50,12 @@ test("register and admin account schemas apply the shared rules", () => {
   assert.equal(createAccountSchema.safeParse({ ...account, email: "lmi@sicare.test" }).success, false);
   assert.equal(createAccountSchema.safeParse({ ...account, password: "Lemah123" }).success, false);
 
-  assert.equal(patchAccountSchema.safeParse({ phone_e164: "+6281234567890" }).success, true);
-  assert.equal(patchAccountSchema.safeParse({ phone_e164: "0812345678" }).success, false);
-  assert.equal(patchAccountSchema.safeParse({ phone_e164: null }).success, true);
+  // Admin hanya boleh mengubah status akun; data akun lain ditolak.
+  assert.equal(patchAccountSchema.safeParse({ account_status: "active" }).success, true);
+  assert.equal(patchAccountSchema.safeParse({ phone_e164: "+6281234567890" }).success, false);
+  assert.equal(patchAccountSchema.safeParse({ account_status: "active", full_name: "Nama Baru" }).success, false);
+  assert.equal(patchAccountSchema.safeParse({ app_role: "counselor" }).success, false);
+  assert.equal(patchAccountSchema.safeParse({}).success, false);
 });
 
 test("change password schema rejects weak or unchanged passwords", () => {

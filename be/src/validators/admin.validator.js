@@ -67,44 +67,16 @@ export const createAccountSchema = z
     }
   });
 
+/**
+ * Admin tidak berhak mengubah data akun (nama, NIP, role, kontak, data konselor).
+ * Endpoint ubah akun hanya menerima perubahan status, misalnya mengaktifkan kembali akun.
+ * Menonaktifkan akun memakai endpoint deactivate agar booking aktif ikut ditutup.
+ */
 export const patchAccountSchema = z
   .object({
-    full_name: z.string().trim().min(1).max(160).optional(),
-    identity_code: z
-      .string()
-      .trim()
-      .min(1)
-      .max(80)
-      .regex(/^[A-Za-z0-9._/-]+$/)
-      .nullable()
-      .optional(),
-    member_category: z
-      .enum(["student", "faculty_staff", "other"])
-      .nullable()
-      .optional(),
-    phone_e164: indonesianPhoneSchema.nullable().optional(),
-    app_role: z.enum(adminManageableRoles).optional(),
-    account_status: z.enum(["pending", "active", "disabled"]).optional(),
-    gender: genderField,
-    siap_number: licenseNumberField,
-    sipp_silp_number: licenseNumberField,
-    sipp_silp_valid_until: validUntilField,
+    account_status: z.enum(["pending", "active", "disabled"]),
   })
-  .strict()
-  .refine(
-    (input) =>
-      input.full_name !== undefined ||
-      input.identity_code !== undefined ||
-      input.member_category !== undefined ||
-      input.phone_e164 !== undefined ||
-      input.app_role !== undefined ||
-      input.account_status !== undefined ||
-      input.gender !== undefined ||
-      input.siap_number !== undefined ||
-      input.sipp_silp_number !== undefined ||
-      input.sipp_silp_valid_until !== undefined,
-    { message: "Setidaknya satu field harus diisi." },
-  );
+  .strict();
 
 export const createPeriodSchema = z
   .object({
