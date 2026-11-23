@@ -32,7 +32,6 @@ import {
   formatIsoDateId,
   formatIsoShortDateId,
   formatIsoTimeRangeWita,
-  formatSessionFormatLabel,
   getCounselorInitials,
   toLocalDateKey,
 } from "../../features/counselor/shared/presentation";
@@ -386,7 +385,6 @@ export default function KonselorBerandaPage() {
                   )}
                 </p>
                 <p className="mt-0.5 text-xs text-emerald-100">
-                  {formatSessionFormatLabel(ongoingSession.format)} ·{" "}
                   {ongoingSession.room || "Ruang Konseling LMI"}
                 </p>
               </div>

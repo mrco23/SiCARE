@@ -1,7 +1,7 @@
 import { HttpError, supabaseError } from "../lib/http.js";
 
 const BASE_SESSION_FIELDS =
-  "id,booking_id,counselor_id,starts_at,ends_at,status,format,room,started_at,completed_at,created_at,updated_at";
+  "id,booking_id,counselor_id,starts_at,ends_at,status,room,started_at,completed_at,created_at,updated_at";
 // Kolom missed_* dari migrasi 20261115120000 dan auto_completed_at dari 20261116120000.
 // Bila migrasinya belum diterapkan, query diulang dengan kolom yang lebih sedikit.
 const MISSED_SESSION_FIELDS = `${BASE_SESSION_FIELDS},missed_reason,missed_at`;

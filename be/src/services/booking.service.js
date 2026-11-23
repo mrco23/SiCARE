@@ -185,7 +185,6 @@ export const bookingService = {
         p_booking_id: bookingId,
         p_target_status: input.status,
         p_reason: input.reason ?? null,
-        p_session_format: input.session_format ?? null,
         p_room: input.room ?? null,
       },
       "Status booking tidak dapat diperbarui.",

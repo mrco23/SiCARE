@@ -30,7 +30,7 @@ export const adminCounselingService = {
     const { data, error } = await supa()
       .from("bookings")
       .select(
-        "id,client_id,counselor_id,availability_slot_id,service_type,group_name,participant_count,starts_at,ends_at,status,cancellation_reason,reschedule_reason,created_at,updated_at,client:profiles!bookings_client_id_fkey(id,full_name),counselor:profiles!bookings_counselor_id_fkey(id,full_name),booking_participants(id,display_name,is_representative),counseling_sessions(id,status,format,room,started_at,completed_at)",
+        "id,client_id,counselor_id,availability_slot_id,service_type,group_name,participant_count,starts_at,ends_at,status,cancellation_reason,reschedule_reason,created_at,updated_at,client:profiles!bookings_client_id_fkey(id,full_name),counselor:profiles!bookings_counselor_id_fkey(id,full_name),booking_participants(id,display_name,is_representative),counseling_sessions(id,status,room,started_at,completed_at)",
       )
       .order("starts_at", { ascending: false })
       .limit(limit);

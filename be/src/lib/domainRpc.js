@@ -20,7 +20,6 @@ export const DOMAIN_ERRORS = {
   BOOKING_CLIENT_OVERLAP: [409, "BOOKING_CLIENT_OVERLAP", "Anda sudah memiliki booking aktif pada jam yang sama. Pilih jadwal lain."],
   BOOKING_CLIENT_LIMIT_REACHED: [409, "BOOKING_CLIENT_LIMIT_REACHED", "Anda sudah memiliki 2 booking aktif. Selesaikan atau batalkan salah satunya sebelum membuat booking baru."],
   BOOKING_EXPIRED: [409, "BOOKING_EXPIRED", "Jadwal booking ini sudah tiba atau lewat, sehingga tidak dapat dikonfirmasi lagi."],
-  SESSION_FORMAT_REQUIRED: [400, "SESSION_FORMAT_REQUIRED", "Format sesi online atau offline wajib dipilih saat menerima booking."],
   SESSION_ROOM_INVALID: [400, "SESSION_ROOM_INVALID", "Informasi ruang maksimal 240 karakter."],
   SESSION_NOT_FOUND: [404, "SESSION_NOT_FOUND", "Sesi konseling tidak ditemukan."],
   SESSION_FORBIDDEN: [403, "SESSION_FORBIDDEN", "Hanya konselor pemilik sesi yang dapat mengubah statusnya."],

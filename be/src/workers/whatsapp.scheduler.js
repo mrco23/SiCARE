@@ -23,7 +23,7 @@ export async function scanUpcomingSessionsAndEnqueueReminders(options = {}) {
   // 1. Fetch upcoming scheduled sessions
   const { data: sessions, error: sessionError } = await supa
     .from("counseling_sessions")
-    .select("id,booking_id,counselor_id,starts_at,ends_at,status,format,room,bookings(id,client_id,counselor_id,status,service_type,starts_at,ends_at)")
+    .select("id,booking_id,counselor_id,starts_at,ends_at,status,room,bookings(id,client_id,counselor_id,status,service_type,starts_at,ends_at)")
     .eq("status", "scheduled")
     .gte("starts_at", now.toISOString())
     .lte("starts_at", maxDate.toISOString())
@@ -69,7 +69,6 @@ export async function scanUpcomingSessionsAndEnqueueReminders(options = {}) {
         starts_at: session.starts_at || booking.starts_at,
         ends_at: session.ends_at || booking.ends_at,
       },
-      sessionFormat: session.format,
       room: session.room,
       clientName: clientProf?.full_name || "Klien",
       counselorName: counselorProf?.public_name || "Konselor",

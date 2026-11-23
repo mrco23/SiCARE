@@ -164,7 +164,6 @@ export async function cancelObsoleteReminders(bookingId, supabaseClient) {
  * @param {string} params.eventType 'booking_created' | 'confirmed' | 'rejected' | 'reschedule_requested' | 'cancelled'
  * @param {string} [params.actorRole] Role of person initiating transition ('client' or 'counselor')
  * @param {string} [params.reason] Reason for cancellation/rejection/reschedule
- * @param {string} [params.sessionFormat] 'online' | 'offline'
  * @param {string} [params.room] Room or meeting URL
  * @param {string} [params.clientName]
  * @param {string} [params.counselorName]
@@ -176,7 +175,6 @@ export async function enqueueBookingNotifications({
   eventType,
   actorRole = null,
   reason = null,
-  sessionFormat = null,
   room = null,
   clientName = null,
   counselorName = null,
@@ -195,7 +193,6 @@ export async function enqueueBookingNotifications({
     service_type: booking.service_type,
     client_name: clientName || "Klien",
     counselor_name: counselorName || "Konselor",
-    session_format: sessionFormat,
     room,
     reason,
     initiator_role: actorRole,
@@ -236,7 +233,6 @@ export async function enqueueBookingNotifications({
     await enqueueSessionReminders({
       supabaseClient: supa,
       booking,
-      sessionFormat,
       room,
       clientName,
       counselorName,
@@ -294,7 +290,6 @@ export async function enqueueBookingNotifications({
  * @param {object} params
  * @param {object} [params.supabaseClient]
  * @param {object} params.booking
- * @param {string} [params.sessionFormat]
  * @param {string} [params.room]
  * @param {string} [params.clientName]
  * @param {string} [params.counselorName]
@@ -330,7 +325,6 @@ async function reminderAlreadyQueued(supa, { bookingId, messageType, recipientUs
 export async function enqueueSessionReminders({
   supabaseClient,
   booking,
-  sessionFormat = "offline",
   room = null,
   clientName = null,
   counselorName = null,
@@ -372,8 +366,7 @@ export async function enqueueSessionReminders({
       ends_at: booking.ends_at,
       session_date: formatIndonesianDate(booking.starts_at),
       session_time: formatIndonesianTimeWindow(booking.starts_at, booking.ends_at),
-      session_format: sessionFormat,
-      room,
+        room,
       recipient_name: r.name,
       partner_name: r.partnerName,
     };

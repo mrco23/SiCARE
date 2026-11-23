@@ -280,7 +280,6 @@ export interface CreateBookingApi {
 export interface BookingTransitionApi {
   status: "confirmed" | "rejected" | "reschedule_requested" | "cancelled";
   reason?: string;
-  session_format?: "online" | "offline";
   room?: string | null;
 }
 
@@ -293,7 +292,6 @@ export interface SessionListItemDto {
   starts_at: string;
   ends_at: string;
   status: SessionStatusApi;
-  format: "online" | "offline" | null;
   room: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -457,17 +455,9 @@ export interface CreateAdminAccountApi {
   sipp_silp_valid_until?: string | null;
 }
 
+/** Admin hanya boleh mengubah status akun (mis. mengaktifkan kembali); data akun lain ditolak server. */
 export interface UpdateAdminAccountApi {
-  full_name?: string;
-  identity_code?: string | null;
-  member_category?: MemberCategoryApi | null;
-  phone_e164?: string | null;
-  app_role?: AdminAccountAssignableRoleApi;
-  account_status?: AccountStatusApi;
-  gender?: GenderApi | null;
-  siap_number?: string | null;
-  sipp_silp_number?: string | null;
-  sipp_silp_valid_until?: string | null;
+  account_status: AccountStatusApi;
 }
 
 export interface CounselorSessionNotesDto {
@@ -486,7 +476,6 @@ export interface CounselorSessionReportDto {
     starts_at: string;
     ends_at: string;
     completed_at: string | null;
-    format: "online" | "offline" | null;
     room: string | null;
     service_type: "individual" | "group";
   };
@@ -593,7 +582,6 @@ export interface AdminCounselingDto extends BookingRecordBaseDto {
   counseling_sessions: Array<{
     id: string;
     status: SessionStatusApi;
-    format: "online" | "offline" | null;
     room: string | null;
     started_at: string | null;
     completed_at: string | null;

@@ -339,11 +339,7 @@ export default function KlienAktivitasPage() {
           counselor: counselorName,
           initials,
           service,
-          room:
-            s.room ||
-            (s.format === "online"
-              ? "Online Meeting"
-              : "Ruang Konseling 01"),
+          room: s.room || "Ruang Konseling 01",
           start: new Date(s.starts_at),
           end: new Date(s.ends_at),
           rescheduleCount: isRescheduled ? 1 : 0,

@@ -73,7 +73,6 @@ interface MonitoringItem {
   durasi: number;
   bookingStatus: BookingStatusApi;
   sessionStatus: SessionStatusApi | null;
-  format: string | null;
   room: string | null;
   outcome: OutcomeCategory;
   statusLabel: string;
@@ -208,8 +207,6 @@ function mapBookingDtoToItem(
       ? participantRecords.map((p) => anonFromUuid(p.id))
       : [clientAnon];
 
-  const formatLabel = "Tatap Muka";
-
   return {
     id: dto.id,
     shortId: dto.id.slice(0, 8).toUpperCase(),
@@ -226,7 +223,6 @@ function mapBookingDtoToItem(
     durasi: computeDurationMinutesFromIso(dto.starts_at, dto.ends_at),
     bookingStatus: dto.status,
     sessionStatus,
-    format: formatLabel,
     room: primarySession?.room ?? null,
     outcome,
     statusLabel: label,
@@ -1194,11 +1190,6 @@ export default function AdminKonselingPage() {
               <Badge size="xs" className={sesi.outcome === "completed" ? "bg-emerald-50 text-[#15803d]" : sesi.outcome === "cancelled" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-800"}>
                 {sesi.statusLabel}
               </Badge>
-              {sesi.format && (
-                <Badge size="xs" className="bg-slate-100 text-slate-600">
-                  {sesi.format}
-                </Badge>
-              )}
             </div>
 
             <dl className="grid grid-cols-2 gap-4 text-sm">

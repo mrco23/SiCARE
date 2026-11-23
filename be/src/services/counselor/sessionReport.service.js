@@ -17,7 +17,7 @@ const supa = () => {
 async function loadOwnCompletedSession(counselorId, sessionId) {
   const { data, error } = await supa()
     .from("counseling_sessions")
-    .select("id,booking_id,counselor_id,starts_at,ends_at,status,format,room,completed_at")
+    .select("id,booking_id,counselor_id,starts_at,ends_at,status,room,completed_at")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -135,7 +135,6 @@ export const counselorSessionReportService = {
         starts_at: session.starts_at,
         ends_at: session.ends_at,
         completed_at: session.completed_at,
-        format: session.format,
         room: session.room,
         service_type: booking.service_type,
       },
