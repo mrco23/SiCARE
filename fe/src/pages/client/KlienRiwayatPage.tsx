@@ -460,23 +460,7 @@ export default function KlienRiwayatPage() {
             <InfoRow label="Dipesan pada" value={dateTimeLabel(booking.created_at)} />
             {session && (
               <>
-                <InfoRow
-                  label="Format sesi"
-                  value={
-                    session.format === "online"
-                      ? "Daring"
-                      : session.format === "offline"
-                        ? "Tatap muka"
-                        : "-"
-                  }
-                />
-                <InfoRow
-                  label="Ruang"
-                  value={
-                    session.room ??
-                    (session.format === "offline" ? "Ruang Konseling LMI" : "-")
-                  }
-                />
+                <InfoRow label="Ruang" value={session.room ?? "Ruang Konseling LMI"} />
                 {session.completed_at && (
                   <InfoRow
                     label="Selesai pada"

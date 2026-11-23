@@ -1,7 +1,6 @@
 import type {
   BookingRecordBaseDto,
   PublicAcademicPeriodDto,
-  SessionListItemDto,
 } from "../../../types/api";
 import { formatWitaTime } from "../../../lib/witaTime";
 
@@ -83,13 +82,6 @@ export function toLocalDateKey(isoOrDate: string | Date): string {
   const d = typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
   if (Number.isNaN(d.getTime())) return "";
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-export function formatSessionFormatLabel(
-  format?: SessionListItemDto["format"] | null,
-): "Tatap Muka" {
-  void format;
-  return "Tatap Muka";
 }
 
 export function formatAcademicPeriodLabel(

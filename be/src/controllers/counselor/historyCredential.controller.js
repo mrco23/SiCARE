@@ -231,7 +231,7 @@ export const counselorHistoryCredentialController = {
     const { data: sessions, error: sessionError } = await client
       .from("counseling_sessions")
       .select(
-        "id,booking_id,counselor_id,starts_at,ends_at,status,format,room,started_at,completed_at,created_at,updated_at"
+        "id,booking_id,counselor_id,starts_at,ends_at,status,room,started_at,completed_at,created_at,updated_at"
       )
       .eq("counselor_id", req.auth.user.id)
       .order("starts_at", { ascending: false })

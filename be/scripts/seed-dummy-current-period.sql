@@ -297,11 +297,11 @@ begin
 
   insert into tmp_dummy_scenarios values
     ('C1', 'completed',           1, 1, -21,  9, false, 5, 'shown',    'offline'),  -- mahasiswa
-    ('C2', 'completed',           8, 2, -14, 10, false, 4, 'shown',    'online'),   -- dosen
+    ('C2', 'completed',           8, 2, -14, 10, false, 4, 'shown',    'offline'),  -- dosen
     ('C3', 'completed',           3, 3, -10, 13, true,  4, 'pending',  'offline'),  -- mahasiswa (kelompok)
     ('C4', 'completed',           4, 4,  -7, 14, false, 3, 'disabled', 'offline'),  -- mahasiswa
     ('X1', 'client_cancelled',    9, 2,  -5,  9, false, null, null,    'offline'),  -- staf
-    ('X2', 'counselor_cancelled', 2, 3,  -3, 10, false, null, null,    'online');   -- mahasiswa
+    ('X2', 'counselor_cancelled', 2, 3,  -3, 10, false, null, null,    'offline');  -- mahasiswa
 
   if c_include_active_flows then
     insert into tmp_dummy_scenarios values
@@ -441,11 +441,12 @@ begin
     continue when v_sstatus is null;
 
     insert into public.counseling_sessions (
-      booking_id, counselor_id, starts_at, ends_at, status, format, room,
+      booking_id, counselor_id, starts_at, ends_at, status, room,
       started_at, completed_at, created_at, updated_at
     ) values (
-      v_booking_id, v_counselor, v_starts, v_ends, v_sstatus, v_sc.s_format,
-      case when v_sc.s_format = 'offline' then 'Ruang Konseling LMI' else 'https://meet.google.com/dummy-sicare' end,
+      -- Kolom format dihapus (migrasi 20261123120000); layanan hanya tatap muka.
+      v_booking_id, v_counselor, v_starts, v_ends, v_sstatus,
+      'Ruang Konseling LMI',
       case when v_sstatus = 'completed' then v_starts + interval '3 minutes' end,
       case when v_sstatus = 'completed' then v_ends - interval '5 minutes' end,
       v_confirmed,

@@ -51,9 +51,10 @@ test("head LMI account creation requires gender but not license numbers", () => 
 });
 
 test("account schemas reject invalid gender and license characters", () => {
-  assert.equal(patchAccountSchema.safeParse({ gender: "other" }).success, false);
+  assert.equal(createAccountSchema.safeParse({ ...baseAccount, app_role: "head_lmi", gender: "other" }).success, false);
+  // Admin tidak dapat mengubah data konselor lewat endpoint ubah akun.
   assert.equal(patchAccountSchema.safeParse({ siap_number: "<script>" }).success, false);
-  assert.equal(patchAccountSchema.safeParse({ gender: "male" }).success, true);
+  assert.equal(patchAccountSchema.safeParse({ gender: "male" }).success, false);
 });
 
 test("redactClientIdentity removes client identity but keeps reporting fields", () => {

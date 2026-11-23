@@ -31,7 +31,6 @@ import {
   formatIsoDateId,
   formatIsoShortDateId,
   formatIsoTimeRangeWita,
-  formatSessionFormatLabel,
   getCounselorInitials,
   toLocalDateKey,
 } from "../../features/counselor/shared/presentation";
@@ -496,9 +495,6 @@ export default function KonselorAktivitasPage() {
                             )}
                             {badge.label}
                           </Badge>
-                          <Badge size="md" weight="semibold" className="bg-gray-100 text-gray-700">
-                            {formatSessionFormatLabel(selectedSession.format)}
-                          </Badge>
                           <Badge size="md" weight="semibold" className={booking?.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}>
                             {booking?.service_type === "group"
                               ? `Kelompok (${booking.participant_count} orang)`
@@ -636,9 +632,6 @@ export default function KonselorAktivitasPage() {
                       </div>
                       <p className="mt-1.5 text-sm font-bold text-gray-900">
                         {selectedSession.room?.trim() || "Ruang Konseling LMI"}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        Tatap Muka
                       </p>
                     </div>
 
@@ -914,9 +907,6 @@ export default function KonselorAktivitasPage() {
                                   </span>
                                 )}
                                 {badge.label}
-                              </Badge>
-                              <Badge size="md" weight="semibold" className="bg-gray-100 text-gray-700">
-                                {formatSessionFormatLabel(session.format)}
                               </Badge>
                               <Badge size="md" weight="semibold" className={booking?.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}>
                                 {booking?.service_type === "group"

@@ -182,9 +182,7 @@ export default function BerandaKlienPage() {
             : "Konseling Kelompok"
           : "Konseling Individu";
 
-      const room =
-        s.room ||
-        (s.format === "online" ? "Online Meeting" : "Ruang Konseling 01");
+      const room = s.room || "Ruang Konseling 01";
 
       const startDate = new Date(s.starts_at);
 

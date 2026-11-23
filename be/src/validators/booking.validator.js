@@ -125,12 +125,8 @@ export const bookingListQuerySchema = z.object({
 export const bookingTransitionSchema = z.object({
   status: z.enum(["confirmed", "rejected", "reschedule_requested", "cancelled"]),
   reason: z.string().trim().min(1).max(1000).optional(),
-  session_format: z.enum(["online", "offline"]).optional(),
   room: z.string().trim().max(240).nullable().optional(),
 }).strict().superRefine((input, context) => {
-  if (input.status === "confirmed" && !input.session_format) {
-    context.addIssue({ code: "custom", message: "Format sesi wajib dipilih saat menerima booking.", path: ["session_format"] });
-  }
   if (["cancelled", "rejected", "reschedule_requested"].includes(input.status) && !input.reason) {
     context.addIssue({ code: "custom", message: "Alasan wajib diisi untuk pembatalan, penolakan, atau permintaan penjadwalan ulang.", path: ["reason"] });
   }

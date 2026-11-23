@@ -43,7 +43,6 @@ interface ReportSessionRow {
   shortId: string;
   date: string;
   format: "Individu" | "Kelompok";
-  deliveryFormat: string;
   counselorId: string;
   counselor: string;
   outcome: "Selesai" | "Dibatalkan" | "Terjadwal";
@@ -161,14 +160,12 @@ function mapBookingToReportRow(
     counselorMap.get(dto.counselor_id) ||
     `Konselor #${dto.counselor_id.slice(0, 6).toUpperCase()}`;
 
-  const deliveryFormat = "Tatap Muka";
 
   return {
     id: dto.id,
     shortId: `#${dto.id.slice(0, 8).toUpperCase()}`,
     date: toISO(new Date(dto.starts_at)),
     format: dto.service_type === "group" ? "Kelompok" : "Individu",
-    deliveryFormat,
     counselorId: dto.counselor_id,
     counselor: counselorName,
     outcome: isDone ? "Selesai" : isCancelled ? "Dibatalkan" : "Terjadwal",
@@ -1190,7 +1187,6 @@ export default function CounselingReportView({
                   <th className="px-4 py-3">ID Booking</th>
                   <th className="px-4 py-3">Tanggal</th>
                   <th className="px-4 py-3">Jenis sesi</th>
-                  <th className="px-4 py-3">Format</th>
                   <th className="px-4 py-3">Konselor</th>
                   <th className="px-4 py-3">Status</th>
                 </tr>
@@ -1217,7 +1213,6 @@ export default function CounselingReportView({
                           { timeZone: "Asia/Makassar", day: "2-digit", month: "short", year: "numeric" })}
                       </td>
                       <td className="px-4 py-3">{row.format}</td>
-                      <td className="px-4 py-3">{row.deliveryFormat}</td>
                       <td className="px-4 py-3">{row.counselor}</td>
                       <td className="px-4 py-3">
                         <Badge size="md" weight="semibold" className={row.outcome === "Selesai" ? "bg-emerald-50 text-emerald-700" : row.outcome === "Dibatalkan" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}>

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Profil Akun – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: { colors: { primary: { DEFAULT: "#064E3B", soft: "#e8f9f0" }, gold: "#E8B53A" }, fontFamily: { sans: ["Inter", "sans-serif"] } } } };
+  </script>
+  <style>
+    .reveal { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .35s ease; }
+    .reveal > div { min-height: 0; overflow: hidden; }
+    .panel[data-open="true"] .reveal { grid-template-rows: 1fr; }
+    .panel[data-open="true"] .chev { transform: rotate(180deg); }
+    .input { width: 100%; border-radius: .75rem; border: 1px solid #e5e7eb; background: #fff; padding: .625rem .875rem; font-size: .875rem; outline: none; }
+    .input:focus { border-color: #064E3B; box-shadow: 0 0 0 4px rgba(6, 78, 59, .15); }
+    @media (prefers-reduced-motion: reduce) { .reveal, .chev { transition: none; } }
+  </style>
+</head>
+<body class="bg-[#f7faf8] font-sans text-gray-900 antialiased">
+  <div class="bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
+    Prototype panel <b>Profil Akun</b> (gabungan Foto Profil + Profil Publik/Informasi Akun), data contoh.
+  </div>
+
+  <main class="mx-auto max-w-5xl px-4 py-8">
+    <div class="mb-5 inline-flex rounded-xl bg-white p-1 text-sm font-semibold shadow-sm ring-1 ring-gray-200" role="tablist">
+      <button class="role-tab rounded-lg px-4 py-2" data-role="konselor">Pengaturan Konselor</button>
+      <button class="role-tab rounded-lg px-4 py-2" data-role="kepala">Pengaturan Kepala LMI</button>
+    </div>
+
+    <h1 class="text-2xl font-bold">Pengaturan</h1>
+    <p id="pageDesc" class="mt-1 text-sm text-gray-500"></p>
+
+    <!-- Kartu ringkas akun (sudah ada di halaman asli) -->
+    <section class="mt-6 flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div class="avatar-sm flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-lg font-bold text-primary"></div>
+      <div class="min-w-0">
+        <p id="headName" class="font-semibold"></p>
+        <p id="headEmail" class="mt-0.5 text-xs text-gray-500"></p>
+      </div>
+    </section>
+
+    <div class="mt-6 flex flex-col gap-4">
+      <!-- PANEL GABUNGAN -->
+      <section class="panel rounded-2xl border border-gray-200 bg-white shadow-sm" data-open="true">
+        <div class="flex items-center gap-2 p-5 sm:p-6">
+          <button type="button" class="toggle flex min-w-0 flex-1 items-center gap-3 text-left" aria-expanded="true">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-base font-bold">Profil Akun</span>
+              <span id="panelDesc" class="mt-0.5 block text-xs leading-relaxed text-gray-500"></span>
+            </span>
+          </button>
+          <button type="button" class="toggle flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100" aria-label="Buka/tutup Profil Akun">
+            <svg class="chev h-5 w-5 transition-transform duration-300" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </div>
+
+        <div class="reveal"><div>
+          <div class="grid grid-cols-1 gap-6 px-5 pb-6 sm:px-6 md:grid-cols-[minmax(0,15rem)_1fr] md:gap-8">
+            <!-- KIRI: Foto profil -->
+            <div class="flex flex-col items-center rounded-2xl bg-[#f7fcf9] p-5 text-center md:self-start">
+              <div class="relative">
+                <div class="rounded-full bg-gradient-to-br from-gold to-[#f6d98a] p-1">
+                  <div class="avatar-lg flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-primary-soft text-5xl font-bold text-primary"></div>
+                </div>
+                <button class="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white shadow-md ring-4 ring-white hover:bg-[#043d2e]" title="Ubah foto">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8h3l2-3h8l2 3h3v12H3z"/><circle cx="12" cy="13" r="4"/></svg>
+                </button>
+              </div>
+              <p class="mt-4 text-sm font-semibold">Foto profil</p>
+              <p id="photoHint" class="mt-1 text-xs leading-relaxed text-gray-500"></p>
+              <div class="mt-4 flex w-full flex-col gap-2">
+                <button class="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[#043d2e]">Unggah foto baru</button>
+                <button class="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">Hapus foto</button>
+              </div>
+              <p class="mt-3 text-[11px] text-gray-400">JPG, PNG, atau WebP · maks. 2 MB · dipotong 1:1</p>
+            </div>
+
+            <!-- KANAN: Data profil -->
+            <div id="fields" class="min-w-0"></div>
+          </div>
+          <div class="flex flex-col-reverse gap-2 border-t border-gray-100 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+            <button class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Batalkan perubahan</button>
+            <button class="rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-[#043d2e]">Simpan Profil</button>
+          </div>
+        </div></div>
+      </section>
+
+      <!-- Panel lain tetap seperti sekarang (tertutup) -->
+      <div id="otherPanels" class="flex flex-col gap-4"></div>
+    </div>
+  </main>
+
+  <script>
+    const field = (label, control, hint = "", wide = false) => `
+      <div class="${wide ? "sm:col-span-2" : ""}">
+        <label class="mb-1.5 block text-sm font-medium text-gray-800">${label}</label>
+        ${control}
+        ${hint ? `<p class="mt-1.5 text-xs text-gray-500">${hint}</p>` : ""}
+      </div>`;
+
+    const ROLES = {
+      konselor: {
+        desc: "Kelola profil publik, keahlian, dan preferensi layananmu. Perubahan profil akan tampil di direktori konselor.",
+        panelDesc: "Foto dan informasi yang dilihat klien sebelum memilih konselor.",
+        photoHint: "Ditampilkan bulat di direktori konselor dan navbar.",
+        name: "Dr. Maria Kalangi, M.Psi., Psikolog", email: "maria.kalangi@unikadelasalle.ac.id", initials: "MK",
+        fields: `
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            ${field("Nama tampil & gelar *", '<input class="input" value="Dr. Maria Kalangi, M.Psi., Psikolog">', "", true)}
+            ${field("Nomor telepon (WhatsApp)", '<input class="input" value="+62 812 3456 7890">')}
+            ${field("Tahun mulai praktik", '<input class="input" value="2017">', "Pengalaman dihitung otomatis: 9 tahun.")}
+            ${field("Headline profesi", '<input class="input" value="Psikolog Klinis">', "", true)}
+            ${field("Topik keahlian", `<div class="flex flex-wrap gap-1.5 rounded-xl border border-gray-200 p-2">
+                ${["Stres akademik", "Kecemasan", "Penyesuaian diri"].map((t) => `<span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">${t} <span class="text-blue-400">×</span></span>`).join("")}
+                <input class="min-w-[8rem] flex-1 text-sm outline-none" placeholder="Tambah topik...">
+              </div>`, "", true)}
+            ${field("Bio ringkas", '<textarea class="input" rows="4">Berpengalaman mendampingi mahasiswa dalam mengelola stres akademik dan kecemasan.</textarea>', "0/600 karakter · tampil di halaman Profil Konselor.", true)}
+          </div>`,
+        others: [["Riwayat Pendidikan", "Pendidikan formal yang mendukung kredensial profesional Anda."], ["Keamanan & Kata Sandi", "Kelola kata sandi akun SiCARE atau kata sandi proteksi riwayat konseling."], ["Izin Praktik", "Perbarui No. SIPP/SILP dan masa berlakunya setiap izin diperpanjang."]],
+      },
+      kepala: {
+        desc: "Kelola foto profil, informasi akun, dan preferensi pimpinan LMI.",
+        panelDesc: "Foto identitas dan informasi kontak akun Kepala LMI.",
+        photoHint: "Ditampilkan pada navbar dan profil akun.",
+        name: "Dr. Yohana Sondakh, M.Pd.", email: "yohana.sondakh@unikadelasalle.ac.id", initials: "YS",
+        fields: `
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            ${field("Nama lengkap *", '<input class="input" value="Dr. Yohana Sondakh, M.Pd.">', "", true)}
+            ${field("Alamat email", '<input class="input cursor-not-allowed bg-gray-50 text-gray-500" readonly value="yohana.sondakh@unikadelasalle.ac.id">', "Email autentikasi ditetapkan melalui Supabase Auth.", true)}
+            ${field("Nomor telepon (WhatsApp)", '<input class="input" value="+62 813 2222 3333">', "Nomor telepon opsional.")}
+            <div class="rounded-xl bg-[#fdf7e7] p-3 text-xs leading-relaxed text-[#8a6116] sm:self-end">
+              <b>Peran:</b> Kepala LMI. Peran dan NIP dikelola admin.
+            </div>
+          </div>`,
+        others: [["Ubah Kata Sandi", "Perbarui kata sandi akun untuk menjaga keamanan akses dashboard eksekutif."], ["Keamanan & Akses", "Informasi mengenai otorisasi dan hak akses peran Kepala LMI."]],
+      },
+    };
+
+    function collapsedPanel([title, desc]) {
+      return `<section class="panel rounded-2xl border border-gray-200 bg-white shadow-sm" data-open="false">
+        <div class="flex items-center gap-2 p-5 sm:p-6">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+          </span>
+          <span class="min-w-0 flex-1"><span class="block text-base font-bold">${title}</span><span class="mt-0.5 block text-xs text-gray-500">${desc}</span></span>
+          <svg class="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+        </div></section>`;
+    }
+
+    function show(role) {
+      const r = ROLES[role];
+      document.getElementById("pageDesc").textContent = r.desc;
+      document.getElementById("panelDesc").textContent = r.panelDesc;
+      document.getElementById("photoHint").textContent = r.photoHint;
+      document.getElementById("headName").textContent = r.name;
+      document.getElementById("headEmail").textContent = r.email;
+      document.querySelectorAll(".avatar-sm, .avatar-lg").forEach((el) => (el.textContent = r.initials));
+      document.getElementById("fields").innerHTML = r.fields;
+      document.getElementById("otherPanels").innerHTML = r.others.map(collapsedPanel).join("");
+      document.querySelectorAll(".role-tab").forEach((b) => {
+        const on = b.dataset.role === role;
+        b.className = `role-tab rounded-lg px-4 py-2 ${on ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-50"}`;
+      });
+    }
+
+    document.querySelectorAll(".role-tab").forEach((b) => b.addEventListener("click", () => show(b.dataset.role)));
+    const panel = document.querySelector(".panel");
+    document.querySelectorAll(".panel .toggle").forEach((t) =>
+      t.addEventListener("click", () => {
+        const open = panel.dataset.open !== "true";
+        panel.dataset.open = String(open);
+        panel.querySelector(".toggle").setAttribute("aria-expanded", String(open));
+      }),
+    );
+    show("konselor");
+  </script>
+</body>
+</html>

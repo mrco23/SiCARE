@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  describeFormatAndRoom,
+  formatRoomLine,
   formatBookingReference,
   formatIndonesianDate,
   formatIndonesianTimeWindow,
@@ -43,14 +43,27 @@ test("formatBookingReference produces clean short reference", () => {
   assert.equal(ref, "#SC-123456");
 });
 
-test("describeFormatAndRoom formats online vs offline with room", () => {
-  const online = describeFormatAndRoom("online", "https://meet.google.com/xyz");
-  assert.match(online.sessionFormat, /Online/);
-  assert.match(online.roomInfo, /meet\.google\.com/);
+test("formatRoomLine shows room for face-to-face sessions only when set", () => {
+  assert.match(formatRoomLine("Ruang Konseling LMI 102"), /Ruangan: Ruang Konseling LMI 102/);
+  assert.equal(formatRoomLine(""), "");
+  assert.equal(formatRoomLine(null), "");
+});
 
-  const offline = describeFormatAndRoom("offline", "Ruang Konseling LMI 102");
-  assert.match(offline.sessionFormat, /Tatap Muka/);
-  assert.match(offline.roomInfo, /Ruangan: Ruang Konseling LMI 102/);
+test("templates never mention online/daring formats (face-to-face only)", () => {
+  const vars = {
+    booking_id: "11111111-2222-3333-4444-555555555555",
+    recipient_name: "Budi",
+    partner_name: "Bu Konselor",
+    starts_at: "2026-11-05T09:00:00.000Z",
+    ends_at: "2026-11-05T10:00:00.000Z",
+    session_format: "online",
+    room: "Ruang Konseling LMI 102",
+  };
+  for (const key of ["booking_accepted", "reminder_h1", "reminder_morning", "reminder_day_of"]) {
+    const text = renderWhatsAppTemplate(key, vars);
+    assert.doesNotMatch(text, /Online|Daring|Tautan|Format:/);
+    assert.match(text, /Ruangan: Ruang Konseling LMI 102/);
+  }
 });
 
 test("all 8 templates render without errors and contain required operational fields", () => {
@@ -102,7 +115,6 @@ test("renderWhatsAppTemplate handles DB message_type aliases with underscores", 
     partner_name: "Bu Konselor",
     starts_at: "2026-11-05T09:00:00.000Z",
     ends_at: "2026-11-05T10:00:00.000Z",
-    session_format: "online",
   };
 
   const textH1 = renderWhatsAppTemplate("reminder_h1", vars);

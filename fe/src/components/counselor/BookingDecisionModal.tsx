@@ -93,7 +93,6 @@ export function BookingDecisionModal({
       if (action === "approve") {
         result = await sicareApi.transitionBooking(booking.id, {
           status: "confirmed",
-          session_format: "offline",
           room: room.trim() ? room.trim() : null,
         });
       } else if (action === "reject") {
@@ -197,7 +196,7 @@ export function BookingDecisionModal({
                   Ruangan / Lokasi Konseling (Opsional)
                 </label>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  Sesi konseling dilaksanakan secara Tatap Muka. Tentukan ruangan pelaksanaan jika ada.
+                  Tentukan ruangan pelaksanaan jika ada.
                 </p>
                 <div className="relative mt-2">
                   <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />

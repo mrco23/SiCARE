@@ -622,27 +622,44 @@ export default function KonselorPengaturanPage() {
         <SkeletonFormGrid className="mt-6 flex flex-col gap-4 sm:gap-5 lg:gap-6" />
       ) : (
       <div className="mt-6 flex flex-col gap-4 sm:gap-5 lg:gap-6">
-        {/* Panel Foto Profil */}
+        {/* Panel Profil Akun: foto profil (kiri) dan profil publik (kanan) dalam satu panel. */}
         <Panel
-          icon={<Camera className="h-5 w-5" />}
-          title="Foto Profil"
-          description="Foto ditampilkan dalam rasio 1:1 di direktori konselor."
+          icon={<UserRound className="h-5 w-5" />}
+          title="Profil Akun"
+          forceOpen={showErrors && Object.keys(errors).length > 0}
+          description="Foto dan informasi yang dilihat klien sebelum memilih konselor."
         >
-          <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-            <div className="aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-primary-tint">
-              {photoPreview ? (
-                <img
-                  src={photoPreview}
-                  alt="Foto profil konselor"
-                  className="h-full w-full object-cover object-top"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-gray-300">
-                  <UserRound className="h-14 w-14" />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,15rem)_1fr] md:gap-8">
+            {/* Kiri: foto profil */}
+            <div className="flex flex-col items-center rounded-2xl bg-primary-tint p-5 text-center md:self-start">
+              <div className="relative">
+                <div className="rounded-full bg-linear-to-br from-brand-gold to-[#f6d98a] p-1">
+                  <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white">
+                    {photoPreview ? (
+                      <img
+                        src={photoPreview}
+                        alt="Foto profil konselor"
+                        className="h-full w-full object-cover object-top"
+                      />
+                    ) : (
+                      <UserRound className="h-14 w-14 text-gray-300" />
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-            <div className="flex w-full flex-col gap-2 sm:pt-1">
+                <button
+                  type="button"
+                  title="Ubah foto"
+                  aria-label="Ubah foto profil"
+                  onClick={() => photoInput.current?.click()}
+                  className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white shadow-md ring-4 ring-white transition hover:bg-primary-dark"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="mt-4 text-sm font-semibold text-gray-900">Foto profil</p>
+              <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                Ditampilkan bulat di direktori konselor dan navbar.
+              </p>
               <input
                 ref={photoInput}
                 type="file"
@@ -650,170 +667,165 @@ export default function KonselorPengaturanPage() {
                 className="hidden"
                 onChange={handlePhoto}
               />
-              <button
-                type="button"
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
-                onClick={() => photoInput.current?.click()}
-              >
-                <Camera className="h-4 w-4" />
-                Unggah foto
-              </button>
-              {profile.photo && (
+              <div className="mt-4 flex w-full flex-col gap-2">
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-red-300 hover:bg-gray-50 hover:text-red-600"
-                  onClick={handleDeletePhoto}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
+                  onClick={() => photoInput.current?.click()}
                 >
-                  <IconLabel icon={Trash2}>Hapus foto</IconLabel>
+                  <Camera className="h-4 w-4" />
+                  Unggah foto baru
                 </button>
-              )}
-              <p className="text-xs leading-relaxed text-gray-500">
-                JPG, PNG, atau WEBP. Maksimal 2 MB. Foto dipotong otomatis menjadi persegi.
-              </p>
-              {photoError && (
-                <p className="text-xs text-red-600">{photoError}</p>
-              )}
-            </div>
-          </div>
-        </Panel>
-
-        {/* Panel Profil Publik */}
-        <Panel
-          icon={<UserRound className="h-5 w-5" />}
-          title="Profil Publik"
-          forceOpen={showErrors && Object.keys(errors).length > 0}
-          description="Informasi yang dilihat klien sebelum memilih konselor."
-        >
-          <div className="flex flex-col gap-5">
-            <Field
-              label="Nama tampil & gelar"
-              required
-              error={showErrors ? errors.displayName : ""}
-            >
-              <input
-                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
-                value={profile.displayName}
-                onChange={(e) => update("displayName", e.target.value)}
-                placeholder="Contoh: Giovanna Yudi, M.Psi"
-              />
-            </Field>
-
-            <Field
-              label="Nomor telepon (WhatsApp)"
-              required
-              error={showErrors ? errors.phone : ""}
-            >
-              <PhoneE164Input
-                value={profile.phone}
-                disabled={saving}
-                invalid={Boolean(showErrors && errors.phone)}
-                onChange={(e164) => update("phone", e164)}
-              />
-              <p className="mt-1 text-[11px] text-gray-400">
-                Tidak ditampilkan ke klien. Dipakai untuk notifikasi WhatsApp permintaan booking dan pengingat jadwal.
-              </p>
-            </Field>
-
-            <Field label="Headline profesi">
-              <input
-                className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
-                value={profile.headline || ""}
-                onChange={(e) => update("headline", e.target.value)}
-                placeholder="Contoh: Psikolog Klinis & Konselor Mahasiswa"
-              />
-            </Field>
-
-            <Field
-              label="Tahun mulai praktik"
-              required
-              error={showErrors ? errors.experience : ""}
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  min="1950"
-                  max={currentYear}
-                  className="w-36 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
-                  value={profile.experienceStartYear}
-                  onChange={(e) => update("experienceStartYear", e.target.value)}
-                  placeholder="Contoh: 2018"
-                />
-                <span className="text-xs text-gray-500">
-                  {validExperience
-                    ? `${currentYear - Number(profile.experienceStartYear)} tahun pengalaman`
-                    : "Masukkan tahun 4 digit"}
-                </span>
-              </div>
-            </Field>
-
-            <Field
-              label="Topik keahlian"
-              required
-              error={showErrors ? errors.topics : ""}
-            >
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {profile.topics.map((t) => (
-                    <span
-                      key={t}
-                      className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700"
-                    >
-                      {t}
-                      <button
-                        type="button"
-                        onClick={() => removeTopic(t)}
-                        className="rounded-full p-0.5 hover:bg-gray-200"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                {profile.topics.length < MAX_TOPICS && (
-                  <div className="flex gap-2">
-                    <input
-                      value={topicInput}
-                      maxLength={MAX_TOPIC_LEN}
-                      onChange={(e) => setTopicInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addTopic();
-                        }
-                      }}
-                      placeholder="Tambah topik (mis. Manajemen Stres)"
-                      className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/15"
-                    />
-                    <button
-                      type="button"
-                      onClick={addTopic}
-                      className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                    >
-                      <IconLabel icon={Plus}>Tambah</IconLabel>
-                    </button>
-                  </div>
+                {profile.photo && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                    onClick={handleDeletePhoto}
+                  >
+                    <IconLabel icon={Trash2}>Hapus foto</IconLabel>
+                  </button>
                 )}
               </div>
-            </Field>
+              <p className="mt-3 text-[11px] leading-relaxed text-gray-400">
+                JPG, PNG, atau WEBP · maks. 2 MB · dipotong 1:1
+              </p>
+              {photoError && <p className="mt-2 text-xs text-red-600">{photoError}</p>}
+            </div>
 
-            <Field
-              label="Bio ringkas"
-              error={showErrors ? errors.bio : ""}
-            >
-              <div className="relative">
-                <textarea
-                  rows={3}
-                  maxLength={MAX_BIO}
-                  value={profile.bio}
-                  onChange={(e) => update("bio", e.target.value)}
-                  placeholder="Tuliskan pendekatan konseling dan fokus layanan Anda."
-                  className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
-                />
-                <span className="mt-1 block text-right text-xs text-gray-400">
-                  {profile.bio.length}/{MAX_BIO}
-                </span>
+            {/* Kanan: profil publik */}
+            <div className="min-w-0">
+              <div className="flex flex-col gap-5">
+                <Field
+                  label="Nama tampil & gelar"
+                  required
+                  error={showErrors ? errors.displayName : ""}
+                >
+                  <input
+                    className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
+                    value={profile.displayName}
+                    onChange={(e) => update("displayName", e.target.value)}
+                    placeholder="Contoh: Giovanna Yudi, M.Psi"
+                  />
+                </Field>
+
+                <Field
+                  label="Nomor telepon (WhatsApp)"
+                  required
+                  error={showErrors ? errors.phone : ""}
+                >
+                  <PhoneE164Input
+                    value={profile.phone}
+                    disabled={saving}
+                    invalid={Boolean(showErrors && errors.phone)}
+                    onChange={(e164) => update("phone", e164)}
+                  />
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Tidak ditampilkan ke klien. Dipakai untuk notifikasi WhatsApp permintaan booking dan pengingat jadwal.
+                  </p>
+                </Field>
+
+                <Field label="Headline profesi">
+                  <input
+                    className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
+                    value={profile.headline || ""}
+                    onChange={(e) => update("headline", e.target.value)}
+                    placeholder="Contoh: Psikolog Klinis & Konselor Mahasiswa"
+                  />
+                </Field>
+
+                <Field
+                  label="Tahun mulai praktik"
+                  required
+                  error={showErrors ? errors.experience : ""}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="1950"
+                      max={currentYear}
+                      className="w-36 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
+                      value={profile.experienceStartYear}
+                      onChange={(e) => update("experienceStartYear", e.target.value)}
+                      placeholder="Contoh: 2018"
+                    />
+                    <span className="text-xs text-gray-500">
+                      {validExperience
+                        ? `${currentYear - Number(profile.experienceStartYear)} tahun pengalaman`
+                        : "Masukkan tahun 4 digit"}
+                    </span>
+                  </div>
+                </Field>
+
+                <Field
+                  label="Topik keahlian"
+                  required
+                  error={showErrors ? errors.topics : ""}
+                >
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {profile.topics.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700"
+                        >
+                          {t}
+                          <button
+                            type="button"
+                            onClick={() => removeTopic(t)}
+                            className="rounded-full p-0.5 hover:bg-gray-200"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    {profile.topics.length < MAX_TOPICS && (
+                      <div className="flex gap-2">
+                        <input
+                          value={topicInput}
+                          maxLength={MAX_TOPIC_LEN}
+                          onChange={(e) => setTopicInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addTopic();
+                            }
+                          }}
+                          placeholder="Tambah topik (mis. Manajemen Stres)"
+                          className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/15"
+                        />
+                        <button
+                          type="button"
+                          onClick={addTopic}
+                          className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          <IconLabel icon={Plus}>Tambah</IconLabel>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </Field>
+
+                <Field
+                  label="Bio ringkas"
+                  error={showErrors ? errors.bio : ""}
+                >
+                  <div className="relative">
+                    <textarea
+                      rows={3}
+                      maxLength={MAX_BIO}
+                      value={profile.bio}
+                      onChange={(e) => update("bio", e.target.value)}
+                      placeholder="Tuliskan pendekatan konseling dan fokus layanan Anda."
+                      className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/15"
+                    />
+                    <span className="mt-1 block text-right text-xs text-gray-400">
+                      {profile.bio.length}/{MAX_BIO}
+                    </span>
+                  </div>
+                </Field>
               </div>
-            </Field>
+            </div>
           </div>
         </Panel>
 

@@ -2319,3 +2319,74 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - tautan booking ada;
   - mobile 375px tanpa overflow.
 - **Catatan:** pengunjung yang belum login diarahkan ke halaman login, dan prapilih konselor tidak terbawa setelah login (`RouteGuards` hanya menyimpan `from`).
+
+## 2026-11-22 — Admin hanya menonaktifkan/mengaktifkan akun; dua prototype
+
+- **Keputusan pengguna:** admin tidak berhak mengubah data akun. Admin tetap boleh menambah akun staf/dosen, menonaktifkan, dan mengaktifkan kembali akun. Larangan juga ditegakkan di backend.
+- **Backend:**
+  - `patchAccountSchema` (`be/src/validators/admin.validator.js`) kini hanya menerima `{ account_status }` dengan `.strict()`. Nama, NIP, kategori, kontak, role, jenis kelamin, dan data izin konselor ditolak `400 VALIDATION_ERROR`.
+  - Logika pengaman di service tetap berlaku: tidak dapat menonaktifkan diri sendiri dan tidak dapat menonaktifkan admin aktif terakhir.
+  - Tes diperbarui: `accountRules`, `counselorLicense`, `adminRoutesLoad` (perubahan role/nama ditolak, aktivasi ulang 200), dan `ownershipGuards` (perubahan role ditolak 400; menonaktifkan diri sendiri 409).
+- **Frontend (`AdminAkunPage.tsx`):**
+  - Tombol "Ubah", `openEdit`, state `editingId`/`editingAccount`, cabang update di `save`, dan cabang tampilan khusus edit di modal dihapus. Modal kini hanya "Tambah Akun".
+  - Tombol Nonaktifkan/Aktifkan tetap ada.
+  - `UpdateAdminAccountApi` dipersempit menjadi `{ account_status }`.
+- **Matriks endpoint:** baris 4 (`PATCH /admin/accounts/:id`) diperbarui.
+- **Prototype (belum diterapkan ke aplikasi):**
+  - `docs/prototypes/permintaan-berdetak.html`: kartu permintaan baru di Beranda Konselor diberi border hijau berdetak (ring dua denyut), label "Baru" dengan titik berdetak, dan penghitung "N baru". Kartu masuk dengan animasi meluncur. Detak berhenti saat kartu diklik atau ditandai dilihat, dan garis hijau statis dipakai untuk `prefers-reduced-motion`.
+  - `docs/prototypes/profil-akun.html`: panel "Profil Akun" yang menggabungkan Foto Profil dengan Profil Publik (Konselor) atau Informasi Akun (Kepala LMI). Foto di kiri, data di kanan, dan bertumpuk di mobile. Ada tab untuk melihat kedua varian.
+- **Pemeriksaan:** `be: npm test` **342/343** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `lint`, `build` **PASS**. Kedua prototype dibuka di browser (desktop dan 375px). Halaman Admin Akun asli (butuh login) tidak dibuka.
+
+## 2026-11-22 — Panel Profil Akun di Pengaturan Konselor dan Kepala LMI
+
+- Sesuai prototype `docs/prototypes/profil-akun.html` yang disetujui.
+- **`KonselorPengaturanPage.tsx`:** panel "Foto Profil" dan "Profil Publik" digabung menjadi satu panel lipat "Profil Akun".
+  - Kiri: foto bulat bercincin emas, tombol kamera, Unggah foto baru, dan Hapus foto (hanya bila ada foto).
+  - Kanan: field profil publik yang sama seperti sebelumnya.
+  - Di mobile, foto ditumpuk di atas field.
+- **`KepalaLMIPengaturanPage.tsx`:** panel "Foto Profil" dan "Informasi Akun" digabung dengan pola yang sama.
+- Handler unggah/hapus/crop foto, validasi, `forceOpen` saat ada error, dan mekanisme simpan halaman tidak berubah. Panel lain tetap seperti sebelumnya.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**. Kedua halaman asli dirender di dev server (AuthProvider + MemoryRouter, tanpa sesi login): panel Profil Akun terbuka dengan foto di kiri dan data di kanan. Alur unggah, crop, dan simpan dengan akun asli **NOT RUN**.
+
+## 2026-11-23 — Layanan hanya tatap muka (tampilan, WhatsApp, backend)
+
+- **Latar:** SiCARE hanya melayani sesi tatap muka. Kolom `counseling_sessions.format` di database masih menerima `online`/`offline`. Data produksi saat dicek: 5 `offline` dan 2 `online`; yang `online` berasal dari `be/scripts/seed-dummy-current-period.sql`.
+- **Tampilan:** `KlienRiwayatPage.tsx` selalu menampilkan "Format sesi: Tatap muka". Sebelumnya bisa menulis "Daring" untuk sesi `online`.
+- **WhatsApp (`be/src/templates/whatsapp/index.js`):** `describeFormatAndRoom` diganti `formatRoomLine(room)`, yang hanya menghasilkan baris 📍 Ruangan bila ada. Logika Online/Daring/Tautan dihapus. Pengingat 1 jam sebelum sesi tidak lagi menampilkan baris Format.
+- **Backend:**
+  - `bookingTransitionSchema.session_format` kini `z.literal("offline").optional()`. `online` ditolak, dan format tidak lagi wajib saat konfirmasi.
+  - `booking.service.js` selalu mengirim `p_session_format: "offline"` ke RPC saat status `confirmed`.
+  - Tipe frontend `session_format` dipersempit menjadi `"offline"`.
+- **Belum dikerjakan (perlu keputusan):** migrasi database untuk membatasi `format` menjadi hanya `offline`, termasuk menangani 2 sesi dummy `online`.
+- **Tes:** `whatsappTemplates` (baris ruangan; tidak ada Online/Daring/Tautan/Format di template sesi), `readinessFixes` (konfirmasi tanpa format diterima, `online` ditolak), `ownershipGuards` (body memakai `offline`).
+- **Pemeriksaan:** `be: npm test` **344/345** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `lint`, `build` **PASS**.
+
+## 2026-11-23 — Migrasi database tatap muka (disiapkan, belum diterapkan)
+
+- **Migrasi baru `supabase/migrations/20261123120000_sicare_face_to_face_only.sql`:**
+  - mengubah sesi `format <> 'offline'` menjadi `offline`;
+  - mengganti `counseling_sessions_format_check` menjadi `check (format = 'offline')`;
+  - default kolom `offline`.
+  - Aman dijalankan ulang (constraint di-drop lalu dibuat lagi). Tabel hanya punya trigger `set_updated_at`.
+- **`be/scripts/seed-dummy-current-period.sql`:** dua baris dummy `online` diubah menjadi `offline` agar seed tetap valid setelah migrasi.
+- **Status remote (dibaca, tanpa perubahan):** `20261119120000_sicare_drop_consent_templates` dan `20261123120000` belum diterapkan di produksi. Nama constraint di produksi terverifikasi `counseling_sessions_format_check`.
+- **Pemeriksaan:** `be: npm test` **344/345** (gagal: `heroMotivations.test.js`, baseline). Migrasi **NOT RUN**, menunggu pengguna.
+
+## 2026-11-23 — Format sesi dihapus seluruhnya (koreksi)
+
+- **Koreksi dari pengguna:** format sesi tidak perlu disimpan atau disebutkan sama sekali, bukan diisi `offline`. Migrasi `20261123120000_sicare_face_to_face_only.sql` (belum pernah diterapkan) dihapus dan diganti.
+- **Migrasi baru `supabase/migrations/20261123120000_sicare_drop_session_format.sql` (belum diterapkan):**
+  - `sicare_transition_booking` di-drop lalu dibuat ulang tanpa `p_session_format`. Dasarnya definisi produksi per 2026-11-23 (`pg_get_functiondef`): cek `SESSION_FORMAT_REQUIRED`, kolom format pada insert/update sesi, dan `session_format` di payload WhatsApp dihapus. Hak akses: revoke dari public/anon/authenticated, execute untuk service_role.
+  - Kolom `counseling_sessions.format` dan `counseling_sessions_format_check` dihapus.
+  - Hanya fungsi itu yang memakai kolom format, dan tidak ada view yang bergantung padanya (dicek di produksi).
+- **Backend:**
+  - `session_format` dihapus dari validator transisi booking (dikirim → 400), service booking, kode galat `SESSION_FORMAT_REQUIRED`, select sesi (repository, laporan sesi konselor, riwayat konselor, monitoring admin, scheduler WhatsApp), dan payload outbox WhatsApp.
+  - `database.types.ts` diperbarui.
+- **Frontend:**
+  - `session_format` dan `format` sesi dihapus dari DTO dan dari permintaan `BookingDecisionModal`.
+  - Label format dihapus: badge "Tatap Muka" di Aktivitas Konselor, "Tatap Muka ·" di Beranda Konselor, teks di kartu lokasi, badge monitoring Admin Konseling, kolom "Format" di tabel laporan, dan "Format sesi" di Riwayat Klien. `formatSessionFormatLabel` dihapus.
+  - Teks petunjuk modal terima booking menjadi "Tentukan ruangan pelaksanaan jika ada."
+  - Label "Individu/Kelompok" (jenis layanan) tetap.
+- **Seed:** `seed-dummy-current-period.sql` tidak lagi mengisi kolom format.
+- **Urutan penerapan:** deploy backend baru dan `npx supabase db push --remote` harus berdekatan, karena backend lama masih membaca kolom `format`. Produksi juga belum menerapkan `20261119120000_sicare_drop_consent_templates.sql`.
+- **Pemeriksaan:** `be: npm test` **344/345** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `lint`, `build` **PASS**. SQL migrasi belum dijalankan di database mana pun (Docker lokal tidak aktif).

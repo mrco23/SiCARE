@@ -518,7 +518,6 @@ export type Database = {
           counselor_id: string
           created_at: string
           ends_at: string
-          format: string
           id: string
           room: string | null
           started_at: string | null
@@ -532,7 +531,6 @@ export type Database = {
           counselor_id: string
           created_at?: string
           ends_at: string
-          format: string
           id?: string
           room?: string | null
           started_at?: string | null
@@ -546,7 +544,6 @@ export type Database = {
           counselor_id?: string
           created_at?: string
           ends_at?: string
-          format?: string
           id?: string
           room?: string | null
           started_at?: string | null
@@ -1239,7 +1236,6 @@ export type Database = {
           p_booking_id: string
           p_reason?: string
           p_room?: string
-          p_session_format?: string
           p_target_status: string
         }
         Returns: string

@@ -105,22 +105,14 @@ export function formatBookingReference(bookingId) {
 }
 
 /**
- * Translates format to Indonesian readable description
- * @param {string|null|undefined} format
+ * Baris ruangan untuk pesan WhatsApp. Layanan SiCARE hanya tatap muka, jadi tidak ada
+ * format daring/tautan; baris dihilangkan bila ruangan belum ditentukan.
  * @param {string|null|undefined} room
- * @returns {{ sessionFormat: string, roomInfo: string, formatIcon: string }}
+ * @returns {string}
  */
-export function describeFormatAndRoom(format, room) {
-  const isOnline = format === "online";
-  const sessionFormat = isOnline ? "Online (Daring)" : "Tatap Muka (Luring)";
-  const formatIcon = isOnline ? "💻" : "🏫";
-  let roomInfo = "";
-  if (!isOnline && room && room.trim()) {
-    roomInfo = `📍 Ruangan: ${room.trim()}\n`;
-  } else if (isOnline && room && room.trim()) {
-    roomInfo = `🔗 Tautan: ${room.trim()}\n`;
-  }
-  return { sessionFormat, roomInfo, formatIcon };
+export function formatRoomLine(room) {
+  return room && room.trim() ? `📍 Ruangan: ${room.trim()}
+` : "";
 }
 
 /**
@@ -195,7 +187,7 @@ ${SIGNATURE}`
     const counselorName = vars.counselor_name || "Konselor";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
     const { date, time } = sessionWhen(vars);
-    const { roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
+    const roomInfo = formatRoomLine(vars.room);
 
     return (
 `Halo ${clientName} 👋
@@ -283,9 +275,7 @@ ${SIGNATURE}`
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
     const { date, time } = sessionWhen(vars);
-    // Format dan tautan sesi tidak dicantumkan; ruangan tetap disebut untuk sesi tatap muka.
-    const { roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
-    const roomLine = vars.session_format === "online" ? "" : roomInfo;
+    const roomLine = formatRoomLine(vars.room);
 
     return (
 `Halo ${recipientName} 👋
@@ -309,7 +299,7 @@ ${SIGNATURE}`
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
     const { time } = sessionWhen(vars);
-    const { roomInfo } = describeFormatAndRoom(vars.session_format, vars.room);
+    const roomInfo = formatRoomLine(vars.room);
 
     return (
 `Halo ${recipientName} 👋
@@ -332,7 +322,7 @@ ${SIGNATURE}`
     const partnerName = vars.partner_name || "Konselor/Klien";
     const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
     const { time } = sessionWhen(vars);
-    const { sessionFormat, roomInfo, formatIcon } = describeFormatAndRoom(vars.session_format, vars.room);
+    const roomInfo = formatRoomLine(vars.room);
 
     return (
 `Halo ${recipientName} 👋
@@ -343,7 +333,6 @@ Sesi konseling Anda di SiCARE akan dimulai dalam 1 jam.
 🔖 Nomor Booking: ${ref}
 👤 Dengan: ${partnerName}
 ⏰ Waktu: ${time}
-${formatIcon} Format: ${sessionFormat}
 ${roomInfo}
 👉 Silakan persiapkan diri Anda dan buka website SiCARE untuk detail sesi.
 

@@ -13,7 +13,6 @@ import { adminApi } from "../../lib/adminApi";
 import {
   CampusEmailInput,
   PasswordRuleList,
-  PhoneE164Input,
 } from "../../components/shared/AccountInputs";
 import {
   buildCampusEmail,
@@ -38,7 +37,6 @@ import {
   Loader2,
   RefreshCw,
   Search,
-  SquarePen,
   User,
   UserCheck,
   UserPlus,
@@ -231,17 +229,8 @@ export default function AdminAkunPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
 
-  // Modal tambah / ubah
+  // Modal tambah akun. Admin tidak berhak mengubah data akun; hanya menonaktifkan/mengaktifkan.
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const editingAccount = useMemo(
-    () => (editingId !== null ? accounts.find((a) => a.id === editingId) ?? null : null),
-    [editingId, accounts],
-  );
-  const isEditingRestrictedAccount =
-    editingAccount !== null &&
-    (editingAccount.appRole === "client" || editingAccount.appRole === "admin");
   const [form, setForm] = useState<FormState>(emptyForm("Semua"));
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -311,53 +300,9 @@ export default function AdminAkunPage() {
 
   /* ===== MODAL ===== */
   const openAdd = () => {
-    setEditingId(null);
     setForm(emptyForm(tab));
     setFormError("");
     setModalOpen(true);
-  };
-
-  const openEdit = async (a: ManagedAccount) => {
-    setEditingId(a.id);
-    setForm({
-      name: a.name,
-      code: a.code === "-" ? "" : a.code,
-      email: a.email,
-      password: "",
-      phone: a.phone,
-      role: a.role,
-      status: a.status,
-      gender: a.gender,
-      siapNumber: a.siapNumber,
-      sippSilpNumber: a.sippSilpNumber,
-      sippSilpValidUntil: a.sippSilpValidUntil,
-    });
-    setFormError("");
-    setModalOpen(true);
-
-    // Ambil detail terbaru dari server
-    try {
-      const latest = await adminApi.getAccount(a.id);
-      const mapped = mapAccountDto(latest);
-      setAccounts((prev) =>
-        prev.map((item) => (item.id === a.id ? mapped : item)),
-      );
-      setForm({
-        name: mapped.name,
-        code: mapped.code === "-" ? "" : mapped.code,
-        email: mapped.email,
-        password: "",
-        phone: mapped.phone,
-        role: mapped.role,
-        status: mapped.status,
-        gender: mapped.gender,
-        siapNumber: mapped.siapNumber,
-        sippSilpNumber: mapped.sippSilpNumber,
-        sippSilpValidUntil: mapped.sippSilpValidUntil,
-      });
-    } catch {
-      // Tetap gunakan data baris jika gagal refresh detail
-    }
   };
 
   const closeModal = () => {
@@ -380,23 +325,21 @@ export default function AdminAkunPage() {
       return;
     }
 
-    // Admin hanya membuat/mengelola akun staf dan dosen; NIP wajib (akun klien tetap boleh kosong).
-    if (!isEditingRestrictedAccount && !code) {
+    // Admin hanya membuat akun staf dan dosen; NIP wajib.
+    if (!code) {
       setFormError("NIP wajib diisi.");
       return;
     }
 
-    if (editingId === null) {
-      const emailError = validateCampusEmailLocalPart(getCampusEmailLocalPart(email));
-      if (emailError) {
-        setFormError(emailError);
-        return;
-      }
-      const passwordError = validateStrongPassword(password);
-      if (passwordError) {
-        setFormError(passwordError);
-        return;
-      }
+    const emailError = validateCampusEmailLocalPart(getCampusEmailLocalPart(email));
+    if (emailError) {
+      setFormError(emailError);
+      return;
+    }
+    const passwordError = validateStrongPassword(password);
+    if (passwordError) {
+      setFormError(passwordError);
+      return;
     }
 
     const phoneError = validateIndonesianPhone(phone);
@@ -405,7 +348,7 @@ export default function AdminAkunPage() {
       return;
     }
 
-    if ((editingId === null || isCounselorForm) && !form.gender) {
+    if (!form.gender) {
       setFormError("Jenis kelamin wajib dipilih.");
       return;
     }
@@ -440,60 +383,24 @@ export default function AdminAkunPage() {
     setSubmitting(true);
     setFormError("");
     try {
-      if (editingId !== null) {
-        if (isEditingRestrictedAccount) {
-          const updated = await adminApi.updateAccount(editingId, {
-            full_name: name,
-            identity_code: code || null,
-            member_category: editingAccount?.memberCategory ?? null,
-            phone_e164: phone || null,
-            account_status: form.status,
-            ...personalData,
-          });
-          const mapped = mapAccountDto(updated, email);
-          setAccounts((prev) =>
-            prev.map((a) => (a.id === editingId ? mapped : a)),
-          );
-          setModalOpen(false);
-          toast.success(`Akun ${mapped.name} diperbarui.`);
-        } else {
-          const { app_role, member_category } = mapUiRoleToApi(form.role);
-          const updated = await adminApi.updateAccount(editingId, {
-            full_name: name,
-            identity_code: code || null,
-            member_category,
-            phone_e164: phone || null,
-            app_role,
-            account_status: form.status,
-            ...personalData,
-          });
-          const mapped = mapAccountDto(updated, email);
-          setAccounts((prev) =>
-            prev.map((a) => (a.id === editingId ? mapped : a)),
-          );
-          setModalOpen(false);
-          toast.success(`Akun ${mapped.name} diperbarui.`);
-        }
-      } else {
-        const { app_role, member_category } = mapUiRoleToApi(form.role);
-        const created = await adminApi.createAccount({
-          email,
-          password,
-          full_name: name,
-          identity_code: code || null,
-          member_category,
-          app_role,
-          account_status: form.status,
-          ...personalData,
-        });
-        const mapped = mapAccountDto(created, email);
-        setAccounts((prev) => [...prev, mapped]);
-        setModalOpen(false);
-        toast.success(`Akun ${mapped.name} berhasil dibuat.`);
-      }
+      const { app_role, member_category } = mapUiRoleToApi(form.role);
+      const created = await adminApi.createAccount({
+        email,
+        password,
+        full_name: name,
+        identity_code: code || null,
+        member_category,
+        app_role,
+        account_status: form.status,
+        ...personalData,
+      });
+      const mapped = mapAccountDto(created, email);
+      setAccounts((prev) => [...prev, mapped]);
+      setModalOpen(false);
+      toast.success(`Akun ${mapped.name} berhasil dibuat.`);
     } catch (err) {
       setFormError(
-        err instanceof Error ? err.message : "Perubahan akun tidak dapat disimpan.",
+        err instanceof Error ? err.message : "Akun tidak dapat dibuat.",
       );
     } finally {
       setSubmitting(false);
@@ -740,15 +647,6 @@ export default function AdminAkunPage() {
                         <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
-                            title="Ubah"
-                            disabled={isBusy}
-                            onClick={() => void openEdit(a)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary disabled:opacity-40"
-                          >
-                            <SquarePen className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
                             disabled={isBusy || (isSelf && a.active)}
                             title={
                               isSelf && a.active
@@ -796,7 +694,7 @@ export default function AdminAkunPage() {
         >
           <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
             <h3 className="mb-4 text-lg font-bold">
-              {editingId !== null ? "Ubah Akun" : "Tambah Akun"}
+              Tambah Akun
             </h3>
 
             <div className="space-y-3 text-sm">
@@ -813,7 +711,7 @@ export default function AdminAkunPage() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600">
-                  {editingAccount?.appRole === "client" ? "NIM / NIP" : "NIP"}
+                  NIP
                 </label>
                 <input
                   value={form.code}
@@ -826,8 +724,7 @@ export default function AdminAkunPage() {
                 <label className="text-xs font-semibold text-slate-600">
                   Email kampus
                 </label>
-                {editingId === null ? (
-                  <CampusEmailInput
+                <CampusEmailInput
                     value={getCampusEmailLocalPart(form.email)}
                     disabled={submitting}
                     autoComplete="off"
@@ -838,18 +735,8 @@ export default function AdminAkunPage() {
                       setForm({ ...form, email: buildCampusEmail(localPart) })
                     }
                   />
-                ) : (
-                  <input
-                    type="email"
-                    value={form.email}
-                    readOnly
-                    disabled={submitting}
-                    className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-500`}
-                  />
-                )}
               </div>
-              {editingId === null ? (
-                <div>
+              <div>
                   <label className="text-xs font-semibold text-slate-600">
                     Password awal
                   </label>
@@ -866,41 +753,12 @@ export default function AdminAkunPage() {
                   />
                   <PasswordRuleList password={form.password} className="mt-2" />
                 </div>
-              ) : (
-                <div>
-                  <label className="text-xs font-semibold text-slate-600">
-                    Nomor telepon (opsional)
-                  </label>
-                  <PhoneE164Input
-                    value={form.phone}
-                    disabled={submitting}
-                    className="mt-1 border-slate-200"
-                    inputClassName="py-2"
-                    onChange={(e164) => setForm({ ...form, phone: e164 })}
-                  />
-                </div>
-              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-600">
                     Peran
                   </label>
-                  {isEditingRestrictedAccount ? (
-                    <div>
-                      <div className="mt-1 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                        <Badge bordered tone={ROLE_TONE[form.role]}>
-                          {form.role}
-                        </Badge>
-                        <span className="text-xs text-slate-500">
-                          {editingAccount?.appRole === "admin" ? "Admin" : "Klien"}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-amber-700">
-                        Role akun ini tidak dapat diubah dari halaman admin.
-                      </p>
-                    </div>
-                  ) : (
-                    <select
+                  <select
                       value={form.role}
                       disabled={submitting}
                       onChange={(e) =>
@@ -914,7 +772,6 @@ export default function AdminAkunPage() {
                         </option>
                       ))}
                     </select>
-                  )}
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-600">
@@ -997,14 +854,6 @@ export default function AdminAkunPage() {
                       }
                       className={inputClass}
                     />
-                    {editingAccount?.sippSilpUpdatedAt && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        Terakhir diperbarui konselor:{" "}
-                        {new Date(editingAccount.sippSilpUpdatedAt).toLocaleString(
-                          "id-ID",
-                          { timeZone: "Asia/Makassar", dateStyle: "medium", timeStyle: "short" })}
-                      </p>
-                    )}
                   </div>
                 </div>
               )}
