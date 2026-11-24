@@ -9,13 +9,10 @@ import type {
   AdminActivityDto,
   AdminCounselingDto,
   AdminFeedbackDto,
-  CounselorPublicationDto,
   CreateAcademicPeriodApi,
   CreateAdminAccountApi,
   CreateHeroMotivationApi,
-  DeleteRecordResultDto,
   FeedbackModerationApi,
-  FeedbackReviewApi,
   FeedbackReviewStatusApi,
   FeedbackModerationStatusApi,
   FeedbackStatisticsDto,
@@ -23,7 +20,6 @@ import type {
   UpdateAcademicPeriodApi,
   UpdateAdminAccountApi,
   UpdateHeroMotivationApi,
-  AppRoleApi,
 } from "../../../types/api";
 
 /** Admin and review-queue API operations. Backend authorization remains authoritative. */
@@ -35,10 +31,6 @@ export const adminApi = {
       search: filters.search,
       limit: filters.limit,
     })}`, { auth: true });
-  },
-
-  getAccount(accountId: string): Promise<AdminAccountDto> {
-    return apiRequest<AdminAccountDto>(`/admin/accounts/${encodeURIComponent(accountId)}`, { auth: true });
   },
 
   createAccount(input: CreateAdminAccountApi): Promise<AdminAccountDto> {
@@ -60,14 +52,6 @@ export const adminApi = {
     });
   },
 
-  setCounselorPublication(counselorId: string, isPublic: boolean): Promise<CounselorPublicationDto> {
-    return apiRequest<CounselorPublicationDto>(`/admin/counselors/${encodeURIComponent(counselorId)}/publication`, {
-      method: "PATCH",
-      auth: true,
-      body: { is_public: isPublic },
-    });
-  },
-
   listAcademicPeriods(): Promise<AcademicPeriodRecordDto[]> {
     return apiRequest<AcademicPeriodRecordDto[]>("/admin/periods", { auth: true });
   },
@@ -81,13 +65,6 @@ export const adminApi = {
       method: "PATCH",
       auth: true,
       body: input,
-    });
-  },
-
-  deleteAcademicPeriod(periodId: string): Promise<DeleteRecordResultDto> {
-    return apiRequest<DeleteRecordResultDto>(`/admin/periods/${encodeURIComponent(periodId)}`, {
-      method: "DELETE",
-      auth: true,
     });
   },
 
@@ -150,15 +127,7 @@ export const adminApi = {
     });
   },
 
-  reviewFeedback(feedbackId: string, input: FeedbackReviewApi): Promise<AdminFeedbackDto> {
-    return apiRequest<AdminFeedbackDto>(`/admin/feedback/${encodeURIComponent(feedbackId)}/review`, {
-      method: "PATCH",
-      auth: true,
-      body: input,
-    });
-  },
 };
 
 // Re-export role type so callers can build filter UIs without duplicating string unions.
-export type AdminRoleFilter = AppRoleApi;
 

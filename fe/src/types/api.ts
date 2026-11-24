@@ -104,7 +104,6 @@ export interface ProfileDto {
   gender?: GenderApi | null;
   siap_number?: string | null;
   sipp_silp_number?: string | null;
-  whatsapp_opt_in: boolean;
   avatar_url?: string | null;
   photo_path?: string | null;
   created_at: string;
@@ -119,17 +118,6 @@ export interface ProfilePhotoResultDto {
 export interface ProfilePatchApi {
   full_name?: string;
   phone_e164?: string | null;
-}
-
-export interface WhatsAppConsentApi {
-  opted_in: boolean;
-}
-
-export interface WhatsAppConsentResultApi {
-  id: string;
-  whatsapp_opt_in: boolean;
-  whatsapp_opt_in_at: string | null;
-  updated_at: string;
 }
 
 // Counselor profile and availability DTOs
@@ -170,13 +158,6 @@ export interface SaveCounselorAvailabilityApi {
   starts_at: string;
   ends_at: string;
   academic_period_id?: string | null;
-}
-
-export interface CounselorPublicationDto {
-  profile_id: string;
-  public_name: string;
-  is_public: boolean;
-  updated_at: string;
 }
 
 export interface CounselorHistoryPasswordStatusDto {
@@ -364,10 +345,6 @@ export type FeedbackModerationApi =
   | { moderation_status: "disabled"; disabled_reason: string }
   | { moderation_status: "pending" | "shown"; disabled_reason?: never };
 
-export interface FeedbackReviewApi {
-  review_status: FeedbackReviewStatusApi;
-}
-
 export interface FeedbackStatisticsDto {
   moderation: Record<FeedbackModerationStatusApi, number>;
   review: Record<FeedbackReviewStatusApi, number>;
@@ -409,7 +386,6 @@ export interface AdminAccountRecordDto {
   sipp_silp_number?: string | null;
   sipp_silp_valid_until?: string | null;
   sipp_silp_updated_at?: string | null;
-  whatsapp_opt_in?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -542,11 +518,6 @@ export interface CreateAcademicPeriodApi {
 }
 
 export type UpdateAcademicPeriodApi = Partial<CreateAcademicPeriodApi>;
-
-export interface DeleteRecordResultDto {
-  deleted: boolean;
-  id: string;
-}
 
 export interface HeroMotivationAdminDto {
   id: string;

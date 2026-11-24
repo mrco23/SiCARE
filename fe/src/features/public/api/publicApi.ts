@@ -13,7 +13,6 @@ export type PublicCounselor = PublicCounselorDto;
 export type PublicAcademicPeriod = PublicAcademicPeriodDto;
 export type PublicAvailabilitySlot = PublicAvailabilitySlotDto;
 export type PublicFeedback = PublicFeedbackDto;
-export type PublicHeroMotivation = PublicHeroMotivationDto;
 
 export function getPublicCounselors(signal?: AbortSignal): Promise<PublicCounselorDto[]> {
   return apiRequest<PublicCounselorDto[]>("/public/counselors", { signal });
