@@ -568,40 +568,13 @@ export type Database = {
           },
         ]
       }
-      counselor_history_credentials: {
-        Row: {
-          counselor_id: string
-          created_at: string
-          password_hash: string
-          updated_at: string
-        }
-        Insert: {
-          counselor_id: string
-          created_at?: string
-          password_hash: string
-          updated_at?: string
-        }
-        Update: {
-          counselor_id?: string
-          created_at?: string
-          password_hash?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "counselor_history_credentials_counselor_id_fkey"
-            columns: ["counselor_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       counselor_profiles: {
         Row: {
           bio: string | null
           created_at: string
           headline: string | null
+          history_password_hash: string | null
+          history_password_updated_at: string | null
           is_public: boolean
           photo_path: string | null
           profile_id: string
@@ -614,6 +587,8 @@ export type Database = {
           bio?: string | null
           created_at?: string
           headline?: string | null
+          history_password_hash?: string | null
+          history_password_updated_at?: string | null
           is_public?: boolean
           photo_path?: string | null
           profile_id: string
@@ -626,6 +601,8 @@ export type Database = {
           bio?: string | null
           created_at?: string
           headline?: string | null
+          history_password_hash?: string | null
+          history_password_updated_at?: string | null
           is_public?: boolean
           photo_path?: string | null
           profile_id?: string

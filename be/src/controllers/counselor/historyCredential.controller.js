@@ -54,47 +54,62 @@ const loadClientPhotoUrls = async (client, clientIds) => {
   return new Map(entries);
 };
 
+// Hash sandi riwayat disimpan di counselor_profiles.history_password_hash. Kolom ini tidak
+// di-grant ke anon/authenticated (lihat migrasi 20261124120000) dan tidak boleh ikut dikirim
+// ke client; hanya dibaca di sini lewat service_role.
+const loadHistoryCredential = async (client, counselorId) => {
+  const { data, error } = await client
+    .from("counselor_profiles")
+    .select("profile_id,history_password_hash")
+    .eq("profile_id", counselorId)
+    .maybeSingle();
+  return { profile: data ?? null, hash: data?.history_password_hash ?? null, error };
+};
+
+const profileNotReady = () =>
+  new HttpError(
+    404,
+    "COUNSELOR_PROFILE_NOT_FOUND",
+    "Profil konselor belum disiapkan oleh admin. Kata sandi riwayat belum dapat diatur."
+  );
+
 export const counselorHistoryCredentialController = {
   async getPasswordStatus(req, res) {
-    const { data, error } = await supa()
-      .from("counselor_history_credentials")
-      .select("counselor_id")
-      .eq("counselor_id", req.auth.user.id)
-      .maybeSingle();
+    const { hash, error } = await loadHistoryCredential(supa(), req.auth.user.id);
 
-    if (error && !error.message?.includes("does not exist")) {
-      supabaseError(error, "Gagal memeriksa status sandi riwayat.");
-    }
+    if (error) supabaseError(error, "Gagal memeriksa status sandi riwayat.");
 
-    return sendData(res, { configured: Boolean(data) });
+    return sendData(res, { configured: Boolean(hash) });
   },
 
   async initPassword(req, res) {
     const input = parseBody(initPasswordSchema, req.body);
     const client = supa();
 
-    const { data: existing } = await client
-      .from("counselor_history_credentials")
-      .select("counselor_id")
-      .eq("counselor_id", req.auth.user.id)
-      .maybeSingle();
-
-    if (existing) {
-      throw new HttpError(
+    const alreadyConfigured = () =>
+      new HttpError(
         409,
         "CREDENTIAL_ALREADY_CONFIGURED",
         "Kata sandi riwayat sudah dikonfigurasi. Gunakan menu ganti kata sandi."
       );
-    }
+
+    const existing = await loadHistoryCredential(client, req.auth.user.id);
+    if (existing.error) supabaseError(existing.error, "Gagal memeriksa status sandi riwayat.");
+    if (!existing.profile) throw profileNotReady();
+    if (existing.hash) throw alreadyConfigured();
 
     const hash = await hashPassword(input.password);
-    const { error: insertError } = await client.from("counselor_history_credentials").upsert({
-      counselor_id: req.auth.user.id,
-      password_hash: hash,
-      updated_at: new Date().toISOString(),
-    });
+    // Hanya mengisi bila masih kosong, sehingga dua permintaan init bersamaan tidak saling menimpa.
+    const { data: saved, error: saveError } = await client
+      .from("counselor_profiles")
+      .update({ history_password_hash: hash, history_password_updated_at: new Date().toISOString() })
+      .eq("profile_id", req.auth.user.id)
+      .is("history_password_hash", null)
+      .select("profile_id")
+      .maybeSingle();
 
-    if (insertError) supabaseError(insertError, "Gagal menyimpan kata sandi riwayat.");
+    if (saveError) supabaseError(saveError, "Gagal menyimpan kata sandi riwayat.");
+    if (!saved) throw alreadyConfigured();
     resetFailedAttempts(req.auth.user.id);
 
     await writeAudit({
@@ -116,14 +131,10 @@ export const counselorHistoryCredentialController = {
     checkRateLimit(req.auth.user.id);
     const input = parseBody(verifyPasswordSchema, req.body);
 
-    const { data: cred, error } = await supa()
-      .from("counselor_history_credentials")
-      .select("counselor_id,password_hash")
-      .eq("counselor_id", req.auth.user.id)
-      .maybeSingle();
+    const { hash: storedHash, error } = await loadHistoryCredential(supa(), req.auth.user.id);
 
     if (error) supabaseError(error, "Gagal memverifikasi kata sandi riwayat.");
-    if (!cred) {
+    if (!storedHash) {
       throw new HttpError(
         404,
         "CREDENTIAL_NOT_CONFIGURED",
@@ -131,7 +142,7 @@ export const counselorHistoryCredentialController = {
       );
     }
 
-    const valid = await comparePassword(input.password, cred.password_hash);
+    const valid = await comparePassword(input.password, storedHash);
     if (!valid) {
       const remaining = recordFailedAttempt(req.auth.user.id);
       throw new HttpError(
@@ -159,14 +170,10 @@ export const counselorHistoryCredentialController = {
     const input = parseBody(changePasswordSchema, req.body);
     const client = supa();
 
-    const { data: cred, error } = await client
-      .from("counselor_history_credentials")
-      .select("counselor_id,password_hash")
-      .eq("counselor_id", req.auth.user.id)
-      .maybeSingle();
+    const { hash: storedHash, error } = await loadHistoryCredential(client, req.auth.user.id);
 
     if (error) supabaseError(error, "Gagal memverifikasi kata sandi riwayat.");
-    if (!cred) {
+    if (!storedHash) {
       throw new HttpError(
         404,
         "CREDENTIAL_NOT_CONFIGURED",
@@ -174,16 +181,16 @@ export const counselorHistoryCredentialController = {
       );
     }
 
-    const valid = await comparePassword(input.current_password, cred.password_hash);
+    const valid = await comparePassword(input.current_password, storedHash);
     if (!valid) {
       throw new HttpError(401, "INVALID_CREDENTIALS", "Kata sandi riwayat saat ini salah.");
     }
 
     const newHash = await hashPassword(input.new_password);
     const { error: updateError } = await client
-      .from("counselor_history_credentials")
-      .update({ password_hash: newHash, updated_at: new Date().toISOString() })
-      .eq("counselor_id", req.auth.user.id);
+      .from("counselor_profiles")
+      .update({ history_password_hash: newHash, history_password_updated_at: new Date().toISOString() })
+      .eq("profile_id", req.auth.user.id);
 
     if (updateError) supabaseError(updateError, "Gagal memperbarui kata sandi riwayat.");
     resetFailedAttempts(req.auth.user.id);
@@ -201,13 +208,10 @@ export const counselorHistoryCredentialController = {
 
   async getHistory(req, res) {
     const client = supa();
-    const { data: cred } = await client
-      .from("counselor_history_credentials")
-      .select("counselor_id")
-      .eq("counselor_id", req.auth.user.id)
-      .maybeSingle();
+    const { hash: storedHash, error: credError } = await loadHistoryCredential(client, req.auth.user.id);
+    if (credError) supabaseError(credError, "Gagal memeriksa status sandi riwayat.");
 
-    if (!cred) {
+    if (!storedHash) {
       return sendData(res, {
         configured: false,
         sessions: [],

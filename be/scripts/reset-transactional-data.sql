@@ -9,7 +9,7 @@
 --   outbox WhatsApp, dan audit_events.
 --
 -- DIPERTAHANKAN:
---   auth.users, auth.identities, profiles, counselor_profiles, counselor_history_credentials
+--   auth.users, auth.identities, profiles, counselor_profiles (termasuk sandi riwayat konselor)
 --   (semua akun: klien dummy, klien asli, konselor, admin, Kepala LMI), consent_templates
 --   (bila masih ada), academic_periods, hero_motivations, homepage_logo.
 --
