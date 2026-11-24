@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Pesanan Konseling – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { primary: { DEFAULT: "#064E3B", soft: "#e8f9f0", tint: "#f7fcf9" }, gold: "#E8B53A" },
+      fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+    } } };
+  </script>
+  <style>
+    .reveal { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .4s ease, opacity .3s ease; }
+    .reveal > div { min-height: 0; overflow: hidden; }
+    .reveal.open { grid-template-rows: 1fr; opacity: 1; }
+    .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { scrollbar-width: none; }
+    @keyframes pop { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+    .pop { animation: pop .25s ease-out; }
+    @media (prefers-reduced-motion: reduce) { .reveal, .pop { transition: none; animation: none; } }
+  </style>
+</head>
+<body class="bg-[#fbfdfb] font-sans text-gray-900 antialiased">
+  <div class="bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
+    Prototype halaman <b>Pesanan Konseling</b> (3 langkah + modal konfirmasi). Data contoh, tidak terhubung ke server.
+  </div>
+
+  <main class="mx-auto w-[92%] max-w-6xl pb-16 pt-8 sm:w-[88%]">
+    <h1 class="font-display text-2xl font-bold sm:text-3xl">Booking Jadwal Konseling</h1>
+    <p class="mt-1 text-sm text-gray-600">Langkah mudah untuk mendapatkan dukungan yang kamu butuhkan.</p>
+
+    <!-- Stepper 3 langkah -->
+    <ol id="stepper" class="mt-6 flex items-start"></ol>
+
+    <!-- ===== LANGKAH 1: JENIS LAYANAN ===== -->
+    <section data-step="1" class="step mt-6">
+      <h2 class="font-display text-2xl font-bold sm:text-3xl">Pilih Jenis Layanan</h2>
+      <p class="mt-1 text-sm text-gray-600">Pilih layanan yang paling sesuai dengan kebutuhanmu.</p>
+      <div class="mt-6 grid gap-5 md:grid-cols-2" id="serviceCards"></div>
+      <div id="groupNote" class="mt-4 hidden rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        Jika memilih konseling kelompok, kamu akan diminta mengisi informasi kelompok pada langkah Form Awal.
+      </div>
+      <div class="mt-6 flex justify-end">
+        <button class="next rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" data-go="2" id="next1" disabled>Lanjut →</button>
+      </div>
+    </section>
+
+    <!-- ===== LANGKAH 2: KONSELOR & JADWAL ===== -->
+    <section data-step="2" class="step mt-6 hidden">
+      <h2 class="font-display text-2xl font-bold sm:text-3xl">Pilih Konselor &amp; Jadwal</h2>
+      <p class="mt-1 text-sm text-gray-600">Klik konselor untuk melihat jadwalnya, lalu pilih tanggal dan jam.</p>
+      <div class="mt-5 relative">
+        <input class="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-11 pr-4 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15" placeholder="Cari nama konselor..." id="search" />
+        <svg class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </div>
+      <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" id="counselorGrid"></div>
+
+      <!-- Panel jadwal muncul setelah konselor dipilih -->
+      <div class="reveal mt-5" id="schedulePanel"><div>
+        <div class="rounded-2xl border border-primary/20 bg-white p-4 shadow-sm sm:p-6">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold uppercase tracking-wide text-primary">Jadwal konselor</p>
+            <p id="selName" class="font-display text-lg font-bold leading-snug"></p>
+            <p id="selMeta" class="text-sm text-gray-600"></p>
+          </div>
+          <div class="mt-5 rounded-2xl bg-primary-tint p-4 sm:p-5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="text-sm font-bold">Pilih tanggal</p>
+              <span class="text-[11px] text-gray-500">Mulai hari ini sampai 30 hari ke depan · WITA</span>
+            </div>
+            <div id="dateChips" class="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1"></div>
+            <p class="mt-4 text-sm font-bold">Pilih jam <span id="dateLabel" class="font-normal text-gray-500"></span></p>
+            <div id="timePills" class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4"></div>
+            <p id="noSlot" class="mt-3 hidden rounded-xl border border-dashed border-gray-300 bg-white p-5 text-center text-sm text-gray-500">Konselor ini belum memiliki jadwal tersedia.</p>
+          </div>
+        </div>
+      </div></div>
+
+      <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button class="back rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700" data-go="1">‹ Kembali</button>
+        <div class="flex flex-col items-end gap-1">
+          <p id="slotSummary" class="text-xs text-gray-500">Belum ada jadwal dipilih.</p>
+          <button class="next rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" data-go="3" id="next2" disabled>Lanjut ke Form Awal →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== LANGKAH 3: FORM AWAL ===== -->
+    <section data-step="3" class="step mt-6 hidden">
+      <h2 class="font-display text-2xl font-bold sm:text-3xl">Form Awal</h2>
+      <p class="mt-1 text-sm text-gray-600">Jawabanmu membantu konselor mempersiapkan sesi.</p>
+
+      <div class="mt-6 space-y-5">
+        <section id="groupSection" class="hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="font-bold">Informasi Kelompok</h3>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <label class="text-sm font-medium">Nama kelompok<input class="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm" value="Kelompok Belajar Psikologi" /></label>
+            <label class="text-sm font-medium">Jumlah peserta (termasuk kamu)<input type="number" class="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm sm:max-w-[12rem]" value="3" /></label>
+          </div>
+          <div class="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary"><b>Tidak perlu menuliskan nama kamu sendiri.</b> Cukup tuliskan anggota lainnya (2 orang).</div>
+          <textarea rows="3" class="mt-2 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm">Budi Santoso, 081234567890
+Siti Rahma, 089876543210</textarea>
+        </section>
+
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="font-bold">Kondisi Saat Ini</h3>
+          <div id="yesno" class="mt-2 divide-y divide-gray-100"></div>
+        </section>
+
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="font-bold">Skala</h3>
+          <div id="scales" class="mt-3 grid gap-4 sm:grid-cols-2"></div>
+        </section>
+
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="font-bold">Masalah yang ingin dibahas</h3>
+          <div id="topics" class="mt-3 flex flex-wrap gap-2"></div>
+        </section>
+
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="font-bold">Uraian</h3>
+          <div class="mt-3 space-y-4">
+            <label class="block text-sm font-medium">Deskripsikan keluhan yang Anda rasakan
+              <textarea rows="3" class="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm">Sulit fokus belajar menjelang ujian dan sering cemas.</textarea></label>
+            <label class="block text-sm font-medium">Solusi apa yang diinginkan dari bantuan yang diterima?
+              <textarea rows="3" class="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm">Cara mengelola kecemasan dan membuat jadwal belajar.</textarea></label>
+            <p class="text-xs text-gray-400">… pertanyaan uraian lain sama seperti form sekarang.</p>
+          </div>
+        </section>
+      </div>
+
+      <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+        <button class="back rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700" data-go="2">‹ Kembali</button>
+        <button id="openConfirm" class="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white">Kirim Permintaan →</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== MODAL KONFIRMASI (pengganti langkah Persetujuan) ===== -->
+  <div id="modal" class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="pop flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+      <div id="confirmView" class="flex min-h-0 flex-1 flex-col">
+        <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4 sm:px-6">
+          <div>
+            <h2 id="modalTitle" class="font-display text-lg font-bold sm:text-xl">Konfirmasi Janji Temu</h2>
+            <p class="text-xs text-gray-500">Periksa kembali ringkasan di bawah sebelum mengirim permintaan.</p>
+          </div>
+          <button class="close flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100" aria-label="Tutup">✕</button>
+        </div>
+
+        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+          <section class="rounded-2xl border border-gray-200 p-4">
+            <h3 class="text-sm font-bold">Detail Janji Temu</h3>
+            <dl id="detailList" class="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2"></dl>
+          </section>
+          <section id="groupSummary" class="hidden rounded-2xl border border-gray-200 p-4">
+            <h3 class="text-sm font-bold">Informasi Kelompok</h3>
+            <dl class="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+              <div><dt class="text-xs text-gray-500">Nama kelompok</dt><dd class="font-semibold">Kelompok Belajar Psikologi</dd></div>
+              <div><dt class="text-xs text-gray-500">Jumlah peserta</dt><dd class="font-semibold">3 orang</dd></div>
+            </dl>
+            <p class="mt-3 text-xs text-gray-500">Anggota</p>
+            <p class="text-sm">Budi Santoso, 081234567890 · Siti Rahma, 089876543210</p>
+          </section>
+          <section class="rounded-2xl border border-gray-200 p-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold">Ringkasan Form Awal</h3>
+              <button class="close text-xs font-semibold text-primary hover:underline">✎ Ubah</button>
+            </div>
+            <div id="answerSummary" class="mt-3 space-y-2"></div>
+            <details class="mt-3 text-sm">
+              <summary class="cursor-pointer text-xs font-semibold text-primary">Lihat jawaban uraian</summary>
+              <p class="mt-2 text-xs text-gray-500">Deskripsikan keluhan yang Anda rasakan</p>
+              <p>Sulit fokus belajar menjelang ujian dan sering cemas.</p>
+            </details>
+          </section>
+          <section class="space-y-2 rounded-2xl bg-primary-tint p-4">
+            <p class="text-xs text-gray-600">Pengisi formulir menyatakan bahwa isian dalam formulir ini benar.</p>
+            <label class="flex items-start gap-2 text-sm"><input type="checkbox" class="agree mt-0.5 h-4 w-4 accent-[#064E3B]" /> Ya, saya telah mengisi data sebenar-benarnya.</label>
+            <label class="flex items-start gap-2 text-sm"><input type="checkbox" class="agree mt-0.5 h-4 w-4 accent-[#064E3B]" /> <span>[Pernyataan kedua — teks final menunggu keputusan; teks di aplikasi sekarang menyebut form "belum disimpan", padahal kini sudah dikirim ke server.]</span></label>
+          </section>
+        </div>
+
+        <div class="flex flex-col-reverse gap-2 border-t border-gray-100 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <button class="close rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700">Kembali ke form</button>
+          <button id="submit" class="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" disabled>Kirim Janji Temu →</button>
+        </div>
+      </div>
+
+      <!-- Tampilan sukses di dalam modal -->
+      <div id="successView" class="hidden px-6 py-10 text-center">
+        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-3xl text-primary">✓</div>
+        <h2 class="mt-4 font-display text-xl font-bold">Permintaan terkirim</h2>
+        <p class="mx-auto mt-2 max-w-sm text-sm text-gray-600">Permintaanmu menunggu konfirmasi konselor. Kamu akan mendapat notifikasi setelah konselor mengonfirmasi.</p>
+        <div class="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+          <button class="rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold" id="restart">Buat janji lain</button>
+          <button class="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">Lihat Aktivitas Saya</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STEPS = ["Jenis Layanan", "Konselor & Jadwal", "Form Awal"];
+    const COUNSELORS = [
+      { id: 1, name: "Dr. Maria Kalangi, M.Psi., Psikolog", degree: "Psikolog Klinis", exp: "9 tahun pengalaman", focus: "Stres akademik, kecemasan, penyesuaian diri", color: "#0a7a5c", days: [[0, ["13.00", "15.00"]], [1, ["09.00", "10.00", "13.00"]], [3, ["10.00"]], [6, ["09.00", "14.00"]]] },
+      { id: 2, name: "Yohanes Rumengan, S.Psi., M.Pd.", degree: "Konselor Pendidikan", exp: "6 tahun pengalaman", focus: "Karier, relasi, perencanaan studi", color: "#213A73", days: [[2, ["13.00", "14.00"]], [5, ["09.00"]]] },
+      { id: 3, name: "Sr. Agnes Pangemanan, M.A.", degree: "Konselor Pastoral", exp: "12 tahun pengalaman", focus: "Keluarga, spiritualitas, duka", color: "#8a6116", days: [] },
+    ];
+    const YESNO = ["Apakah Anda sedang merasa ingin bunuh diri?", "Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?", "Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)", "Apakah saat ini Anda sedang menggunakan obat-obatan?"];
+    const TOPICS = ["Karir, pendidikan, dan pekerjaan", "Motivasi", "Stres atau tekanan kerja", "Emosi, mood, kepribadian", "Kecemasan", "Hubungan dan keluarga", "Pengembangan diri", "Kesehatan dan kebiasaan sehari-hari"];
+
+    const state = { step: 1, maxStep: 1, service: null, counselor: null, dayIdx: 0, time: null, answers: YESNO.map(() => "Tidak"), scales: { sleep: 3, finance: 3 }, topics: new Set(["Kecemasan", "Motivasi"]) };
+    const today = new Date();
+    const day = (o) => { const d = new Date(today); d.setDate(d.getDate() + o); return d; };
+    const fDay = new Intl.DateTimeFormat("id-ID", { weekday: "short" }), fDate = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short" }), fLong = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const end = (t) => `${String(Number(t.split(".")[0]) + 1).padStart(2, "0")}.00`;
+    const initials = (n) => n.replace(/^(Dr\.|Sr\.)\s*/, "").split(" ").slice(0, 2).map((w) => w[0]).join("");
+    const avatar = (c, size) => `<div class="shrink-0 rounded-full bg-gradient-to-br from-gold to-[#f6d98a] p-[3px] ${size}"><div class="flex h-full w-full items-center justify-center rounded-full border-2 border-white font-bold text-white" style="background:${c.color}">${initials(c.name)}</div></div>`;
+    const $ = (id) => document.getElementById(id);
+
+    function renderStepper() {
+      $("stepper").innerHTML = STEPS.map((label, i) => {
+        const n = i + 1, done = n < state.step, active = n === state.step, last = i === STEPS.length - 1, clickable = n !== state.step && n <= state.maxStep;
+        return `<li class="flex min-w-[96px] flex-col ${i === 0 ? "items-start" : "items-center"} ${last ? "flex-none" : "flex-1"}">
+          <div class="flex w-full items-center">
+            <button ${clickable ? `data-go="${n}"` : "disabled"} class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${active || done ? "bg-primary text-white" : "bg-gray-200 text-gray-500"} ${clickable ? "cursor-pointer hover:ring-2 hover:ring-primary/40" : ""}">${done ? "✓" : n}</button>
+            ${last ? "" : `<span class="h-0.5 flex-1 ${done ? "bg-primary" : "bg-gray-200"}"></span>`}
+          </div>
+          <span class="mt-2 text-center text-[11px] font-semibold sm:text-xs ${active ? "text-primary" : "text-gray-500"}">${label}</span></li>`;
+      }).join("");
+    }
+
+    function go(n) {
+      state.step = n; state.maxStep = Math.max(state.maxStep, n);
+      document.querySelectorAll(".step").forEach((s) => s.classList.toggle("hidden", Number(s.dataset.step) !== n));
+      $("groupSection").classList.toggle("hidden", state.service !== "Kelompok");
+      renderStepper(); window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function renderServices() {
+      $("serviceCards").innerHTML = [["Individu", "Konseling Individu", "Sesi pribadi bersama konselor secara rahasia.", "👤"], ["Kelompok", "Konseling Kelompok", "Sesi bersama beberapa peserta dengan satu konselor.", "👥"]].map(([v, t, d, icon]) => `
+        <button data-service="${v}" class="flex flex-col rounded-2xl border-2 bg-white p-4 text-left transition hover:shadow-md ${state.service === v ? "border-primary" : "border-gray-200"}">
+          <div class="flex h-32 items-center justify-center rounded-xl bg-primary-tint text-5xl">${icon}</div>
+          <div class="mt-4 flex items-start justify-between gap-3"><div><p class="font-semibold">${t}</p><p class="mt-1 text-sm text-gray-600">${d}</p></div>
+          <span class="mt-1 h-5 w-5 shrink-0 rounded-full border-2 ${state.service === v ? "border-primary bg-primary ring-2 ring-white ring-inset" : "border-gray-300"}"></span></div>
+        </button>`).join("");
+      $("groupNote").classList.toggle("hidden", state.service !== "Kelompok");
+      $("next1").disabled = !state.service;
+    }
+
+    function renderCounselors() {
+      const q = $("search").value.toLowerCase();
+      $("counselorGrid").innerHTML = COUNSELORS.filter((c) => c.name.toLowerCase().includes(q)).map((c) => {
+        const on = state.counselor?.id === c.id, slots = c.days.reduce((s, [, t]) => s + t.length, 0);
+        return `<button data-counselor="${c.id}" class="flex flex-col rounded-2xl border-2 bg-white p-4 text-left transition hover:shadow-md ${on ? "border-primary shadow-md" : "border-gray-200"}">
+          <div class="flex items-start gap-4">${avatar(c, "h-16 w-16")}
+            <div class="min-w-0 flex-1"><p class="font-semibold leading-snug">${c.name}</p><p class="mt-1 text-xs text-gray-500">${c.degree}</p><p class="text-xs text-gray-500">${c.exp}</p></div>
+            ${on ? '<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-white">✓</span>' : ""}</div>
+          <p class="mt-3 text-sm text-gray-600">${c.focus}</p>
+          <div class="mt-3 flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold ${slots ? "text-primary" : "text-gray-400"}">${slots ? `${slots} slot tersedia` : "Belum ada jadwal"}</span>
+            <span class="rounded-full px-4 py-1 text-xs font-semibold ${on ? "bg-primary text-white" : "border border-primary text-primary"}">${on ? "Dipilih" : "Lihat jadwal"}</span>
+          </div></button>`;
+      }).join("");
+    }
+
+    function renderSchedule() {
+      const c = state.counselor, panel = $("schedulePanel");
+      panel.classList.toggle("open", Boolean(c));
+      if (!c) return;
+      $("selName").textContent = c.name; $("selMeta").textContent = `${c.degree} · ${c.exp}`;
+      const has = c.days.length > 0;
+      $("noSlot").classList.toggle("hidden", has);
+      $("dateChips").innerHTML = c.days.map(([o, t], i) => `<button data-day="${i}" class="flex shrink-0 flex-col items-center rounded-xl border px-3.5 py-2 text-center transition ${i === state.dayIdx ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-700 hover:border-primary"}">
+        <span class="text-[11px] font-semibold uppercase">${o === 0 ? "Hari ini" : fDay.format(day(o))}</span><span class="text-sm font-bold">${fDate.format(day(o))}</span><span class="mt-0.5 text-[10px] opacity-80">${t.length} slot</span></button>`).join("");
+      const cur = c.days[state.dayIdx];
+      $("dateLabel").textContent = cur ? `· ${fLong.format(day(cur[0]))}` : "";
+      $("timePills").innerHTML = cur ? cur[1].map((t) => `<button data-time="${t}" class="rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${state.time === t ? "border-primary bg-primary text-white" : "border-gray-200 bg-white hover:border-primary"}">${t} – ${end(t)}</button>`).join("") : "";
+      $("slotSummary").textContent = state.time ? `Dipilih: ${fLong.format(day(cur[0]))}, ${state.time} – ${end(state.time)} WITA` : "Belum ada jadwal dipilih.";
+      $("next2").disabled = !state.time;
+    }
+
+    function renderForm() {
+      $("yesno").innerHTML = YESNO.map((q, i) => `<div class="py-4"><p class="text-sm text-gray-700">${q}</p><div class="mt-3 flex flex-wrap gap-2">${["Ya", "Mungkin", "Tidak"].map((v) => `<button data-yn="${i}" data-v="${v}" class="rounded-full border px-5 py-1.5 text-sm font-semibold ${state.answers[i] === v ? "border-primary bg-primary text-white" : "border-gray-300 text-gray-700"}">${v}</button>`).join("")}</div></div>`).join("");
+      $("scales").innerHTML = [["sleep", "Kualitas tidur"], ["finance", "Keadaan finansial"]].map(([k, l]) => `<div><p class="text-sm text-gray-700">${l}</p><div class="mt-2 flex gap-2">${[1, 2, 3, 4, 5].map((n) => `<button data-scale="${k}" data-n="${n}" class="h-10 w-10 rounded-full border text-sm font-bold ${state.scales[k] === n ? "border-primary bg-primary text-white" : "border-gray-300"}">${n}</button>`).join("")}</div></div>`).join("");
+      $("topics").innerHTML = TOPICS.map((t) => `<button data-topic="${t}" class="rounded-full border px-3.5 py-1.5 text-sm ${state.topics.has(t) ? "border-primary bg-primary-soft font-semibold text-primary" : "border-gray-300 text-gray-700"}">${t}</button>`).join("");
+    }
+
+    function openModal() {
+      const c = state.counselor, cur = c.days[state.dayIdx];
+      $("detailList").innerHTML = [["Jenis layanan", `Konseling ${state.service}`], ["Konselor", c.name], ["Jadwal", `${fLong.format(day(cur[0]))}, ${state.time} – ${end(state.time)} WITA`], ["Ruangan", "Ditentukan saat konfirmasi"], ["Durasi", "60 menit"]]
+        .map(([k, v]) => `<div><dt class="text-xs text-gray-500">${k}</dt><dd class="font-semibold">${v}</dd></div>`).join("");
+      $("groupSummary").classList.toggle("hidden", state.service !== "Kelompok");
+      const pill = (v) => `<span class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${v === "Ya" ? "bg-red-50 text-red-700" : v === "Mungkin" ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}">${v}</span>`;
+      $("answerSummary").innerHTML = YESNO.map((q, i) => `<div class="flex items-start justify-between gap-3 text-sm"><p class="text-gray-700">${q}</p>${pill(state.answers[i])}</div>`).join("")
+        + `<div class="flex gap-6 pt-1 text-sm"><span><span class="text-xs text-gray-500">Kualitas tidur</span> <b>${state.scales.sleep}/5</b></span><span><span class="text-xs text-gray-500">Finansial</span> <b>${state.scales.finance}/5</b></span></div>`
+        + `<div class="flex flex-wrap gap-1.5 pt-1">${[...state.topics].map((t) => `<span class="rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-bold text-primary">${t}</span>`).join("")}</div>`;
+      document.querySelectorAll(".agree").forEach((a) => (a.checked = false));
+      $("submit").disabled = true;
+      $("confirmView").classList.remove("hidden"); $("successView").classList.add("hidden");
+      $("modal").classList.replace("hidden", "flex");
+    }
+    const closeModal = () => $("modal").classList.replace("flex", "hidden");
+
+    document.addEventListener("click", (e) => {
+      const t = e.target.closest("button"); if (!t) return;
+      if (t.dataset.go) return go(Number(t.dataset.go));
+      if (t.dataset.service) { state.service = t.dataset.service; return renderServices(); }
+      if (t.dataset.counselor) { const c = COUNSELORS.find((x) => x.id === Number(t.dataset.counselor)); if (state.counselor?.id !== c.id) { state.counselor = c; state.dayIdx = 0; state.time = null; } renderCounselors(); renderSchedule(); setTimeout(() => $("schedulePanel").scrollIntoView({ behavior: "smooth", block: "nearest" }), 150); return; }
+      if (t.dataset.day) { state.dayIdx = Number(t.dataset.day); state.time = null; return renderSchedule(); }
+      if (t.dataset.time) { state.time = t.dataset.time; return renderSchedule(); }
+      if (t.dataset.yn) { state.answers[Number(t.dataset.yn)] = t.dataset.v; return renderForm(); }
+      if (t.dataset.scale) { state.scales[t.dataset.scale] = Number(t.dataset.n); return renderForm(); }
+      if (t.dataset.topic) { state.topics.has(t.dataset.topic) ? state.topics.delete(t.dataset.topic) : state.topics.add(t.dataset.topic); return renderForm(); }
+      if (t.id === "openConfirm") return openModal();
+      if (t.classList.contains("close")) return closeModal();
+      if (t.id === "submit") { $("confirmView").classList.add("hidden"); $("successView").classList.remove("hidden"); return; }
+      if (t.id === "restart") { closeModal(); Object.assign(state, { service: null, counselor: null, time: null, maxStep: 1 }); renderServices(); renderCounselors(); renderSchedule(); go(1); }
+    });
+    document.addEventListener("change", (e) => { if (e.target.classList.contains("agree")) $("submit").disabled = ![...document.querySelectorAll(".agree")].every((a) => a.checked); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+    $("modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
+    $("search").addEventListener("input", renderCounselors);
+
+    renderServices(); renderCounselors(); renderSchedule(); renderForm(); go(1);
+  </script>
+</body>
+</html>

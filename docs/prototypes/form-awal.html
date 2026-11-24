@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Form Awal – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { primary: { DEFAULT: "#064E3B", soft: "#e8f9f0", tint: "#f7fcf9" } },
+      fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+    } } };
+  </script>
+  <style>
+    .changed { position: relative; }
+    .changed::before { content: "Diubah"; position: absolute; top: -.6rem; right: 1rem; background: #f59e0b; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 8px; border-radius: 9999px; letter-spacing: .02em; }
+    body.hide-marks .changed::before { display: none; }
+  </style>
+</head>
+<body class="bg-[#fbfdfb] font-sans text-gray-900 antialiased">
+  <div class="bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
+    Prototype langkah <b>Form Awal</b> disesuaikan dengan Google Form LMI. Label oranye "Diubah" menandai bagian yang berbeda dari website sekarang.
+    <label class="ml-2 inline-flex items-center gap-1 font-semibold"><input type="checkbox" id="toggleMarks" class="accent-[#064E3B]" /> Sembunyikan label</label>
+  </div>
+
+  <main class="mx-auto w-[92%] max-w-4xl pb-16 pt-8 sm:w-[88%]">
+    <!-- Stepper (langkah 3 aktif) -->
+    <ol class="flex items-start">
+      <li class="flex min-w-[96px] flex-1 flex-col items-start"><div class="flex w-full items-center"><span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">✓</span><span class="h-0.5 flex-1 bg-primary"></span></div><span class="mt-2 text-[11px] font-semibold text-gray-500 sm:text-xs">Jenis Layanan</span></li>
+      <li class="flex min-w-[96px] flex-1 flex-col items-center"><div class="flex w-full items-center"><span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">✓</span><span class="h-0.5 flex-1 bg-primary"></span></div><span class="mt-2 text-[11px] font-semibold text-gray-500 sm:text-xs">Konselor &amp; Jadwal</span></li>
+      <li class="flex min-w-[96px] flex-none flex-col items-center"><span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">3</span><span class="mt-2 text-[11px] font-semibold text-primary sm:text-xs">Form Awal</span></li>
+    </ol>
+
+    <h2 class="mt-6 font-display text-2xl font-bold sm:text-3xl">Form Awal</h2>
+    <p class="mt-1 text-sm text-gray-600">Pertanyaan bertanda <span class="text-red-500">*</span> wajib diisi.</p>
+
+    <form id="form" class="mt-6 space-y-5" novalidate>
+      <!-- Kondisi saat ini -->
+      <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h3 class="font-bold">Kondisi Saat Ini</h3>
+        <div id="yesno" class="mt-2 divide-y divide-gray-100"></div>
+      </section>
+
+      <!-- Skala -->
+      <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div id="scales" class="grid gap-6 sm:grid-cols-2"></div>
+      </section>
+
+      <!-- Topik: pilih satu -->
+      <section class="changed rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" id="topicSection">
+        <h3 class="text-sm font-semibold">Masalah apa yang ingin Anda bahas dalam konseling ini? <span class="text-red-500">*</span></h3>
+        <p class="mt-1 text-xs text-gray-500">Pilih satu.</p>
+        <div id="topics" role="radiogroup" class="mt-3 grid gap-2 sm:grid-cols-2"></div>
+        <div id="otherWrap" class="mt-3 hidden">
+          <input id="otherInput" maxlength="80" class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15" placeholder="Tuliskan masalah lain yang ingin dibahas" />
+        </div>
+        <p class="err mt-2 hidden text-xs text-red-600">Pilih satu masalah atau isi "Yang lain".</p>
+      </section>
+
+      <!-- Uraian -->
+      <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div id="essays" class="space-y-5"></div>
+      </section>
+
+      <p id="formErr" class="hidden rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Beberapa isian wajib belum lengkap. Silakan periksa bagian yang ditandai.</p>
+
+      <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+        <button type="button" class="rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700">‹ Kembali</button>
+        <button type="submit" class="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white">Kirim Permintaan →</button>
+      </div>
+    </form>
+
+    <!-- Hasil (demo) -->
+    <section id="result" class="mt-6 hidden rounded-2xl border border-primary/20 bg-primary-tint p-5 text-sm">
+      <p class="font-bold text-primary">Valid. Di aplikasi asli, modal Konfirmasi Janji Temu akan terbuka. Data yang akan dikirim:</p>
+      <pre id="payload" class="mt-3 overflow-x-auto rounded-xl bg-white p-3 text-xs"></pre>
+    </section>
+  </main>
+
+  <script>
+    // Perubahan sesuai Google Form "FORMULIR KONSELING UKDLSM": bunuh diri Ya/Tidak, topik pilih satu (opsi GForm), kelebihan/kekurangan.
+    const YESNO = [
+      { key: "selfHarm", q: "Apakah Anda sedang merasa ingin bunuh diri?", opts: ["Ya", "Tidak"], changed: true },
+      { key: "distress", q: "Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?", opts: ["Ya", "Mungkin", "Tidak"] },
+      { key: "abuse", q: "Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)", opts: ["Ya", "Mungkin", "Tidak"] },
+      { key: "substance", q: "Apakah saat ini Anda sedang menggunakan obat-obatan?", opts: ["Ya", "Mungkin", "Tidak"] },
+    ];
+    const SCALES = [{ key: "sleep", q: "Kualitas tidur" }, { key: "finance", q: "Keadaan finansial" }];
+    const TOPICS = ["Relasi keluarga", "Relasi bersama pasangan", "Relasi di lingkungan sosial (teman, rekan kerja)", "Emosi, mood, kepribadian", "Karir, pendidikan, dan pekerjaan", "Motivasi"];
+    const ESSAYS = [
+      { key: "complaint", q: "Deskripsikan keluhan yang Anda rasakan" },
+      { key: "history", q: "Deskripsikan riwayat terjadinya keluhan secara jelas dan rinci" },
+      { key: "reason", q: "Keluhan dan alasan ingin memulai konseling" },
+      { key: "efforts", q: "Apa yang sudah dilakukan untuk menangani masalah ini?" },
+      { key: "goal", q: "Solusi apa yang diinginkan dari bantuan yang diterima?" },
+      { key: "strengths", q: "Apa kelebihan diri Anda?", changed: true },
+      { key: "weaknesses", q: "Apa kekurangan diri Anda?", changed: true },
+    ];
+    const state = { answers: {}, scales: {}, topic: null, other: "" };
+    const req = '<span class="text-red-500">*</span>';
+    const $ = (id) => document.getElementById(id);
+
+    function pill(on) { return `rounded-full border px-5 py-1.5 text-sm font-semibold transition ${on ? "border-primary bg-primary text-white" : "border-gray-300 text-gray-700 hover:border-primary"}`; }
+
+    function render() {
+      $("yesno").innerHTML = YESNO.map((y) => `
+        <div class="${y.changed ? "changed " : ""}py-4" data-field="${y.key}">
+          <p class="text-sm text-gray-700">${y.q} ${req}</p>
+          <div class="mt-3 flex flex-wrap gap-2" role="radiogroup">${y.opts.map((o) => `<button type="button" role="radio" aria-checked="${state.answers[y.key] === o}" data-yn="${y.key}" data-v="${o}" class="${pill(state.answers[y.key] === o)}">${o}</button>`).join("")}</div>
+          <p class="err mt-2 hidden text-xs text-red-600">Wajib dipilih.</p>
+        </div>`).join("");
+      $("scales").innerHTML = SCALES.map((s) => `
+        <div data-field="${s.key}">
+          <p class="text-sm text-gray-700">${s.q} ${req}</p>
+          <div class="mt-3 flex items-center gap-2">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-scale="${s.key}" data-n="${n}" class="h-10 w-10 rounded-full border text-sm font-bold transition ${state.scales[s.key] === n ? "border-primary bg-primary text-white" : "border-gray-300 hover:border-primary"}">${n}</button>`).join("")}</div>
+          <div class="mt-1.5 flex w-[15rem] justify-between text-[11px] text-gray-500"><span>Sangat buruk</span><span>Sangat baik</span></div>
+          <p class="err mt-2 hidden text-xs text-red-600">Wajib dipilih.</p>
+        </div>`).join("");
+      $("topics").innerHTML = [...TOPICS, "Yang lain"].map((t) => {
+        const on = state.topic === t;
+        return `<button type="button" role="radio" aria-checked="${on}" data-topic="${t}" class="flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left text-sm transition ${on ? "border-primary bg-primary-soft font-semibold text-primary" : "border-gray-200 hover:border-primary"}">
+          <span class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-primary" : "border-gray-300"}">${on ? '<span class="h-2 w-2 rounded-full bg-primary"></span>' : ""}</span>${t === "Yang lain" ? "Yang lain…" : t}</button>`;
+      }).join("");
+      $("otherWrap").classList.toggle("hidden", state.topic !== "Yang lain");
+    }
+
+    function renderEssays() {
+      $("essays").innerHTML = ESSAYS.map((e) => `
+        <label class="${e.changed ? "changed " : ""}block" data-field="${e.key}">
+          <span class="text-sm font-medium">${e.q} ${req}</span>
+          <textarea data-essay="${e.key}" rows="3" class="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15" placeholder="Jawaban Anda"></textarea>
+          <span class="err mt-1 hidden text-xs text-red-600">Wajib diisi.</span>
+        </label>`).join("");
+    }
+
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.yn) { state.answers[b.dataset.yn] = b.dataset.v; render(); }
+      if (b.dataset.scale) { state.scales[b.dataset.scale] = Number(b.dataset.n); render(); }
+      if (b.dataset.topic) { state.topic = b.dataset.topic; render(); if (state.topic === "Yang lain") setTimeout(() => $("otherInput").focus(), 0); }
+    });
+    $("otherInput").addEventListener("input", (e) => (state.other = e.target.value));
+    $("toggleMarks").addEventListener("change", (e) => document.body.classList.toggle("hide-marks", e.target.checked));
+
+    $("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const missing = [];
+      YESNO.forEach((y) => !state.answers[y.key] && missing.push(y.key));
+      SCALES.forEach((s) => !state.scales[s.key] && missing.push(s.key));
+      const essays = {};
+      document.querySelectorAll("[data-essay]").forEach((t) => { essays[t.dataset.essay] = t.value.trim(); if (!t.value.trim()) missing.push(t.dataset.essay); });
+      const topicOk = state.topic && (state.topic !== "Yang lain" || state.other.trim());
+      document.querySelectorAll("[data-field] .err").forEach((el) => el.classList.add("hidden"));
+      missing.forEach((k) => document.querySelector(`[data-field="${k}"] .err`)?.classList.remove("hidden"));
+      $("topicSection").querySelector(".err").classList.toggle("hidden", Boolean(topicOk));
+      const ok = missing.length === 0 && topicOk;
+      $("formErr").classList.toggle("hidden", ok);
+      $("result").classList.toggle("hidden", !ok);
+      if (ok) {
+        const payload = { ...state.answers, ...state.scales, topic: state.topic === "Yang lain" ? null : state.topic, other: state.topic === "Yang lain" ? state.other.trim() : "", ...essays };
+        $("payload").textContent = JSON.stringify(payload, null, 2);
+        $("result").scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        document.querySelector(".err:not(.hidden)")?.closest("[data-field], section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+
+    render(); renderEssays();
+  </script>
+</body>
+</html>
