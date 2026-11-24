@@ -39,14 +39,26 @@ export const participantSchema = z.object({
 const intakeAnswerEnum = z.enum(["Ya", "Mungkin", "Tidak"]);
 const intakeEssayField = z.string().trim().min(1).max(1500);
 
+// Sejak 2026-11-24 mengikuti Google Form LMI: pertanyaan bunuh diri hanya Ya/Tidak, dan
+// "Masalah yang ingin dibahas" tepat satu pilihan dari daftar ini, atau "Yang lain" (field other).
+// Jawaban lama yang sudah tersimpan tidak divalidasi ulang.
+export const INTAKE_TOPIC_OPTIONS = [
+  "Relasi keluarga",
+  "Relasi bersama pasangan",
+  "Relasi di lingkungan sosial (teman, rekan kerja)",
+  "Emosi, mood, kepribadian",
+  "Karir, pendidikan, dan pekerjaan",
+  "Motivasi",
+];
+
 export const clientIntakeAnswersSchema = z.object({
-  selfHarm: intakeAnswerEnum,
+  selfHarm: z.enum(["Ya", "Tidak"]),
   distress: intakeAnswerEnum,
   abuse: intakeAnswerEnum,
   substance: intakeAnswerEnum,
   sleep: z.number().int().min(1).max(5),
   finance: z.number().int().min(1).max(5),
-  topics: z.array(z.string().trim().min(1).max(120)).max(8).default([]),
+  topics: z.array(z.enum(INTAKE_TOPIC_OPTIONS)).max(1).default([]),
   other: z.string().trim().max(80).optional().default(""),
   complaint: intakeEssayField,
   history: intakeEssayField,
@@ -56,8 +68,13 @@ export const clientIntakeAnswersSchema = z.object({
   strengths: intakeEssayField,
   weaknesses: intakeEssayField,
 }).strict().superRefine((input, context) => {
-  if (input.topics.length === 0 && !input.other.trim()) {
-    context.addIssue({ code: "custom", message: "Pilih minimal satu topik.", path: ["topics"] });
+  const choices = input.topics.length + (input.other.trim() ? 1 : 0);
+  if (choices !== 1) {
+    context.addIssue({
+      code: "custom",
+      message: "Pilih tepat satu masalah, atau isi \"Yang lain\".",
+      path: ["topics"],
+    });
   }
 });
 

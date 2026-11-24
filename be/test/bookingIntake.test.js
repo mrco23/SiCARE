@@ -14,7 +14,7 @@ const validIntake = {
   substance: "Tidak",
   sleep: 3,
   finance: 4,
-  topics: ["Kecemasan"],
+  topics: ["Motivasi"],
   other: "",
   complaint: "Sulit tidur.",
   history: "Sejak dua bulan lalu.",
@@ -49,6 +49,17 @@ test("clientIntakeAnswersSchema rejects when no topic and no 'other' text are gi
 test("clientIntakeAnswersSchema accepts 'other' text in place of a topic", () => {
   const result = clientIntakeAnswersSchema.safeParse({ ...validIntake, topics: [], other: "Hal lain" });
   assert.equal(result.success, true);
+});
+
+test("intake follows the LMI Google Form: one topic, Ya/Tidak for the self-harm question", () => {
+  const parse = (patch) => clientIntakeAnswersSchema.safeParse({ ...validIntake, ...patch }).success;
+  assert.equal(parse({ topics: ["Relasi bersama pasangan"] }), true);
+  assert.equal(parse({ topics: ["Motivasi", "Relasi keluarga"] }), false, "lebih dari satu topik ditolak");
+  assert.equal(parse({ topics: ["Kecemasan"] }), false, "topik di luar daftar Google Form ditolak");
+  assert.equal(parse({ topics: ["Motivasi"], other: "Hal lain" }), false, "topik dan Yang lain sekaligus ditolak");
+  assert.equal(parse({ selfHarm: "Mungkin" }), false, "pertanyaan bunuh diri hanya Ya/Tidak");
+  assert.equal(parse({ selfHarm: "Ya" }), true);
+  assert.equal(parse({ distress: "Mungkin" }), true, "pertanyaan lain tetap boleh Mungkin");
 });
 
 test("createBookingSchema accepts an individual booking with intake_answers", () => {

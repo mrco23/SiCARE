@@ -68,8 +68,10 @@ export function validateClientIntakeForm(
     if (!form[key]) missing.push(key);
   });
 
+  // Pilih tepat satu: satu topik dari daftar, atau "Yang lain" dengan isian teks.
   const hasOther = form.otherOn && form.other.trim().length > 0;
-  if (!form.topics.length && !hasOther) missing.push("topics");
+  const topicCount = form.topics.length + (form.otherOn ? 1 : 0);
+  if (topicCount !== 1 || (form.otherOn && !hasOther)) missing.push("topics");
 
   INTAKE_ESSAY_OPTIONS.forEach(({ key }) => {
     if (!form[key].trim()) missing.push(key);

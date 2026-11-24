@@ -9,32 +9,39 @@ export type IntakeEssayKey =
   | "strengths"
   | "weaknesses";
 
+/** Opsi "Masalah yang ingin dibahas" mengikuti Google Form LMI (pilih satu, atau "Yang lain"). */
 export const INTAKE_TOPICS = [
+  "Relasi keluarga",
+  "Relasi bersama pasangan",
+  "Relasi di lingkungan sosial (teman, rekan kerja)",
+  "Emosi, mood, kepribadian",
   "Karir, pendidikan, dan pekerjaan",
   "Motivasi",
-  "Stres atau tekanan kerja",
-  "Emosi, mood, kepribadian",
-  "Kecemasan",
-  "Hubungan dan keluarga",
-  "Pengembangan diri",
-  "Kesehatan dan kebiasaan sehari-hari",
 ] as const;
 
-export const INTAKE_YESNO_OPTIONS: { key: IntakeAnswerKey; label: string }[] = [
-  { key: "selfHarm", label: "Apakah Anda sedang merasa ingin bunuh diri?" },
+/** Pilihan jawaban per pertanyaan; pertanyaan bunuh diri hanya Ya/Tidak (Google Form LMI). */
+export const INTAKE_YESNO_OPTIONS: {
+  key: IntakeAnswerKey;
+  label: string;
+  choices: readonly ("Ya" | "Mungkin" | "Tidak")[];
+}[] = [
+  { key: "selfHarm", label: "Apakah Anda sedang merasa ingin bunuh diri?", choices: ["Ya", "Tidak"] },
   {
     key: "distress",
     label:
       "Apakah Anda sedang merasakan kesedihan, kehilangan, atau depresi yang luar biasa?",
+    choices: ["Ya", "Mungkin", "Tidak"],
   },
   {
     key: "abuse",
     label:
       "Apakah Anda pernah mengalami pelecehan? (fisik, seksual, dan/atau emosional)",
+    choices: ["Ya", "Mungkin", "Tidak"],
   },
   {
     key: "substance",
     label: "Apakah saat ini Anda sedang menggunakan obat-obatan?",
+    choices: ["Ya", "Mungkin", "Tidak"],
   },
 ];
 
@@ -60,11 +67,11 @@ export const INTAKE_ESSAY_OPTIONS: { key: IntakeEssayKey; label: string }[] = [
   },
   {
     key: "strengths",
-    label: "Kekuatan atau potensi diri yang dapat mendukung proses konseling",
+    label: "Apa kelebihan diri Anda?",
   },
   {
     key: "weaknesses",
-    label: "Hal yang dirasa menghambat atau menjadi kelemahan diri",
+    label: "Apa kekurangan diri Anda?",
   },
 ];
 
