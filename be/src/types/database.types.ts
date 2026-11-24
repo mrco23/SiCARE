@@ -870,8 +870,6 @@ export type Database = {
           sipp_silp_updated_at: string | null
           sipp_silp_valid_until: string | null
           updated_at: string
-          whatsapp_opt_in: boolean
-          whatsapp_opt_in_at: string | null
         }
         Insert: {
           account_status?: string
@@ -888,8 +886,6 @@ export type Database = {
           sipp_silp_updated_at?: string | null
           sipp_silp_valid_until?: string | null
           updated_at?: string
-          whatsapp_opt_in?: boolean
-          whatsapp_opt_in_at?: string | null
         }
         Update: {
           account_status?: string
@@ -906,8 +902,6 @@ export type Database = {
           sipp_silp_updated_at?: string | null
           sipp_silp_valid_until?: string | null
           updated_at?: string
-          whatsapp_opt_in?: boolean
-          whatsapp_opt_in_at?: string | null
         }
         Relationships: []
       }

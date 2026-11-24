@@ -12,7 +12,7 @@ const T = {
   'hero_motivations': { col: 0, cols: [['id','uuid','PN'],['content','text','N'],['is_active','bool','N'],ts('created_at'),ts('updated_at')] },
   'profiles': { col: 1, cols: [
     ['id','uuid','PN','auth.users.id'],['identity_code','text','U'],['full_name','text','N'],['app_role','text','N'],['member_category','text',''],
-    ['account_status','text','N'],['phone_e164','text',''],['whatsapp_opt_in','bool','N'],ts('whatsapp_opt_in_at',false),['gender','text',''],
+    ['account_status','text','N'],['phone_e164','text',''],['gender','text',''],
     ['siap_number','text',''],['sipp_silp_number','text',''],['sipp_silp_valid_until','date',''],ts('sipp_silp_updated_at',false),ts('created_at'),ts('updated_at'),
   ]},
   'counselor_profiles': { col: 2, cols: [

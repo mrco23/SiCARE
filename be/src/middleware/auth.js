@@ -7,7 +7,7 @@ export const authenticate = asyncHandler(async (request, _response, next) => {
   if (!match) throw new HttpError(401, "AUTH_REQUIRED", "Token autentikasi diperlukan.");
 
   if (!isSupabaseConfigured()) {
-    throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada backend.");
+    throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada server.");
   }
 
   const supabase = getSupabaseAdminClient();
@@ -18,7 +18,7 @@ export const authenticate = asyncHandler(async (request, _response, next) => {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,whatsapp_opt_in,created_at,updated_at")
+    .select("id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,created_at,updated_at")
     .eq("id", authData.user.id)
     .maybeSingle();
 
@@ -59,7 +59,7 @@ export const optionalAuthenticate = asyncHandler(async (request, _response, next
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,whatsapp_opt_in,created_at,updated_at")
+      .select("id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,created_at,updated_at")
       .eq("id", authData.user.id)
       .maybeSingle();
 
