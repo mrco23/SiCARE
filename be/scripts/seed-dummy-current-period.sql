@@ -3,50 +3,61 @@
 --
 -- Jalankan di Supabase Dashboard -> SQL Editor pada project NON-PRODUKSI, SETELAH
 -- be/scripts/reset-transactional-data.sql. Skrip manual, bukan migrasi.
+-- Skrip TIDAK membuat akun apa pun (tidak menyentuh auth.users maupun profiles).
 --
--- Skrip TIDAK membuat akun apa pun (tidak menyentuh auth.users maupun profiles). Yang dipakai:
---   - Konselor : app_role = 'counselor', aktif, counselor_profiles.is_public = true, ada public_name.
---   - Klien    : app_role = 'client', aktif. Dibagi menurut profiles.member_category:
---                'student' (mahasiswa) dan 'faculty_staff' (dosen/staf); 'other'/kosong menjadi
---                cadangan. Bila salah satu kelompok kosong, skenarionya memakai kelompok lain.
---   - Admin & Kepala LMI aktif hanya menerima notifikasi feedback baru.
--- Identitas peserta diambil dari profil (nama, NIM/NIP = identity_code, gender, nomor). Fakultas,
--- prodi, tempat/tanggal lahir, agama, dan alamat tidak ada di profil, jadi dibiarkan kosong.
+-- 1. AKUN TARGET (email di konstanta c_target_client & c_target_counselor):
+--    klien 24013031@unikadelasalle.ac.id dengan konselor giovana@unikadelasalle.ac.id
+--      G1 selesai + feedback (rating 5, shown)   bulan lalu, hari kerja ke-2 minggu kedua, 10.00
+--      G2 selesai + feedback (rating 4, pending) 9 hari lalu (hari kerja), 13.00
+--      G3 selesai, BELUM mengisi feedback        2 hari lalu (hari kerja), 14.00
+--      G4 sedang BERLANGSUNG (ongoing)           mulai 15 menit sebelum skrip dijalankan, 60 menit
+--    PENTING (G4): worker-run menutup otomatis sesi ongoing 2 jam setelah jam selesai
+--    (sicare_auto_complete_sessions). Jalankan seed tidak lama sebelum pengujian; sesudah
+--    ±2 jam 45 menit G4 akan berubah menjadi completed.
 --
--- Skenario (8 booking: ±70% mahasiswa, ±30% dosen/staf; konselor dibagi bergiliran; jam WITA;
--- tanggal relatif terhadap hari ini dan digeser ke hari kerja):
---   A. Konseling SELESAI + feedback (4):
---        C1 individu  mahasiswa ke-1  -21 hari 09.00  rating 5  feedback shown
---        C2 individu  dosen/staf ke-1 -14 hari 10.00  rating 4  feedback shown
---        C3 kelompok  mahasiswa ke-2  -10 hari 13.00  rating 4  feedback pending (3 peserta)
---        C4 individu  mahasiswa ke-3   -7 hari 14.00  rating 3  feedback disabled
---      Masing-masing: booking confirmed, sesi completed, consent signed per peserta,
---      catatan sesi [DUMMY], intake [DUMMY].
---   B. Konseling DIURUNGKAN (2):
---        X1 dibatalkan klien     mahasiswa ke-4  -5 hari 09.00  booking cancelled saat masih
---                                                               menunggu konfirmasi (tanpa sesi)
---        X2 dibatalkan konselor  mahasiswa ke-5  -3 hari 10.00  booking & sesi cancelled
---   C. Jadwal KOSONG: 3 slot per konselor, +2 / +5 / +7 hari kerja, jam 09.00 / 11.00 / 14.00.
---   D. Alur aktif (opsional, c_include_active_flows):
---        W1 menunggu konfirmasi  mahasiswa ke-6   +3 hari 10.00  (uji Terima/Tolak konselor)
---        U1 terkonfirmasi        dosen/staf ke-2  +4 hari 13.00  consent pending (uji tanda
---                                                                tangan consent & mulai sesi)
---      "ke-n" berputar bila akun di kelompok itu lebih sedikit (mis. 2 mahasiswa -> ke-3 = ke-1).
---   E. Notifikasi in-app sesuai A, B, D dengan type yang memang dibuat backend/RPC.
---      Jadwal kosong (C) tidak punya jenis notifikasi di sistem, jadi tidak dibuat.
+-- 2. AKUN DUMMY LAIN (klien aktif selain akun target; dibagi menurut profiles.member_category):
+--      D1-D4 selesai + feedback, semuanya pada BULAN SEBELUMNYA di periode ini
+--            (rating 5/4/4/3, moderasi shown/shown/pending/disabled; D3 kelompok 3 peserta)
+--      X1 dibatalkan klien (menunggu konfirmasi, tanpa sesi)     5 hari lalu
+--      X2 dibatalkan konselor (booking & sesi cancelled)         3 hari lalu
+--      W1 menunggu konfirmasi                                    +3 hari  (c_include_active_flows)
+--      U1 terkonfirmasi, consent pending                         +4 hari  (c_include_active_flows)
+--    Mahasiswa ('student') diutamakan untuk D1, D3, D4, X1, X2, W1; dosen/staf ('faculty_staff')
+--    untuk D2 dan U1. Kelompok kosong memakai kelompok lain; akun berputar bila kurang.
+--    Bila tidak ada klien lain selain akun target, bagian 2 dilewati.
+--    Bila bulan lalu di luar periode (mis. bulan pertama semester), D1-D4 memakai
+--    beberapa minggu terakhir dan NOTICE memberi tahu.
 --
--- Yang TIDAK dibuat: whatsapp_outbox (agar worker tidak mengirim WhatsApp ke nomor akun asli),
--- consent_invitations, audit log. Consent dummy tidak punya file PDF/tanda tangan; unduh PDF
--- consent dummy akan gagal.
+-- 3. JADWAL KOSONG: 3 slot per konselor aktif & publik, +2 / +5 / +7 hari kerja,
+--    jam 09.00 / 11.00 / 14.00 WITA.
+--
+-- Notifikasi in-app mengikuti type yang dibuat backend/RPC (booking.created, booking.submitted,
+-- booking.confirmed, booking.cancelled, session.ongoing, session.cancelled, session.completed,
+-- feedback.submitted ke admin & Kepala LMI). Jadwal kosong tidak punya jenis notifikasi.
+-- Identitas peserta diambil dari profil (nama, NIM/NIP, gender, nomor); fakultas, prodi, TTL,
+-- agama, alamat tidak ada di profil sehingga kosong.
+-- Yang TIDAK dibuat: whatsapp_outbox (tidak ada WhatsApp ke nomor asli), consent_invitations,
+-- audit log. Consent dummy tidak punya file PDF/tanda tangan; unduh PDF consent dummy gagal.
 -- Skrip menolak berjalan bila tabel bookings belum kosong (jalankan reset dulu).
--- Tahan terhadap skema lama: kolom counseling_sessions.format dan
--- informed_consents.consent_template_id diisi bila masih ada; tabel booking_intakes dan
--- session_notes dilewati bila belum ada.
+-- Tahan terhadap skema lama: counseling_sessions.format dan informed_consents.consent_template_id
+-- diisi bila masih ada; booking_intakes dan session_notes dilewati bila belum ada.
 
 begin;
 
+-- Hari kerja terdekat (Senin-Jumat) dari p_day, bergeser ke arah p_dir (+1 / -1).
+create or replace function pg_temp.sicare_dummy_workday(p_day date, p_dir int)
+returns date language plpgsql as $f$
+declare v date := p_day;
+begin
+  while extract(isodow from v) > 5 loop v := v + p_dir; end loop;
+  return v;
+end;
+$f$;
+
 do $$
 declare
+  c_target_client    constant text := '24013031@unikadelasalle.ac.id';
+  c_target_counselor constant text := 'giovana@unikadelasalle.ac.id';
   c_zone     constant text := 'Asia/Makassar';
   -- Harus sama dengan OFFICIAL_TEMPLATE_VERSION di be/src/services/consentPdf.service.js
   c_consent_version constant text := 'v1.0';
@@ -72,6 +83,8 @@ declare
 
   v_now        timestamptz := now();
   v_today      date := (now() at time zone 'Asia/Makassar')::date;
+  v_month_start date := date_trunc('month', (now() at time zone 'Asia/Makassar'))::date;
+  v_prev_start date;
   v_year       int := extract(year from (now() at time zone 'Asia/Makassar'))::int;
   v_month      int := extract(month from (now() at time zone 'Asia/Makassar'))::int;
   v_acad_year  text;
@@ -80,22 +93,23 @@ declare
   v_p_end      date;
   v_period     public.academic_periods%rowtype;
 
+  v_target_client    uuid;
+  v_target_counselor uuid;
   v_counselors uuid[];
   v_n_couns    int;
-  v_counselor  uuid;
   v_students   uuid[];
   v_staff      uuid[];
   v_others     uuid[];
   v_pool       uuid[];
-  v_client_id  uuid;
   v_i          int;
   v_k          int;
+  v_n          int;
   v_sc         record;
   v_client     record;
   v_part       record;
   v_admin      record;
   v_day        date;
-  v_step       int;
+  v_hour       int;
   v_starts     timestamptz;
   v_ends       timestamptz;
   v_created    timestamptz;
@@ -107,9 +121,7 @@ declare
   v_bstatus    text;
   v_sstatus    text;
   v_reason     text;
-  v_is_group   boolean;
   v_signed     boolean;
-  v_used       uuid[] := '{}';
   v_offsets    int[] := array[2, 5, 7];
   v_hours      int[] := array[9, 11, 14];
   v_n_empty    int := 0;
@@ -138,7 +150,6 @@ begin
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'counseling_sessions' and column_name = 'format'
   ) into v_has_format_col;
-
   select exists (
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'informed_consents' and column_name = 'consent_template_id'
@@ -168,15 +179,42 @@ begin
     raise exception 'Tabel bookings belum kosong. Jalankan reset-transactional-data.sql dulu.';
   end if;
 
-  -- ------------------------------------------------------------------ akun yang ada
+  -- ------------------------------------------------------------------ akun target
+  select p.id into v_target_client
+  from auth.users u join public.profiles p on p.id = u.id
+  where lower(u.email) = lower(c_target_client);
+  if v_target_client is null then
+    raise exception 'Akun klien % tidak ditemukan.', c_target_client;
+  end if;
+  if not exists (select 1 from public.profiles where id = v_target_client
+                 and app_role = 'client' and account_status = 'active') then
+    raise exception 'Akun % bukan klien aktif.', c_target_client;
+  end if;
+
+  select p.id into v_target_counselor
+  from auth.users u join public.profiles p on p.id = u.id
+  where lower(u.email) = lower(c_target_counselor);
+  if v_target_counselor is null then
+    raise exception 'Akun konselor % tidak ditemukan.', c_target_counselor;
+  end if;
+  if not exists (select 1 from public.profiles where id = v_target_counselor
+                 and app_role = 'counselor' and account_status = 'active') then
+    raise exception 'Akun % bukan konselor aktif.', c_target_counselor;
+  end if;
+  if not exists (select 1 from public.counselor_profiles where profile_id = v_target_counselor
+                 and is_public = true and nullif(btrim(public_name), '') is not null) then
+    raise notice 'Konselor % belum publik; data tetap dibuat, tetapi tidak muncul di direktori publik.', c_target_counselor;
+  end if;
+
+  -- ------------------------------------------------------------------ akun lain yang ada
   select array_agg(p.id order by p.created_at) into v_counselors
   from public.profiles p join public.counselor_profiles cp on cp.profile_id = p.id
   where p.app_role = 'counselor' and p.account_status = 'active' and cp.is_public = true
     and nullif(btrim(cp.public_name), '') is not null;
-  v_n_couns := coalesce(array_length(v_counselors, 1), 0);
-  if v_n_couns = 0 then
-    raise exception 'Tidak ada konselor aktif & publik. Aktifkan/publikasikan akun konselor terlebih dahulu.';
+  if v_counselors is null or not (v_target_counselor = any(v_counselors)) then
+    v_counselors := array_prepend(v_target_counselor, coalesce(v_counselors, '{}'));
   end if;
+  v_n_couns := array_length(v_counselors, 1);
 
   select
     array_agg(p.id order by p.created_at) filter (where p.member_category = 'student'),
@@ -184,14 +222,9 @@ begin
     array_agg(p.id order by p.created_at) filter (where p.member_category is null or p.member_category = 'other')
   into v_students, v_staff, v_others
   from public.profiles p
-  where p.app_role = 'client' and p.account_status = 'active';
+  where p.app_role = 'client' and p.account_status = 'active' and p.id <> v_target_client;
 
-  if coalesce(array_length(v_students, 1), 0) + coalesce(array_length(v_staff, 1), 0)
-     + coalesce(array_length(v_others, 1), 0) = 0 then
-    raise exception 'Tidak ada akun klien aktif. Daftarkan minimal satu akun klien di website.';
-  end if;
-
-  raise notice 'Akun klien aktif: % mahasiswa, % dosen/staf, % lainnya; % konselor.',
+  raise notice 'Klien lain aktif: % mahasiswa, % dosen/staf, % lainnya; % konselor.',
     coalesce(array_length(v_students, 1), 0), coalesce(array_length(v_staff, 1), 0),
     coalesce(array_length(v_others, 1), 0), v_n_couns;
 
@@ -227,63 +260,117 @@ begin
   raise notice 'Periode: % % (% s.d. %).',
     v_period.academic_year, v_period.semester, v_period.starts_on, v_period.ends_on;
 
-  -- ------------------------------------------------------------------ skenario A, B, D
-  -- s_role: kelompok akun yang diutamakan; s_nth: urutan akun di kelompok itu.
+  v_prev_start := (v_month_start - interval '1 month')::date;
+
+  -- ------------------------------------------------------------------ daftar skenario
+  -- s_kind: completed (s_rating null = belum feedback) | ongoing | client_cancelled |
+  --         counselor_cancelled | waiting | confirmed_upcoming
   create temp table tmp_dummy_scenarios (
-    s_code text primary key, s_kind text, s_role text, s_nth int, s_counselor int,
-    s_offset int, s_hour int, s_group boolean, s_rating int, s_moderation text
+    s_code text primary key, s_kind text, s_client uuid, s_counselor uuid, s_day date,
+    s_hour int, s_group boolean, s_rating int, s_moderation text
   ) on commit drop;
 
+  -- 1. Akun target dengan konselor target.
+  v_day := pg_temp.sicare_dummy_workday(v_prev_start + 8, 1);
+  if v_day < v_period.starts_on then
+    v_day := pg_temp.sicare_dummy_workday(v_today - 20, -1);
+    raise notice 'G1: bulan lalu di luar periode; memakai %.', v_day;
+  end if;
   insert into tmp_dummy_scenarios values
-    ('C1', 'completed',           'student', 1, 1, -21,  9, false, 5, 'shown'),
-    ('C2', 'completed',           'staff',   1, 2, -14, 10, false, 4, 'shown'),
-    ('C3', 'completed',           'student', 2, 3, -10, 13, true,  4, 'pending'),
-    ('C4', 'completed',           'student', 3, 4,  -7, 14, false, 3, 'disabled'),
-    ('X1', 'client_cancelled',    'student', 4, 2,  -5,  9, false, null, null),
-    ('X2', 'counselor_cancelled', 'student', 5, 3,  -3, 10, false, null, null);
+    ('G1', 'completed', v_target_client, v_target_counselor, v_day, 10, false, 5, 'shown'),
+    ('G2', 'completed', v_target_client, v_target_counselor,
+       pg_temp.sicare_dummy_workday(v_today - 9, -1), 13, false, 4, 'pending'),
+    ('G3', 'completed', v_target_client, v_target_counselor,
+       pg_temp.sicare_dummy_workday(v_today - 2, -1), 14, false, null, null),
+    ('G4', 'ongoing',   v_target_client, v_target_counselor, v_today, null, false, null, null);
 
-  if c_include_active_flows then
-    insert into tmp_dummy_scenarios values
-      ('W1', 'waiting',            'student', 6, 1, 3, 10, false, null, null),
-      ('U1', 'confirmed_upcoming', 'staff',   2, 2, 4, 13, false, null, null);
+  -- 2. Akun dummy lain.
+  if coalesce(array_length(v_students, 1), 0) + coalesce(array_length(v_staff, 1), 0)
+     + coalesce(array_length(v_others, 1), 0) = 0 then
+    raise notice 'Tidak ada klien aktif selain %; skenario akun dummy lain dilewati.', c_target_client;
+  else
+    for v_sc in
+      select * from (values
+        ('D1', 'completed',           'student', 1, 1,  6,  9, false, 5,    'shown'),
+        ('D2', 'completed',           'staff',   1, 2, 12, 10, false, 4,    'shown'),
+        ('D3', 'completed',           'student', 2, 3, 18, 13, true,  4,    'pending'),
+        ('D4', 'completed',           'student', 3, 4, 24, 14, false, 3,    'disabled'),
+        ('X1', 'client_cancelled',    'student', 4, 2, -5,  9, false, null, null),
+        ('X2', 'counselor_cancelled', 'student', 5, 3, -3, 10, false, null, null),
+        ('W1', 'waiting',             'student', 6, 1,  3, 10, false, null, null),
+        ('U1', 'confirmed_upcoming',  'staff',   2, 2,  4, 13, false, null, null)
+      ) as t(code, kind, role, nth, couns, dayn, hr, grp, rating, moderation)
+    loop
+      continue when v_sc.code in ('W1', 'U1') and not c_include_active_flows;
+
+      v_pool := case when v_sc.role = 'student'
+        then coalesce(v_students, v_staff, v_others)
+        else coalesce(v_staff, v_students, v_others) end;
+
+      if v_sc.code like 'D%' then
+        -- Bulan sebelumnya: hari ke-dayn sejak awal bulan lalu, tetap di dalam bulan lalu.
+        v_day := pg_temp.sicare_dummy_workday(v_prev_start + v_sc.dayn, 1);
+        if v_day >= v_month_start then
+          v_day := pg_temp.sicare_dummy_workday(v_month_start - 1, -1);
+        end if;
+        if v_day < v_period.starts_on then
+          v_day := pg_temp.sicare_dummy_workday(v_today - (30 - v_sc.dayn), -1);
+          raise notice '%: bulan lalu di luar periode; memakai %.', v_sc.code, v_day;
+        end if;
+      else
+        v_day := pg_temp.sicare_dummy_workday(v_today + v_sc.dayn,
+                   case when v_sc.dayn < 0 then -1 else 1 end);
+      end if;
+
+      insert into tmp_dummy_scenarios values (
+        v_sc.code, v_sc.kind, v_pool[1 + ((v_sc.nth - 1) % array_length(v_pool, 1))],
+        v_counselors[1 + ((v_sc.couns - 1) % v_n_couns)], v_day, v_sc.hr, v_sc.grp,
+        v_sc.rating, v_sc.moderation
+      );
+    end loop;
   end if;
 
-  for v_sc in select * from tmp_dummy_scenarios order by s_offset loop
-    -- Pilih akun: kelompok yang diutamakan, lalu kelompok lain bila kosong.
-    v_pool := case when v_sc.s_role = 'student'
-      then coalesce(v_students, v_staff, v_others)
-      else coalesce(v_staff, v_students, v_others) end;
-    if v_pool is null then
-      v_pool := coalesce(v_students, '{}') || coalesce(v_staff, '{}') || coalesce(v_others, '{}');
+  -- ------------------------------------------------------------------ buat data per skenario
+  for v_sc in select * from tmp_dummy_scenarios order by s_day, s_code loop
+    if v_sc.s_day not between v_period.starts_on and v_period.ends_on then
+      raise exception 'Skenario % jatuh pada % di luar periode % s.d. %.',
+        v_sc.s_code, v_sc.s_day, v_period.starts_on, v_period.ends_on;
     end if;
-    v_client_id := v_pool[1 + ((v_sc.s_nth - 1) % array_length(v_pool, 1))];
-    v_used := array_append(v_used, v_client_id);
+
+    if v_sc.s_kind = 'ongoing' then
+      v_starts := date_trunc('minute', v_now) - interval '15 minutes';
+      v_ends := v_starts + interval '60 minutes';
+    else
+      -- Geser jam bila konselor atau klien sudah punya slot/booking di jam yang sama.
+      v_hour := v_sc.s_hour;
+      loop
+        v_starts := (v_sc.s_day + make_time(v_hour, 0, 0)) at time zone c_zone;
+        v_ends := v_starts + interval '1 hour';
+        exit when not exists (
+            select 1 from public.availability_slots s
+            where s.counselor_id = v_sc.s_counselor and s.starts_at < v_ends and s.ends_at > v_starts)
+          and not exists (
+            select 1 from public.bookings b
+            where b.client_id = v_sc.s_client and b.starts_at < v_ends and b.ends_at > v_starts);
+        v_hour := v_hour + 1;
+        if v_hour > 16 then
+          raise exception 'Skenario %: tidak ada jam kosong pada %.', v_sc.s_code, v_sc.s_day;
+        end if;
+      end loop;
+    end if;
 
     select p.id as user_id, p.full_name, p.identity_code as nim, p.phone_e164 as phone,
            coalesce(p.member_category, 'other') as category,
            case p.gender when 'male' then 'Laki-laki' when 'female' then 'Perempuan' end as gender_id
     into v_client
-    from public.profiles p where p.id = v_client_id;
+    from public.profiles p where p.id = v_sc.s_client;
 
-    v_counselor := v_counselors[1 + ((v_sc.s_counselor - 1) % v_n_couns)];
-
-    -- Tanggal: hari ini + offset, digeser menjauhi hari ini sampai hari kerja.
-    v_step := case when v_sc.s_offset < 0 then -1 else 1 end;
-    v_day := v_today + v_sc.s_offset;
-    while extract(isodow from v_day) > 5 loop v_day := v_day + v_step; end loop;
-    if v_day not between v_period.starts_on and v_period.ends_on then
-      raise exception 'Skenario % jatuh pada % di luar periode % s.d. %.',
-        v_sc.s_code, v_day, v_period.starts_on, v_period.ends_on;
-    end if;
-
-    v_starts := (v_day + make_time(v_sc.s_hour, 0, 0)) at time zone c_zone;
-    v_ends := v_starts + interval '1 hour';
     v_created := least(v_starts - interval '5 days', v_now - interval '2 hours');
     v_confirmed := least(v_created + interval '1 day', v_now - interval '1 hour');
-    v_is_group := v_sc.s_group;
 
     v_bstatus := case v_sc.s_kind
       when 'completed' then 'confirmed'
+      when 'ongoing' then 'confirmed'
       when 'client_cancelled' then 'cancelled'
       when 'counselor_cancelled' then 'cancelled'
       when 'waiting' then 'waiting_confirmation'
@@ -291,6 +378,7 @@ begin
     end;
     v_sstatus := case v_sc.s_kind
       when 'completed' then 'completed'
+      when 'ongoing' then 'ongoing'
       when 'counselor_cancelled' then 'cancelled'
       when 'confirmed_upcoming' then 'scheduled'
     end;
@@ -300,17 +388,17 @@ begin
     end;
 
     insert into public.availability_slots (counselor_id, academic_period_id, starts_at, ends_at, status, created_at)
-    values (v_counselor, v_period.id, v_starts, v_ends, 'available', least(v_starts - interval '14 days', v_now))
+    values (v_sc.s_counselor, v_period.id, v_starts, v_ends, 'available', least(v_starts - interval '14 days', v_now))
     returning id into v_slot_id;
 
     insert into public.bookings (
       client_id, counselor_id, availability_slot_id, service_type, group_name, participant_count,
       starts_at, ends_at, status, cancellation_reason, created_at, updated_at
     ) values (
-      v_client.user_id, v_counselor, v_slot_id,
-      case when v_is_group then 'group' else 'individual' end,
-      case when v_is_group then 'Kelompok Dummy ' || v_sc.s_code end,
-      case when v_is_group then 1 + array_length(c_guests, 1) else 1 end,
+      v_client.user_id, v_sc.s_counselor, v_slot_id,
+      case when v_sc.s_group then 'group' else 'individual' end,
+      case when v_sc.s_group then 'Kelompok Dummy ' || v_sc.s_code end,
+      case when v_sc.s_group then 1 + array_length(c_guests, 1) else 1 end,
       v_starts, v_ends, v_bstatus, v_reason, v_created,
       case when v_bstatus = 'waiting_confirmation' then v_created else v_confirmed end
     ) returning id into v_booking_id;
@@ -324,7 +412,7 @@ begin
       'primary_client', 'registered', v_client.nim, v_client.gender_id, v_client.phone, v_created
     );
 
-    if v_is_group then
+    if v_sc.s_group then
       for v_k in 1 .. array_length(c_guests, 1) loop
         insert into public.booking_participants (
           booking_id, display_name, full_name, phone_e164, is_representative, is_primary,
@@ -345,7 +433,7 @@ begin
         'selfHarm', 'Tidak', 'distress', 'Mungkin', 'abuse', 'Tidak', 'substance', 'Tidak',
         'sleep', 3, 'finance', 4,
         'topics', jsonb_build_array(case
-          when v_is_group then 'Relasi di lingkungan sosial (teman, rekan kerja)'
+          when v_sc.s_group then 'Relasi di lingkungan sosial (teman, rekan kerja)'
           when v_client.category = 'student' then 'Motivasi'
           else 'Karir, pendidikan, dan pekerjaan' end),
         'other', '',
@@ -368,7 +456,7 @@ begin
     -- Notifikasi pembuatan booking (sama seperti sicare_create_booking).
     insert into public.notifications (recipient_user_id, type, title, body, entity_type, entity_id, created_at, read_at)
     values
-      (v_counselor, 'booking.created', 'Permintaan konseling baru',
+      (v_sc.s_counselor, 'booking.created', 'Permintaan konseling baru',
        'Ada permintaan konseling yang perlu ditinjau.', 'booking', v_booking_id, v_created,
        case when v_sc.s_kind <> 'waiting' then v_created + interval '1 hour' end),
       (v_client.user_id, 'booking.submitted', 'Permintaan konseling terkirim',
@@ -376,7 +464,7 @@ begin
        v_created + interval '10 minutes');
 
     -- Notifikasi konfirmasi konselor (sicare_transition_booking -> confirmed).
-    if v_sc.s_kind in ('completed', 'counselor_cancelled', 'confirmed_upcoming') then
+    if v_sc.s_kind in ('completed', 'ongoing', 'counselor_cancelled', 'confirmed_upcoming') then
       insert into public.notifications (recipient_user_id, type, title, body, entity_type, entity_id, created_at, read_at)
       values (v_client.user_id, 'booking.confirmed', 'Konseling dikonfirmasi',
               'Permintaan konseling diterima. Periksa detail sesi.', 'booking', v_booking_id, v_confirmed,
@@ -386,7 +474,7 @@ begin
     -- Pembatalan oleh klien -> notifikasi ke konselor (sicare_transition_booking -> cancelled).
     if v_sc.s_kind = 'client_cancelled' then
       insert into public.notifications (recipient_user_id, type, title, body, entity_type, entity_id, created_at, read_at)
-      values (v_counselor, 'booking.cancelled', 'Konseling dibatalkan',
+      values (v_sc.s_counselor, 'booking.cancelled', 'Konseling dibatalkan',
               'Status permintaan konseling berubah menjadi dibatalkan.', 'booking', v_booking_id,
               v_confirmed, null);
     end if;
@@ -401,11 +489,12 @@ begin
                ) values ($1, $2, $3, $4, $5, ''offline'', $6, $7, $8, $9, $10)
                returning id'
         into v_session_id
-        using v_booking_id, v_counselor, v_starts, v_ends, v_sstatus, c_room,
-              case when v_sstatus = 'completed' then v_starts + interval '3 minutes' end,
+        using v_booking_id, v_sc.s_counselor, v_starts, v_ends, v_sstatus, c_room,
+              case when v_sstatus in ('completed', 'ongoing') then v_starts + interval '3 minutes' end,
               case when v_sstatus = 'completed' then v_ends - interval '5 minutes' end,
               v_confirmed,
               case when v_sstatus = 'completed' then v_ends - interval '5 minutes'
+                   when v_sstatus = 'ongoing' then v_starts + interval '3 minutes'
                    when v_sstatus = 'cancelled' then least(v_starts - interval '1 day', v_now)
                    else v_confirmed end;
     else
@@ -413,11 +502,12 @@ begin
         booking_id, counselor_id, starts_at, ends_at, status, room,
         started_at, completed_at, created_at, updated_at
       ) values (
-        v_booking_id, v_counselor, v_starts, v_ends, v_sstatus, c_room,
-        case when v_sstatus = 'completed' then v_starts + interval '3 minutes' end,
+        v_booking_id, v_sc.s_counselor, v_starts, v_ends, v_sstatus, c_room,
+        case when v_sstatus in ('completed', 'ongoing') then v_starts + interval '3 minutes' end,
         case when v_sstatus = 'completed' then v_ends - interval '5 minutes' end,
         v_confirmed,
         case when v_sstatus = 'completed' then v_ends - interval '5 minutes'
+             when v_sstatus = 'ongoing' then v_starts + interval '3 minutes'
              when v_sstatus = 'cancelled' then least(v_starts - interval '1 day', v_now)
              else v_confirmed end
       ) returning id into v_session_id;
@@ -432,8 +522,9 @@ begin
       continue;
     end if;
 
-    -- Informed consent per peserta: selesai => signed; mendatang => pending.
-    v_signed := v_sstatus = 'completed';
+    -- Informed consent per peserta: selesai / berlangsung => signed (wajib untuk memulai sesi);
+    -- mendatang => pending.
+    v_signed := v_sstatus in ('completed', 'ongoing');
     for v_part in
       select * from public.booking_participants where booking_id = v_booking_id order by is_primary desc
     loop
@@ -468,12 +559,21 @@ begin
       end if;
     end loop;
 
+    -- Sesi berlangsung -> notifikasi ke klien (sicare_transition_session -> ongoing).
+    if v_sstatus = 'ongoing' then
+      insert into public.notifications (recipient_user_id, type, title, body, entity_type, entity_id, created_at, read_at)
+      values (v_client.user_id, 'session.ongoing', 'Sesi konseling dimulai',
+              'Sesi konseling sedang berlangsung.', 'session', v_session_id,
+              v_starts + interval '3 minutes', null);
+      continue;
+    end if;
+
     continue when v_sstatus <> 'completed';
 
     if v_has_notes then
       insert into public.session_notes (session_id, counselor_id, counselor_note, client_note, follow_up, created_at)
       values (
-        v_session_id, v_counselor,
+        v_session_id, v_sc.s_counselor,
         '[DUMMY] Catatan konselor untuk pengujian. Bukan data klinis nyata.',
         '[DUMMY] Klien diajak menyusun jadwal mingguan dan teknik relaksasi sederhana.',
         '[DUMMY] Evaluasi progres pada sesi berikutnya bila diperlukan.',
@@ -481,11 +581,20 @@ begin
       );
     end if;
 
+    -- Sesi selesai -> notifikasi ke klien. Belum dibaca bila feedback belum diisi.
+    insert into public.notifications (recipient_user_id, type, title, body, entity_type, entity_id, created_at, read_at)
+    values (v_client.user_id, 'session.completed', 'Sesi konseling selesai',
+            'Sesi konseling selesai. Kamu dapat memberikan feedback.', 'session', v_session_id,
+            v_ends - interval '5 minutes',
+            case when v_sc.s_rating is not null then v_ends + interval '2 hours' end);
+
+    continue when v_sc.s_rating is null;  -- selesai tetapi belum mengisi feedback
+
     insert into public.feedback (
       session_id, client_id, counselor_id, rating, comment, moderation_status, review_status,
       disabled_reason, created_at
     ) values (
-      v_session_id, v_client.user_id, v_counselor, v_sc.s_rating,
+      v_session_id, v_client.user_id, v_sc.s_counselor, v_sc.s_rating,
       case v_sc.s_rating
         when 5 then '[DUMMY] Konselor sangat membantu dan mendengarkan dengan baik.'
         when 4 then '[DUMMY] Sesi terasa nyaman, saya mendapat langkah konkret untuk dicoba.'
@@ -496,11 +605,6 @@ begin
       case when v_sc.s_moderation = 'disabled' then '[DUMMY] Contoh feedback yang dinonaktifkan admin.' end,
       v_ends + interval '3 hours'
     ) returning id into v_feedback_id;
-
-    insert into public.notifications (recipient_user_id, type, title, body, entity_type, entity_id, created_at, read_at)
-    values (v_client.user_id, 'session.completed', 'Sesi konseling selesai',
-            'Sesi konseling selesai. Kamu dapat memberikan feedback.', 'session', v_session_id,
-            v_ends - interval '5 minutes', v_ends + interval '2 hours');
 
     -- Feedback baru -> notifikasi ke admin & Kepala LMI (sicare_submit_feedback).
     for v_admin in
@@ -514,7 +618,7 @@ begin
     end loop;
   end loop;
 
-  -- ------------------------------------------------------------------ C. jadwal kosong
+  -- ------------------------------------------------------------------ 3. jadwal kosong
   for v_i in 1 .. v_n_couns loop
     for v_k in 1 .. array_length(v_offsets, 1) loop
       v_day := v_today + v_offsets[v_k];
@@ -524,7 +628,6 @@ begin
         exit when extract(isodow from v_day) <= 5 and not exists (
           select 1 from public.availability_slots s
           where s.counselor_id = v_counselors[v_i]
-            and s.status = 'available'
             and s.starts_at < v_ends and s.ends_at > v_starts);
         v_day := v_day + 1;
       end loop;
@@ -540,9 +643,9 @@ begin
     end loop;
   end loop;
 
-  raise notice 'Selesai: % booking dummy untuk % akun klien berbeda, % slot kosong.',
-    (select count(*) from tmp_dummy_scenarios),
-    (select count(distinct u) from unnest(v_used) u), v_n_empty;
+  select count(*) into v_n from tmp_dummy_scenarios;
+  raise notice 'Selesai: % booking dummy (% untuk akun target), % slot kosong.',
+    v_n, (select count(*) from tmp_dummy_scenarios where s_client = v_target_client), v_n_empty;
 end;
 $$;
 
@@ -551,15 +654,16 @@ commit;
 -- Ringkasan hasil:
 -- select b.status as booking, s.status as sesi, b.service_type,
 --        b.starts_at at time zone 'Asia/Makassar' as mulai_wita,
---        p.full_name as klien, p.member_category, f.rating, f.moderation_status
+--        uc.email as klien, ux.email as konselor, f.rating, f.moderation_status
 -- from public.bookings b
--- join public.profiles p on p.id = b.client_id
+-- join auth.users uc on uc.id = b.client_id
+-- join auth.users ux on ux.id = b.counselor_id
 -- left join public.counseling_sessions s on s.booking_id = b.id
 -- left join public.feedback f on f.session_id = s.id
 -- order by b.starts_at;
 --
--- select p.full_name as konselor, count(*) as slot_kosong_mendatang
--- from public.availability_slots a join public.profiles p on p.id = a.counselor_id
+-- select ux.email as konselor, count(*) as slot_kosong_mendatang
+-- from public.availability_slots a join auth.users ux on ux.id = a.counselor_id
 -- where a.starts_at > now() and a.status = 'available'
 --   and not exists (select 1 from public.bookings b where b.availability_slot_id = a.id
 --                   and b.status in ('waiting_confirmation', 'confirmed', 'reschedule_requested'))

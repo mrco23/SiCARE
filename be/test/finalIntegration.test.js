@@ -591,7 +591,6 @@ test("9. WhatsApp Outbox enforces idempotency, backoff, and final cancellation o
                       full_name: "Mahasiswa Uji",
                       phone_e164: "+6281234567890",
                       account_status: "active",
-                      whatsapp_opt_in: true,
                     },
                   }),
                 };

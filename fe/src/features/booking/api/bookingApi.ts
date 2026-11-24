@@ -7,10 +7,7 @@ export type BookingRecordApi = ApiTypes.BookingListItemDto;
 export type SessionRecordApi = ApiTypes.SessionListItemDto;
 export type FeedbackRecordApi = ApiTypes.ClientFeedbackDto;
 export type PublicCounselor = ApiTypes.PublicCounselorDto;
-export type AvailabilitySlot = ApiTypes.PublicAvailabilitySlotDto;
 export type NotificationRecordApi = ApiTypes.NotificationDto;
-export type NotificationListApi = ApiTypes.NotificationListDto;
-export type CreateBookingInputApi = ApiTypes.CreateBookingApi;
 export type {
   BookingStatusApi,
   SessionStatusApi,
@@ -72,14 +69,6 @@ export const sicareApi = {
     return apiRequest<{ success: boolean; message: string }>("/profile/photo", {
       method: "DELETE",
       auth: true,
-    });
-  },
-
-  setWhatsAppConsent(input: ApiTypes.WhatsAppConsentApi): Promise<ApiTypes.WhatsAppConsentResultApi> {
-    return apiRequest<ApiTypes.WhatsAppConsentResultApi>("/profile/whatsapp-consent", {
-      method: "PATCH",
-      auth: true,
-      body: input,
     });
   },
 

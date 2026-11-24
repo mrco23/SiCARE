@@ -747,7 +747,7 @@ export default function KonselorAktivitasPage() {
                         ) : (
                           <>
                             <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                              Diisi klien saat membuat pesanan ini. Jaga kerahasiaan isi formulir ini.
+                              Diisi klien saat mengajukan permintaan ini. Jaga kerahasiaan isi formulir ini.
                             </p>
                             <div className="mt-3">
                               {hasUrgentIntake(booking.intake_answers) && (
@@ -760,7 +760,7 @@ export default function KonselorAktivitasPage() {
                               )}
                               <ClientIntakeView
                                 intake={booking.intake_answers}
-                                emptyText="Klien tidak mengisi formulir saat membuat pesanan ini."
+                                emptyText="Klien tidak mengisi formulir saat mengajukan permintaan ini."
                               />
                             </div>
                           </>

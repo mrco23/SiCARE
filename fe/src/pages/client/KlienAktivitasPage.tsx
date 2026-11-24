@@ -829,7 +829,7 @@ export default function KlienAktivitasPage() {
         </div>
       </div>
       <Link
-        to="/klien/pesanan"
+        to="/klien/permintaan"
         className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-[#1e5b3a] px-4 py-2 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#f7fcf9]"
       >
         <CalendarPlus className="h-4 w-4" />
@@ -1255,7 +1255,7 @@ export default function KlienAktivitasPage() {
           <div id="missed-section-title">
             <SectionHeader
               title={`Sesi ${MISSED_SESSION_LABEL.toLowerCase()}`}
-              description="Sesi ini tidak terlaksana sesuai jadwal. Kamu dapat memesan jadwal baru kapan saja."
+              description="Sesi ini tidak terlaksana sesuai jadwal. Kamu dapat mengajukan permintaan jadwal baru kapan saja."
               count={missed.length}
             />
           </div>
@@ -1325,7 +1325,7 @@ export default function KlienAktivitasPage() {
               mendampingimu.
             </p>
             <Link
-              to="/klien/pesanan"
+              to="/klien/permintaan"
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#1e5b3a] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#174a2f]"
             >
               <CalendarPlus className="h-4 w-4" />

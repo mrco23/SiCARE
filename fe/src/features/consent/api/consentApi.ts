@@ -1,7 +1,6 @@
 import { apiRequest } from "../../../services/api/apiClient";
 import type {
   ConsentDocumentDownloadDto,
-  ConsentIdentityDto,
   InformedConsentDto,
   SignConsentPayloadApi,
   SignConsentResultApi,
@@ -27,26 +26,6 @@ export const consentApi = {
   getBookingConsentReadiness(bookingId: string): Promise<BookingConsentReadinessDto> {
     return apiRequest<BookingConsentReadinessDto>(`/consents/booking/${encodeURIComponent(bookingId)}/readiness`, {
       auth: true,
-    });
-  },
-
-  /**
-   * Retrieves a consent record by ID.
-   */
-  getConsent(consentId: string): Promise<InformedConsentDto> {
-    return apiRequest<InformedConsentDto>(`/consents/${encodeURIComponent(consentId)}`, {
-      auth: true,
-    });
-  },
-
-  /**
-   * Updates draft participant identity attributes before signing.
-   */
-  updateDraftIdentity(consentId: string, identity: Partial<ConsentIdentityDto>): Promise<InformedConsentDto> {
-    return apiRequest<InformedConsentDto>(`/consents/${encodeURIComponent(consentId)}/identity`, {
-      method: "PATCH",
-      auth: true,
-      body: identity,
     });
   },
 
@@ -121,21 +100,6 @@ export const consentApi = {
    */
   getGuestConsent(guestToken?: string): Promise<InformedConsentDto> {
     return apiRequest<InformedConsentDto>("/consents/guest/me", {
-      headers: guestToken ? { "x-guest-token": guestToken } : undefined,
-      credentials: "include",
-    });
-  },
-
-  /**
-   * Updates guest participant's draft identity attributes.
-   */
-  updateGuestDraftIdentity(
-    identity: Partial<ConsentIdentityDto>,
-    guestToken?: string
-  ): Promise<InformedConsentDto> {
-    return apiRequest<InformedConsentDto>("/consents/guest/me/identity", {
-      method: "PATCH",
-      body: identity,
       headers: guestToken ? { "x-guest-token": guestToken } : undefined,
       credentials: "include",
     });

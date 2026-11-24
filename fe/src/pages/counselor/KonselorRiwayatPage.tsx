@@ -204,10 +204,10 @@ function IntakeSection({ intake }: { intake: ClientIntake | null }) {
     <section className="rounded-2xl border border-gray-200 bg-white">
       <header className="border-b border-gray-200 px-4 py-4 sm:px-6">
         <h3 className="text-base font-bold text-gray-900">
-          Jawaban form pesanan konseling
+          Jawaban form permintaan konseling
         </h3>
         <p className="mt-0.5 text-xs text-gray-500">
-          Diisi klien saat memesan sesi konseling
+          Diisi klien saat mengajukan permintaan konseling
         </p>
       </header>
 
@@ -506,7 +506,7 @@ function SessionDetailView({
         </div>
       </section>
 
-      {/* Jawaban form pesanan konseling di bawah catatan */}
+      {/* Jawaban form permintaan konseling di bawah catatan */}
       <div className="mt-5">
         <IntakeSection intake={session.intake} />
       </div>

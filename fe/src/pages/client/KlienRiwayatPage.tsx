@@ -446,9 +446,9 @@ export default function KlienRiwayatPage() {
 
         {/* Informasi booking & sesi */}
         <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
-          <h3 className="text-sm font-bold text-gray-900">Detail pesanan</h3>
+          <h3 className="text-sm font-bold text-gray-900">Detail permintaan</h3>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <InfoRow label="Kode pesanan" value={bookingCode(booking.id)} />
+            <InfoRow label="Kode permintaan" value={bookingCode(booking.id)} />
             <InfoRow
               label="Layanan"
               value={
@@ -457,7 +457,7 @@ export default function KlienRiwayatPage() {
                   : "Individu"
               }
             />
-            <InfoRow label="Dipesan pada" value={dateTimeLabel(booking.created_at)} />
+            <InfoRow label="Diajukan pada" value={dateTimeLabel(booking.created_at)} />
             {session && (
               <>
                 <InfoRow label="Ruang" value={session.room ?? "Ruang Konseling LMI"} />
@@ -653,7 +653,7 @@ export default function KlienRiwayatPage() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari kode pesanan atau nama kelompok ..."
+              placeholder="Cari kode permintaan atau nama kelompok ..."
               className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15"
             />
           </div>
@@ -786,7 +786,7 @@ export default function KlienRiwayatPage() {
           </p>
           <p className="mt-1 text-sm text-slate-500">
             {items.length === 0
-              ? "Pesanan konseling akan muncul di sini setelah kamu membuat booking."
+              ? "Permintaan konseling akan muncul di sini setelah kamu mengajukan permintaan."
               : "Coba ubah jenis layanan, status, periode, atau kata kunci pencarian."}
           </p>
         </div>

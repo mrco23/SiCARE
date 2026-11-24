@@ -2483,3 +2483,80 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Seed (`be/scripts/seed-dummy-current-period.sql`):** tidak lagi membuat akun (tidak menyentuh `auth.users`/`profiles`). Klien diambil dari profil `client` aktif dan dikelompokkan menurut `member_category` (`student` diutamakan untuk 6 skenario, `faculty_staff` untuk C2 dan U1; kelompok kosong memakai kelompok lain, akun berputar bila jumlahnya kurang). Identitas peserta diambil dari profil (nama, `identity_code`, gender, nomor); fakultas/prodi/TTL/agama/alamat dikosongkan karena tidak ada di profil. Mengikuti skema terbaru: tanpa `counseling_sessions.format` (diisi lewat SQL dinamis bila kolom lama masih ada), intake satu topik dari `INTAKE_TOPIC_OPTIONS`. Skrip menolak berjalan bila `bookings` belum kosong. Tetap tanpa `whatsapp_outbox`, sehingga tidak ada WhatsApp ke nomor akun asli.
 - **Reset:** catatan diperbarui (sandi riwayat konselor kini di `counselor_profiles`; opsi hapus akun `@sicare-dummy.test` hanya untuk sisa seed lama).
 - **Pemeriksaan:** **NOT RUN** di database (tidak ada Postgres lokal); hanya pemeriksaan keseimbangan blok/kurung dan tinjauan manual terhadap migrasi hingga `20261124120000`.
+
+## 2026-11-24 — Audit kode, fungsi, dan atribut tidak terpakai (tanpa perubahan kode)
+
+- **Metode:**
+  - pemindaian statis impor/ekspor `fe/src` dan `be/src`;
+  - pemindaian metode wrapper API yang tidak pernah dipanggil;
+  - pengecekan dependency `package.json`;
+  - pencocokan rute backend dengan pemanggilan frontend;
+  - pencocokan 236 kolom dari 20 tabel produksi (dibaca read-only) dengan kode backend/frontend serta definisi fungsi, view, dan policy database;
+  - pengecekan select backend terhadap kolom yang benar-benar ada.
+- **Kritis:**
+  - `historyCredential.controller.js` (commit `e6cd26f`) membaca `counselor_profiles.history_password_hash`, tetapi migrasi `20261124120000_sicare_merge_counselor_history_credentials.sql` belum diterapkan di produksi, sehingga kolom itu belum ada.
+  - Produksi masih menyimpan 1 baris di `counselor_history_credentials`.
+- **Tidak terpakai:**
+  - tabel `counselor_history_credentials` (akan digabung oleh migrasi di atas);
+  - kolom `informed_consents.revocation_reason` (tidak pernah diisi atau dibaca; 0 baris berisi);
+  - 8 metode wrapper frontend: `adminApi.deleteAcademicPeriod`, `getAccount` (tidak terpakai sejak fitur Ubah akun dihapus), `reviewFeedback`, `setCounselorPublication`; `bookingApi.setWhatsAppConsent`; `consentApi.getConsent`, `updateDraftIdentity`, `updateGuestDraftIdentity`;
+  - 5 tipe ekspor: `AdminRoleFilter`, `AvailabilitySlot`, `CreateBookingInputApi`, `NotificationListApi`, `PublicHeroMotivation`;
+  - endpoint tanpa pemanggil frontend: `GET /admin/whatsapp/health`, `GET /bookings/:id/consent-summary` (selain endpoint infrastruktur health/internal/webhook);
+  - devDependency `eslint` di `be` tanpa skrip lint.
+- **Minor:** sekitar 50 ekspor frontend dan 16 ekspor backend hanya dipakai di file sendiri (keyword `export` tidak perlu). Tidak ada file yang sama sekali tidak diimpor.
+
+## 2026-11-24 — Pembersihan kode frontend yang tidak terpakai
+
+- **Dihapus (hasil audit hari ini):**
+  - Metode wrapper yang tidak pernah dipanggil: `adminApi.deleteAcademicPeriod`, `getAccount`, `reviewFeedback`, `setCounselorPublication`; `bookingApi.setWhatsAppConsent`; `consentApi.getConsent`, `updateDraftIdentity`, `updateGuestDraftIdentity`.
+  - Alias tipe tak terpakai: `AdminRoleFilter`, `AvailabilitySlot`, `NotificationListApi`, `CreateBookingInputApi`, `PublicHeroMotivation`.
+  - DTO yang menjadi yatim: `WhatsAppConsentApi`, `WhatsAppConsentResultApi`, `CounselorPublicationDto`, `FeedbackReviewApi`, `DeleteRecordResultDto`.
+  - Total 106 baris.
+- **Sengaja tidak diubah:**
+  - endpoint backend terkait (tetap ada dan teruji; bisa dipakai bila tampilannya dibuat);
+  - tabel `counselor_history_credentials` (dihapus oleh migrasi `20261124120000` yang belum diterapkan);
+  - kolom `informed_consents.revocation_reason` (menghapus kolom butuh migrasi dan keputusan);
+  - `eslint` di `be` (ada `be/eslint.config.js`);
+  - kata kunci `export` pada simbol yang hanya dipakai di file sendiri (sebagian diimpor tes backend).
+- **Pemeriksaan:** audit ulang tidak menemukan ekspor atau metode wrapper frontend yang tidak terpakai lagi (`BerandaKlienPage` adalah default export halaman, positif palsu). `fe: tsc -b`, `lint`, `build` **PASS**; `be: npm test` **349/350** (gagal: `heroMotivations.test.js`, baseline).
+
+## 2026-11-24 — "backend" → "server", hapus izin WhatsApp, "pemesanan" → "permintaan"
+
+- **Pesan error:** kata "backend" pada pesan untuk pengguna diganti "server":
+  - `apiClient.ts` (4 pesan);
+  - `AuthProvider.tsx` (2 pesan; "Supabase frontend" menjadi "Supabase aplikasi");
+  - `AdminPengaturanPage.tsx`;
+  - kotak privasi `KlienPesananPage.tsx`;
+  - backend "Supabase belum dikonfigurasi pada server." (17 tempat) dan pesan `SUPABASE_PUBLISHABLE_KEY`.
+  - Nama layanan `sicare-backend` dan komentar kode tidak diubah.
+- **Izin WhatsApp (`profiles.whatsapp_opt_in`, `whatsapp_opt_in_at`; ERD: `izin_whatsapp`, `izin_whatsapp_pada`):**
+  - Migrasi baru `20261124130000_sicare_drop_whatsapp_opt_in.sql` menghapus kedua kolom (**belum diterapkan**).
+  - Endpoint `PATCH /profile/whatsapp-consent` beserta schema dan aksi audit `profile.whatsapp_consent` dihapus.
+  - Kolom dihapus dari select di `middleware/auth.js`, `domain.routes.js`, dan `admin/accounts.service.js`, serta dari `database.types.ts`, tipe frontend (`types/api.ts`, `types/auth.ts`), fixture tes, ERD (`erd-sicare.mmd`, `generate-skema-png.js`), dan matriks endpoint (baris 39 ditandai dihapus).
+  - Worker WhatsApp sudah tidak memakai kolom ini sejak 2026-11-13. Produksi saat dicek: 1 dari 18 profil bernilai `true`.
+- **"pemesanan" → "permintaan"** (UI dan pesan backend; URL `/klien/pesanan` dan nama komponen tidak diubah):
+  - menu klien "Permintaan Konseling"/"Permintaan";
+  - Riwayat Klien "Detail permintaan", "Kode permintaan", "Diajukan pada", pencarian, dan teks kosong;
+  - formulir di Aktivitas/Permintaan/Riwayat Konselor "saat mengajukan permintaan ini";
+  - Aktivitas Klien "mengajukan permintaan jadwal baru";
+  - Jadwal Konselor "Diminta Klien", "Diminta / Terkonfirmasi", "Detail Slot Diminta", "Diminta · …", "Tersedia untuk diminta klien", "belum diminta klien";
+  - backend "Konselor tidak tersedia untuk permintaan publik." dan "Data duplikat atau slot sudah diminta.".
+- **Urutan penerapan:** deploy backend baru lalu `npx supabase db push --remote`. Migrasi `20261124120000` dan `20261124130000` belum ada di produksi.
+- **Pemeriksaan:** `be: npm test` **349/350** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `lint`, `build` **PASS**. Pencarian ulang tidak menemukan sisa "pemesanan/pesanan/dipesan/memesan/terpesan" di UI.
+
+## 2026-11-24 — Rute /klien/permintaan dan hapus filter spesialis
+
+- **Disetujui pengguna:** rute halaman permintaan klien diubah dari `/klien/pesanan` menjadi `/klien/permintaan` (`fe/src/app/router.tsx`).
+  - `/klien/pesanan` dipertahankan sebagai `<Navigate replace>` ke alamat baru agar tautan atau bookmark lama tetap berfungsi.
+  - 8 tautan diperbarui: menu klien, Beranda Klien (2), Aktivitas Klien (2), kartu konselor, Profil Konselor publik, dan beranda publik.
+  - Komponen tetap `KlienPesananPage`.
+- **`KlienPesananPage.tsx`:** filter dropdown "Semua Spesialis" beserta state `spesialis` dan `specialtyOptions` dihapus. Pencarian nama konselor tetap ada (kini lebar penuh). Teks kosong menjadi "Tidak ada konselor yang cocok dengan pencarian.".
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**; `be: npm test` **349/350** (gagal: `heroMotivations.test.js`, baseline). Dev server tanpa login: `/klien/permintaan` dan `/klien/pesanan` sama-sama diarahkan ke `/login` dengan tujuan tersimpan; alamat lama lalu diarahkan ke alamat baru setelah login. Halaman dirender tanpa elemen `select` dan tanpa teks "Spesialis".
+
+## 2026-11-24 — Seed dummy untuk akun target dan sesi bulan lalu
+
+- **Permintaan pengguna:** dummy untuk klien `24013031@unikadelasalle.ac.id` dengan konselor `giovana@unikadelasalle.ac.id` (2 sesi selesai, 1 sesi berlangsung, 1 sesi selesai tanpa feedback); sesi selesai akun dummy lain pada bulan sebelumnya dalam periode berjalan; perbarui skrip seed dan reset.
+- **Seed:** akun target dicari lewat email (berhenti dengan pesan jelas bila tidak ada/bukan klien atau konselor aktif). G1 (bulan lalu, feedback shown), G2 (9 hari lalu, feedback pending), G3 (2 hari lalu, tanpa feedback; notifikasi `session.completed` belum dibaca), G4 (`ongoing`, mulai 15 menit sebelum skrip dijalankan, consent signed, notifikasi `session.ongoing`). Klien lain (tanpa akun target) mendapat D1–D4 selesai di bulan lalu, X1/X2 diurungkan, W1/U1 alur aktif; jam digeser otomatis bila bentrok. 3 slot kosong per konselor (konselor target selalu ikut).
+- **Catatan:** G4 akan ditutup otomatis oleh `sicare_auto_complete_sessions` ±2 jam setelah jam selesai.
+- **Reset:** hanya catatan urutan menjalankan.
+- **Pemeriksaan:** **NOT RUN** di database (tidak ada Postgres lokal); pemeriksaan keseimbangan blok dan tinjauan manual.

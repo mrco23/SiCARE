@@ -150,7 +150,7 @@ function ScheduleSection({ counselor, days }: { counselor: PublicCounselor; days
           </ul>
 
           <Link
-            to="/klien/pesanan"
+            to="/klien/permintaan"
             state={{ counselorProfileId: counselor.profile_id }}
             className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-primary-dark sm:w-auto"
           >

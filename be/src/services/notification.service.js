@@ -6,7 +6,7 @@ import { writeAudit } from "../lib/audit.js";
 function getClient(override) {
   if (override) return override;
   if (!isSupabaseConfigured()) {
-    throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada backend.");
+    throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada server.");
   }
   return getSupabaseAdminClient();
 }

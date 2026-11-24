@@ -205,13 +205,13 @@ function createOwnershipMockDb() {
 
   const tables = {
     profiles: [
-      { id: IDS.CLIENT_A, identity_code: "CA001", full_name: "Client A", app_role: "client", member_category: "student", account_status: "active", phone_e164: "+628111111111", whatsapp_opt_in: false, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
-      { id: IDS.CLIENT_B, identity_code: "CB002", full_name: "Client B", app_role: "client", member_category: "student", account_status: "active", phone_e164: "+628222222222", whatsapp_opt_in: false, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
-      { id: IDS.COUNSELOR_A, identity_code: "COA01", full_name: "Counselor A", app_role: "counselor", member_category: "faculty_staff", account_status: "active", phone_e164: "+628333333333", whatsapp_opt_in: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
-      { id: IDS.COUNSELOR_B, identity_code: "COB02", full_name: "Counselor B", app_role: "counselor", member_category: "faculty_staff", account_status: "active", phone_e164: "+628444444444", whatsapp_opt_in: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
-      { id: IDS.ADMIN, identity_code: "ADM01", full_name: "Admin Utama", app_role: "admin", member_category: "faculty_staff", account_status: "active", phone_e164: "+628555555555", whatsapp_opt_in: false, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
-      { id: IDS.HEAD_LMI, identity_code: "LMI01", full_name: "Kepala LMI", app_role: "head_lmi", member_category: "faculty_staff", account_status: "active", phone_e164: "+628666666666", whatsapp_opt_in: false, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
-      { id: IDS.INACTIVE_CLIENT, identity_code: "INC01", full_name: "Client Nonaktif", app_role: "client", member_category: "student", account_status: "disabled", phone_e164: null, whatsapp_opt_in: false, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
+      { id: IDS.CLIENT_A, identity_code: "CA001", full_name: "Client A", app_role: "client", member_category: "student", account_status: "active", phone_e164: "+628111111111", created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
+      { id: IDS.CLIENT_B, identity_code: "CB002", full_name: "Client B", app_role: "client", member_category: "student", account_status: "active", phone_e164: "+628222222222", created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
+      { id: IDS.COUNSELOR_A, identity_code: "COA01", full_name: "Counselor A", app_role: "counselor", member_category: "faculty_staff", account_status: "active", phone_e164: "+628333333333", created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
+      { id: IDS.COUNSELOR_B, identity_code: "COB02", full_name: "Counselor B", app_role: "counselor", member_category: "faculty_staff", account_status: "active", phone_e164: "+628444444444", created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
+      { id: IDS.ADMIN, identity_code: "ADM01", full_name: "Admin Utama", app_role: "admin", member_category: "faculty_staff", account_status: "active", phone_e164: "+628555555555", created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
+      { id: IDS.HEAD_LMI, identity_code: "LMI01", full_name: "Kepala LMI", app_role: "head_lmi", member_category: "faculty_staff", account_status: "active", phone_e164: "+628666666666", created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
+      { id: IDS.INACTIVE_CLIENT, identity_code: "INC01", full_name: "Client Nonaktif", app_role: "client", member_category: "student", account_status: "disabled", phone_e164: null, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },
     ],
     counselor_profiles: [
       { profile_id: IDS.COUNSELOR_A, public_name: "Konselor A", headline: "Headline A", bio: "Bio A", specialties: ["Akademik"], years_experience: 5, photo_path: null, is_public: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" },

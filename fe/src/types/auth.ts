@@ -19,7 +19,6 @@ export interface AuthProfile {
   member_category: MemberCategory | null;
   account_status: "pending" | "active" | "disabled";
   phone_e164?: string | null;
-  whatsapp_opt_in?: boolean;
   avatar_url?: string | null;
   photo_path?: string | null;
   created_at?: string;

@@ -60,7 +60,7 @@ const supa = () => {
     throw new HttpError(
       503,
       "SUPABASE_NOT_CONFIGURED",
-      "Supabase belum dikonfigurasi pada backend.",
+      "Supabase belum dikonfigurasi pada server.",
     );
   return getSupabaseAdminClient();
 };
@@ -70,7 +70,7 @@ export const adminAccountsService = {
     let query = supa()
       .from("profiles")
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,whatsapp_opt_in,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
       )
       .order("created_at", { ascending: false })
       .limit(filters.limit);
@@ -116,7 +116,7 @@ export const adminAccountsService = {
     const { data, error } = await supa()
       .from("profiles")
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,whatsapp_opt_in,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
       )
       .eq("id", id)
       .maybeSingle();
@@ -287,7 +287,7 @@ export const adminAccountsService = {
       .update(input)
       .eq("id", id)
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,whatsapp_opt_in,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
       )
       .maybeSingle();
 

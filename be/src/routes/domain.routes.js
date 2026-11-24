@@ -14,7 +14,6 @@ const profilePatchSchema = z.object({
   full_name: z.string().trim().min(1).max(160).optional(),
   phone_e164: indonesianPhoneSchema.nullable().optional(),
 }).strict();
-const whatsappConsentSchema = z.object({ opted_in: z.boolean() }).strict();
 const MAX_PUBLIC_AVAILABILITY_RANGE_MS = 90 * 24 * 60 * 60 * 1000;
 const availabilityQuerySchema = z.object({
   counselor_id: uuid.optional(),
@@ -25,7 +24,7 @@ const availabilityQuerySchema = z.object({
 const feedbackQuerySchema = z.object({ limit: z.coerce.number().int().min(1).max(100).default(20) }).strict();
 const supa = () => {
   if (!isSupabaseConfigured()) {
-    throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada backend.");
+    throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada server.");
   }
   return getSupabaseAdminClient();
 };
@@ -157,7 +156,7 @@ router.patch("/profile", authenticate, asyncHandler(async (request, response) =>
   const { data, error } = await supa().from("profiles")
     .update(input)
     .eq("id", request.auth.user.id)
-    .select("id,identity_code,full_name,app_role,member_category,account_status,phone_e164,whatsapp_opt_in,created_at,updated_at")
+    .select("id,identity_code,full_name,app_role,member_category,account_status,phone_e164,created_at,updated_at")
     .single();
   if (error) supabaseError(error, "Profil tidak dapat diperbarui.");
   await writeAudit({
@@ -166,33 +165,6 @@ router.patch("/profile", authenticate, asyncHandler(async (request, response) =>
     entityType: "profile",
     entityId: request.auth.user.id,
     metadata: { field: Object.keys(input).join(",") },
-  });
-  return sendData(response, data);
-}));
-
-// WhatsApp consent is deliberately separate from ordinary profile edits. The API
-// records the affirmative opt-in timestamp and clears it when consent is withdrawn.
-router.patch("/profile/whatsapp-consent", authenticate, asyncHandler(async (request, response) => {
-  const input = parseBody(whatsappConsentSchema, request.body);
-  const updatedAt = new Date().toISOString();
-  const patch = {
-    whatsapp_opt_in: input.opted_in,
-    whatsapp_opt_in_at: input.opted_in ? updatedAt : null,
-  };
-
-  const { data, error } = await supa().from("profiles")
-    .update(patch)
-    .eq("id", request.auth.user.id)
-    .select("id,whatsapp_opt_in,whatsapp_opt_in_at,updated_at")
-    .single();
-  if (error) supabaseError(error, "Persetujuan WhatsApp tidak dapat diperbarui.");
-
-  await writeAudit({
-    actorUserId: request.auth.user.id,
-    action: "profile.whatsapp_consent",
-    entityType: "profile",
-    entityId: request.auth.user.id,
-    metadata: { status: input.opted_in ? "opted_in" : "opted_out" },
   });
   return sendData(response, data);
 }));

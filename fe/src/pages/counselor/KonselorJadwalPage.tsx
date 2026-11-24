@@ -301,7 +301,7 @@ export default function KonselorJadwalPage() {
         clientLabel: linkedBooking
           ? formatBookingClientTitle(linkedBooking)
           : slot.status === "blocked"
-            ? "Terpesan Klien"
+            ? "Diminta Klien"
             : undefined,
         bookingStatus: linkedBooking?.status,
         bookingId: linkedBooking?.id,
@@ -687,7 +687,7 @@ export default function KonselorJadwalPage() {
                 </p>
                 <p className="text-xs text-gray-500">
                   Klik ruang kosong untuk menambah slot 1 jam. Geser kartu hijau
-                  untuk memindahkan jadwal yang belum dipesan.
+                  untuk memindahkan jadwal yang belum diminta klien.
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
@@ -949,7 +949,7 @@ export default function KonselorJadwalPage() {
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-sm bg-blue-600" /> Sesi
-                    Terpesan / Terkonfirmasi
+                    Diminta / Terkonfirmasi
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-sm bg-gray-300" /> Sudah
@@ -1102,8 +1102,8 @@ export default function KonselorJadwalPage() {
                           </div>
                           <div className="truncate text-xs text-gray-500">
                             {s.isBooked
-                              ? `Terpesan · ${s.clientLabel ?? "Klien"}`
-                              : "Tersedia untuk dipesan klien"}
+                              ? `Diminta · ${s.clientLabel ?? "Klien"}`
+                              : "Tersedia untuk diminta klien"}
                           </div>
                         </div>
                       </button>
@@ -1160,7 +1160,7 @@ export default function KonselorJadwalPage() {
                   {editor.mode === "new"
                     ? "Tambah Slot Ketersediaan"
                     : editor.isBooked
-                      ? "Detail Slot Terpesan"
+                      ? "Detail Slot Diminta"
                       : "Ubah Slot Ketersediaan"}
                 </h2>
                 <p className="mt-1 text-xs text-gray-500">
@@ -1184,7 +1184,7 @@ export default function KonselorJadwalPage() {
                 <p className="mt-1 leading-relaxed text-blue-800">
                   Pemohon: <strong>{editor.clientLabel ?? "Klien"}</strong> (Status:{" "}
                   <code>{editor.bookingStatus ?? "booked"}</code>). Slot yang sudah
-                  dipesan tidak dapat dihapus langsung (`AVAILABILITY_BOOKED`).
+                  diminta tidak dapat dihapus langsung (`AVAILABILITY_BOOKED`).
                 </p>
               </div>
             )}

@@ -4,7 +4,7 @@ import { markMissedSessionsSafely } from "./missedSession.service.js";
 import { HttpError, supabaseError } from "../lib/http.js";
 
 const supa = () => {
-  if (!isSupabaseConfigured()) throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada backend.");
+  if (!isSupabaseConfigured()) throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada server.");
   return getSupabaseAdminClient();
 };
 

@@ -152,7 +152,7 @@ export function CounselorCard({ counselor }: { counselor: ClientDirectoryCounsel
 
       <div className="border-t border-gray-100 p-5">
         <Link
-          to="/klien/pesanan"
+          to="/klien/permintaan"
           state={{ counselorProfileId: counselor.entityId }}
           className="flex w-full items-center justify-center gap-2 rounded-full border border-primary px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary-soft focus:outline-none focus:ring-4 focus:ring-primary/15"
         >

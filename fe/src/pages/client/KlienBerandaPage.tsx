@@ -62,7 +62,7 @@ const ACCESS_CARDS: {
   highlight?: boolean;
 }[] = [
   {
-    to: "/klien/pesanan",
+    to: "/klien/permintaan",
     title: "Booking Jadwal",
     desc: "Atur jadwal konseling sesuai kebutuhan.",
     icon: CalendarPlus,
@@ -289,7 +289,7 @@ export default function BerandaKlienPage() {
           dukungan.
         </p>
         <Link
-          to="/klien/pesanan"
+          to="/klien/permintaan"
           className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#1e5b3a]/40 bg-white px-5 py-2.5 text-sm font-semibold text-[#1e5b3a] shadow-sm transition hover:bg-[#e8f9f0] sm:text-[15px]"
         >
           Buat janji konseling
