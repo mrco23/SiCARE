@@ -15,7 +15,7 @@ export function getPublicAuthClient() {
   if (testPublicAuthClient) return testPublicAuthClient;
   const key = env.SUPABASE_PUBLISHABLE_KEY ?? env.SUPABASE_ANON_KEY;
   if (!env.SUPABASE_URL || !key) {
-    throw new HttpError(503, "AUTH_NOT_CONFIGURED", "SUPABASE_PUBLISHABLE_KEY belum dikonfigurasi pada backend.");
+    throw new HttpError(503, "AUTH_NOT_CONFIGURED", "SUPABASE_PUBLISHABLE_KEY belum dikonfigurasi pada server.");
   }
   return createClient(env.SUPABASE_URL, key, {
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },

@@ -160,7 +160,6 @@ export default function KlienPesananPage() {
   const [layanan, setLayanan] = useState<CounselingFormat | null>(null);
   const [konselorId, setKonselorId] = useState<number | null>(null);
   const [q, setQ] = useState("");
-  const [spesialis, setSpesialis] = useState("");
   const [calMonth, setCalMonth] = useState<Date>(() => firstOfMonth(minDate()));
   const [selDate, setSelDate] = useState<string | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
@@ -209,18 +208,13 @@ export default function KlienPesananPage() {
 
   const COUNSELORS = counselors;
   const counselor = COUNSELORS.find((c) => c.id === konselorId) ?? null;
-  const specialtyOptions = [
-    ...new Set(COUNSELORS.flatMap((item) => item.skills)),
-  ].sort((a, b) => a.localeCompare(b));
-
   const filteredCounselors = useMemo(() => {
     const term = q.trim().toLowerCase();
     return COUNSELORS.filter(
       (c) =>
-        (!term || c.name.toLowerCase().includes(term)) &&
-        (!spesialis || c.skills.includes(spesialis)),
+        !term || c.name.toLowerCase().includes(term),
     );
-  }, [COUNSELORS, q, spesialis]);
+  }, [COUNSELORS, q]);
 
   const goTo = (n: Step) => {
     setStep(n);
@@ -552,7 +546,7 @@ export default function KlienPesananPage() {
               <div>
                 <p className="font-semibold text-gray-900">Privasi Terjaga</p>
                 <p className="text-sm text-gray-600">
-                  Formulir awal belum terhubung ke penyimpanan backend. Jawaban
+                  Formulir awal belum terhubung ke penyimpanan server. Jawaban
                   tidak dikirim kepada konselor dan hanya tersedia sementara di
                   halaman ini.
                 </p>
@@ -579,7 +573,7 @@ export default function KlienPesananPage() {
             Klik konselor untuk melihat jadwalnya, lalu pilih tanggal dan jam.
           </p>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+          <div className="mt-6">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
@@ -593,16 +587,6 @@ export default function KlienPesananPage() {
                 className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-4 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
             </div>
-            <select
-              value={spesialis}
-              onChange={(e) => setSpesialis(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary"
-            >
-              <option value="">Semua Spesialis</option>
-              {specialtyOptions.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
           </div>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -656,7 +640,7 @@ export default function KlienPesananPage() {
           </div>
           {filteredCounselors.length === 0 && (
             <p className="mt-6 text-sm text-gray-500">
-              Tidak ada konselor yang cocok dengan filter.
+              Tidak ada konselor yang cocok dengan pencarian.
             </p>
           )}
 

@@ -476,7 +476,7 @@ export default function AdminPengaturanPage() {
             >
               Kalimat motivasi gagal dimuat: {heroLoadError}
               <p className="mt-1">
-                Periksa koneksi backend dan akses admin, lalu muat ulang halaman
+                Periksa koneksi server dan akses admin, lalu muat ulang halaman
                 ini.
               </p>
             </div>

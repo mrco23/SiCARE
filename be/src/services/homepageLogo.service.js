@@ -24,7 +24,7 @@ export const homepageLogoUpdateSchema = z
 
 const supa = () => {
   if (!isSupabaseConfigured()) {
-    throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada backend.");
+    throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada server.");
   }
   return getSupabaseAdminClient();
 };

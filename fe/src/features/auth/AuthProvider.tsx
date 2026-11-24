@@ -176,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error || !data.session) {
       await client.auth.signOut({ scope: "local" });
-      throw new Error("Login berhasil diverifikasi backend, tetapi sesi browser gagal disimpan. Periksa konfigurasi Supabase frontend.");
+      throw new Error("Login berhasil diverifikasi server, tetapi sesi browser gagal disimpan. Periksa konfigurasi Supabase aplikasi.");
     }
 
     setUser(result.user);
@@ -210,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registeredProfile = await loadProfile(data.session.access_token);
       } catch {
         await client.auth.signOut({ scope: "local" });
-        throw new Error("Akun sudah dibuat, tetapi profil belum dapat diverifikasi. Jangan mendaftar ulang; coba masuk kembali setelah backend tersedia.");
+        throw new Error("Akun sudah dibuat, tetapi profil belum dapat diverifikasi. Jangan mendaftar ulang; coba masuk kembali setelah server tersedia.");
       }
     }
 

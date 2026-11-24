@@ -2,7 +2,7 @@ import { HttpError, supabaseError } from "./http.js";
 
 export const DOMAIN_ERRORS = {
   BOOKING_CLIENT_NOT_ALLOWED: [403, "BOOKING_FORBIDDEN", "Akun ini tidak dapat membuat booking."],
-  BOOKING_COUNSELOR_UNAVAILABLE: [404, "COUNSELOR_UNAVAILABLE", "Konselor tidak tersedia untuk pemesanan publik."],
+  BOOKING_COUNSELOR_UNAVAILABLE: [404, "COUNSELOR_UNAVAILABLE", "Konselor tidak tersedia untuk permintaan publik."],
   BOOKING_SLOT_UNAVAILABLE: [409, "SLOT_UNAVAILABLE", "Slot jadwal sudah tidak tersedia atau sudah lewat."],
   BOOKING_PERIOD_UNAVAILABLE: [409, "PERIOD_UNAVAILABLE", "Periode akademik untuk slot ini tidak aktif atau belum dipublikasikan."],
   BOOKING_PARTICIPANTS_INVALID: [400, "INVALID_PARTICIPANTS", "Data peserta kelompok tidak valid."],
@@ -39,7 +39,7 @@ export function handleDomainRpcError(error, fallback = "Operasi domain gagal.") 
     const [status, code, safeMessage] = DOMAIN_ERRORS[domainKey];
     throw new HttpError(status, code, safeMessage);
   }
-  if (error?.code === "23505") throw new HttpError(409, "CONFLICT", "Data duplikat atau slot sudah dipesan.");
+  if (error?.code === "23505") throw new HttpError(409, "CONFLICT", "Data duplikat atau slot sudah diminta.");
   if (error?.code === "23503" || error?.code === "23514" || error?.code === "22P02") {
     throw new HttpError(400, "INVALID_DATA", "Data tidak memenuhi aturan database.");
   }

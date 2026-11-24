@@ -22,9 +22,9 @@ const NAV_ITEMS: {
 }[] = [
   { to: "/klien", label: "Beranda", short: "Beranda", icon: Home },
   {
-    to: "/klien/pesanan",
-    label: "Pesanan Konseling",
-    short: "Pesanan",
+    to: "/klien/permintaan",
+    label: "Permintaan Konseling",
+    short: "Permintaan",
     icon: CalendarDays,
   },
   { to: "/klien/konselor", label: "Konselor", short: "Konselor", icon: Users },

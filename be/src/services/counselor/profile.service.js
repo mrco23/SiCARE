@@ -8,7 +8,7 @@ const supa = () => {
     throw new HttpError(
       503,
       "SUPABASE_NOT_CONFIGURED",
-      "Supabase belum dikonfigurasi pada backend.",
+      "Supabase belum dikonfigurasi pada server.",
     );
   return getSupabaseAdminClient();
 };

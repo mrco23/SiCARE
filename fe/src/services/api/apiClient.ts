@@ -161,13 +161,13 @@ export async function apiRequest<T>(
     try {
       responseText = await response.text();
     } catch {
-      throw new ApiError(0, "API_RESPONSE_READ_FAILED", "Respons dari backend tidak dapat dibaca.");
+      throw new ApiError(0, "API_RESPONSE_READ_FAILED", "Respons dari server tidak dapat dibaca.");
     }
     responseBody = parseJson(responseText);
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (timedOut) {
-      throw new ApiError(0, "API_TIMEOUT", "Backend terlalu lama merespons. Periksa koneksi lalu coba lagi.");
+      throw new ApiError(0, "API_TIMEOUT", "Server terlalu lama merespons. Periksa koneksi lalu coba lagi.");
     }
     if (signal?.aborted) {
       throw new ApiError(0, "REQUEST_ABORTED", "Permintaan dibatalkan.");
@@ -175,7 +175,7 @@ export async function apiRequest<T>(
     throw new ApiError(
       0,
       "API_UNREACHABLE",
-      "Backend SiCARE tidak dapat dijangkau. Pastikan backend berjalan dan URL API benar.",
+      "Server SiCARE tidak dapat dijangkau. Pastikan server berjalan dan URL API benar.",
     );
   } finally {
     if (timeoutHandle !== undefined) globalThis.clearTimeout(timeoutHandle);
@@ -201,7 +201,7 @@ export async function apiRequest<T>(
     throw new ApiError(
       response.status,
       "INVALID_API_RESPONSE",
-      "Backend mengembalikan format data yang tidak valid.",
+      "Server mengembalikan format data yang tidak valid.",
     );
   }
 

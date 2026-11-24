@@ -37,7 +37,7 @@ export function sendData(response, data, status = 200) {
  */
 export function supabaseError(error, fallback = "Operasi database gagal.") {
   if (!error) return;
-  if (error.code === "23505") throw new HttpError(409, "CONFLICT", "Data duplikat atau slot sudah dipesan.");
+  if (error.code === "23505") throw new HttpError(409, "CONFLICT", "Data duplikat atau slot sudah diminta.");
   if (["23503", "23514", "22P02"].includes(error.code)) {
     throw new HttpError(400, "INVALID_DATA", "Data tidak memenuhi aturan database.");
   }
