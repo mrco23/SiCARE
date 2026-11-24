@@ -1,0 +1,72 @@
+%% Alur konseling SiCARE (booking -> sesi -> pasca-sesi)
+%% Diturunkan dari kode per 2026-11-24:
+%%   be/src/routes/{booking,session,consent,feedback,counselor}.routes.js
+%%   be/src/services/booking.service.js (batas batal klien 2 jam)
+%%   supabase/migrations: sicare_create_booking, sicare_transition_booking,
+%%   sicare_reschedule_booking, sicare_transition_session, sicare_mark_expired_bookings,
+%%   sicare_mark_missed_sessions, sicare_auto_complete_sessions, sicare_submit_feedback
+%% Penanda otomatis dijalankan cron worker tiap menit (POST /internal/whatsapp/worker-run).
+%% Catatan sintaks: jangan pakai titik di dalam label garis putus-putus (-. label .->).
+
+flowchart TD
+    %% ---------- Booking oleh klien ----------
+    A(["Klien login"]) --> B["Pilih konselor dan slot tersedia<br/>GET /public/availability"]
+    B --> C["Isi booking 3 langkah + intake<br/>POST /bookings"]
+    C --> D{"Validasi server<br/>slot tersedia, batas booking aktif"}
+    D -- "gagal" --> B
+    D -- "lolos" --> W[/"Booking: waiting_confirmation"/]
+
+    %% ---------- Keputusan konselor ----------
+    W --> K{"Konselor meninjau<br/>halaman Permintaan"}
+    K -- "Tolak + alasan" --> R[/"Booking: rejected"/]
+    K -- "Minta jadwal ulang + alasan" --> RR[/"Booking: reschedule_requested"/]
+    K -- "Konfirmasi + ruang opsional" --> CF[/"Booking: confirmed<br/>Sesi: scheduled"/]
+
+    RR --> RS["Klien pilih slot pengganti<br/>PATCH /bookings/:id/reschedule"]
+    RS --> W
+
+    %% ---------- Pembatalan & kedaluwarsa ----------
+    W -. "klien batal + alasan" .-> X[/"Booking: cancelled"/]
+    RR -. "klien batal + alasan" .-> X
+    CF -. "klien batal, paling lambat 2 jam sebelum mulai" .-> X
+    W -. "jam mulai lewat, belum dikonfirmasi" .-> EX[/"Booking: expired<br/>not_confirmed"/]
+    RR -. "jam mulai lewat, slot belum dipilih" .-> EX2[/"Booking: expired<br/>reschedule_not_selected"/]
+
+    %% ---------- Persiapan sesi ----------
+    CF --> INV["Undangan informed consent dibuat<br/>klien + peserta grup"]
+    CF --> WA["Antrean pengingat WhatsApp<br/>H-1 07:00 WITA dan 1 jam sebelum"]
+    INV --> SG["Klien tanda tangan consent<br/>tamu via /consent/invite<br/>PDF resmi dibuat"]
+    SG --> ST{"Konselor klik Mulai sesi"}
+    CF -. "konselor minta jadwal ulang sebelum sesi dimulai" .-> RR
+
+    ST -- "lebih awal dari 15 menit sebelum mulai" --> E1["Ditolak: SESSION_START_TOO_EARLY"]
+    ST -- "consent belum lengkap" --> E2["Ditolak: CONSENT_READINESS_INCOMPLETE"]
+    ST -- "dalam jendela dan consent lengkap" --> ON[/"Sesi: ongoing"/]
+    E1 --> ST
+    E2 --> SG
+
+    CF -. "tidak dimulai hingga selesai + 30 menit" .-> MS[/"Sesi: missed<br/>consent_unsigned / not_started"/]
+    CF -. "konselor batalkan sesi" .-> SX[/"Sesi: cancelled<br/>Booking: cancelled"/]
+    ON -. "konselor batalkan sesi" .-> SX
+
+    %% ---------- Selesai ----------
+    ON -- "Konselor akhiri sesi" --> DN[/"Sesi: completed"/]
+    ON -. "tidak diakhiri hingga selesai + 120 menit" .-> DN
+
+    %% ---------- Pasca-sesi ----------
+    DN --> NT["Konselor simpan catatan dan laporan<br/>PUT /counselor/sessions/:id/notes"]
+    DN --> FB["Klien beri feedback rating dan komentar<br/>POST /sessions/:id/feedback"]
+    NT --> HS["Riwayat konselor<br/>dikunci password riwayat"]
+    FB --> MD["Admin moderasi tampil/sembunyi<br/>Head LMI tandai reviewed/resolved"]
+    MD --> Z(["Selesai"])
+    HS --> Z
+
+    %% ---------- Gaya ----------
+    classDef status fill:#ECFDF5,stroke:#064E3B,color:#064E3B
+    classDef final fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
+    classDef auto fill:#FAEEDA,stroke:#854F0B,color:#633806
+    classDef err fill:#FCEBEB,stroke:#A32D2D,color:#791F1F
+    class W,RR,CF,ON,DN status
+    class R,X,SX final
+    class EX,EX2,MS auto
+    class E1,E2 err
