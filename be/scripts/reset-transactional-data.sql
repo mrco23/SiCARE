@@ -1,7 +1,8 @@
 -- SiCARE: bersihkan seluruh data transaksi TANPA menghapus akun.
 --
 -- Jalankan di Supabase Dashboard -> SQL Editor pada project NON-PRODUKSI.
--- Skrip ini manual/sekali pakai, bukan migrasi.
+-- Skrip ini manual/sekali pakai, bukan migrasi. Jalankan sebelum
+-- be/scripts/seed-dummy-current-period.sql (seed menolak berjalan bila bookings belum kosong).
 --
 -- DIHAPUS (TRUNCATE):
 --   jadwal (availability_slots), booking + peserta + intake, sesi + catatan sesi, feedback,

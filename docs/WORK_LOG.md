@@ -2552,3 +2552,11 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - Komponen tetap `KlienPesananPage`.
 - **`KlienPesananPage.tsx`:** filter dropdown "Semua Spesialis" beserta state `spesialis` dan `specialtyOptions` dihapus. Pencarian nama konselor tetap ada (kini lebar penuh). Teks kosong menjadi "Tidak ada konselor yang cocok dengan pencarian.".
 - **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**; `be: npm test` **349/350** (gagal: `heroMotivations.test.js`, baseline). Dev server tanpa login: `/klien/permintaan` dan `/klien/pesanan` sama-sama diarahkan ke `/login` dengan tujuan tersimpan; alamat lama lalu diarahkan ke alamat baru setelah login. Halaman dirender tanpa elemen `select` dan tanpa teks "Spesialis".
+
+## 2026-11-24 — Seed dummy untuk akun target dan sesi bulan lalu
+
+- **Permintaan pengguna:** dummy untuk klien `24013031@unikadelasalle.ac.id` dengan konselor `giovana@unikadelasalle.ac.id` (2 sesi selesai, 1 sesi berlangsung, 1 sesi selesai tanpa feedback); sesi selesai akun dummy lain pada bulan sebelumnya dalam periode berjalan; perbarui skrip seed dan reset.
+- **Seed:** akun target dicari lewat email (berhenti dengan pesan jelas bila tidak ada/bukan klien atau konselor aktif). G1 (bulan lalu, feedback shown), G2 (9 hari lalu, feedback pending), G3 (2 hari lalu, tanpa feedback; notifikasi `session.completed` belum dibaca), G4 (`ongoing`, mulai 15 menit sebelum skrip dijalankan, consent signed, notifikasi `session.ongoing`). Klien lain (tanpa akun target) mendapat D1–D4 selesai di bulan lalu, X1/X2 diurungkan, W1/U1 alur aktif; jam digeser otomatis bila bentrok. 3 slot kosong per konselor (konselor target selalu ikut).
+- **Catatan:** G4 akan ditutup otomatis oleh `sicare_auto_complete_sessions` ±2 jam setelah jam selesai.
+- **Reset:** hanya catatan urutan menjalankan.
+- **Pemeriksaan:** **NOT RUN** di database (tidak ada Postgres lokal); pemeriksaan keseimbangan blok dan tinjauan manual.
