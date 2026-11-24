@@ -28,6 +28,47 @@ test("counselor history credentials migration defines table, check constraint, R
   assert.match(migrationSql, /grant all on public\.counselor_history_credentials to service_role/);
 });
 
+const mergeMigrationSql = readFileSync(
+  new URL("../../supabase/migrations/20261124120000_sicare_merge_counselor_history_credentials.sql", import.meta.url),
+  "utf8"
+);
+
+test("merge migration moves the hash into counselor_profiles and drops the old table", () => {
+  assert.match(mergeMigrationSql, /add column if not exists history_password_hash text/);
+  assert.match(mergeMigrationSql, /constraint counselor_profiles_history_password_hash_format check/);
+  assert.match(mergeMigrationSql, /set history_password_hash = c\.password_hash/);
+  assert.match(mergeMigrationSql, /COUNSELOR_HISTORY_CREDENTIAL_COPY_MISMATCH/);
+  assert.ok(
+    mergeMigrationSql.indexOf("COUNSELOR_HISTORY_CREDENTIAL_COPY_MISMATCH") <
+      mergeMigrationSql.indexOf("drop table if exists public.counselor_history_credentials")
+  );
+});
+
+test("merge migration keeps the password hash unreadable for anon and authenticated", () => {
+  assert.match(mergeMigrationSql, /revoke select on public\.counselor_profiles from anon, authenticated;/);
+  const grant = mergeMigrationSql.match(/grant select \(([^)]*)\) on public\.counselor_profiles to anon, authenticated;/);
+  assert.ok(grant, "column-level select grant expected");
+  assert.doesNotMatch(grant[1], /history_password/);
+  assert.doesNotMatch(mergeMigrationSql, /grant (select|update|all)[^;]*history_password[^;]*to (anon|authenticated)/);
+  // Table-level select must not be granted back anywhere in the migration.
+  assert.doesNotMatch(mergeMigrationSql, /grant select on public\.counselor_profiles to/);
+});
+
+test("backend never reads counselor_profiles with select * or exposes the hash outside the credential controller", () => {
+  const files = [
+    "../src/middleware/auth.js",
+    "../src/routes/domain.routes.js",
+    "../src/services/admin/accounts.service.js",
+    "../src/services/counselor/profile.service.js",
+    "../src/workers/whatsapp.scheduler.js",
+  ];
+  for (const file of files) {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /history_password/, file);
+    assert.doesNotMatch(source, /from\("counselor_profiles"\)\s*\.select\("\*"\)/, file);
+  }
+});
+
 test("password hashing with bcrypt produces valid non-reversible hashes and verifies correctly", async () => {
   const hash = await hashPassword("superSecret123");
   assert.ok(hash.startsWith("$2a$") || hash.startsWith("$2b$"));
@@ -132,8 +173,11 @@ function requestApp(mockClient, { method, path, token, body, headers = {} }) {
   });
 }
 
-function createMockSupabaseForCredentials(counselorId) {
-  const credentials = [];
+function createMockSupabaseForCredentials(counselorId, { withCounselorProfile = true } = {}) {
+  // Sandi riwayat tersimpan di counselor_profiles.history_password_hash.
+  const counselorProfiles = withCounselorProfile
+    ? [{ profile_id: counselorId, public_name: "Konselor Test", history_password_hash: null, history_password_updated_at: null }]
+    : [];
   const profiles = [
     {
       id: counselorId,
@@ -176,6 +220,7 @@ function createMockSupabaseForCredentials(counselorId) {
   ];
 
   return {
+    counselorProfiles,
     auth: {
       getUser: async (token) => {
         if (token === "valid-counselor-token") {
@@ -192,58 +237,46 @@ function createMockSupabaseForCredentials(counselorId) {
       let filterCol = null;
       let filterVal = null;
 
+      const filters = [];
+      let pendingPatch = null;
+      const matches = (row) => filters.every(([col, val]) => row[col] === val);
+      const rowsFor = () => {
+        if (table === "profiles") return profiles;
+        if (table === "counselor_profiles") return counselorProfiles;
+        return [];
+      };
+      const applyPatch = () => {
+        const row = rowsFor().find(matches) || null;
+        if (row && pendingPatch) Object.assign(row, pendingPatch);
+        return row;
+      };
+
       const builder = {
-        select: (fields) => {
-          selectedFields = fields;
+        select: () => builder,
+        eq: (col, val) => {
+          filters.push([col, val]);
           return builder;
         },
-        eq: (col, val) => {
-          filterCol = col;
-          filterVal = val;
+        is: (col, val) => {
+          filters.push([col, val]);
           return builder;
         },
         in: () => builder,
         order: () => builder,
         limit: () => builder,
-        maybeSingle: async () => {
-          if (table === "profiles") {
-            const row = profiles.find((p) => p[filterCol] === filterVal);
-            return { data: row || null, error: null };
-          }
-          if (table === "counselor_history_credentials") {
-            const row = credentials.find((c) => c[filterCol] === filterVal);
-            return { data: row || null, error: null };
-          }
-          return { data: null, error: null };
-        },
-        single: async () => {
-          if (table === "profiles") {
-            const row = profiles.find((p) => p[filterCol] === filterVal);
-            return { data: row, error: null };
-          }
-          if (table === "counselor_history_credentials") {
-            const row = credentials.find((c) => c[filterCol] === filterVal);
-            return { data: row, error: null };
-          }
-          return { data: null, error: null };
-        },
-        upsert: async (row) => {
-          const idx = credentials.findIndex((c) => c.counselor_id === row.counselor_id);
-          if (idx >= 0) credentials[idx] = { ...credentials[idx], ...row };
-          else credentials.push(row);
-          return { data: row, error: null };
-        },
         update: (patch) => {
-          return {
-            eq: async (col, val) => {
-              const row = credentials.find((c) => c[col] === val);
-              if (row) Object.assign(row, patch);
-              return { data: row, error: null };
-            },
-          };
+          pendingPatch = patch;
+          return builder;
         },
+        maybeSingle: async () => {
+          if (pendingPatch) return { data: applyPatch(), error: null };
+          return { data: rowsFor().find(matches) || null, error: null };
+        },
+        single: async () => ({ data: rowsFor().find(matches) || null, error: null }),
         then: (resolve) => {
-          if (table === "counseling_sessions") {
+          if (pendingPatch) {
+            resolve({ data: applyPatch(), error: null });
+          } else if (table === "counseling_sessions") {
             resolve({ data: sessions, error: null });
           } else if (table === "bookings") {
             resolve({ data: bookings, error: null });
@@ -291,6 +324,19 @@ test("full lifecycle: init, status, verify, change password and protected histor
   });
   assert.equal(initRes.status, 201);
   assert.equal(initRes.body.data.success, true);
+  assert.ok(mockDb.counselorProfiles[0].history_password_hash.startsWith("$2"));
+  assert.ok(mockDb.counselorProfiles[0].history_password_updated_at);
+  assert.equal(JSON.stringify(initRes.body).includes("$2"), false, "hash must not be returned");
+
+  // 3b. Second init is rejected
+  const initAgain = await requestApp(mockDb, {
+    method: "POST",
+    path: "/api/v1/counselor/history-password/init",
+    token: "valid-counselor-token",
+    body: { password: "anotherPIN999" },
+  });
+  assert.equal(initAgain.status, 409);
+  assert.equal(initAgain.body.error.code, "CREDENTIAL_ALREADY_CONFIGURED");
 
   // 4. Status is now configured = true
   const statusRes2 = await requestApp(mockDb, {
@@ -368,6 +414,7 @@ test("full lifecycle: init, status, verify, change password and protected histor
   });
   assert.equal(changeRight.status, 200);
   assert.equal(changeRight.body.data.success, true);
+  assert.equal(await comparePassword("newSecurePIN5678", mockDb.counselorProfiles[0].history_password_hash), true);
 
   // 11. Role enforcement: Client cannot access counselor history endpoints
   const clientAccess = await requestApp(mockDb, {
@@ -420,4 +467,26 @@ test("history response attaches clients[].photo_url from auth metadata and toler
   // Lookup failure for another profile must not break the response.
   assert.equal(byId.get(counselorId).photo_url, null);
   resetFailedAttempts(counselorId);
+});
+
+test("init is rejected when the counselor has no counselor_profiles row", async () => {
+  const counselorId = "66666666-6666-6666-6666-666666666666";
+  const mockDb = createMockSupabaseForCredentials(counselorId, { withCounselorProfile: false });
+
+  const status = await requestApp(mockDb, {
+    method: "GET",
+    path: "/api/v1/counselor/history-password/status",
+    token: "valid-counselor-token",
+  });
+  assert.equal(status.status, 200);
+  assert.equal(status.body.data.configured, false);
+
+  const init = await requestApp(mockDb, {
+    method: "POST",
+    path: "/api/v1/counselor/history-password/init",
+    token: "valid-counselor-token",
+    body: { password: "securePIN1234" },
+  });
+  assert.equal(init.status, 404);
+  assert.equal(init.body.error.code, "COUNSELOR_PROFILE_NOT_FOUND");
 });

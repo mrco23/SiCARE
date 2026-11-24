@@ -1,0 +1,326 @@
+---
+title: ERD SiCARE (Supabase PostgreSQL, per 24 November 2026)
+---
+erDiagram
+    auth_users {
+        uuid id PK
+        varchar email "nullable"
+        varchar encrypted_password "nullable"
+        timestamptz email_confirmed_at "nullable"
+        text phone UK "nullable"
+        jsonb raw_user_meta_data "nullable"
+        timestamptz last_sign_in_at "nullable"
+        timestamptz created_at "nullable"
+        timestamptz updated_at "nullable"
+    }
+    hero_motivations {
+        uuid id PK
+        text content "not null"
+        bool is_active "not null"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    profiles {
+        uuid id PK, FK
+        text identity_code UK "nullable"
+        text full_name "not null"
+        text app_role "not null"
+        text member_category "nullable"
+        text account_status "not null"
+        text phone_e164 "nullable"
+        bool whatsapp_opt_in "not null"
+        timestamptz whatsapp_opt_in_at "nullable"
+        text gender "nullable"
+        text siap_number "nullable"
+        text sipp_silp_number "nullable"
+        date sipp_silp_valid_until "nullable"
+        timestamptz sipp_silp_updated_at "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    counselor_profiles {
+        uuid profile_id PK, FK
+        text public_name "nullable"
+        text headline "nullable"
+        text bio "nullable"
+        text_array specialties "not null"
+        int4 years_experience "nullable"
+        text photo_path "nullable"
+        bool is_public "not null"
+        text history_password_hash "nullable"
+        timestamptz history_password_updated_at "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    academic_periods {
+        uuid id PK
+        text academic_year "not null"
+        text semester "not null"
+        date starts_on "not null"
+        date ends_on "not null"
+        bool is_published "not null"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    notifications {
+        uuid id PK
+        uuid recipient_user_id FK "not null"
+        text type "not null"
+        text title "not null"
+        text body "not null"
+        text entity_type "nullable"
+        uuid entity_id "nullable"
+        timestamptz created_at "not null"
+        timestamptz read_at "nullable"
+        timestamptz updated_at "not null"
+    }
+    audit_events {
+        uuid id PK
+        uuid actor_user_id FK "nullable"
+        text action "not null"
+        text entity_type "not null"
+        uuid entity_id "nullable"
+        jsonb metadata "not null"
+        timestamptz created_at "not null"
+    }
+    homepage_logo {
+        int2 id PK
+        text storage_path "not null"
+        text alt_text "not null"
+        uuid updated_by FK "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    availability_slots {
+        uuid id PK
+        uuid counselor_id FK "not null"
+        uuid academic_period_id FK "nullable"
+        timestamptz starts_at "not null"
+        timestamptz ends_at "not null"
+        text status "not null"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    bookings {
+        uuid id PK
+        uuid client_id FK "not null"
+        uuid counselor_id FK "not null"
+        uuid availability_slot_id FK "nullable"
+        text service_type "not null"
+        text group_name "nullable"
+        int4 participant_count "not null"
+        timestamptz starts_at "not null"
+        timestamptz ends_at "not null"
+        text status "not null"
+        text cancellation_reason "nullable"
+        text reschedule_reason "nullable"
+        timestamptz expired_at "nullable"
+        text expired_reason "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    booking_participants {
+        uuid id PK
+        uuid booking_id FK "not null"
+        text display_name "not null"
+        bool is_representative "not null"
+        uuid user_id FK "nullable"
+        text participant_type "not null"
+        text full_name "nullable"
+        text faculty "nullable"
+        text study_program "nullable"
+        text nim "nullable"
+        text birthplace "nullable"
+        date date_of_birth "nullable"
+        text gender "nullable"
+        text phone_e164 "nullable"
+        bool is_primary "not null"
+        text participant_status "not null"
+        text religion "nullable"
+        text education "nullable"
+        text address "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    booking_intakes {
+        uuid booking_id PK, FK
+        uuid client_id FK "not null"
+        jsonb answers "not null"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    counseling_sessions {
+        uuid id PK
+        uuid booking_id FK, UK "not null"
+        uuid counselor_id FK "not null"
+        timestamptz starts_at "not null"
+        timestamptz ends_at "not null"
+        text status "not null"
+        text room "nullable"
+        timestamptz started_at "nullable"
+        timestamptz completed_at "nullable"
+        text missed_reason "nullable"
+        timestamptz missed_at "nullable"
+        timestamptz auto_completed_at "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    whatsapp_outbox {
+        uuid id PK
+        uuid booking_id FK "not null"
+        uuid recipient_user_id FK "nullable"
+        uuid booking_participant_id FK "nullable"
+        text message_type "not null"
+        timestamptz scheduled_at "not null"
+        text status "not null"
+        text idempotency_key UK "not null"
+        int4 attempt_count "not null"
+        int4 max_attempts "not null"
+        timestamptz next_attempt_at "nullable"
+        timestamptz last_attempt_at "nullable"
+        timestamptz locked_at "nullable"
+        text locked_by "nullable"
+        timestamptz lease_expires_at "nullable"
+        text phone_e164 "nullable"
+        jsonb payload "not null"
+        text provider_message_id "nullable"
+        text provider_request_id "nullable"
+        text provider_state_id "nullable"
+        text provider_status "nullable"
+        text provider_state "nullable"
+        jsonb provider_response "nullable"
+        text last_error_code "nullable"
+        text last_error_message "nullable"
+        text error_category "nullable"
+        timestamptz sent_at "nullable"
+        timestamptz delivered_at "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    session_notes {
+        uuid session_id PK, FK
+        uuid counselor_id FK "not null"
+        text counselor_note "nullable"
+        text client_note "nullable"
+        text follow_up "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    feedback {
+        uuid id PK
+        uuid session_id FK "not null"
+        uuid client_id FK "not null"
+        uuid counselor_id FK "not null"
+        int2 rating "not null"
+        text comment "nullable"
+        text moderation_status "not null"
+        text review_status "not null"
+        text disabled_reason "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    informed_consents {
+        uuid id PK
+        uuid booking_id FK "not null"
+        uuid session_id FK "nullable"
+        uuid booking_participant_id FK "not null"
+        text status "not null"
+        uuid signer_user_id FK "nullable"
+        text signer_name_snapshot "nullable"
+        jsonb identity_snapshot "not null"
+        text consent_statement_version "not null"
+        timestamptz viewed_at "nullable"
+        timestamptz signed_at "nullable"
+        timestamptz revoked_at "nullable"
+        text revocation_reason "nullable"
+        text signature_method "nullable"
+        text signature_storage_path "nullable"
+        text signed_document_storage_path "nullable"
+        text signed_document_sha256 "nullable"
+        int8 signed_document_size_bytes "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    consent_invitations {
+        uuid id PK
+        uuid booking_participant_id FK "not null"
+        uuid consent_id FK "nullable"
+        text invitation_type "not null"
+        text recipient_phone_e164 "nullable"
+        text recipient_email "nullable"
+        text token_hash UK "not null"
+        text status "not null"
+        timestamptz expires_at "not null"
+        timestamptz sent_at "nullable"
+        timestamptz claimed_at "nullable"
+        uuid claimed_by_user_id FK "nullable"
+        timestamptz completed_at "nullable"
+        timestamptz revoked_at "nullable"
+        uuid revoked_by FK "nullable"
+        uuid created_by FK "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+    }
+    consent_invitation_secrets {
+        uuid invitation_id PK, FK
+        text encrypted_token "not null"
+        text iv "not null"
+        text auth_tag "not null"
+        text key_version "not null"
+        timestamptz created_at "not null"
+        timestamptz cleared_at "nullable"
+    }
+    consent_audit_logs {
+        uuid id PK
+        uuid consent_id FK "nullable"
+        uuid booking_participant_id FK "nullable"
+        uuid booking_id FK "nullable"
+        uuid invitation_id FK "nullable"
+        uuid actor_user_id FK "nullable"
+        text actor_type "not null"
+        text event_type "not null"
+        timestamptz event_timestamp "not null"
+        jsonb metadata "not null"
+        text request_id "nullable"
+        timestamptz created_at "not null"
+    }
+
+    auth_users ||--o| profiles : "id"
+    profiles ||--o| counselor_profiles : "profile_id"
+    profiles ||--o{ notifications : "recipient_user_id"
+    profiles |o--o{ audit_events : "actor_user_id"
+    profiles |o--o{ homepage_logo : "updated_by"
+    profiles ||--o{ availability_slots : "counselor_id"
+    academic_periods |o--o{ availability_slots : "academic_period_id"
+    profiles ||--o{ bookings : "client_id"
+    profiles ||--o{ bookings : "counselor_id"
+    availability_slots |o--o{ bookings : "availability_slot_id"
+    bookings ||--o{ booking_participants : "booking_id"
+    profiles |o--o{ booking_participants : "user_id"
+    bookings ||--o| booking_intakes : "booking_id"
+    profiles ||--o{ booking_intakes : "client_id"
+    bookings ||--o| counseling_sessions : "booking_id"
+    profiles ||--o{ counseling_sessions : "counselor_id"
+    bookings ||--o{ whatsapp_outbox : "booking_id"
+    profiles |o--o{ whatsapp_outbox : "recipient_user_id"
+    booking_participants |o--o{ whatsapp_outbox : "booking_participant_id"
+    counseling_sessions ||--o| session_notes : "session_id"
+    profiles ||--o{ session_notes : "counselor_id"
+    counseling_sessions ||--o{ feedback : "session_id"
+    profiles ||--o{ feedback : "client_id"
+    profiles ||--o{ feedback : "counselor_id"
+    bookings ||--o{ informed_consents : "booking_id"
+    counseling_sessions |o--o{ informed_consents : "session_id"
+    booking_participants ||--o{ informed_consents : "booking_participant_id"
+    profiles |o--o{ informed_consents : "signer_user_id"
+    booking_participants ||--o{ consent_invitations : "booking_participant_id"
+    informed_consents |o--o{ consent_invitations : "consent_id"
+    profiles |o--o{ consent_invitations : "claimed_by_user_id"
+    profiles |o--o{ consent_invitations : "revoked_by"
+    profiles |o--o{ consent_invitations : "created_by"
+    consent_invitations ||--o| consent_invitation_secrets : "invitation_id"
+    informed_consents |o--o{ consent_audit_logs : "consent_id"
+    booking_participants |o--o{ consent_audit_logs : "booking_participant_id"
+    bookings |o--o{ consent_audit_logs : "booking_id"
+    consent_invitations |o--o{ consent_audit_logs : "invitation_id"
+    profiles |o--o{ consent_audit_logs : "actor_user_id"

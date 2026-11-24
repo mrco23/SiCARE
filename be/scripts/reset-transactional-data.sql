@@ -9,7 +9,7 @@
 --   outbox WhatsApp, dan audit_events.
 --
 -- DIPERTAHANKAN:
---   auth.users, auth.identities, profiles, counselor_profiles, counselor_history_credentials
+--   auth.users, auth.identities, profiles, counselor_profiles (termasuk sandi riwayat konselor)
 --   (semua akun: klien dummy, klien asli, konselor, admin, Kepala LMI), consent_templates
 --   (bila masih ada), academic_periods, hero_motivations, homepage_logo.
 --
@@ -70,7 +70,8 @@ $$;
 -- membuat periode berjalan bila belum ada).
 -- truncate table public.academic_periods;
 
--- Opsional: hapus juga akun klien dummy buatan seed (lepas komentar bila diinginkan).
+-- Opsional: hapus akun klien @sicare-dummy.test buatan versi seed lama (seed terbaru tidak lagi
+-- membuat akun; ia memakai akun yang sudah ada di website). Lepas komentar bila diinginkan.
 -- Aman dijalankan di sini karena booking yang mereferensikan profil sudah dikosongkan di atas.
 -- delete from auth.users where email like '%@sicare-dummy.test';
 

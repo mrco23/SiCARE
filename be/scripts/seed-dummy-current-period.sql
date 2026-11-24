@@ -1,58 +1,67 @@
--- SiCARE: data dummy terarah untuk semester (periode akademik) yang sedang berjalan.
+-- SiCARE: data dummy terarah untuk semester (periode akademik) yang sedang berjalan,
+-- memakai AKUN YANG SUDAH ADA di website.
 --
 -- Jalankan di Supabase Dashboard -> SQL Editor pada project NON-PRODUKSI, SETELAH
 -- be/scripts/reset-transactional-data.sql. Skrip manual, bukan migrasi.
 --
--- TIDAK membuat akun admin, Kepala LMI, maupun konselor. Skrip memakai konselor yang SUDAH ADA
--- (app_role = 'counselor', aktif, counselor_profiles.is_public = true) dan membuat/memakai ulang
--- 10 akun klien dummy klien01..10@sicare-dummy.test (login dengan email atau NIM/NIP):
---   - 70% mahasiswa  : klien01..07, member_category 'student',       NIM dummy 2699000101..07
---   - 30% dosen/staf : klien08..10, member_category 'faculty_staff', NIP dummy 2699100108..10
--- Password akun klien dummy ada di konstanta c_password di bawah.
+-- Skrip TIDAK membuat akun apa pun (tidak menyentuh auth.users maupun profiles). Yang dipakai:
+--   - Konselor : app_role = 'counselor', aktif, counselor_profiles.is_public = true, ada public_name.
+--   - Klien    : app_role = 'client', aktif. Dibagi menurut profiles.member_category:
+--                'student' (mahasiswa) dan 'faculty_staff' (dosen/staf); 'other'/kosong menjadi
+--                cadangan. Bila salah satu kelompok kosong, skenarionya memakai kelompok lain.
+--   - Admin & Kepala LMI aktif hanya menerima notifikasi feedback baru.
+-- Identitas peserta diambil dari profil (nama, NIM/NIP = identity_code, gender, nomor). Fakultas,
+-- prodi, tempat/tanggal lahir, agama, dan alamat tidak ada di profil, jadi dibiarkan kosong.
 --
--- Skenario (konselor dibagi bergiliran; jam dalam WITA; tanggal relatif terhadap hari ini dan
--- digeser ke hari kerja):
+-- Skenario (8 booking: ±70% mahasiswa, ±30% dosen/staf; konselor dibagi bergiliran; jam WITA;
+-- tanggal relatif terhadap hari ini dan digeser ke hari kerja):
 --   A. Konseling SELESAI + feedback (4):
---        C1 individu  klien01 (mhs)    -21 hari 09.00  rating 5  feedback shown
---        C2 individu  klien08 (dosen)  -14 hari 10.00  rating 4  feedback shown
---        C3 kelompok  klien03 (mhs)    -10 hari 13.00  rating 4  feedback pending (3 peserta)
---        C4 individu  klien04 (mhs)     -7 hari 14.00  rating 3  feedback disabled
+--        C1 individu  mahasiswa ke-1  -21 hari 09.00  rating 5  feedback shown
+--        C2 individu  dosen/staf ke-1 -14 hari 10.00  rating 4  feedback shown
+--        C3 kelompok  mahasiswa ke-2  -10 hari 13.00  rating 4  feedback pending (3 peserta)
+--        C4 individu  mahasiswa ke-3   -7 hari 14.00  rating 3  feedback disabled
 --      Masing-masing: booking confirmed, sesi completed, consent signed per peserta,
 --      catatan sesi [DUMMY], intake [DUMMY].
 --   B. Konseling DIURUNGKAN (2):
---        X1 dibatalkan klien     klien09 (staf)  -5 hari 09.00  booking cancelled saat masih
+--        X1 dibatalkan klien     mahasiswa ke-4  -5 hari 09.00  booking cancelled saat masih
 --                                                               menunggu konfirmasi (tanpa sesi)
---        X2 dibatalkan konselor  klien02 (mhs)   -3 hari 10.00  booking & sesi cancelled
+--        X2 dibatalkan konselor  mahasiswa ke-5  -3 hari 10.00  booking & sesi cancelled
 --   C. Jadwal KOSONG: 3 slot per konselor, +2 / +5 / +7 hari kerja, jam 09.00 / 11.00 / 14.00.
 --   D. Alur aktif (opsional, c_include_active_flows):
---        W1 menunggu konfirmasi   klien05 (mhs)    +3 hari 10.00  (uji Terima/Tolak konselor)
---        U1 terkonfirmasi         klien10 (dosen)  +4 hari 13.00  consent pending (uji tanda
+--        W1 menunggu konfirmasi  mahasiswa ke-6   +3 hari 10.00  (uji Terima/Tolak konselor)
+--        U1 terkonfirmasi        dosen/staf ke-2  +4 hari 13.00  consent pending (uji tanda
 --                                                                tangan consent & mulai sesi)
---   klien06, klien07 sengaja tanpa booking: akun bersih untuk uji pemesanan baru.
+--      "ke-n" berputar bila akun di kelompok itu lebih sedikit (mis. 2 mahasiswa -> ke-3 = ke-1).
 --   E. Notifikasi in-app sesuai A, B, D dengan type yang memang dibuat backend/RPC.
 --      Jadwal kosong (C) tidak punya jenis notifikasi di sistem, jadi tidak dibuat.
 --
--- Yang TIDAK dibuat: whatsapp_outbox (agar worker tidak mengirim pesan), consent_invitations,
--- audit log. Klien dummy whatsapp_opt_in = false dengan nomor +62800... (bukan nomor nyata).
--- Consent dummy tidak punya file PDF/tanda tangan; unduh PDF consent dummy akan gagal.
--- Skrip menolak berjalan bila klien dummy sudah punya booking (jalankan reset dulu).
+-- Yang TIDAK dibuat: whatsapp_outbox (agar worker tidak mengirim WhatsApp ke nomor akun asli),
+-- consent_invitations, audit log. Consent dummy tidak punya file PDF/tanda tangan; unduh PDF
+-- consent dummy akan gagal.
+-- Skrip menolak berjalan bila tabel bookings belum kosong (jalankan reset dulu).
+-- Tahan terhadap skema lama: kolom counseling_sessions.format dan
+-- informed_consents.consent_template_id diisi bila masih ada; tabel booking_intakes dan
+-- session_notes dilewati bila belum ada.
 
 begin;
 
 do $$
 declare
-  c_password constant text := 'DummySicare#2026';
-  c_domain   constant text := 'sicare-dummy.test';
   c_zone     constant text := 'Asia/Makassar';
   -- Harus sama dengan OFFICIAL_TEMPLATE_VERSION di be/src/services/consentPdf.service.js
   c_consent_version constant text := 'v1.0';
   c_include_active_flows constant boolean := true;
+  c_room     constant text := 'Ruang Konseling LMI';
 
-  -- Database yang belum menerapkan migrasi 20261119120000_sicare_drop_consent_templates.sql
-  -- masih punya kolom wajib informed_consents.consent_template_id.
+  -- Kompatibilitas skema lama.
   v_has_template_col boolean;
+  v_has_format_col   boolean;
+  v_has_intakes boolean := to_regclass('public.booking_intakes') is not null;
+  v_has_notes   boolean := to_regclass('public.session_notes') is not null;
   v_template_id uuid;
   v_version    text;
+  v_missing    text;
+
   v_c_status   text;
   v_c_signer   uuid;
   v_c_name     text;
@@ -74,8 +83,11 @@ declare
   v_counselors uuid[];
   v_n_couns    int;
   v_counselor  uuid;
-  v_uid        uuid;
-  v_email      text;
+  v_students   uuid[];
+  v_staff      uuid[];
+  v_others     uuid[];
+  v_pool       uuid[];
+  v_client_id  uuid;
   v_i          int;
   v_k          int;
   v_sc         record;
@@ -97,52 +109,21 @@ declare
   v_reason     text;
   v_is_group   boolean;
   v_signed     boolean;
+  v_used       uuid[] := '{}';
   v_offsets    int[] := array[2, 5, 7];
   v_hours      int[] := array[9, 11, 14];
   v_n_empty    int := 0;
 
-  -- 10 akun klien dummy: indeks 1-7 mahasiswa (70%), 8-10 dosen/staf (30%).
-  c_names    text[] := array[
-    'Andreas Pangemanan','Brigita Sumampouw','Christian Rondonuwu','Debora Lumowa',
-    'Elkana Wenas','Fransiska Tumbelaka','Gabriel Mandagi',
-    'Helena Kaunang, M.Kom.','Ignasius Supit, S.E.','Juliana Rumengan, M.Kep.'];
-  c_category text[] := array[
-    'student','student','student','student','student','student','student',
-    'faculty_staff','faculty_staff','faculty_staff'];
-  c_gender   text[] := array['male','female','male','female','male','female','male','female','male','female'];
-  c_faculty  text[] := array[
-    'Fakultas Teknik','Fakultas Ekonomi dan Bisnis','Fakultas Hukum','Fakultas Keperawatan',
-    'Fakultas Teknik','Fakultas Ilmu Pendidikan','Fakultas Pertanian',
-    'Fakultas Teknik','Biro Administrasi Akademik','Fakultas Keperawatan'];
-  -- Mahasiswa: program studi. Dosen/staf: jabatan/unit kerja.
-  c_prodi    text[] := array[
-    'Teknik Informatika','Manajemen','Ilmu Hukum','Ilmu Keperawatan',
-    'Teknik Sipil','Pendidikan Bahasa Inggris','Agroteknologi',
-    'Dosen Teknik Informatika','Staf Administrasi Akademik','Dosen Ilmu Keperawatan'];
-  c_education text[] := array[
-    'S1 (sedang menempuh)','S1 (sedang menempuh)','S1 (sedang menempuh)','S1 (sedang menempuh)',
-    'S1 (sedang menempuh)','S1 (sedang menempuh)','S1 (sedang menempuh)',
-    'S2','S1','S2'];
-  c_birthyear int[] := array[2004, 2005, 2004, 2003, 2005, 2004, 2003, 1986, 1990, 1984];
-  c_city     text[] := array['Manado','Tomohon','Bitung','Tondano','Airmadidi','Kotamobagu','Manado','Tomohon','Bitung','Manado'];
-  c_religion text[] := array['Katolik','Kristen Protestan','Katolik','Kristen Protestan','Katolik','Katolik','Kristen Protestan','Katolik','Islam','Katolik'];
   c_guests   text[] := array['Yohanes Karundeng','Maria Sondakh'];
-  v_code     text;
-  v_has_intakes boolean := to_regclass('public.booking_intakes') is not null;
-  v_has_notes   boolean := to_regclass('public.session_notes') is not null;
-  v_missing  text;
 begin
-  -- ------------------------------------------------------------------ prasyarat
-  -- Kolom yang dipakai skrip ini; bila belum ada, migrasi database belum lengkap.
+  -- ------------------------------------------------------------------ prasyarat skema
   select string_agg(r.tbl || '.' || r.col, ', ') into v_missing
   from (values
     ('profiles', 'gender'),
     ('profiles', 'member_category'),
     ('booking_participants', 'full_name'),
     ('booking_participants', 'is_primary'),
-    ('booking_participants', 'religion'),
-    ('booking_participants', 'education'),
-    ('booking_participants', 'address'),
+    ('booking_participants', 'nim'),
     ('informed_consents', 'consent_statement_version')
   ) as r(tbl, col)
   where not exists (
@@ -152,29 +133,18 @@ begin
   if v_missing is not null then
     raise exception 'Migrasi database belum lengkap; kolom tidak ditemukan: %. Terapkan migrasi supabase/migrations terlebih dahulu.', v_missing;
   end if;
-  if not v_has_intakes then
-    raise notice 'Tabel booking_intakes belum ada; intake dummy dilewati.';
-  end if;
-  if not v_has_notes then
-    raise notice 'Tabel session_notes belum ada; catatan sesi dummy dilewati.';
-  end if;
 
-  select array_agg(p.id order by p.created_at) into v_counselors
-  from public.profiles p join public.counselor_profiles cp on cp.profile_id = p.id
-  where p.app_role = 'counselor' and p.account_status = 'active' and cp.is_public = true
-    and nullif(btrim(cp.public_name), '') is not null;
-  v_n_couns := coalesce(array_length(v_counselors, 1), 0);
-  if v_n_couns = 0 then
-    raise exception 'Tidak ada konselor aktif & publik. Buat/aktifkan akun konselor terlebih dahulu.';
-  end if;
-
-  v_version := c_consent_version;
   select exists (
     select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'informed_consents'
-      and column_name = 'consent_template_id'
+    where table_schema = 'public' and table_name = 'counseling_sessions' and column_name = 'format'
+  ) into v_has_format_col;
+
+  select exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'informed_consents' and column_name = 'consent_template_id'
   ) into v_has_template_col;
 
+  v_version := c_consent_version;
   if v_has_template_col then
     execute 'select id, version from public.consent_templates
              where template_code = $1 and is_active = true limit 1'
@@ -184,13 +154,46 @@ begin
     end if;
     raise notice 'Skema lama: consent memakai consent_templates (versi %).', v_version;
   end if;
-
-  if exists (
-    select 1 from public.bookings b join auth.users u on u.id = b.client_id
-    where u.email like '%@' || c_domain
-  ) then
-    raise exception 'Klien dummy sudah memiliki booking. Jalankan reset-transactional-data.sql dulu.';
+  if v_has_format_col then
+    raise notice 'Skema lama: counseling_sessions.format masih ada; diisi ''offline''.';
   end if;
+  if not v_has_intakes then
+    raise notice 'Tabel booking_intakes belum ada; intake dummy dilewati.';
+  end if;
+  if not v_has_notes then
+    raise notice 'Tabel session_notes belum ada; catatan sesi dummy dilewati.';
+  end if;
+
+  if exists (select 1 from public.bookings) then
+    raise exception 'Tabel bookings belum kosong. Jalankan reset-transactional-data.sql dulu.';
+  end if;
+
+  -- ------------------------------------------------------------------ akun yang ada
+  select array_agg(p.id order by p.created_at) into v_counselors
+  from public.profiles p join public.counselor_profiles cp on cp.profile_id = p.id
+  where p.app_role = 'counselor' and p.account_status = 'active' and cp.is_public = true
+    and nullif(btrim(cp.public_name), '') is not null;
+  v_n_couns := coalesce(array_length(v_counselors, 1), 0);
+  if v_n_couns = 0 then
+    raise exception 'Tidak ada konselor aktif & publik. Aktifkan/publikasikan akun konselor terlebih dahulu.';
+  end if;
+
+  select
+    array_agg(p.id order by p.created_at) filter (where p.member_category = 'student'),
+    array_agg(p.id order by p.created_at) filter (where p.member_category = 'faculty_staff'),
+    array_agg(p.id order by p.created_at) filter (where p.member_category is null or p.member_category = 'other')
+  into v_students, v_staff, v_others
+  from public.profiles p
+  where p.app_role = 'client' and p.account_status = 'active';
+
+  if coalesce(array_length(v_students, 1), 0) + coalesce(array_length(v_staff, 1), 0)
+     + coalesce(array_length(v_others, 1), 0) = 0 then
+    raise exception 'Tidak ada akun klien aktif. Daftarkan minimal satu akun klien di website.';
+  end if;
+
+  raise notice 'Akun klien aktif: % mahasiswa, % dosen/staf, % lainnya; % konselor.',
+    coalesce(array_length(v_students, 1), 0), coalesce(array_length(v_staff, 1), 0),
+    coalesce(array_length(v_others, 1), 0), v_n_couns;
 
   -- ------------------------------------------------------------------ periode berjalan
   select * into v_period from public.academic_periods
@@ -221,96 +224,47 @@ begin
     returning * into v_period;
   end if;
 
-  raise notice 'Periode: % % (% s.d. %), % konselor.',
-    v_period.academic_year, v_period.semester, v_period.starts_on, v_period.ends_on, v_n_couns;
-
-  -- ------------------------------------------------------------------ klien dummy (7 + 3)
-  create temp table tmp_dummy_clients (
-    idx int primary key, user_id uuid not null, full_name text, nim text, gender_id text,
-    faculty text, study_program text, birthplace text, dob date, religion text, phone text,
-    address text, category text, education text
-  ) on commit drop;
-
-  for v_i in 1 .. array_length(c_names, 1) loop
-    v_email := 'klien' || lpad(v_i::text, 2, '0') || '@' || c_domain;
-    -- Mahasiswa: NIM dummy 2699000101..; dosen/staf: NIP dummy 2699100108..
-    v_code := case when c_category[v_i] = 'student'
-                then (2699000100 + v_i)::text else (2699100100 + v_i)::text end;
-    select id into v_uid from auth.users where email = v_email;
-
-    if v_uid is null then
-      v_uid := gen_random_uuid();
-      insert into auth.users (
-        instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-        raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-        confirmation_token, recovery_token, email_change_token_new, email_change
-      ) values (
-        '00000000-0000-0000-0000-000000000000', v_uid, 'authenticated', 'authenticated', v_email,
-        extensions.crypt(c_password, extensions.gen_salt('bf')), v_now,
-        '{"provider":"email","providers":["email"]}'::jsonb,
-        jsonb_build_object('full_name', c_names[v_i]), v_now, v_now, '', '', '', ''
-      );
-      insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
-      values (
-        v_uid::text, v_uid,
-        jsonb_build_object('sub', v_uid::text, 'email', v_email, 'email_verified', true),
-        'email', v_now, v_now, v_now
-      );
-    end if;
-
-    -- Trigger on_auth_user_created_sicare membuat profil 'client'; lengkapi datanya.
-    insert into public.profiles (id, full_name, app_role, account_status)
-    values (v_uid, c_names[v_i], 'client', 'active')
-    on conflict (id) do nothing;
-
-    update public.profiles set
-      full_name = c_names[v_i],
-      identity_code = v_code,
-      member_category = c_category[v_i],
-      gender = c_gender[v_i],
-      phone_e164 = '+6280000000' || lpad(v_i::text, 2, '0'),
-      whatsapp_opt_in = false,
-      whatsapp_opt_in_at = null,
-      account_status = 'active'
-    where id = v_uid and app_role = 'client';
-
-    if not found then
-      raise exception 'Akun % sudah ada tetapi bukan klien; skrip dihentikan.', v_email;
-    end if;
-
-    insert into tmp_dummy_clients values (
-      v_i, v_uid, c_names[v_i], v_code,
-      case c_gender[v_i] when 'male' then 'Laki-laki' else 'Perempuan' end,
-      c_faculty[v_i], c_prodi[v_i], c_city[v_i],
-      make_date(c_birthyear[v_i], 1 + (v_i % 12), 10 + v_i),
-      c_religion[v_i], '+6280000000' || lpad(v_i::text, 2, '0'),
-      'Jl. Dummy No. ' || v_i || ', ' || c_city[v_i],
-      c_category[v_i], c_education[v_i]
-    );
-  end loop;
+  raise notice 'Periode: % % (% s.d. %).',
+    v_period.academic_year, v_period.semester, v_period.starts_on, v_period.ends_on;
 
   -- ------------------------------------------------------------------ skenario A, B, D
+  -- s_role: kelompok akun yang diutamakan; s_nth: urutan akun di kelompok itu.
   create temp table tmp_dummy_scenarios (
-    s_code text primary key, s_kind text, s_client int, s_counselor int, s_offset int,
-    s_hour int, s_group boolean, s_rating int, s_moderation text, s_format text
+    s_code text primary key, s_kind text, s_role text, s_nth int, s_counselor int,
+    s_offset int, s_hour int, s_group boolean, s_rating int, s_moderation text
   ) on commit drop;
 
   insert into tmp_dummy_scenarios values
-    ('C1', 'completed',           1, 1, -21,  9, false, 5, 'shown',    'offline'),  -- mahasiswa
-    ('C2', 'completed',           8, 2, -14, 10, false, 4, 'shown',    'offline'),  -- dosen
-    ('C3', 'completed',           3, 3, -10, 13, true,  4, 'pending',  'offline'),  -- mahasiswa (kelompok)
-    ('C4', 'completed',           4, 4,  -7, 14, false, 3, 'disabled', 'offline'),  -- mahasiswa
-    ('X1', 'client_cancelled',    9, 2,  -5,  9, false, null, null,    'offline'),  -- staf
-    ('X2', 'counselor_cancelled', 2, 3,  -3, 10, false, null, null,    'offline');  -- mahasiswa
+    ('C1', 'completed',           'student', 1, 1, -21,  9, false, 5, 'shown'),
+    ('C2', 'completed',           'staff',   1, 2, -14, 10, false, 4, 'shown'),
+    ('C3', 'completed',           'student', 2, 3, -10, 13, true,  4, 'pending'),
+    ('C4', 'completed',           'student', 3, 4,  -7, 14, false, 3, 'disabled'),
+    ('X1', 'client_cancelled',    'student', 4, 2,  -5,  9, false, null, null),
+    ('X2', 'counselor_cancelled', 'student', 5, 3,  -3, 10, false, null, null);
 
   if c_include_active_flows then
     insert into tmp_dummy_scenarios values
-      ('W1', 'waiting',            5, 1, 3, 10, false, null, null, 'offline'),      -- mahasiswa
-      ('U1', 'confirmed_upcoming', 10, 2, 4, 13, false, null, null, 'offline');     -- dosen
+      ('W1', 'waiting',            'student', 6, 1, 3, 10, false, null, null),
+      ('U1', 'confirmed_upcoming', 'staff',   2, 2, 4, 13, false, null, null);
   end if;
 
   for v_sc in select * from tmp_dummy_scenarios order by s_offset loop
-    select * into v_client from tmp_dummy_clients where idx = v_sc.s_client;
+    -- Pilih akun: kelompok yang diutamakan, lalu kelompok lain bila kosong.
+    v_pool := case when v_sc.s_role = 'student'
+      then coalesce(v_students, v_staff, v_others)
+      else coalesce(v_staff, v_students, v_others) end;
+    if v_pool is null then
+      v_pool := coalesce(v_students, '{}') || coalesce(v_staff, '{}') || coalesce(v_others, '{}');
+    end if;
+    v_client_id := v_pool[1 + ((v_sc.s_nth - 1) % array_length(v_pool, 1))];
+    v_used := array_append(v_used, v_client_id);
+
+    select p.id as user_id, p.full_name, p.identity_code as nim, p.phone_e164 as phone,
+           coalesce(p.member_category, 'other') as category,
+           case p.gender when 'male' then 'Laki-laki' when 'female' then 'Perempuan' end as gender_id
+    into v_client
+    from public.profiles p where p.id = v_client_id;
+
     v_counselor := v_counselors[1 + ((v_sc.s_counselor - 1) % v_n_couns)];
 
     -- Tanggal: hari ini + offset, digeser menjauhi hari ini sampai hari kerja.
@@ -341,7 +295,7 @@ begin
       when 'confirmed_upcoming' then 'scheduled'
     end;
     v_reason := case v_sc.s_kind
-      when 'client_cancelled' then 'Ada jadwal ujian yang bentrok.'
+      when 'client_cancelled' then 'Ada jadwal yang bentrok.'
       when 'counselor_cancelled' then 'Sesi dibatalkan oleh konselor'
     end;
 
@@ -355,22 +309,19 @@ begin
     ) values (
       v_client.user_id, v_counselor, v_slot_id,
       case when v_is_group then 'group' else 'individual' end,
-      case when v_is_group then 'Kelompok Studi ' || v_client.study_program end,
+      case when v_is_group then 'Kelompok Dummy ' || v_sc.s_code end,
       case when v_is_group then 1 + array_length(c_guests, 1) else 1 end,
       v_starts, v_ends, v_bstatus, v_reason, v_created,
       case when v_bstatus = 'waiting_confirmation' then v_created else v_confirmed end
     ) returning id into v_booking_id;
 
-    -- Peserta utama (klien pemesan) dengan identitas lengkap.
+    -- Peserta utama = akun pemesan, identitas dari profil.
     insert into public.booking_participants (
       booking_id, user_id, display_name, full_name, is_representative, is_primary,
-      participant_type, participant_status, faculty, study_program, nim, birthplace,
-      date_of_birth, gender, phone_e164, religion, education, address, created_at
+      participant_type, participant_status, nim, gender, phone_e164, created_at
     ) values (
       v_booking_id, v_client.user_id, v_client.full_name, v_client.full_name, true, true,
-      'primary_client', 'registered', v_client.faculty, v_client.study_program, v_client.nim,
-      v_client.birthplace, v_client.dob, v_client.gender_id, v_client.phone, v_client.religion,
-      v_client.education, v_client.address, v_created
+      'primary_client', 'registered', v_client.nim, v_client.gender_id, v_client.phone, v_created
     );
 
     if v_is_group then
@@ -379,22 +330,24 @@ begin
           booking_id, display_name, full_name, phone_e164, is_representative, is_primary,
           participant_type, participant_status, created_at
         ) values (
-          v_booking_id, c_guests[v_k], c_guests[v_k], '+6280000001' || lpad(v_k::text, 2, '0'),
+          v_booking_id, c_guests[v_k] || ' [DUMMY]', c_guests[v_k] || ' [DUMMY]',
+          '+6280000001' || lpad(v_k::text, 2, '0'),
           false, false, 'guest_member', 'registered', v_created
         );
       end loop;
     end if;
 
-    -- Intake (format clientIntakeAnswersSchema di be/src/validators/booking.validator.js).
+    -- Intake (format clientIntakeAnswersSchema di be/src/validators/booking.validator.js:
+    -- selfHarm Ya/Tidak, tepat satu topik dari INTAKE_TOPIC_OPTIONS).
     if v_has_intakes then
       insert into public.booking_intakes (booking_id, client_id, answers, created_at)
       values (v_booking_id, v_client.user_id, jsonb_build_object(
         'selfHarm', 'Tidak', 'distress', 'Mungkin', 'abuse', 'Tidak', 'substance', 'Tidak',
         'sleep', 3, 'finance', 4,
         'topics', jsonb_build_array(case
-          when v_is_group then 'Relasi'
-          when v_client.category = 'student' then 'Akademik'
-          else 'Karier' end),
+          when v_is_group then 'Relasi di lingkungan sosial (teman, rekan kerja)'
+          when v_client.category = 'student' then 'Motivasi'
+          else 'Karir, pendidikan, dan pekerjaan' end),
         'other', '',
         'complaint', case when v_client.category = 'student'
           then '[DUMMY] Sulit fokus mengikuti perkuliahan beberapa minggu terakhir.'
@@ -440,20 +393,35 @@ begin
 
     continue when v_sstatus is null;
 
-    insert into public.counseling_sessions (
-      booking_id, counselor_id, starts_at, ends_at, status, room,
-      started_at, completed_at, created_at, updated_at
-    ) values (
-      -- Kolom format dihapus (migrasi 20261123120000); layanan hanya tatap muka.
-      v_booking_id, v_counselor, v_starts, v_ends, v_sstatus,
-      'Ruang Konseling LMI',
-      case when v_sstatus = 'completed' then v_starts + interval '3 minutes' end,
-      case when v_sstatus = 'completed' then v_ends - interval '5 minutes' end,
-      v_confirmed,
-      case when v_sstatus = 'completed' then v_ends - interval '5 minutes'
-           when v_sstatus = 'cancelled' then least(v_starts - interval '1 day', v_now)
-           else v_confirmed end
-    ) returning id into v_session_id;
+    if v_has_format_col then
+      -- Skema lama (format wajib). SQL dinamis agar tetap valid setelah kolomnya dihapus.
+      execute 'insert into public.counseling_sessions (
+                 booking_id, counselor_id, starts_at, ends_at, status, format, room,
+                 started_at, completed_at, created_at, updated_at
+               ) values ($1, $2, $3, $4, $5, ''offline'', $6, $7, $8, $9, $10)
+               returning id'
+        into v_session_id
+        using v_booking_id, v_counselor, v_starts, v_ends, v_sstatus, c_room,
+              case when v_sstatus = 'completed' then v_starts + interval '3 minutes' end,
+              case when v_sstatus = 'completed' then v_ends - interval '5 minutes' end,
+              v_confirmed,
+              case when v_sstatus = 'completed' then v_ends - interval '5 minutes'
+                   when v_sstatus = 'cancelled' then least(v_starts - interval '1 day', v_now)
+                   else v_confirmed end;
+    else
+      insert into public.counseling_sessions (
+        booking_id, counselor_id, starts_at, ends_at, status, room,
+        started_at, completed_at, created_at, updated_at
+      ) values (
+        v_booking_id, v_counselor, v_starts, v_ends, v_sstatus, c_room,
+        case when v_sstatus = 'completed' then v_starts + interval '3 minutes' end,
+        case when v_sstatus = 'completed' then v_ends - interval '5 minutes' end,
+        v_confirmed,
+        case when v_sstatus = 'completed' then v_ends - interval '5 minutes'
+             when v_sstatus = 'cancelled' then least(v_starts - interval '1 day', v_now)
+             else v_confirmed end
+      ) returning id into v_session_id;
+    end if;
 
     -- Pembatalan sesi oleh konselor -> notifikasi ke klien (sicare_transition_session -> cancelled).
     if v_sstatus = 'cancelled' then
@@ -473,16 +441,14 @@ begin
       v_c_signer   := case when v_signed then v_part.user_id end;
       v_c_name     := case when v_signed then v_part.full_name end;
       v_c_identity := case when v_signed then jsonb_strip_nulls(jsonb_build_object(
-                        'full_name', v_part.full_name, 'nim', v_part.nim, 'faculty', v_part.faculty,
-                        'study_program', v_part.study_program, 'gender', v_part.gender))
+                        'full_name', v_part.full_name, 'nim', v_part.nim, 'gender', v_part.gender))
                       else '{}'::jsonb end;
       v_c_viewed   := case when v_signed then v_confirmed + interval '2 hours' end;
       v_c_signed   := case when v_signed then v_confirmed + interval '3 hours' end;
       v_c_method   := case when v_signed then 'electronic_canvas' end;
 
       if v_has_template_col then
-        -- Skema lama (consent_template_id wajib). SQL dinamis agar skrip tetap valid di skema
-        -- baru, tempat kolom ini sudah tidak ada.
+        -- Skema lama (consent_template_id wajib). SQL dinamis agar tetap valid di skema baru.
         execute 'insert into public.informed_consents (
                    booking_id, session_id, booking_participant_id, consent_template_id,
                    consent_statement_version, status, signer_user_id, signer_name_snapshot,
@@ -521,9 +487,9 @@ begin
     ) values (
       v_session_id, v_client.user_id, v_counselor, v_sc.s_rating,
       case v_sc.s_rating
-        when 5 then 'Konselor sangat membantu dan mendengarkan dengan baik.'
-        when 4 then 'Sesi terasa nyaman, saya mendapat langkah konkret untuk dicoba.'
-        else 'Cukup membantu, semoga waktunya bisa sedikit lebih panjang.'
+        when 5 then '[DUMMY] Konselor sangat membantu dan mendengarkan dengan baik.'
+        when 4 then '[DUMMY] Sesi terasa nyaman, saya mendapat langkah konkret untuk dicoba.'
+        else '[DUMMY] Cukup membantu, semoga waktunya bisa sedikit lebih panjang.'
       end,
       v_sc.s_moderation,
       case v_sc.s_moderation when 'pending' then 'new' when 'shown' then 'reviewed' else 'resolved' end,
@@ -574,16 +540,18 @@ begin
     end loop;
   end loop;
 
-  raise notice 'Selesai: % skenario booking, % slot kosong.',
-    (select count(*) from tmp_dummy_scenarios), v_n_empty;
+  raise notice 'Selesai: % booking dummy untuk % akun klien berbeda, % slot kosong.',
+    (select count(*) from tmp_dummy_scenarios),
+    (select count(distinct u) from unnest(v_used) u), v_n_empty;
 end;
 $$;
 
 commit;
 
 -- Ringkasan hasil:
--- select b.status as booking, s.status as sesi, b.service_type, b.starts_at at time zone 'Asia/Makassar' as mulai_wita,
---        p.full_name as klien, f.rating, f.moderation_status
+-- select b.status as booking, s.status as sesi, b.service_type,
+--        b.starts_at at time zone 'Asia/Makassar' as mulai_wita,
+--        p.full_name as klien, p.member_category, f.rating, f.moderation_status
 -- from public.bookings b
 -- join public.profiles p on p.id = b.client_id
 -- left join public.counseling_sessions s on s.booking_id = b.id
@@ -598,7 +566,3 @@ commit;
 -- group by 1;
 --
 -- select type, count(*) from public.notifications group by 1 order by 1;
---
--- Opsional: hapus akun klien dummy SETELAH reset-transactional-data.sql (booking mereferensikan
--- profil dengan ON DELETE RESTRICT, jadi data transaksinya harus sudah bersih):
--- delete from auth.users where email like '%@sicare-dummy.test';

@@ -2390,3 +2390,96 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Seed:** `seed-dummy-current-period.sql` tidak lagi mengisi kolom format.
 - **Urutan penerapan:** deploy backend baru dan `npx supabase db push --remote` harus berdekatan, karena backend lama masih membaca kolom `format`. Produksi juga belum menerapkan `20261119120000_sicare_drop_consent_templates.sql`.
 - **Pemeriksaan:** `be: npm test` **344/345** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `lint`, `build` **PASS**. SQL migrasi belum dijalankan di database mana pun (Docker lokal tidak aktif).
+
+## 2026-11-24 — Gabung counselor_history_credentials ke counselor_profiles
+
+- **Keputusan (pengguna):** tabel `counselor_history_credentials` digabung ke `counselor_profiles`, setelah pro/kontra dibahas (risiko utama: `counselor_profiles` dibaca publik).
+- **Migrasi baru `supabase/migrations/20261124120000_sicare_merge_counselor_history_credentials.sql`:**
+  - kolom `history_password_hash` (check format bcrypt/argon2) dan `history_password_updated_at`, dengan check keduanya terisi atau keduanya kosong;
+  - `revoke select` tingkat tabel dari `anon`/`authenticated`, lalu `grant select` per kolom untuk 10 kolom profil publik saja. Hak `update` authenticated sudah per kolom dan tidak mencakup kolom sandi;
+  - pemilik sandi tanpa baris `counselor_profiles` dibuatkan baris `is_public = false`; hash disalin dengan trigger `updated_at` dimatikan sementara agar waktu profil publik tidak berubah;
+  - pengaman: batal bila ada hash yang tidak tersalin persis; tabel lama dihapus.
+- **Backend `historyCredential.controller.js`:** semua akses lewat helper `loadHistoryCredential` ke `counselor_profiles`. `init` hanya mengisi bila hash masih kosong (`.is("history_password_hash", null)`), sehingga init ganda/bersamaan mendapat 409; tanpa baris profil mendapat 404 `COUNSELOR_PROFILE_NOT_FOUND`. Hash tidak pernah dikirim ke client. Error saat membaca status kini dilaporkan (sebelumnya error "does not exist" diabaikan).
+- **Lain-lain:** `database.types.ts` diedit manual (hapus tabel lama, tambah 2 kolom); komentar `reset-transactional-data.sql` diperbarui. `docs/explainer/generate-skema-png.js` belum diperbarui.
+- **Tes `counselorHistoryCredentials.test.js`:** mock memodelkan `counselor_profiles`; tes baru untuk migrasi, grant per kolom (hash tidak termasuk), larangan `select("*")` pada `counselor_profiles` di backend, init ganda 409, dan konselor tanpa profil 404.
+- **Pemeriksaan:**
+  - `be: npm test` **348/349**; satu FAIL = baseline `heroMotivations.test.js` (gagal juga sebelum perubahan, 344/345).
+  - `be: npm run check` PASS (80 berkas), `be: npm run typecheck` PASS.
+  - Frontend tidak diubah; `fe` build tidak dijalankan ulang.
+  - SQL migrasi **NOT RUN** di database mana pun; grant per kolom belum diuji terhadap PostgREST/Supabase nyata.
+- **Langkah berikutnya:** terapkan ke database non-produksi, cek `select=*` sebagai anon pada `counselor_profiles` ditolak, dan halaman publik konselor tetap tampil.
+
+## 2026-11-24 — Prototype Pesanan Konseling 3 langkah
+
+- **Prototype baru `docs/prototypes/pesanan-konseling.html`** (Tailwind CDN, data fiktif, belum diterapkan ke aplikasi):
+  - Stepper 3 langkah: Jenis Layanan → Konselor & Jadwal → Form Awal. Langkah "Persetujuan" dihapus.
+  - **Langkah 2:** kartu konselor (foto bulat bercincin emas, jumlah slot). Panel jadwal baru muncul dengan animasi setelah kartu diklik, berisi chip tanggal dan pil jam. Tombol lanjut aktif setelah jam dipilih.
+  - **Langkah 3:** Form Awal (informasi kelompok dengan catatan "tidak perlu menulis nama sendiri", Ya/Mungkin/Tidak, skala, topik, uraian).
+  - **"Kirim Permintaan" membuka modal Konfirmasi Janji Temu** berisi detail janji, informasi kelompok, ringkasan form, dan dua centang pernyataan. Tombol kirim aktif setelah keduanya dicentang, lalu modal menampilkan tampilan sukses. Di mobile modal tampil sebagai bottom sheet.
+- **Catatan:** teks centang kedua di aplikasi sekarang ("jawaban formulir awal belum disimpan atau dikirim...") sudah tidak sesuai, karena jawaban kini dikirim ke server. Di prototype teks ini ditandai sebagai placeholder dan menunggu teks final dari pengguna.
+- **Pemeriksaan:** diuji di browser lokal: alur langkah 1 sampai 3, panel jadwal muncul setelah klik konselor, modal terisi data pilihan, tombol kirim terkunci sampai dua centang, dan tampilan sukses.
+
+- **Revisi 2026-11-24:** panel jadwal di langkah 2 tidak lagi menampilkan foto konselor; cukup label "Jadwal konselor", nama, dan jabatan. Foto tetap ada di kartu konselor.
+
+## 2026-11-24 — Pesanan Konseling menjadi 3 langkah + modal konfirmasi
+
+- **Sesuai prototype `docs/prototypes/pesanan-konseling.html` yang disetujui.** Perubahan di `fe/src/pages/client/KlienPesananPage.tsx`:
+  - `STEPS` menjadi Jenis Layanan → Konselor & Jadwal → Form Awal. `Step` = 1–3, dan 4 = selesai.
+  - **Langkah 2** menggabungkan Pilih Konselor dan Pilih Jadwal. Panel jadwal (`CalendarPicker` + `TimePanel` yang sama) muncul di bawah daftar konselor dengan animasi `grid-rows` setelah kartu diklik, lalu halaman digulir ke panel. Panel tidak menampilkan foto (foto tetap di kartu). Mengganti konselor mereset tanggal dan jam. "Lanjut ke Form Awal" aktif setelah jam dipilih.
+  - Blok profil konselor di langkah jadwal lama dan komponen `CounselorPhoto` dihapus.
+  - **Langkah 3 (Form Awal):** tombol menjadi "Kirim Permintaan". Bila validasi lolos, modal **Konfirmasi Janji Temu** terbuka. Isinya sama dengan langkah Persetujuan lama: detail janji, info kelompok, ringkasan form dengan tombol Ubah, dan dua centang. Kesalahan kirim tampil di dalam modal.
+  - Modal ditutup dengan tombol tutup, "Kembali ke form", klik latar, atau Escape (tidak bisa saat sedang mengirim). Di mobile tampil sebagai bottom sheet (`z-[60]`, di atas navigasi bawah).
+  - Setelah berhasil, modal ditutup dan halaman sukses tampil seperti sebelumnya (termasuk peringatan `intake_saved`).
+  - Logika validasi, pengiriman (`submissionLock`), dan data yang dikirim ke API tidak berubah.
+- **Belum diubah (menunggu teks dari pengguna):** centang kedua di modal dan paragraf pembuka Form Awal masih menyebut jawaban "belum disimpan atau dikirim kepada konselor". Teks ini sudah tidak akurat sejak jawaban intake ikut dikirim ke server.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**; `be: npm test` **348/349** (gagal: `heroMotivations.test.js`, baseline). Halaman asli dirender di dev server dengan respons API tiruan:
+  - stepper 3 langkah;
+  - panel jadwal muncul setelah klik konselor, tanpa foto;
+  - pilih tanggal dan jam mengaktifkan lanjut;
+  - Form Awal terisi membuka modal;
+  - tombol kirim terkunci sampai dua centang;
+  - Ubah dan Escape menutup modal;
+  - mobile 375px tanpa overflow.
+  - Pengiriman booking sungguhan **NOT RUN** (butuh login klien).
+
+## 2026-11-24 — Prototype Form Awal sesuai Google Form LMI
+
+- **Prototype baru `docs/prototypes/form-awal.html`** (belum diterapkan ke aplikasi). Bagian yang berubah ditandai label "Diubah":
+  - Pertanyaan bunuh diri hanya **Ya / Tidak**.
+  - "Masalah apa yang ingin Anda bahas dalam konseling ini?" kini **pilih satu** (radio) dengan opsi Google Form: Relasi keluarga; Relasi bersama pasangan; Relasi di lingkungan sosial (teman, rekan kerja); Emosi, mood, kepribadian; Karir, pendidikan, dan pekerjaan; Motivasi; Yang lain (wajib diisi teks bila dipilih).
+  - Uraian kelebihan/kekurangan memakai kalimat Google Form: "Apa kelebihan diri Anda?" dan "Apa kekurangan diri Anda?".
+  - Pertanyaan keluhan tanpa petunjuk tambahan. Pertanyaan lain tetap sama dengan website.
+- Payload contoh di prototype memakai `topic` (satu) + `other`. Saat diterapkan perlu diputuskan apakah kontrak `intake_answers.topics` (array) diganti atau diisi satu elemen, dan bagaimana jawaban lama (multi-topik dan "Mungkin" pada pertanyaan bunuh diri) ditampilkan ke konselor.
+- **Pemeriksaan:** diuji di browser lokal: isian kosong menampilkan galat; hanya satu topik bisa dipilih; "Yang lain" tanpa teks ditolak; payload valid tersusun benar.
+
+## 2026-11-24 — Form Awal mengikuti Google Form LMI
+
+- **Sesuai prototype `docs/prototypes/form-awal.html` yang disetujui.**
+- **Frontend:**
+  - `constants/intakeOptions.ts`:
+    - `INTAKE_TOPICS` diganti 6 opsi Google Form;
+    - `INTAKE_YESNO_OPTIONS` kini membawa `choices` per pertanyaan (bunuh diri `Ya`/`Tidak`; lainnya `Ya`/`Mungkin`/`Tidak`);
+    - label kelebihan/kekurangan menjadi "Apa kelebihan diri Anda?" dan "Apa kekurangan diri Anda?".
+  - `KlienPesananPage.tsx`:
+    - pertanyaan memakai `choices`;
+    - pesan keselamatan muncul hanya untuk jawaban "Ya";
+    - topik menjadi radio pilih satu (`chooseTopic` / `chooseOtherTopic`); "Yang lain…" membuka isian teks;
+    - ringkasan di modal memakai "Yang lain:".
+  - `clientIntakeForm.ts` memvalidasi tepat satu pilihan.
+  - `ClientIntakeView.tsx` dan `KonselorRiwayatPage.tsx` menampilkan `intake.topics` apa adanya (tidak lagi difilter ke daftar opsi), sehingga 9 jawaban lama dengan topik versi sebelumnya tetap terlihat. Jawaban lama "Mungkin" pada pertanyaan bunuh diri tetap tampil, dan `intakeRisk` tetap menandainya.
+- **Backend (`booking.validator.js`):**
+  - `INTAKE_TOPIC_OPTIONS` ditambahkan;
+  - `selfHarm` hanya `Ya`/`Tidak`;
+  - `topics` maksimal 1 dan harus anggota daftar;
+  - tepat satu dari `topics`/`other` wajib.
+  - Format penyimpanan (`booking_intakes.answers`, `topics` array) tidak berubah, jadi tanpa migrasi.
+- **Lainnya:** seed dummy memakai topik baru. Tes `bookingIntake` ditambah: satu topik, topik di luar daftar ditolak, topik + "Yang lain" ditolak, bunuh diri "Mungkin" ditolak. Matriks endpoint baris 22 diperbarui.
+- **Masih menunggu teks dari pengguna:** paragraf pembuka Form Awal, kotak kuning "Demi privasi, jawaban formulir awal hanya berada sementara di halaman ini…", dan centang kedua di modal masih menyatakan jawaban tidak disimpan, padahal tersimpan di `booking_intakes`.
+- **Pemeriksaan:** `be: npm test` **349/350** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `lint`, `build` **PASS**. Halaman asli diuji di dev server dengan data tiruan: bunuh diri hanya Ya/Tidak; 6 opsi + "Yang lain…"; memilih topik kedua mengganti yang pertama; label kelebihan/kekurangan baru.
+
+## 2026-11-24 — Seed dummy memakai akun yang ada di website
+
+- **Permintaan pengguna:** perbarui skrip reset dan seed dummy berdasarkan akun yang sudah ada di website.
+- **Seed (`be/scripts/seed-dummy-current-period.sql`):** tidak lagi membuat akun (tidak menyentuh `auth.users`/`profiles`). Klien diambil dari profil `client` aktif dan dikelompokkan menurut `member_category` (`student` diutamakan untuk 6 skenario, `faculty_staff` untuk C2 dan U1; kelompok kosong memakai kelompok lain, akun berputar bila jumlahnya kurang). Identitas peserta diambil dari profil (nama, `identity_code`, gender, nomor); fakultas/prodi/TTL/agama/alamat dikosongkan karena tidak ada di profil. Mengikuti skema terbaru: tanpa `counseling_sessions.format` (diisi lewat SQL dinamis bila kolom lama masih ada), intake satu topik dari `INTAKE_TOPIC_OPTIONS`. Skrip menolak berjalan bila `bookings` belum kosong. Tetap tanpa `whatsapp_outbox`, sehingga tidak ada WhatsApp ke nomor akun asli.
+- **Reset:** catatan diperbarui (sandi riwayat konselor kini di `counselor_profiles`; opsi hapus akun `@sicare-dummy.test` hanya untuk sisa seed lama).
+- **Pemeriksaan:** **NOT RUN** di database (tidak ada Postgres lokal); hanya pemeriksaan keseimbangan blok/kurung dan tinjauan manual terhadap migrasi hingga `20261124120000`.

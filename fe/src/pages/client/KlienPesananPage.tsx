@@ -35,10 +35,9 @@ import { useLocation } from "react-router-dom";
 import {
   ArrowRight,
   Check,
-  GraduationCap,
   Lock,
-  MapPin,
   Search,
+  X,
   CalendarPlus,
   Pencil,
 } from "lucide-react";
@@ -67,17 +66,11 @@ import {
 import { normalizePhoneToE164 } from "../../features/client/profile/profileValidation";
 
 /* ========================= TIPE ========================= */
-type Step = 1 | 2 | 3 | 4 | 5 | 6; // 6 = selesai
+type Step = 1 | 2 | 3 | 4; // 4 = selesai; konfirmasi tampil sebagai modal dari langkah 3
 
 /* ========================= DATA (contoh) ========================= */
 // Di produksi, ambil dari API. Jadwal dan keahlian berasal dari profil konselor.
-const STEPS = [
-  "Jenis Layanan",
-  "Pilih Konselor",
-  "Pilih Jadwal",
-  "Form Awal",
-  "Persetujuan",
-];
+const STEPS = ["Jenis Layanan", "Konselor & Jadwal", "Form Awal"];
 
 const ANSWER_STYLE: Record<IntakeAnswer, string> = {
   Ya: "bg-red-100 text-red-800",
@@ -157,6 +150,8 @@ export default function KlienPesananPage() {
   >([]);
   const [directoryLoading, setDirectoryLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const schedulePanelRef = useRef<HTMLDivElement>(null);
   const [requestError, setRequestError] = useState("");
   // false bila booking dibuat tetapi jawaban formulir gagal tersimpan di server.
   const [intakeSaved, setIntakeSaved] = useState(true);
@@ -234,11 +229,28 @@ export default function KlienPesananPage() {
   };
 
   const selectCounselor = (id: number) => {
+    if (id !== konselorId) {
+      setSlot(null);
+      setSelDate(null);
+      setCalMonth(firstOfMonth(minDate()));
+    }
     setKonselorId(id);
-    setSlot(null);
-    setSelDate(null);
-    setCalMonth(firstOfMonth(minDate()));
+    // Panel jadwal muncul di bawah daftar konselor; arahkan pengguna ke sana.
+    window.setTimeout(
+      () => schedulePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+      150,
+    );
   };
+
+  // Modal konfirmasi dapat ditutup dengan Escape (kecuali saat sedang mengirim).
+  useEffect(() => {
+    if (!confirmOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isSubmitting) setConfirmOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [confirmOpen, isSubmitting]);
 
   const setField = <K extends keyof IntakeForm>(
     key: K,
@@ -248,13 +260,16 @@ export default function KlienPesananPage() {
     setMissing((m) => m.filter((x) => x !== key));
   };
 
-  const toggleTopic = (t: string) =>
-    setForm((prev) => ({
-      ...prev,
-      topics: prev.topics.includes(t)
-        ? prev.topics.filter((x) => x !== t)
-        : [...prev.topics, t],
-    }));
+  // "Masalah yang ingin dibahas" hanya boleh satu pilihan (Google Form LMI):
+  // satu topik dari daftar, atau "Yang lain" dengan isian teks.
+  const chooseTopic = (t: string) => {
+    setForm((prev) => ({ ...prev, topics: [t], otherOn: false, other: "" }));
+    setMissing((m) => m.filter((x) => x !== "topics"));
+  };
+  const chooseOtherTopic = () => {
+    setForm((prev) => ({ ...prev, topics: [], otherOn: true }));
+    setMissing((m) => m.filter((x) => x !== "topics"));
+  };
 
   // Jawaban intake tetap lokal; helper hanya memvalidasi dan tidak menyimpan datanya.
   const validate = (): string[] => validateClientIntakeForm(form, layanan);
@@ -288,12 +303,15 @@ export default function KlienPesananPage() {
     }
     setMissing([...new Set(miss)]);
     setFormError(miss.length > 0);
-    if (miss.length === 0) goTo(5);
+    if (miss.length === 0) {
+      setRequestError("");
+      setConfirmOpen(true);
+    }
   };
 
   const handleSubmit = async () => {
     if (!counselor || !slot || !layanan || submissionLock.current) return;
-    // Defensive re-check: handleNextFromForm already validated this before step 5,
+    // Defensive re-check: handleNextFromForm already validated this before opening the modal,
     // but re-validate here so a stale/edited form never sends partial intake answers.
     if (validate().length > 0) {
       setRequestError(
@@ -434,7 +452,8 @@ export default function KlienPesananPage() {
           : { group_name: null, participants: [] }),
       });
       setIntakeSaved(created.intake_saved !== false);
-      goTo(6);
+      setConfirmOpen(false);
+      goTo(4);
     } catch (cause) {
       submissionLock.current = false;
       setRequestError(
@@ -450,6 +469,7 @@ export default function KlienPesananPage() {
   const handleRestart = () => {
     submissionLock.current = false;
     setIsSubmitting(false);
+    setConfirmOpen(false);
     setStep(1);
     setMaxStepReached(1);
     setLayanan(null);
@@ -479,9 +499,9 @@ export default function KlienPesananPage() {
           {requestError}
         </p>
       )}
-      {directoryLoading && step <= 5 && <BookingPageSkeleton step={step} stepCount={STEPS.length} />}
+      {directoryLoading && step <= 3 && <BookingPageSkeleton step={step} stepCount={STEPS.length} />}
 
-      {!directoryLoading && step <= 5 && (
+      {!directoryLoading && step <= 3 && (
         <Stepper
           step={step}
           steps={STEPS}
@@ -553,10 +573,10 @@ export default function KlienPesananPage() {
       {!directoryLoading && step === 2 && (
         <section className="mt-6">
           <h2 className="font-display text-2xl font-bold sm:text-3xl">
-            Pilih Konselor
+            Pilih Konselor &amp; Jadwal
           </h2>
           <p className="mt-1 text-sm text-gray-600">
-            Pilih konselor yang sesuai dengan kebutuhan dan preferensi anda.
+            Klik konselor untuk melihat jadwalnya, lalu pilih tanggal dan jam.
           </p>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
@@ -640,132 +660,75 @@ export default function KlienPesananPage() {
             </p>
           )}
 
-          <div className="mt-6 flex justify-between gap-3">
-            <BackButton onClick={() => goTo(1)} />
-            <NavButton disabled={!counselor} onClick={() => goTo(3)}>
-              Lanjut <span aria-hidden>›</span>
-            </NavButton>
-          </div>
-        </section>
-      )}
-
-      {/* ===== 3. PILIH JADWAL ===== */}
-      {!directoryLoading && step === 3 && counselor && (
-        <section className="mt-6">
-          <h2 className="font-display text-2xl font-bold sm:text-3xl">
-            Daftar Konselor
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Lihat profil, keahlian, dan jadwal tersedia sebelum melakukan janji
-            temu.
-          </p>
-
-          <article className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-6 md:flex-row md:items-start">
-              <div className="flex items-start gap-5 md:w-1/2">
-                <CounselorPhoto
-                  key={counselor.id}
-                  photoUrl={counselor.photoUrl}
-                  name={counselor.name}
-                  initials={counselor.initials}
-                />
-                <div className="min-w-0">
-                  <p className="whitespace-pre-line font-display text-lg font-bold leading-snug">
+          {/* Panel jadwal: muncul setelah konselor dipilih (tanpa foto, foto sudah ada di kartu). */}
+          <div
+            ref={schedulePanelRef}
+            inert={!counselor}
+            className={`grid transition-all duration-400 ease-out motion-reduce:transition-none ${
+              counselor ? "mt-5 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            }`}
+          >
+            <div className="min-h-0 overflow-hidden">
+              {counselor && (
+                <article className="rounded-2xl border border-primary/20 bg-white p-4 shadow-sm sm:p-6">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                    Jadwal konselor
+                  </p>
+                  <p className="mt-0.5 whitespace-pre-line font-display text-lg font-bold leading-snug">
                     {counselor.short}
                   </p>
-                  <p className="mt-2 flex items-center gap-2 text-sm text-gray-600">
-                    <GraduationCap
-                      className="h-4 w-4 text-primary"
-                      strokeWidth={2}
-                    />
-                    {counselor.degree}
-                  </p>
-                  <p className="mt-1 flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin className="h-4 w-4 text-primary" strokeWidth={2} />
-                    {counselor.room}
-                  </p>
-                </div>
-              </div>
-              <div className="md:w-1/2">
-                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <span className="h-2 w-2 rounded-full bg-primary" />
-                  Tentang Konselor
-                </div>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                  {counselor.about}
-                </p>
-                <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <span className="h-2 w-2 rounded-full bg-primary" />
-                  Keahlian
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {counselor.skills.map((s) => (
-                    <span
-                      key={s}
-                      className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
+                  <p className="text-sm text-gray-600">{counselor.degree}</p>
+                  <div className="mt-5">
+                    <p className="text-sm font-semibold text-gray-900">
+                      Pilih Tanggal &amp; Jam
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Tanggal berwarna hijau tersedia. Janji dapat dibuat mulai hari
+                      ini sampai {MAX_AHEAD_DAYS} hari ke depan.
+                    </p>
+                    <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,26rem)_1fr]">
+                      <CalendarPicker
+                        counselor={counselor}
+                        calMonth={calMonth}
+                        setCalMonth={setCalMonth}
+                        selDate={selDate}
+                        onSelectDate={(iso) => {
+                          setSelDate(iso);
+                          setSlot(null);
+                        }}
+                      />
+                      <TimePanel
+                        counselor={counselor}
+                        selDate={selDate}
+                        slot={slot}
+                        onSelectSlot={(time) =>
+                          selDate && setSlot({ date: selDate, time })
+                        }
+                      />
+                    </div>
+                  </div>
+                </article>
+              )}
             </div>
+          </div>
 
-            <div className="mt-6">
-              <p className="text-sm font-semibold text-gray-900">
-                Pilih Tanggal &amp; Jam
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Tanggal berwarna hijau tersedia. Janji dapat dibuat mulai hari
-                ini sampai {MAX_AHEAD_DAYS} hari ke depan.
-              </p>
-              <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,26rem)_1fr]">
-                <CalendarPicker
-                  counselor={counselor}
-                  calMonth={calMonth}
-                  setCalMonth={setCalMonth}
-                  selDate={selDate}
-                  onSelectDate={(iso) => {
-                    setSelDate(iso);
-                    setSlot(null);
-                  }}
-                />
-                <TimePanel
-                  counselor={counselor}
-                  selDate={selDate}
-                  slot={slot}
-                  onSelectSlot={(time) =>
-                    selDate && setSlot({ date: selDate, time })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col items-end gap-2">
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <BackButton onClick={() => goTo(1)} />
+            <div className="flex flex-col items-end gap-2">
               <p className="text-xs text-gray-500">
-                {slot
-                  ? `Dipilih: ${fmtSlot(slot)}`
-                  : "Belum ada jadwal dipilih."}
+                {slot ? `Dipilih: ${fmtSlot(slot)}` : "Belum ada jadwal dipilih."}
               </p>
-              <NavButton
-                disabled={!slot}
-                onClick={() => goTo(4)}
-                variant="solid"
-              >
+              <NavButton disabled={!slot} onClick={() => goTo(3)} variant="solid">
                 Lanjut ke Form Awal{" "}
                 <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
               </NavButton>
             </div>
-          </article>
-
-          <div className="mt-6 flex justify-between gap-3">
-            <BackButton onClick={() => goTo(2)} />
           </div>
         </section>
       )}
 
-      {/* ===== 4. FORM AWAL ===== */}
-      {step === 4 && counselor && slot && layanan && (
+      {/* ===== 3. FORM AWAL ===== */}
+      {step === 3 && counselor && slot && layanan && (
         <section className="mt-6">
           <h2 className="font-display text-2xl font-bold sm:text-3xl">
             Form Awal
@@ -879,11 +842,11 @@ export default function KlienPesananPage() {
             <section className={CARD}>
               <h3 className="text-base font-bold">Kondisi Saat Ini</h3>
               <div className="mt-2 divide-y divide-gray-100">
-                {YESNO.map(({ key, label }) => (
+                {YESNO.map(({ key, label, choices }) => (
                   <div key={key} className="py-4">
                     <p className="text-sm text-gray-700">{label}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {(["Ya", "Mungkin", "Tidak"] as IntakeAnswer[]).map(
+                      {(choices as readonly IntakeAnswer[]).map(
                         (v) => (
                           <Pill
                             key={v}
@@ -895,9 +858,7 @@ export default function KlienPesananPage() {
                         ),
                       )}
                     </div>
-                    {key === "selfHarm" &&
-                      (form.selfHarm === "Ya" ||
-                        form.selfHarm === "Mungkin") && (
+                    {key === "selfHarm" && form.selfHarm === "Ya" && (
                         <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                           Terima kasih sudah jujur. Konselor akan melihat
                           jawabanmu sebelum sesi. Jika kamu merasa tidak aman
@@ -943,28 +904,37 @@ export default function KlienPesananPage() {
 
             <section className={CARD}>
               <h3 className="text-base font-bold">
-                Masalah yang ingin dibahas
+                Masalah apa yang ingin Anda bahas dalam konseling ini?
               </h3>
-              <p className="mt-1 text-xs text-gray-500">
-                Boleh pilih lebih dari satu.
-              </p>
+              <p className="mt-1 text-xs text-gray-500">Pilih satu.</p>
               <div className="mt-3">
-                <div className="flex flex-wrap gap-2">
-                  {TOPICS.map((t) => (
-                    <Pill
-                      key={t}
-                      selected={form.topics.includes(t)}
-                      onClick={() => toggleTopic(t)}
-                    >
-                      {t}
-                    </Pill>
-                  ))}
-                  <Pill
-                    selected={form.otherOn}
-                    onClick={() => setField("otherOn", !form.otherOn)}
-                  >
-                    Lainnya
-                  </Pill>
+                <div role="radiogroup" aria-label="Masalah yang ingin dibahas" className="grid gap-2 sm:grid-cols-2">
+                  {[...TOPICS, null].map((t) => {
+                    const selected = t === null ? form.otherOn : form.topics[0] === t && !form.otherOn;
+                    return (
+                      <button
+                        key={t ?? "other"}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => (t === null ? chooseOtherTopic() : chooseTopic(t))}
+                        className={`flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left text-sm transition ${
+                          selected
+                            ? "border-primary bg-primary-soft font-semibold text-primary"
+                            : "border-gray-200 bg-white text-gray-700 hover:border-primary"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                            selected ? "border-primary" : "border-gray-300"
+                          }`}
+                        >
+                          {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
+                        </span>
+                        {t ?? "Yang lain…"}
+                      </button>
+                    );
+                  })}
                 </div>
                 {form.otherOn && (
                   <input
@@ -972,12 +942,12 @@ export default function KlienPesananPage() {
                     maxLength={80}
                     value={form.other}
                     onChange={(e) => setField("other", e.target.value)}
-                    placeholder="Tulis topik lain"
+                    placeholder="Tuliskan masalah lain yang ingin dibahas"
                     className={`${INPUT} sm:max-w-md`}
                   />
                 )}
                 {missing.includes("topics") && (
-                  <ErrorText>Pilih minimal satu topik.</ErrorText>
+                  <ErrorText>Pilih satu masalah, atau isi "Yang lain".</ErrorText>
                 )}
               </div>
             </section>
@@ -1008,173 +978,215 @@ export default function KlienPesananPage() {
           )}
 
           <div className="mt-6 flex justify-between gap-3">
-            <BackButton onClick={() => goTo(3)} />
-            <NavButton onClick={handleNextFromForm}>
-              Lanjut <span aria-hidden>›</span>
+            <BackButton onClick={() => goTo(2)} />
+            <NavButton onClick={handleNextFromForm} variant="solid">
+              Kirim Permintaan <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
             </NavButton>
           </div>
         </section>
       )}
 
-      {/* ===== 5. PERSETUJUAN ===== */}
-      {step === 5 && counselor && slot && layanan && (
-        <section className="mt-6">
-          <h2 className="font-display text-2xl font-bold sm:text-3xl">
-            Konfirmasi Janji Temu
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Periksa kembali ringkasan di bawah sebelum mengirim permintaan.
-          </p>
-
-          <div className="mt-6 space-y-4">
-            <section className={CARD}>
-              <h3 className="text-base font-bold">Detail Janji Temu</h3>
-              <dl className="mt-4 grid gap-4 sm:grid-cols-3">
-                <Kv label="Jenis layanan" value={`Konseling ${layanan}`} />
-                <Kv
-                  label="Konselor"
-                  value={counselor.short.replace(/\n/g, " ")}
-                />
-                <Kv label="Jadwal" value={fmtSlot(slot)} />
-                <Kv label="Ruangan" value="Ditentukan saat konfirmasi" />
-                <Kv label="Durasi" value="60 menit" />
-              </dl>
-            </section>
-
-            {layanan === "Kelompok" && (
-              <section className={CARD}>
-                <h3 className="text-base font-bold">Informasi Kelompok</h3>
-                <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <Kv label="Nama kelompok" value={form.groupName} />
-                  <Kv label="Jumlah peserta" value={form.groupSize} />
-                </dl>
-                <p className="mt-4 text-xs text-gray-500">Anggota</p>
-                <p className="mt-0.5 whitespace-pre-line text-sm text-gray-800">
-                  {form.groupMembers}
+      {/* ===== KONFIRMASI (modal, pengganti langkah Persetujuan) ===== */}
+      {confirmOpen && step === 3 && counselor && slot && layanan && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isSubmitting) setConfirmOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-confirm-title"
+            className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4 sm:px-6">
+              <div>
+                <h2 id="booking-confirm-title" className="font-display text-lg font-bold sm:text-xl">
+                  Konfirmasi Janji Temu
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Periksa kembali ringkasan di bawah sebelum mengirim permintaan.
                 </p>
-              </section>
-            )}
-
-            <section className={CARD}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold">Ringkasan Form Awal</h3>
-                <button
-                  type="button"
-                  onClick={() => goTo(4)}
-                  className="text-sm font-semibold text-primary hover:underline"
-                >
-                  <IconLabel icon={Pencil}>Ubah</IconLabel>
-                </button>
               </div>
-              <div className="mt-3 divide-y divide-gray-100">
-                {YESNO.map(({ key, label }) => {
-                  const v = form[key];
-                  return (
-                    <div
-                      key={key}
-                      className="flex flex-wrap items-start justify-between gap-3 py-3"
-                    >
-                      <p className="text-sm text-gray-700">{label}</p>
-                      {v && (
+              <button
+                type="button"
+                aria-label="Tutup"
+                disabled={isSubmitting}
+                onClick={() => setConfirmOpen(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+                <div className="space-y-4">
+                  <section className={CARD}>
+                    <h3 className="text-base font-bold">Detail Janji Temu</h3>
+                    <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+                      <Kv label="Jenis layanan" value={`Konseling ${layanan}`} />
+                      <Kv
+                        label="Konselor"
+                        value={counselor.short.replace(/\n/g, " ")}
+                      />
+                      <Kv label="Jadwal" value={fmtSlot(slot)} />
+                      <Kv label="Ruangan" value="Ditentukan saat konfirmasi" />
+                      <Kv label="Durasi" value="60 menit" />
+                    </dl>
+                  </section>
+
+                  {layanan === "Kelompok" && (
+                    <section className={CARD}>
+                      <h3 className="text-base font-bold">Informasi Kelompok</h3>
+                      <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                        <Kv label="Nama kelompok" value={form.groupName} />
+                        <Kv label="Jumlah peserta" value={form.groupSize} />
+                      </dl>
+                      <p className="mt-4 text-xs text-gray-500">Anggota</p>
+                      <p className="mt-0.5 whitespace-pre-line text-sm text-gray-800">
+                        {form.groupMembers}
+                      </p>
+                    </section>
+                  )}
+
+                  <section className={CARD}>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-bold">Ringkasan Form Awal</h3>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmOpen(false)}
+                        className="text-sm font-semibold text-primary hover:underline"
+                      >
+                        <IconLabel icon={Pencil}>Ubah</IconLabel>
+                      </button>
+                    </div>
+                    <div className="mt-3 divide-y divide-gray-100">
+                      {YESNO.map(({ key, label }) => {
+                        const v = form[key];
+                        return (
+                          <div
+                            key={key}
+                            className="flex flex-wrap items-start justify-between gap-3 py-3"
+                          >
+                            <p className="text-sm text-gray-700">{label}</p>
+                            {v && (
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${ANSWER_STYLE[v]}`}
+                              >
+                                {v}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <Kv
+                        label="Kualitas tidur"
+                        value={`${form.sleep ?? "-"} dari 5`}
+                      />
+                      <Kv
+                        label="Keadaan finansial"
+                        value={`${form.finance ?? "-"} dari 5`}
+                      />
+                    </dl>
+                    <p className="mt-5 text-xs text-gray-500">
+                      Masalah yang ingin dibahas
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {[
+                        ...form.topics,
+                        ...(form.otherOn && form.other.trim()
+                          ? [`Yang lain: ${form.other.trim()}`]
+                          : []),
+                      ].map((t) => (
                         <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${ANSWER_STYLE[v]}`}
+                          key={t}
+                          className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800"
                         >
-                          {v}
+                          {t}
                         </span>
-                      )}
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Kv
-                  label="Kualitas tidur"
-                  value={`${form.sleep ?? "-"} dari 5`}
-                />
-                <Kv
-                  label="Keadaan finansial"
-                  value={`${form.finance ?? "-"} dari 5`}
-                />
-              </dl>
-              <p className="mt-5 text-xs text-gray-500">
-                Masalah yang ingin dibahas
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {[
-                  ...form.topics,
-                  ...(form.otherOn && form.other.trim()
-                    ? [`Lainnya: ${form.other.trim()}`]
-                    : []),
-                ].map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
 
-              <details className="mt-5 rounded-xl border border-gray-200 p-4">
-                <summary className="cursor-pointer text-sm font-semibold text-gray-800">
-                  Lihat jawaban uraian
-                </summary>
-                <div className="mt-3 space-y-4">
-                  {ESSAYS.map(({ key, label }) => (
-                    <div key={key}>
-                      <p className="text-xs font-semibold text-gray-500">
-                        {label}
-                      </p>
-                      <p className="mt-1 whitespace-pre-line text-sm text-gray-800">
-                        {form[key]}
-                      </p>
-                    </div>
-                  ))}
+                    <details className="mt-5 rounded-xl border border-gray-200 p-4">
+                      <summary className="cursor-pointer text-sm font-semibold text-gray-800">
+                        Lihat jawaban uraian
+                      </summary>
+                      <div className="mt-3 space-y-4">
+                        {ESSAYS.map(({ key, label }) => (
+                          <div key={key}>
+                            <p className="text-xs font-semibold text-gray-500">
+                              {label}
+                            </p>
+                            <p className="mt-1 whitespace-pre-line text-sm text-gray-800">
+                              {form[key]}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </section>
                 </div>
-              </details>
-            </section>
-          </div>
 
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-            <p className="text-sm text-gray-600">
-              Pengisi formulir menyatakan bahwa isian dalam formulir ini benar.
-            </p>
-            <CheckRow
-              checked={form.declared}
-              onChange={(v) => setField("declared", v)}
-              label="Ya, saya telah mengisi data sebenar-benarnya."
-            />
-            <CheckRow
-              checked={form.consent}
-              onChange={(v) => setField("consent", v)}
-              label="Saya memahami jawaban formulir awal belum disimpan atau dikirim kepada konselor melalui sistem ini."
-            />
-          </div>
+                <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                  <p className="text-sm text-gray-600">
+                    Pengisi formulir menyatakan bahwa isian dalam formulir ini benar.
+                  </p>
+                  <CheckRow
+                    checked={form.declared}
+                    onChange={(v) => setField("declared", v)}
+                    label="Ya, saya telah mengisi data sebenar-benarnya."
+                  />
+                  <CheckRow
+                    checked={form.consent}
+                    onChange={(v) => setField("consent", v)}
+                    label="Saya memahami jawaban formulir awal belum disimpan atau dikirim kepada konselor melalui sistem ini."
+                  />
+                </div>
+              {requestError && (
+                <p
+                  role="alert"
+                  className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                >
+                  {requestError}
+                </p>
+              )}
+            </div>
 
-          <div className="mt-6 flex justify-between gap-3">
-            <BackButton onClick={() => goTo(4)} />
-            <button
-              type="button"
-              onClick={() => void handleSubmit()}
-              disabled={
-                !(form.declared && form.consent) ||
-                isSubmitting ||
-                directoryLoading ||
-                !counselor ||
-                !slot ||
-                !layanan
-              }
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isSubmitting ? "Mengirim..." : "Kirim Janji Temu"}{" "}
-              <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
-            </button>
+            <div className="flex flex-col-reverse gap-2 border-t border-gray-100 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setConfirmOpen(false)}
+                className="rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+              >
+                Kembali ke form
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={
+                  !(form.declared && form.consent) ||
+                  isSubmitting ||
+                  directoryLoading ||
+                  !counselor ||
+                  !slot ||
+                  !layanan
+                }
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isSubmitting ? "Mengirim..." : "Kirim Janji Temu"}{" "}
+                <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
+              </button>
+            </div>
           </div>
-        </section>
+        </div>
       )}
 
-      {/* ===== 6. SELESAI ===== */}
-      {step === 6 && counselor && slot && layanan && (
+      {/* ===== 4. SELESAI ===== */}
+      {step === 4 && counselor && slot && layanan && (
         <section className="mt-6">
           <div className="mx-auto max-w-xl rounded-2xl border border-[#36c08f]/40 bg-primary-tint p-6 text-center">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white">
@@ -1219,31 +1231,3 @@ export default function KlienPesananPage() {
 const CARD = "rounded-2xl border border-gray-200 bg-white p-4 sm:p-5";
 const INPUT =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
-
-/** Foto konselor di langkah Pilih Jadwal; kembali ke inisial bila foto tidak ada atau gagal dimuat. */
-function CounselorPhoto({
-  photoUrl,
-  name,
-  initials,
-}: {
-  photoUrl: string | null | undefined;
-  name: string;
-  initials: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  if (photoUrl && !failed) {
-    return (
-      <img
-        src={photoUrl}
-        alt={`Foto ${name}`}
-        onError={() => setFailed(true)}
-        className="h-20 w-20 shrink-0 rounded-full object-cover sm:h-24 sm:w-24"
-      />
-    );
-  }
-  return (
-    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary-soft text-2xl font-bold text-primary sm:h-24 sm:w-24">
-      {initials}
-    </div>
-  );
-}

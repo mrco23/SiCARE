@@ -45,7 +45,6 @@ import type {
 import {
   INTAKE_ESSAY_OPTIONS,
   INTAKE_SCALE_OPTIONS,
-  INTAKE_TOPICS,
   INTAKE_YESNO_OPTIONS,
 } from "../../constants/intakeOptions";
 import {
@@ -267,7 +266,8 @@ function IntakeSection({ intake }: { intake: ClientIntake | null }) {
               </p>
             ) : (
               <ul className="flex flex-wrap gap-2">
-                {INTAKE_TOPICS.filter((t) => intake.topics.includes(t)).map(
+                {/* Tampilkan topik apa adanya agar jawaban lama (opsi sebelum 2026-11-24) tetap terlihat. */}
+                {intake.topics.map(
                   (t) => (
                     <li
                       key={t}
@@ -281,7 +281,7 @@ function IntakeSection({ intake }: { intake: ClientIntake | null }) {
             )}
             {intake.other?.trim() && (
               <p className="text-sm text-gray-700">
-                <span className="font-semibold">Lainnya: </span>
+                <span className="font-semibold">Yang lain: </span>
                 {intake.other}
               </p>
             )}

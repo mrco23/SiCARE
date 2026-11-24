@@ -3,7 +3,6 @@ import type { ClientIntake, IntakeAnswer } from "../../types/counseling";
 import {
   INTAKE_ESSAY_OPTIONS,
   INTAKE_SCALE_OPTIONS,
-  INTAKE_TOPICS,
   INTAKE_YESNO_OPTIONS,
 } from "../../constants/intakeOptions";
 
@@ -97,7 +96,8 @@ export function ClientIntakeView({
           </p>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {INTAKE_TOPICS.filter((t) => intake.topics.includes(t)).map((t) => (
+            {/* Tampilkan topik apa adanya agar jawaban lama (opsi sebelum 2026-11-24) tetap terlihat. */}
+            {intake.topics.map((t) => (
               <li
                 key={t}
                 className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary"
@@ -109,7 +109,7 @@ export function ClientIntakeView({
         )}
         {intake.other?.trim() && (
           <p className="text-sm text-gray-700">
-            <span className="font-semibold">Lainnya: </span>
+            <span className="font-semibold">Yang lain: </span>
             {intake.other}
           </p>
         )}
