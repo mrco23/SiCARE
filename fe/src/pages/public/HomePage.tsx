@@ -870,7 +870,7 @@ export default function HomePage() {
 
               <div className="mt-5 flex w-full max-w-md gap-2.5 sm:mt-6 sm:w-auto sm:max-w-none sm:gap-3">
                 <Link
-                  to="/klien/pesanan"
+                  to="/klien/permintaan"
                   className="group inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-white px-4 sm:flex-none sm:gap-2.5 sm:px-7 text-sm font-semibold text-primary shadow-[0_10px_24px_rgba(0,0,0,0.25)] transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-[0_14px_28px_rgba(0,0,0,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-900 sm:h-[52px] sm:text-[15px]"
                 >
                   Mulai Konseling

@@ -99,7 +99,9 @@ export default function AppRouter() {
 
       <Route path="/klien" element={<ProtectedRoute allowedRoles={["client"]}><KlienLayout /></ProtectedRoute>}>
         <Route index element={page(KlienBerandaPage)} />
-        <Route path="pesanan" element={page(KlienPesananPage)} />
+        <Route path="permintaan" element={page(KlienPesananPage)} />
+        {/* Alamat lama tetap diarahkan ke halaman baru (tautan/bookmark lama). */}
+        <Route path="pesanan" element={<Navigate to="/klien/permintaan" replace />} />
         <Route path="aktivitas" element={page(KlienAktivitasPage)} />
         <Route path="konselor" element={page(KlienKonselorPage)} />
         <Route path="riwayat" element={page(KlienRiwayatPage)} />
