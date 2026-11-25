@@ -2584,3 +2584,62 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - Insert selalu ditolak dan dipetakan menjadi 500. Frontend tidak mengirim `is_active`.
 - **Perbaikan:** `is_active` dihapus dari `createPeriodSchema` dan `patchPeriodSchema`; status periode hanya diwakili `is_published`. Tes baru di `readinessFixes`: hasil parse hanya berisi kolom yang ada, dan `is_active` ditolak.
 - **Pemeriksaan:** `be: npm test` **350/351** (gagal: `heroMotivations.test.js`, baseline). Uji tambah periode sungguhan di produksi **NOT RUN**; perlu deploy backend.
+
+## 2026-11-25 — Cek alur sesi konselor dan dummy uji untuk giovana@unikadelasalle.ac.id
+
+- **Hasil cek kode dan fungsi produksi (read-only):**
+  - **Status consent sebelum sesi:** Aktivitas Konselor memuat kesiapan consent (`GET /consents/booking/:id/readiness`) untuk setiap sesi terjadwal. Tombol "Persetujuan" membuka `GroupConsentModal` berisi status per peserta. Bila belum lengkap, "Mulai Sesi" terkunci dengan alasan "Menunggu … peserta menandatangani informed consent."
+  - **Mulai sesi sesuai jadwal:** `sicare_transition_session` mengizinkan `scheduled → ongoing` mulai 15 menit sebelum jadwal sampai jadwal selesai (`SESSION_START_TOO_EARLY` / `SESSION_START_WINDOW_PASSED`) dan mewajibkan consent lengkap (`CONSENT_READINESS_INCOMPLETE`). Frontend memakai aturan yang sama untuk mengunci tombol.
+  - **Selesaikan sesi:** `ongoing → completed` diizinkan ("Selesaikan Sesi").
+  - **Hentikan sesi dengan alasan:** `ongoing → cancelled` diizinkan ("Hentikan Sesi"). Validator mewajibkan `reason` (3–1000 karakter), dan service menyimpannya ke `bookings.cancellation_reason` setelah RPC.
+- **Dummy (`be/scripts/seed-dummy-current-period.sql`):** konstanta baru `c_include_session_tests` (default true) dan dua jenis skenario baru, `start_ready` dan `start_consent_pending`. Untuk konselor target:
+  - T1 berlangsung (uji Hentikan + alasan);
+  - T2 terjadwal ~10 menit lagi dengan consent lengkap (uji Mulai Sesi);
+  - T3 kelompok terjadwal ~10 menit lagi dengan consent pending (uji status consent).
+  - G4 (akun target, berlangsung) dipakai untuk uji Selesaikan.
+  - T1–T3 memakai klien dummy lain bila ada, dan dapat tumpang-tindih dengan jadwal lain konselor yang sama (database tidak melarang).
+- **Pemeriksaan:** skrip belum dijalankan (SQL Editor oleh pengguna, setelah `reset-transactional-data.sql`); validasi sintaks lokal tidak tersedia karena Docker tidak aktif.
+
+## 2026-11-25 — Query satu sesi siap dimulai untuk konselor giovana
+
+- **Skrip baru `be/scripts/seed-startable-session.sql`** (dijalankan pengguna di SQL Editor; tidak menghapus data). Membuat untuk konselor `giovana@unikadelasalle.ac.id` dan klien `24013031@unikadelasalle.ac.id`:
+  - satu slot dan booking individu `confirmed`;
+  - peserta utama;
+  - sesi `scheduled` yang mulai 10 menit setelah dijalankan (durasi 60 menit);
+  - informed consent `signed`;
+  - jawaban form awal format baru;
+  - notifikasi konfirmasi.
+- Skrip menolak berjalan bila konselor/klien tidak aktif atau tidak ada periode akademik yang mencakup hari ini.
+- Skema produksi dicek read-only: semua migrasi s.d. `20261125120000` diterapkan; tidak ada kolom `format` maupun `consent_template_id`; semua check constraint terkait cocok dengan nilai yang di-insert.
+- **Pemeriksaan:** skrip belum dijalankan (Docker lokal tidak aktif untuk uji sintaks).
+
+## 2026-11-25 — Dummy sesi siap dimulai ditambahkan ke produksi (atas permintaan pengguna)
+
+- SQL Editor pengguna terbuka di project lain (7 tabel public), sehingga `be/scripts/seed-startable-session.sql` dijalankan lewat CLI ke **SiCARE Project** (`tfzgztrvonkqsqmesmjy`) dengan `supabase db query --remote -f`. Data dummy yang sudah ada tidak dihapus.
+- **Hasil terverifikasi:** sesi `6f20a822-6b44-4f33-9bf7-a522a8c9bc97` untuk `giovana@unikadelasalle.ac.id` dengan klien `24013031@unikadelasalle.ac.id`:
+  - `scheduled`, 25 Nov 10:40–11:40 WITA;
+  - booking `confirmed`, consent `signed`;
+  - `sicare_check_booking_consent_readiness` mengembalikan `is_fully_consented = true`, dan waktu sekarang berada dalam jendela mulai.
+- **Revisi:** atas permintaan pengguna, jadwal sesi `6f20a822-…` (sesi, booking, dan slot) diubah menjadi 25 Nov 10:33–11:33 WITA; terverifikasi masih dapat dimulai.
+- **Revisi:** atas permintaan pengguna, sesi `dcd6d4f8-…` (consent ditandatangani klien pukul 10:34) dipindah dari 26 Nov 09:00 ke 25 Nov 10:42–11:42 WITA (sesi, booking, dan slot); terverifikasi dapat dimulai dan consent siap.
+
+## 2026-11-25 — Perbaikan: konselor tidak bisa "Mulai Sesi" walau consent lengkap
+
+- **Gejala:** klien sudah menandatangani consent dan jadwal sudah masuk jendela mulai, tetapi "Mulai Sesi" tetap terkunci. Audit produksi tidak mencatat percobaan mulai sesi setelah 10:30, artinya tombol terkunci di frontend.
+- **Penyebab:**
+  - `GET /consents/booking/:bookingId/readiness` mengirim objek camelCase dari `getBookingConsentStatus` (`isFullyConsented`, `pendingParticipants`, …).
+  - `KonselorAktivitasPage` membaca `is_fully_consented` / `pending_participants` sesuai `BookingConsentReadinessDto`. Nilai `undefined` dianggap belum lengkap, sehingga tombol selalu terkunci dengan pesan "Menunggu peserta menandatangani informed consent." sejak fitur dibuat (commit `6f451e1`).
+  - Database sendiri benar: `sicare_check_booking_consent_readiness` = true untuk sesi uji.
+- **Perbaikan:**
+  - `consent.controller.js` menambah `toReadinessDto()` dan endpoint mengirim kontrak snake_case.
+  - `getBookingConsentStatus` kini juga mengembalikan `serviceType`.
+  - Tes baru di `readinessFixes`.
+- **Pemeriksaan:** `be: npm test` **351/352** (gagal: `heroMotivations.test.js`, baseline); `be: typecheck` **PASS**. Perlu deploy backend.
+- **Tindak lanjut (belum dikerjakan):** endpoint readiness hanya memeriksa role, belum memeriksa kepemilikan booking.
+- **Lanjutan 2026-11-25 (disetujui pengguna):** `assertBookingReadinessAccess` di `consent.service.js` dipanggil `getReadiness` sebelum membaca status. Aksesnya:
+  - admin dan Kepala LMI: selalu;
+  - konselor: hanya booking miliknya;
+  - klien: pemesan atau peserta terdaftar (bukan `removed`).
+  - Selain itu 403 `BOOKING_ACCESS_FORBIDDEN`; booking tidak ada 404 `BOOKING_NOT_FOUND`.
+  - Tes kepemilikan baru di `readinessFixes` dan matriks endpoint baris 62 diperbarui.
+  - `be: npm test` **352/353** (gagal: `heroMotivations.test.js`, baseline); `be: typecheck` **PASS**.

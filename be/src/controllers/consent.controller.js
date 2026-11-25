@@ -7,6 +7,7 @@ import {
   signPayloadSchema,
 } from "../validators/consent.validator.js";
 import {
+  assertBookingReadinessAccess,
   claimGuestInvitation,
   ensureBookingParticipants,
   getBookingConsentStatus,
@@ -62,6 +63,26 @@ function parseSignatureBase64(dataOrBase64) {
   return Buffer.from(base64, "base64");
 }
 
+/**
+ * Kontrak respons GET /consents/booking/:bookingId/readiness (snake_case, sesuai
+ * BookingConsentReadinessDto di fe/src/types/api.ts). Sebelumnya objek camelCase dari service
+ * dikirim apa adanya, sehingga frontend membaca is_fully_consented = undefined dan tombol
+ * "Mulai Sesi" konselor selalu terkunci walau consent sudah lengkap.
+ */
+export function toReadinessDto(bookingId, status) {
+  return {
+    booking_id: bookingId,
+    service_type: status.serviceType ?? null,
+    active_template_version: status.activeTemplateVersion ?? null,
+    total_participants: status.totalParticipants ?? 0,
+    signed_participants: status.signedParticipants ?? 0,
+    pending_participants: status.pendingParticipants ?? 0,
+    template_compliant: Boolean(status.templateCompliant),
+    is_fully_consented: Boolean(status.isFullyConsented),
+    participants: status.participants ?? [],
+  };
+}
+
 export const consentController = {
   async getMyConsent(req, res) {
     const bookingId = uuidSchema.parse(req.params.bookingId);
@@ -97,8 +118,13 @@ export const consentController = {
 
   async getReadiness(req, res) {
     const bookingId = uuidSchema.parse(req.params.bookingId);
+    await assertBookingReadinessAccess({
+      bookingId,
+      authUser: req.auth.user,
+      authRole: req.auth.profile.app_role,
+    });
     const status = await getBookingConsentStatus({ bookingId });
-    return sendData(res, status);
+    return sendData(res, toReadinessDto(bookingId, status));
   },
 
   async getConsent(req, res) {
