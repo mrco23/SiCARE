@@ -366,3 +366,56 @@ test("academic period schemas only use columns that exist (no is_active)", async
   assert.equal(patchPeriodSchema.safeParse({ is_active: true }).success, false);
   assert.equal(patchPeriodSchema.safeParse({ is_published: true }).success, true);
 });
+
+test("consent readiness endpoint returns the snake_case contract the counselor page reads", async () => {
+  const { toReadinessDto } = await import("../src/controllers/consent.controller.js");
+  const dto = toReadinessDto("b-1", {
+    serviceType: "individual",
+    isFullyConsented: true,
+    totalParticipants: 1,
+    signedParticipants: 1,
+    pendingParticipants: 0,
+    templateCompliant: true,
+    activeTemplateVersion: "v1.0",
+    participants: [],
+  });
+  assert.equal(dto.is_fully_consented, true);
+  assert.equal(dto.pending_participants, 0);
+  assert.equal(dto.booking_id, "b-1");
+  assert.equal(dto.service_type, "individual");
+  assert.equal("isFullyConsented" in dto, false);
+});
+
+test("consent readiness endpoint enforces booking ownership", async () => {
+  const { assertBookingReadinessAccess } = await import("../src/services/consent.service.js");
+  const booking = { id: "b-1", client_id: "client-1", counselor_id: "couns-1" };
+  const participants = [{ id: "p-2", user_id: "member-1", participant_status: "registered", booking_id: "b-1" }];
+  const fake = {
+    from(table) {
+      const filters = {};
+      const q = {
+        select() { return q; },
+        eq(col, val) { filters[col] = val; return q; },
+        neq(col, val) { filters["!" + col] = val; return q; },
+        async maybeSingle() {
+          if (table === "bookings") return { data: filters.id === booking.id ? booking : null, error: null };
+          const row = participants.find((r) => r.booking_id === filters.booking_id && r.user_id === filters.user_id
+            && r.participant_status !== filters["!participant_status"]);
+          return { data: row ? { id: row.id } : null, error: null };
+        },
+      };
+      return q;
+    },
+  };
+  const check = (authRole, id, bookingId = "b-1") =>
+    assertBookingReadinessAccess({ supabaseClient: fake, bookingId, authUser: { id }, authRole })
+      .then(() => 200, (e) => e.status);
+  assert.equal(await check("counselor", "couns-1"), 200);
+  assert.equal(await check("counselor", "couns-2"), 403);
+  assert.equal(await check("client", "client-1"), 200);
+  assert.equal(await check("client", "member-1"), 200, "anggota terdaftar boleh");
+  assert.equal(await check("client", "stranger"), 403);
+  assert.equal(await check("admin", "any"), 200);
+  assert.equal(await check("head_lmi", "any"), 200);
+  assert.equal(await check("client", "client-1", "missing"), 404);
+});

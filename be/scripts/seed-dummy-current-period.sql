@@ -62,6 +62,10 @@ declare
   -- Harus sama dengan OFFICIAL_TEMPLATE_VERSION di be/src/services/consentPdf.service.js
   c_consent_version constant text := 'v1.0';
   c_include_active_flows constant boolean := true;
+  -- Skenario uji alur sesi konselor target (mulai sesi, consent, selesai, hentikan dengan alasan).
+  -- Sengaja dijadwalkan di sekitar jam saat skrip dijalankan, sehingga dapat tumpang-tindih
+  -- dengan sesi lain konselor yang sama. Set false bila tidak diperlukan.
+  c_include_session_tests constant boolean := true;
   c_room     constant text := 'Ruang Konseling LMI';
 
   -- Kompatibilitas skema lama.
@@ -264,7 +268,9 @@ begin
 
   -- ------------------------------------------------------------------ daftar skenario
   -- s_kind: completed (s_rating null = belum feedback) | ongoing | client_cancelled |
-  --         counselor_cancelled | waiting | confirmed_upcoming
+  --         counselor_cancelled | waiting | confirmed_upcoming |
+  --         start_ready (terjadwal ~10 menit lagi, consent lengkap -> "Mulai Sesi" aktif) |
+  --         start_consent_pending (terjadwal ~10 menit lagi, consent belum ditandatangani)
   create temp table tmp_dummy_scenarios (
     s_code text primary key, s_kind text, s_client uuid, s_counselor uuid, s_day date,
     s_hour int, s_group boolean, s_rating int, s_moderation text
@@ -283,6 +289,22 @@ begin
     ('G3', 'completed', v_target_client, v_target_counselor,
        pg_temp.sicare_dummy_workday(v_today - 2, -1), 14, false, null, null),
     ('G4', 'ongoing',   v_target_client, v_target_counselor, v_today, null, false, null, null);
+
+  -- 1b. Uji alur sesi konselor target, memakai klien dummy lain (bila ada) agar tidak bentrok
+  --     dengan sesi berlangsung G4 milik akun target:
+  --     T1 berlangsung (uji "Hentikan Sesi" dengan alasan; G4 untuk uji "Selesaikan Sesi"),
+  --     T2 terjadwal + consent lengkap (uji "Mulai Sesi"),
+  --     T3 terjadwal + consent belum ditandatangani (uji status consent; "Mulai Sesi" terkunci).
+  if c_include_session_tests then
+    v_pool := coalesce(v_students, v_staff, v_others, array[v_target_client]);
+    insert into tmp_dummy_scenarios values
+      ('T1', 'ongoing',               v_pool[1],
+         v_target_counselor, v_today, null, false, null, null),
+      ('T2', 'start_ready',           v_pool[1 + (1 % array_length(v_pool, 1))],
+         v_target_counselor, v_today, null, false, null, null),
+      ('T3', 'start_consent_pending', v_pool[1 + (2 % array_length(v_pool, 1))],
+         v_target_counselor, v_today, null, true,  null, null);
+  end if;
 
   -- 2. Akun dummy lain.
   if coalesce(array_length(v_students, 1), 0) + coalesce(array_length(v_staff, 1), 0)
@@ -340,6 +362,10 @@ begin
     if v_sc.s_kind = 'ongoing' then
       v_starts := date_trunc('minute', v_now) - interval '15 minutes';
       v_ends := v_starts + interval '60 minutes';
+    elsif v_sc.s_kind in ('start_ready', 'start_consent_pending') then
+      -- Jendela "Mulai Sesi" dibuka 15 menit sebelum jadwal sampai jadwal selesai.
+      v_starts := date_trunc('minute', v_now) + interval '10 minutes';
+      v_ends := v_starts + interval '60 minutes';
     else
       -- Geser jam bila konselor atau klien sudah punya slot/booking di jam yang sama.
       v_hour := v_sc.s_hour;
@@ -375,12 +401,16 @@ begin
       when 'counselor_cancelled' then 'cancelled'
       when 'waiting' then 'waiting_confirmation'
       when 'confirmed_upcoming' then 'confirmed'
+      when 'start_ready' then 'confirmed'
+      when 'start_consent_pending' then 'confirmed'
     end;
     v_sstatus := case v_sc.s_kind
       when 'completed' then 'completed'
       when 'ongoing' then 'ongoing'
       when 'counselor_cancelled' then 'cancelled'
       when 'confirmed_upcoming' then 'scheduled'
+      when 'start_ready' then 'scheduled'
+      when 'start_consent_pending' then 'scheduled'
     end;
     v_reason := case v_sc.s_kind
       when 'client_cancelled' then 'Ada jadwal yang bentrok.'
@@ -464,11 +494,13 @@ begin
        v_created + interval '10 minutes');
 
     -- Notifikasi konfirmasi konselor (sicare_transition_booking -> confirmed).
-    if v_sc.s_kind in ('completed', 'ongoing', 'counselor_cancelled', 'confirmed_upcoming') then
+    if v_sc.s_kind in ('completed', 'ongoing', 'counselor_cancelled', 'confirmed_upcoming',
+                       'start_ready', 'start_consent_pending') then
       insert into public.notifications (recipient_user_id, type, title, body, entity_type, entity_id, created_at, read_at)
       values (v_client.user_id, 'booking.confirmed', 'Konseling dikonfirmasi',
               'Permintaan konseling diterima. Periksa detail sesi.', 'booking', v_booking_id, v_confirmed,
-              case when v_sc.s_kind <> 'confirmed_upcoming' then v_confirmed + interval '1 hour' end);
+              case when v_sc.s_kind not in ('confirmed_upcoming', 'start_ready', 'start_consent_pending')
+                   then v_confirmed + interval '1 hour' end);
     end if;
 
     -- Pembatalan oleh klien -> notifikasi ke konselor (sicare_transition_booking -> cancelled).
@@ -522,9 +554,9 @@ begin
       continue;
     end if;
 
-    -- Informed consent per peserta: selesai / berlangsung => signed (wajib untuk memulai sesi);
-    -- mendatang => pending.
-    v_signed := v_sstatus in ('completed', 'ongoing');
+    -- Informed consent per peserta: selesai / berlangsung / start_ready => signed (wajib untuk
+    -- memulai sesi); mendatang dan start_consent_pending => pending.
+    v_signed := v_sstatus in ('completed', 'ongoing') or v_sc.s_kind = 'start_ready';
     for v_part in
       select * from public.booking_participants where booking_id = v_booking_id order by is_primary desc
     loop
@@ -650,6 +682,15 @@ end;
 $$;
 
 commit;
+
+-- Uji alur sesi konselor (giovana@unikadelasalle.ac.id) di Aktivitas Konselor:
+--   G4 (akun target, berlangsung)  -> "Selesaikan Sesi".
+--   T1 (klien dummy, berlangsung)  -> "Hentikan Sesi", wajib alasan.
+--   T2 (terjadwal ~10 menit lagi, consent lengkap) -> "Mulai Sesi" aktif.
+--   T3 (kelompok, terjadwal ~10 menit lagi, consent belum ditandatangani) -> tombol
+--      "Persetujuan" menampilkan status per peserta; "Mulai Sesi" terkunci dengan alasan consent.
+-- Jendela uji: T2/T3 dapat dimulai sampai 70 menit setelah skrip dijalankan; G4/T1 berakhir
+-- 45 menit setelah skrip dijalankan dan otomatis ditutup 2 jam setelahnya bila tidak diakhiri.
 
 -- Ringkasan hasil:
 -- select b.status as booking, s.status as sesi, b.service_type,

@@ -12,6 +12,7 @@ import {
 } from "./tokenEncryption.service.js";
 import { normalizePhoneNumber } from "./fonnte.service.js";
 import { env } from "../config/env.js";
+import { HttpError } from "../lib/http.js";
 
 /** Undangan consent minimal berlaku 72 jam dan selalu sampai jadwal sesi berakhir. */
 const MIN_INVITATION_HOURS = 72;
@@ -645,6 +646,43 @@ export function assertConsentAccess({
 }
 
 /**
+ * Hak baca kesiapan consent sebuah booking: admin dan Kepala LMI; konselor booking itu;
+ * klien pemesan; atau klien yang terdaftar sebagai peserta booking (anggota kelompok).
+ * Melempar 404 bila booking tidak ada, 403 bila tidak berhak.
+ *
+ * @param {object} params
+ * @param {object} [params.supabaseClient]
+ * @param {string} params.bookingId
+ * @param {{ id: string }} params.authUser
+ * @param {string} params.authRole
+ */
+export async function assertBookingReadinessAccess({ supabaseClient, bookingId, authUser, authRole }) {
+  const supa = getClient(supabaseClient);
+  const { data: booking, error } = await supa
+    .from("bookings")
+    .select("id,client_id,counselor_id")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (error) throw new HttpError(500, "BOOKING_READ_FAILED", "Booking tidak dapat dibaca.");
+  if (!booking) throw new HttpError(404, "BOOKING_NOT_FOUND", "Booking tidak ditemukan.");
+
+  if (authRole === "admin" || authRole === "head_lmi") return;
+  if (authRole === "counselor" && booking.counselor_id === authUser.id) return;
+  if (authRole === "client") {
+    if (booking.client_id === authUser.id) return;
+    const { data: participant } = await supa
+      .from("booking_participants")
+      .select("id")
+      .eq("booking_id", bookingId)
+      .eq("user_id", authUser.id)
+      .neq("participant_status", "removed")
+      .maybeSingle();
+    if (participant) return;
+  }
+  throw new HttpError(403, "BOOKING_ACCESS_FORBIDDEN", "Anda tidak memiliki akses ke status persetujuan booking ini.");
+}
+
+/**
  * Checks consent readiness for a booking.
  * Determines if all required participants have signed before counseling session starts.
  *
@@ -673,6 +711,7 @@ export async function getBookingConsentStatus({ supabaseClient, bookingId }) {
         data.service_type === "individual" ||
         !participants.some((p) => p.consent_status === "signed" && p.template_compliant === false);
       return {
+        serviceType: data.service_type,
         isFullyConsented: Boolean(data.is_fully_consented),
         totalParticipants: data.total_participants || 0,
         signedParticipants: data.signed_participants || 0,
@@ -705,6 +744,7 @@ export async function getBookingConsentStatus({ supabaseClient, bookingId }) {
   const signed = list.filter((p) => p.informed_consents?.some((c) => c.status === "signed")).length;
 
   return {
+    serviceType: booking.service_type,
     isFullyConsented: total > 0 && signed >= total,
     totalParticipants: total,
     signedParticipants: signed,
