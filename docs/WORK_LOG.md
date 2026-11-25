@@ -2660,3 +2660,38 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Pemeriksaan:** `be: npm test` **354/355** (gagal: `heroMotivations.test.js`, baseline; tes baru: validator catatan, urutan simpan catatan sebelum RPC, tolak sesi bukan `ongoing`/bukan milik konselor); `be: typecheck`, `fe: tsc -b`, `lint`, `build` **PASS**.
   - Dialog asli diuji di dev server dengan API tiruan: catatan kosong ditolak; setelah diisi, permintaan berisi `status`, `counselor_note`, `client_note`, lalu dialog tertutup.
   - Penyimpanan ke database sungguhan **NOT RUN** (perlu deploy backend).
+- **Tambahan:** sesi siap dimulai baru untuk giovana dengan klien 24013031 (`004a3f87-…`, 25 Nov 11:09–12:09 WITA, consent signed) via `seed-startable-session.sql`; terverifikasi dapat dimulai.
+- **Revisi:** sesi `004a3f87-…` dipindah ke 25 Nov 11:00–12:00 WITA (sesi, booking, dan slot) atas permintaan pengguna; terverifikasi dapat dimulai.
+- **Tambahan:** sesi baru `1df1a95f-…` untuk giovana dengan klien 24013031, 25 Nov 11:00–12:00 WITA, consent signed; terverifikasi dapat dimulai.
+
+## 2026-11-25 — Judul sampul laporan
+
+- `CounselingReportPrint.tsx`: judul sampul "LAPORAN BIMBINGAN & KONSELING" menjadi "LAPORAN BIMBINGAN KONSELING". Teks "Div. Bimbingan & Konseling" di sampul dan footer halaman "Laporan Bimbingan & Konseling | n" (`index.css`) tidak diubah. `fe: tsc -b` **PASS**.
+
+## 2026-11-25 — WhatsApp ajakan feedback setelah sesi selesai
+
+- **Migrasi baru `20261125130000_sicare_whatsapp_feedback_request.sql`** (belum diterapkan): `whatsapp_outbox_message_type_check` ditambah `feedback_request`.
+- **Template `feedback-request`** (`be/src/templates/whatsapp/index.js`): sapaan, judul tebal "Bagaimana Sesi Konselingmu?", nomor booking, konselor, tanggal, dan ajakan mengisi feedback lewat menu Riwayat.
+- **`session.service.js`:** setelah RPC `completed` berhasil, `enqueueFeedbackRequest` mengantrekan pesan ke klien pemesan. Idempotency per sesi; payload berisi nama klien dan konselor. Kegagalan antre hanya dicatat dan tidak membatalkan penyelesaian.
+- **Tes baru:** antrean berisi `feedback_request` untuk klien, template ter-render dengan nama klien dan konselor, dan migrasi memuat tipe baru.
+- **Pemeriksaan:** `be: npm test` **355/356** (gagal: `heroMotivations.test.js`, baseline); `be: typecheck` **PASS**.
+- **Urutan penerapan:** `npx supabase db push --remote` dulu, lalu deploy backend. Bila backend dideploy lebih dulu, insert outbox ditolak constraint, tetapi sesi tetap selesai (hanya dicatat di log).
+
+## 2026-11-25 — Tombol "Mulai Konseling" di Tentang Kami
+
+- **Masalah:** `AboutSections.tsx` memakai `<button>` tanpa aksi, sehingga tombol tidak merespons.
+- **Perbaikan:** tombol diganti `<Link to="/klien/permintaan">` dengan gaya yang sama. Rute klien dilindungi `ProtectedRoute`, jadi pengunjung yang belum login diarahkan ke `/login` dan kembali ke halaman permintaan setelah login.
+- **Pemeriksaan:** `fe: tsc -b`, `lint` **PASS**. Browser lokal tanpa login: klik tombol menuju `/login` dengan tujuan `/klien/permintaan`.
+
+## 2026-11-25 — Kata "slot" di UI menjadi "ketersediaan"
+
+- **Frontend:**
+  - Jadwal Konselor (judul modal "Tambah/Ubah Ketersediaan", "Detail Ketersediaan Diminta", "Hapus Ketersediaan", toast, teks bantuan, hitungan);
+  - Aktivitas Konselor dan Aktivitas Klien (teks pembatalan);
+  - modal keputusan permintaan (contoh alasan);
+  - Admin Periode;
+  - panduan;
+  - Profil Konselor publik ("N ketersediaan").
+  - "slot ketersediaan" diringkas menjadi "ketersediaan".
+- **Pesan server yang tampil di UI:** `SLOT_UNAVAILABLE`, `PERIOD_UNAVAILABLE`, dan pesan duplikat (`domainRpc.js`, `http.js`). Kode galat (`SLOT_UNAVAILABLE`, `AVAILABILITY_BOOKED`), nama variabel, dan kolom database tidak diubah.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**; `be: npm test` **355/356** (gagal: `heroMotivations.test.js`, baseline). Pencarian ulang tidak menemukan teks "slot" yang tersisa di UI.
