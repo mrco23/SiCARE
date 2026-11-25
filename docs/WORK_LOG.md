@@ -2643,3 +2643,20 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - Selain itu 403 `BOOKING_ACCESS_FORBIDDEN`; booking tidak ada 404 `BOOKING_NOT_FOUND`.
   - Tes kepemilikan baru di `readinessFixes` dan matriks endpoint baris 62 diperbarui.
   - `be: npm test` **352/353** (gagal: `heroMotivations.test.js`, baseline); `be: typecheck` **PASS**.
+
+## 2026-11-25 — Catatan sesi wajib diisi saat konselor menyelesaikan sesi
+
+- **Keputusan pengguna:** catatan konselor dan catatan untuk klien diisi di Aktivitas Konselor dan wajib sebelum sesi diselesaikan. Sebelumnya catatan hanya dapat diisi di Riwayat Konseling (butuh sandi riwayat) setelah sesi selesai.
+- **Backend:**
+  - `sessionStatusSchema`: `status: completed` wajib `counselor_note` dan `client_note` (≤10.000 karakter); `follow_up` opsional (≤5.000); field catatan pada status lain ditolak.
+  - `session.controller.js` meneruskan catatan.
+  - `session.service.js` memastikan sesi `ongoing` milik konselor, lalu upsert `session_notes` **sebelum** `sicare_transition_session`. Bila RPC gagal, catatan tetap tersimpan dan ditimpa saat mencoba lagi.
+  - Isi catatan tidak disalin ke audit.
+  - Membaca dan mengubah catatan setelah selesai tetap melalui Riwayat (butuh sandi riwayat).
+- **Frontend:**
+  - Dialog "Selesaikan Sesi" (`KonselorAktivitasPage.tsx`) berisi Catatan konselor*, Catatan untuk klien*, dan Tindak lanjut (opsional), dengan validasi sebelum kirim.
+  - Dialog dapat digulir (`max-h-[90vh]`).
+  - `SessionStatusTransitionApi` diperbarui.
+- **Pemeriksaan:** `be: npm test` **354/355** (gagal: `heroMotivations.test.js`, baseline; tes baru: validator catatan, urutan simpan catatan sebelum RPC, tolak sesi bukan `ongoing`/bukan milik konselor); `be: typecheck`, `fe: tsc -b`, `lint`, `build` **PASS**.
+  - Dialog asli diuji di dev server dengan API tiruan: catatan kosong ditolak; setelah diisi, permintaan berisi `status`, `counselor_note`, `client_note`, lalu dialog tertutup.
+  - Penyimpanan ke database sungguhan **NOT RUN** (perlu deploy backend).

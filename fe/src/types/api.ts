@@ -303,6 +303,10 @@ export interface SessionStatusTransitionApi {
   status: "ongoing" | "completed" | "cancelled";
   /** Wajib saat membatalkan (3–1000 karakter); dikirim ke klien. */
   reason?: string;
+  /** Wajib saat menyelesaikan sesi (sejak 2026-11-25); disimpan ke session_notes. */
+  counselor_note?: string;
+  client_note?: string;
+  follow_up?: string;
 }
 
 // Feedback DTOs differ by endpoint projection. Do not use one permissive interface

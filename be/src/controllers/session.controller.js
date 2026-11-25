@@ -51,6 +51,14 @@ export const sessionController = {
       sessionId: req.params.id,
       targetStatus: input.status,
       reason: input.reason ?? null,
+      notes:
+        input.status === "completed"
+          ? {
+              counselor_note: input.counselor_note,
+              client_note: input.client_note,
+              follow_up: input.follow_up?.trim() || null,
+            }
+          : null,
     });
 
     return sendData(res, data);
