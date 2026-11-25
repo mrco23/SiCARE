@@ -93,7 +93,7 @@ export default function CounselingReportPrint({ data }: { data: ReportPrintData 
         <h1 className="rp-cover-title">
           LAPORAN
           <br />
-          BIMBINGAN &amp; KONSELING
+          BIMBINGAN KONSELING
         </h1>
         <p className="rp-cover-period">{data.periodLabel}</p>
         <img src="/kampus.png" alt="Logo Universitas Katolik De La Salle Manado" className="rp-cover-logo" />
