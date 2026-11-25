@@ -352,3 +352,17 @@ test("session format is no longer stored or sent (face-to-face only service)", (
   assert.match(migration, /alter table public\.counseling_sessions drop column if exists format;/);
   assert.match(migration, /drop function if exists public\.sicare_transition_booking\(uuid, uuid, text, text, text, text\);/);
 });
+
+test("academic period schemas only use columns that exist (no is_active)", async () => {
+  const { createPeriodSchema, patchPeriodSchema } = await import("../src/validators/admin.validator.js");
+  const created = createPeriodSchema.parse({
+    academic_year: "2026/2027",
+    semester: "Genap",
+    starts_on: "2027-02-01",
+    ends_on: "2027-07-31",
+  });
+  assert.deepEqual(Object.keys(created).sort(), ["academic_year", "ends_on", "is_published", "semester", "starts_on"]);
+  assert.equal(createPeriodSchema.safeParse({ ...created, is_active: true }).success, false);
+  assert.equal(patchPeriodSchema.safeParse({ is_active: true }).success, false);
+  assert.equal(patchPeriodSchema.safeParse({ is_published: true }).success, true);
+});

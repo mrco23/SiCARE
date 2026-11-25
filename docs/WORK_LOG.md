@@ -2574,3 +2574,13 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - Tes `ownershipGuards` dan `readinessFixes` merujuk nama file baru.
 - **Harus diterapkan:** `npx supabase db push --remote` (menjalankan `20261125120000`). Sebelum itu, konselor tetap tidak bisa menerima permintaan.
 - **Pemeriksaan:** `be: npm test` **349/350** (gagal: `heroMotivations.test.js`, baseline). `migration list --remote`: `20261123`/`20261124*` sudah diterapkan, `20261125120000` menunggu.
+
+## 2026-11-25 — Perbaikan: tambah periode akademik gagal (500)
+
+- **Gejala:** menambah periode akademik di Admin Periode menampilkan "Terjadi kesalahan pada server".
+- **Penyebab:**
+  - `createPeriodSchema` (`be/src/validators/admin.validator.js`) memberi nilai bawaan `is_active: false` yang ikut di-insert ke `academic_periods`.
+  - Tabel ini di produksi (dicek read-only) dan di semua migrasi tidak pernah punya kolom `is_active`. Kolomnya: id, academic_year, semester, starts_on, ends_on, is_published, created_at, updated_at.
+  - Insert selalu ditolak dan dipetakan menjadi 500. Frontend tidak mengirim `is_active`.
+- **Perbaikan:** `is_active` dihapus dari `createPeriodSchema` dan `patchPeriodSchema`; status periode hanya diwakili `is_published`. Tes baru di `readinessFixes`: hasil parse hanya berisi kolom yang ada, dan `is_active` ditolak.
+- **Pemeriksaan:** `be: npm test` **350/351** (gagal: `heroMotivations.test.js`, baseline). Uji tambah periode sungguhan di produksi **NOT RUN**; perlu deploy backend.
