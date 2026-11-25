@@ -382,7 +382,7 @@ export default function AdminPeriodePage() {
             <h3 className="text-base font-bold">Periode Akademik</h3>
             <p className="mt-1 max-w-xl text-xs text-slate-400">
               SiCARE terpisah dari sistem kampus, jadi tahun ajaran dan semester
-              diatur di sini. Laporan, slot konselor, dan monitoring memakai periode
+              diatur di sini. Laporan, ketersediaan konselor, dan monitoring memakai periode
               ini untuk mengelompokkan sesi berdasarkan tanggalnya.
             </p>
           </div>
@@ -569,7 +569,7 @@ export default function AdminPeriodePage() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-6 py-4">
           <p className="text-[11px] text-slate-400">
             Periode aktif ditentukan otomatis dari tanggal hari ini. Periode yang
-            masih memiliki slot ketersediaan konselor tidak dapat dihapus demi
+            masih memiliki ketersediaan konselor tidak dapat dihapus demi
             menjaga integritas jadwal.
           </p>
         </div>

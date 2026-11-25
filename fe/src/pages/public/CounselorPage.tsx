@@ -91,7 +91,7 @@ function ScheduleSummary({ days, total }: { days: SlotDay[]; total: number }) {
       <p className="text-sm font-semibold text-gray-900">
         {longDateFmt.format(new Date(first.starts_at))} · {formatTime(first.starts_at)} WITA
       </p>
-      <p className="mt-0.5 text-xs font-semibold text-primary">{total} slot tersedia</p>
+      <p className="mt-0.5 text-xs font-semibold text-primary">{total} ketersediaan</p>
     </>
   );
 }
@@ -129,7 +129,7 @@ function ScheduleSection({ counselor, days }: { counselor: PublicCounselor; days
                 >
                   <span className="text-[11px] font-semibold uppercase">{weekdayFmt.format(day.date)}</span>
                   <span className="text-sm font-bold">{dayMonthFmt.format(day.date)}</span>
-                  <span className="mt-0.5 text-[10px] opacity-80">{day.slots.length} slot</span>
+                  <span className="mt-0.5 text-[10px] opacity-80">{day.slots.length} ketersediaan</span>
                 </button>
               );
             })}

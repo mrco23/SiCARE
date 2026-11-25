@@ -1369,7 +1369,7 @@ export default function KlienAktivitasPage() {
             </h2>
             <p className="mt-1 text-sm text-gray-600">
               {cancelTarget.counselor} · {dayLabel(cancelTarget.start, now)}, {formatTime(cancelTarget.start)} WITA.
-              Konselor akan diberi tahu dan slot dibuka kembali.
+              Konselor akan diberi tahu dan ketersediaan dibuka kembali.
             </p>
             <label className="mt-4 block text-sm font-semibold text-gray-900">
               Alasan pembatalan <span className="text-red-600">*</span>

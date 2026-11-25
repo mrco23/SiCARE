@@ -411,7 +411,7 @@ export default function KonselorAktivitasPage() {
       } else if (targetStatus === "completed") {
         toast.success(`Sesi dengan ${clientTitle} telah diselesaikan.`);
       } else {
-        toast.info(`Sesi dengan ${clientTitle} telah dibatalkan dan slot jadwal dibuka kembali.`);
+        toast.info(`Sesi dengan ${clientTitle} telah dibatalkan dan ketersediaan jadwal dibuka kembali.`);
       }
 
       const fresh = await fetchActivityData();
@@ -1098,8 +1098,8 @@ export default function KonselorAktivitasPage() {
                 : transitionDialog.targetStatus === "completed"
                   ? "Isi catatan sesi terlebih dahulu. Setelah disimpan, sesi ditandai selesai dan klien menerima notifikasi untuk memberikan ulasan."
                   : transitionDialog.session.status === "ongoing"
-                    ? "Sesi dan booking terkait akan dihentikan dan slot ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."
-                    : "Sesi dan booking terkait akan dibatalkan dan slot ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."}
+                    ? "Sesi dan booking terkait akan dihentikan dan ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."
+                    : "Sesi dan booking terkait akan dibatalkan dan ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."}
             </p>
 
             {transitionDialog.targetStatus === "completed" && (

@@ -29,7 +29,7 @@ const REJECT_PRESETS = [
 ] as const;
 
 const RESCHEDULE_PRESETS = [
-  "Konselor berhalangan hadir pada slot waktu yang dipilih",
+  "Konselor berhalangan hadir pada waktu ketersediaan yang dipilih",
   "Terdapat agenda rapat atau tugas mendadak di unit LMI",
   "Penyesuaian jam operasional ruang konseling",
   "Lainnya",
@@ -285,7 +285,7 @@ export function BookingDecisionModal({
                   onChange={(event) => setExtraNote(event.target.value)}
                   placeholder={
                     action === "reschedule"
-                      ? "Misal: Silakan memilih slot pada hari Rabu atau Kamis."
+                      ? "Misal: Silakan memilih ketersediaan pada hari Rabu atau Kamis."
                       : "Tambahkan catatan penjelasan untuk klien bila diperlukan."
                   }
                   className="mt-1.5 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none focus:border-gray-500"

@@ -440,13 +440,13 @@ export default function KonselorJadwalPage() {
       if (editor.mode === "new") {
         const created = await counselorApi.createAvailability(payload);
         setRawSlots((prev) => [...prev, created]);
-        toast.success(`Slot ketersediaan ${dateLabel(editor.dateKey)} (${fmt(parsed)} – ${fmt(parsed + SESSION)}) berhasil ditambahkan.`);
+        toast.success(`Ketersediaan ${dateLabel(editor.dateKey)} (${fmt(parsed)} – ${fmt(parsed + SESSION)}) berhasil ditambahkan.`);
       } else if (editor.slotId) {
         const updated = await counselorApi.updateAvailability(editor.slotId, payload);
         setRawSlots((prev) =>
           prev.map((s) => (s.id === editor.slotId ? updated : s)),
         );
-        toast.success(`Slot ketersediaan berhasil diperbarui ke ${fmt(parsed)} – ${fmt(parsed + SESSION)}.`);
+        toast.success(`Ketersediaan berhasil diperbarui ke ${fmt(parsed)} – ${fmt(parsed + SESSION)}.`);
       }
       setEditor(null);
     } catch (err: unknown) {
@@ -472,13 +472,13 @@ export default function KonselorJadwalPage() {
           s.id === cancelled.id ? { ...s, status: "cancelled" } : s,
         ),
       );
-      toast.success("Slot ketersediaan berhasil dibatalkan/dihapus.");
+      toast.success("Ketersediaan berhasil dibatalkan/dihapus.");
       setEditor(null);
     } catch (err: unknown) {
       setEditorError(
         err instanceof ApiError
           ? err.message
-          : "Gagal menghapus slot ketersediaan.",
+          : "Gagal menghapus ketersediaan.",
       );
     } finally {
       setMutating(false);
@@ -500,7 +500,7 @@ export default function KonselorJadwalPage() {
       });
       setCancelSessionTarget(null);
       setCancelSessionReason("");
-      toast.success(`Sesi dengan ${cancelSessionTarget.clientLabel} berhasil dibatalkan dan slot telah dibuka kembali.`);
+      toast.success(`Sesi dengan ${cancelSessionTarget.clientLabel} berhasil dibatalkan dan ketersediaan telah dibuka kembali.`);
       const fresh = await fetchScheduleData();
       setRawSlots(fresh.slots);
       setBookings(fresh.bookings);
@@ -557,7 +557,7 @@ export default function KonselorJadwalPage() {
         return;
       }
       if (findConflict(cur.toDate, cur.start, cur.slotId)) {
-        toast.error("Tidak dapat memindahkan jadwal karena berbenturan dengan slot lain.");
+        toast.error("Tidak dapat memindahkan jadwal karena berbenturan dengan ketersediaan lain.");
         return;
       }
 
@@ -686,7 +686,7 @@ export default function KonselorJadwalPage() {
                   {weekDays[6].getFullYear()}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Klik ruang kosong untuk menambah slot 1 jam. Geser kartu hijau
+                  Klik ruang kosong untuk menambah ketersediaan 1 jam. Geser kartu hijau
                   untuk memindahkan jadwal yang belum diminta klien.
                 </p>
               </div>
@@ -1058,7 +1058,7 @@ export default function KonselorJadwalPage() {
                       ? "Tanggal sudah lewat (hanya lihat)"
                       : activePeriodLabel
                         ? `Periode: ${activePeriodLabel}`
-                        : `${selectedSlots.length} slot terdaftar`}
+                        : `${selectedSlots.length} ketersediaan terdaftar`}
                   </p>
                 </div>
                 {!selectedPast && (
@@ -1074,10 +1074,10 @@ export default function KonselorJadwalPage() {
               </div>
 
               {loading ? (
-                <SkeletonList bare rows={3} label="Memuat slot ketersediaan..." className="mt-4" />
+                <SkeletonList bare rows={3} label="Memuat ketersediaan..." className="mt-4" />
               ) : selectedSlots.length === 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-gray-200 p-6 text-center text-xs text-gray-500">
-                  Belum ada slot ketersediaan pada tanggal ini.
+                  Belum ada ketersediaan pada tanggal ini.
                 </div>
               ) : (
                 <ul className="mt-4 space-y-2.5">
@@ -1158,10 +1158,10 @@ export default function KonselorJadwalPage() {
               <div>
                 <h2 className="text-lg font-bold text-gray-900">
                   {editor.mode === "new"
-                    ? "Tambah Slot Ketersediaan"
+                    ? "Tambah Ketersediaan"
                     : editor.isBooked
-                      ? "Detail Slot Diminta"
-                      : "Ubah Slot Ketersediaan"}
+                      ? "Detail Ketersediaan Diminta"
+                      : "Ubah Ketersediaan"}
                 </h2>
                 <p className="mt-1 text-xs text-gray-500">
                   {dateLabel(editor.dateKey)}
@@ -1180,10 +1180,10 @@ export default function KonselorJadwalPage() {
 
             {editor.isBooked && (
               <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3.5 text-xs text-blue-900">
-                <p className="font-bold">Slot Terhubung dengan Booking Aktif</p>
+                <p className="font-bold">Ketersediaan Terhubung dengan Booking Aktif</p>
                 <p className="mt-1 leading-relaxed text-blue-800">
                   Pemohon: <strong>{editor.clientLabel ?? "Klien"}</strong> (Status:{" "}
-                  <code>{editor.bookingStatus ?? "booked"}</code>). Slot yang sudah
+                  <code>{editor.bookingStatus ?? "booked"}</code>). Ketersediaan yang sudah
                   diminta tidak dapat dihapus langsung (`AVAILABILITY_BOOKED`).
                 </p>
               </div>
@@ -1251,7 +1251,7 @@ export default function KonselorJadwalPage() {
                       className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      Hapus Slot
+                      Hapus Ketersediaan
                     </button>
                   )}
 
@@ -1360,7 +1360,7 @@ export default function KonselorJadwalPage() {
               <div className="flex items-start gap-2">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
                 <span>
-                  Sesi dan booking akan ditandai <strong>dibatalkan</strong> dan slot
+                  Sesi dan booking akan ditandai <strong>dibatalkan</strong> dan ketersediaan
                   ini dibuka kembali. Klien menerima notifikasi beserta alasan di
                   bawah, dan pengingat yang belum terkirim dibatalkan.
                 </span>
