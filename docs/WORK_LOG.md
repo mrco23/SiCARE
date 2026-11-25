@@ -2560,3 +2560,17 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Catatan:** G4 akan ditutup otomatis oleh `sicare_auto_complete_sessions` ±2 jam setelah jam selesai.
 - **Reset:** hanya catatan urutan menjalankan.
 - **Pemeriksaan:** **NOT RUN** di database (tidak ada Postgres lokal); pemeriksaan keseimbangan blok dan tinjauan manual.
+
+## 2026-11-25 — Perbaikan: konselor tidak dapat menerima permintaan konseling
+
+- **Gejala (laporan pengguna):** konselor tidak dapat menerima permintaan konseling.
+- **Penyebab (dicek di produksi, read-only):**
+  - Versi `20261123120000` di produksi tercatat bernama `sicare_face_to_face_only`. Versi itu yang sempat dibuat lalu diganti di repo, dan isinya hanya membatasi `format = 'offline'`.
+  - File pengganti `20261123120000_sicare_drop_session_format.sql` memakai nomor versi yang sama, sehingga `db push` menganggapnya sudah diterapkan dan tidak pernah menjalankannya.
+  - Akibatnya, `sicare_transition_booking` di produksi masih menerima `p_session_format` dan menolak konfirmasi tanpa format (`SESSION_FORMAT_REQUIRED`). Sementara itu, backend dan frontend baru sudah tidak mengirim format.
+- **Perbaikan:**
+  - `20261123120000_sicare_face_to_face_only.sql` dipulihkan sesuai yang benar-benar diterapkan di produksi (riwayat migrasi konsisten).
+  - Migrasi penghapusan format dipindah ke `20261125120000_sicare_drop_session_format.sql` (isi sama, ditambah catatan).
+  - Tes `ownershipGuards` dan `readinessFixes` merujuk nama file baru.
+- **Harus diterapkan:** `npx supabase db push --remote` (menjalankan `20261125120000`). Sebelum itu, konselor tetap tidak bisa menerima permintaan.
+- **Pemeriksaan:** `be: npm test` **349/350** (gagal: `heroMotivations.test.js`, baseline). `migration list --remote`: `20261123`/`20261124*` sudah diterapkan, `20261125120000` menunggu.

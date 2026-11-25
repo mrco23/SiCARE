@@ -348,7 +348,7 @@ test("session format is no longer stored or sent (face-to-face only service)", (
   assert.equal(bookingTransitionSchema.safeParse({ status: "confirmed", session_format: "offline" }).success, false);
   const service = readFileSync(new URL("../src/services/booking.service.js", import.meta.url), "utf8");
   assert.doesNotMatch(service, /p_session_format/);
-  const migration = readFileSync(new URL("../../supabase/migrations/20261123120000_sicare_drop_session_format.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/20261125120000_sicare_drop_session_format.sql", import.meta.url), "utf8");
   assert.match(migration, /alter table public\.counseling_sessions drop column if exists format;/);
   assert.match(migration, /drop function if exists public\.sicare_transition_booking\(uuid, uuid, text, text, text, text\);/);
 });

@@ -72,7 +72,7 @@ test("booking list, detail, and active SQL transition enforce party ownership", 
   const transition = latestFunctionDefinition("sicare_transition_booking");
   assert.equal(
     transition.filename,
-    "20261123120000_sicare_drop_session_format.sql",
+    "20261125120000_sicare_drop_session_format.sql",
     "Must inspect the latest active sicare_transition_booking definition rather than the superseded migration",
   );
   assert.match(transition.body, /where p\.id = p_actor_id and p\.account_status = 'active'/);

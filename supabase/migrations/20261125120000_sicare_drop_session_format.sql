@@ -3,6 +3,9 @@
 --    produksi per 2026-11-23); konfirmasi booking tidak lagi memerlukan format.
 -- 2) Kolom counseling_sessions.format beserta check constraint-nya dihapus.
 -- Terapkan bersamaan dengan deploy backend yang tidak lagi membaca/mengirim format.
+-- Catatan 2026-11-25: semula bernomor 20261123120000, tetapi nomor itu sudah terpakai di produksi
+-- oleh versi sicare_face_to_face_only, sehingga file ini tidak pernah dijalankan. Konselor tidak
+-- dapat menerima permintaan (SESSION_FORMAT_REQUIRED) sampai migrasi ini diterapkan.
 
 begin;
 
