@@ -340,6 +340,28 @@ ${SIGNATURE}`
     );
   },
 
+  "feedback-request": (vars) => {
+    const recipientName = vars.recipient_name || vars.client_name || "Klien";
+    const counselorName = vars.counselor_name || "Konselor";
+    const ref = vars.booking_reference || formatBookingReference(vars.booking_id);
+    const { date } = sessionWhen(vars);
+
+    return (
+`Halo ${recipientName} 👋
+
+⭐ *Bagaimana Sesi Konselingmu?*
+Sesi konseling Anda di SiCARE telah selesai. Terima kasih sudah meluangkan waktu.
+
+🔖 Nomor Booking: ${ref}
+👤 Konselor: ${counselorName}
+📅 Tanggal: ${date}
+
+👉 Mohon isi feedback melalui website SiCARE (menu Riwayat). Masukan Anda membantu kami meningkatkan layanan konseling.
+
+${SIGNATURE}`
+    );
+  },
+
   "consent-invitation": (vars) => {
     const recipientName = vars.recipient_name || "Peserta Konseling";
     const link = vars.invitation_link || "https://sicare.ac.id/consent/invite";

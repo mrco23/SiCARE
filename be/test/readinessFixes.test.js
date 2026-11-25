@@ -478,3 +478,39 @@ test("completing a session saves notes before the completion RPC and only for ow
     setSupabaseAdminClientForTests(null);
   }
 });
+
+test("completed session queues a WhatsApp feedback request to the client", async () => {
+  const { enqueueFeedbackRequest } = await import("../src/services/session.service.js");
+  const { renderWhatsAppTemplate } = await import("../src/templates/whatsapp/index.js");
+  const inserted = [];
+  const fake = {
+    from(table) {
+      const q = {
+        select() { return q; },
+        eq() { return q; },
+        async maybeSingle() {
+          if (table === "profiles") return { data: { full_name: "Andi", phone_e164: "+6281234567890" }, error: null };
+          if (table === "counselor_profiles") return { data: { public_name: "Dr. Rina" }, error: null };
+          return { data: { id: "o-1" }, error: null };
+        },
+        insert(row) { inserted.push([table, row]); return q; },
+      };
+      return q;
+    },
+  };
+  await enqueueFeedbackRequest(fake, {
+    id: "s-1", counselor_id: "c-1", starts_at: "2026-11-25T03:00:00Z", ends_at: "2026-11-25T04:00:00Z",
+    booking: { id: "b-1", client_id: "k-1" },
+  });
+  assert.equal(inserted.length, 1);
+  const [table, row] = inserted[0];
+  assert.equal(table, "whatsapp_outbox");
+  assert.equal(row.message_type, "feedback_request");
+  assert.equal(row.recipient_user_id, "k-1");
+  const text = renderWhatsAppTemplate(row.message_type, row.payload);
+  assert.match(text, /Halo Andi/);
+  assert.match(text, /feedback/);
+  assert.match(text, /Dr\. Rina/);
+  const migration = readFileSync(new URL("../../supabase/migrations/20261125130000_sicare_whatsapp_feedback_request.sql", import.meta.url), "utf8");
+  assert.match(migration, /'feedback_request'/);
+});
