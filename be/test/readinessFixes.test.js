@@ -419,3 +419,62 @@ test("consent readiness endpoint enforces booking ownership", async () => {
   assert.equal(await check("head_lmi", "any"), 200);
   assert.equal(await check("client", "client-1", "missing"), 404);
 });
+
+test("completing a session requires counselor and client notes", async () => {
+  const { sessionStatusSchema } = await import("../src/validators/session.validator.js");
+  assert.equal(sessionStatusSchema.safeParse({ status: "completed" }).success, false);
+  assert.equal(sessionStatusSchema.safeParse({ status: "completed", counselor_note: "A" }).success, false);
+  assert.equal(sessionStatusSchema.safeParse({ status: "completed", counselor_note: "A", client_note: "B" }).success, true);
+  assert.equal(sessionStatusSchema.safeParse({ status: "completed", counselor_note: "A", client_note: "B", follow_up: "C" }).success, true);
+  assert.equal(sessionStatusSchema.safeParse({ status: "ongoing", counselor_note: "A" }).success, false, "catatan hanya saat menyelesaikan");
+  assert.equal(sessionStatusSchema.safeParse({ status: "ongoing" }).success, true);
+});
+
+test("completing a session saves notes before the completion RPC and only for own ongoing sessions", async () => {
+  const { sessionService } = await import("../src/services/session.service.js");
+  const { setSupabaseAdminClientForTests } = await import("../src/config/supabase.js");
+  const calls = [];
+  const makeClient = (session) => ({
+    from(table) {
+      const q = {
+        select() { return q; },
+        eq() { return q; },
+        in() { return q; },
+        async maybeSingle() { return { data: table === "counseling_sessions" ? session : null, error: null }; },
+        async upsert(row) { calls.push(["upsert", table, row]); return { error: null }; },
+        update() { return q; },
+        then(resolve) { resolve({ data: [], error: null }); },
+      };
+      return q;
+    },
+    async rpc(name) { calls.push(["rpc", name]); return { data: null, error: null }; },
+  });
+  const notes = { counselor_note: "Catatan konselor", client_note: "Catatan klien", follow_up: null };
+
+  setSupabaseAdminClientForTests(makeClient({ id: "s-1", counselor_id: "c-1", status: "ongoing" }));
+  try {
+    await sessionService.transitionSession({
+      authUser: { id: "c-1" }, authProfile: { id: "c-1", app_role: "counselor" },
+      sessionId: "s-1", targetStatus: "completed", notes,
+    }).catch(() => {}); // pembacaan detail sesi setelah RPC tidak relevan untuk tes ini
+    const upsertIdx = calls.findIndex((c) => c[0] === "upsert" && c[1] === "session_notes");
+    const rpcIdx = calls.findIndex((c) => c[0] === "rpc" && c[1] === "sicare_transition_session");
+    assert.ok(upsertIdx >= 0 && rpcIdx > upsertIdx, "catatan disimpan sebelum sesi diselesaikan");
+    assert.equal(calls[upsertIdx][2].client_note, "Catatan klien");
+
+    calls.length = 0;
+    setSupabaseAdminClientForTests(makeClient({ id: "s-2", counselor_id: "c-1", status: "scheduled" }));
+    await assert.rejects(
+      sessionService.transitionSession({ authUser: { id: "c-1" }, authProfile: {}, sessionId: "s-2", targetStatus: "completed", notes }),
+      (e) => e.status === 409,
+    );
+    setSupabaseAdminClientForTests(makeClient({ id: "s-3", counselor_id: "other", status: "ongoing" }));
+    await assert.rejects(
+      sessionService.transitionSession({ authUser: { id: "c-1" }, authProfile: {}, sessionId: "s-3", targetStatus: "completed", notes }),
+      (e) => e.status === 404,
+    );
+    assert.equal(calls.some((c) => c[0] === "upsert"), false, "tidak menyimpan catatan untuk sesi yang tidak sah");
+  } finally {
+    setSupabaseAdminClientForTests(null);
+  }
+});

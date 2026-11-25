@@ -31,8 +31,42 @@ export const sessionService = {
     return sessionRepository.findForParty(client, sessionId, authProfile);
   },
 
-  async transitionSession({ authUser, authProfile, sessionId, targetStatus, reason = null }) {
+  async transitionSession({ authUser, authProfile, sessionId, targetStatus, reason = null, notes = null }) {
     const client = getClient();
+
+    if (targetStatus === "completed") {
+      if (!notes?.counselor_note || !notes?.client_note) {
+        throw new HttpError(400, "SESSION_NOTES_REQUIRED", "Catatan konselor dan catatan untuk klien wajib diisi sebelum menyelesaikan sesi.");
+      }
+      // Simpan catatan dulu (hanya untuk sesi berlangsung milik konselor ini). Bila RPC
+      // penyelesaian gagal, catatan tetap tersimpan dan ditimpa saat konselor mencoba lagi.
+      const { data: own, error: ownError } = await client
+        .from("counseling_sessions")
+        .select("id,counselor_id,status")
+        .eq("id", sessionId)
+        .maybeSingle();
+      if (ownError) throw new HttpError(500, "SESSION_READ_FAILED", "Sesi tidak dapat dibaca.");
+      if (!own || own.counselor_id !== authUser.id) {
+        throw new HttpError(404, "SESSION_NOT_FOUND", "Sesi tidak ditemukan.");
+      }
+      if (own.status !== "ongoing") {
+        throw new HttpError(409, "SESSION_TRANSITION_NOT_ALLOWED", "Hanya sesi yang sedang berlangsung yang dapat diselesaikan.");
+      }
+      const { error: notesError } = await client.from("session_notes").upsert(
+        {
+          session_id: sessionId,
+          counselor_id: authUser.id,
+          counselor_note: notes.counselor_note,
+          client_note: notes.client_note,
+          follow_up: notes.follow_up ?? null,
+        },
+        { onConflict: "session_id" },
+      );
+      if (notesError) {
+        throw new HttpError(500, "SESSION_NOTES_SAVE_FAILED", "Catatan sesi tidak dapat disimpan. Sesi belum diselesaikan; coba lagi.");
+      }
+    }
+
     await callDomainRpc(
       client,
       "sicare_transition_session",
@@ -49,7 +83,7 @@ export const sessionService = {
       action: "session.status",
       entityType: "session",
       entityId: sessionId,
-      // Alasan tidak disalin ke audit (bisa memuat informasi sensitif).
+      // Alasan dan isi catatan tidak disalin ke audit (bisa memuat informasi sensitif).
       metadata: { status: targetStatus, role: "counselor" },
     });
 

@@ -126,6 +126,8 @@ export default function KonselorAktivitasPage() {
   } | null>(null);
   const [transitionSubmitting, setTransitionSubmitting] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  // Catatan wajib diisi sebelum menyelesaikan sesi (disimpan bersama penyelesaian sesi).
+  const [completionNotes, setCompletionNotes] = useState({ counselor: "", client: "", followUp: "" });
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [consentModalBookingId, setConsentModalBookingId] = useState<string | null>(null);
   const [consentReadiness, setConsentReadiness] = useState<
@@ -365,11 +367,22 @@ export default function KonselorAktivitasPage() {
         setTransitionError("Tuliskan alasan pembatalan (minimal 3 karakter) agar klien mengetahuinya.");
         return;
       }
+      const counselorNote = completionNotes.counselor.trim();
+      const clientNote = completionNotes.client.trim();
+      const followUp = completionNotes.followUp.trim();
+      if (targetStatus === "completed" && (!counselorNote || !clientNote)) {
+        setTransitionError("Isi catatan konselor dan catatan untuk klien sebelum menyelesaikan sesi.");
+        return;
+      }
       const result = await sicareApi.transitionSession(session.id, {
         status: targetStatus,
         ...(targetStatus === "cancelled" ? { reason } : {}),
+        ...(targetStatus === "completed"
+          ? { counselor_note: counselorNote, client_note: clientNote, ...(followUp ? { follow_up: followUp } : {}) }
+          : {}),
       });
       setCancelReason("");
+      if (targetStatus === "completed") setCompletionNotes({ counselor: "", client: "", followUp: "" });
 
       const booking = bookingMap.get(session.booking_id);
       const clientTitle = formatBookingClientTitle(booking, result.booking?.client_id);
@@ -1055,7 +1068,7 @@ export default function KonselorAktivitasPage() {
             }
           }}
         >
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-lg font-bold text-gray-900">
                 {transitionDialog.targetStatus === "ongoing"
@@ -1083,11 +1096,58 @@ export default function KonselorAktivitasPage() {
                     bookingMap.get(transitionDialog.session.booking_id),
                   )} akan diubah menjadi sedang berlangsung dan klien menerima notifikasi.`
                 : transitionDialog.targetStatus === "completed"
-                  ? "Status sesi dan booking akan ditandai selesai (completed). Klien akan menerima notifikasi bahwa sesi telah selesai dan dapat memberikan ulasan."
+                  ? "Isi catatan sesi terlebih dahulu. Setelah disimpan, sesi ditandai selesai dan klien menerima notifikasi untuk memberikan ulasan."
                   : transitionDialog.session.status === "ongoing"
                     ? "Sesi dan booking terkait akan dihentikan dan slot ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."
                     : "Sesi dan booking terkait akan dibatalkan dan slot ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."}
             </p>
+
+            {transitionDialog.targetStatus === "completed" && (
+              <div className="mt-4 space-y-4">
+                <label className="block text-sm font-semibold text-gray-900">
+                  Catatan konselor <span className="text-red-600">*</span>
+                  <textarea
+                    value={completionNotes.counselor}
+                    onChange={(event) => setCompletionNotes((prev) => ({ ...prev, counselor: event.target.value }))}
+                    maxLength={10000}
+                    rows={4}
+                    disabled={transitionSubmitting}
+                    placeholder="Ringkasan proses dan temuan sesi."
+                    className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm font-normal outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
+                  />
+                  <span className="mt-1 block text-xs font-normal text-gray-500">
+                    Hanya dapat dibaca konselor yang menangani. Tidak tercetak di laporan.
+                  </span>
+                </label>
+                <label className="block text-sm font-semibold text-gray-900">
+                  Catatan untuk klien <span className="text-red-600">*</span>
+                  <textarea
+                    value={completionNotes.client}
+                    onChange={(event) => setCompletionNotes((prev) => ({ ...prev, client: event.target.value }))}
+                    maxLength={10000}
+                    rows={3}
+                    disabled={transitionSubmitting}
+                    placeholder="Saran atau ringkasan yang ditujukan untuk klien."
+                    className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm font-normal outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
+                  />
+                  <span className="mt-1 block text-xs font-normal text-gray-500">
+                    Ditujukan untuk klien dan tercetak di laporan sesi.
+                  </span>
+                </label>
+                <label className="block text-sm font-semibold text-gray-900">
+                  Tindak lanjut <span className="font-normal text-gray-500">(opsional)</span>
+                  <textarea
+                    value={completionNotes.followUp}
+                    onChange={(event) => setCompletionNotes((prev) => ({ ...prev, followUp: event.target.value }))}
+                    maxLength={5000}
+                    rows={2}
+                    disabled={transitionSubmitting}
+                    placeholder="Rencana sesi berikutnya atau rujukan."
+                    className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm font-normal outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
+                  />
+                </label>
+              </div>
+            )}
 
             {transitionDialog.targetStatus === "cancelled" && (
               <label className="mt-4 block text-sm font-semibold text-gray-900">
