@@ -15,13 +15,6 @@ const licenseNumberField = z
   .nullable()
   .optional();
 
-const validUntilField = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
-  .nullable()
-  .optional();
-
 export const accountQuerySchema = z
   .object({
     role: z.enum(roles).optional(),
@@ -52,7 +45,6 @@ export const createAccountSchema = z
     gender: genderField,
     siap_number: licenseNumberField,
     sipp_silp_number: licenseNumberField,
-    sipp_silp_valid_until: validUntilField,
   })
   .strict()
   .superRefine((input, ctx) => {

@@ -7,7 +7,6 @@ import {
   SkeletonTable,
   useToast,
 } from "../../components/shared";
-import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
 import {
@@ -67,7 +66,6 @@ type ManagedAccount = {
   gender: GenderApi | "";
   siapNumber: string;
   sippSilpNumber: string;
-  sippSilpValidUntil: string;
   sippSilpUpdatedAt: string | null;
 };
 
@@ -82,7 +80,6 @@ type FormState = {
   gender: GenderApi | "";
   siapNumber: string;
   sippSilpNumber: string;
-  sippSilpValidUntil: string;
 };
 
 const LICENSE_NUMBER_RE = /^[A-Za-z0-9./_\- ]+$/;
@@ -153,7 +150,6 @@ function mapAccountDto(
     gender: dto.gender ?? "",
     siapNumber: dto.siap_number ?? "",
     sippSilpNumber: dto.sipp_silp_number ?? "",
-    sippSilpValidUntil: dto.sipp_silp_valid_until ?? "",
     sippSilpUpdatedAt: dto.sipp_silp_updated_at ?? null,
   };
 }
@@ -202,18 +198,7 @@ const emptyForm = (currentTab: Tab): FormState => ({
   gender: "",
   siapNumber: "",
   sippSilpNumber: "",
-  sippSilpValidUntil: "",
 });
-
-function LicenseBadge({ validUntil }: { validUntil: string }) {
-  const expiry = getLicenseExpiry(validUntil);
-  if (!expiry || expiry.state === "valid") return null;
-  return (
-    <Badge bordered className={expiry.state === "expired" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-800"}>
-      {expiry.label}
-    </Badge>
-  );
-}
 
 const inputClass =
   "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-accent/30";
@@ -375,7 +360,6 @@ export default function AdminAkunPage() {
         ? {
             siap_number: siapNumber,
             sipp_silp_number: sippSilpNumber,
-            sipp_silp_valid_until: form.sippSilpValidUntil || null,
           }
         : {}),
     };
@@ -605,9 +589,6 @@ export default function AdminAkunPage() {
                           <Badge bordered tone={ROLE_TONE[a.role]}>
                             {a.role}
                           </Badge>
-                          {a.appRole === "counselor" && (
-                            <LicenseBadge validUntil={a.sippSilpValidUntil} />
-                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -837,20 +818,6 @@ export default function AdminAkunPage() {
                       maxLength={80}
                       onChange={(e) =>
                         setForm({ ...form, sippSilpNumber: e.target.value })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-semibold text-slate-600">
-                      SIPP/SILP berlaku sampai (opsional)
-                    </label>
-                    <input
-                      type="date"
-                      value={form.sippSilpValidUntil}
-                      disabled={submitting}
-                      onChange={(e) =>
-                        setForm({ ...form, sippSilpValidUntil: e.target.value })
                       }
                       className={inputClass}
                     />

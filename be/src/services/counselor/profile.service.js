@@ -13,7 +13,7 @@ const supa = () => {
   return getSupabaseAdminClient();
 };
 
-const LICENSE_FIELDS = "siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at";
+const LICENSE_FIELDS = "siap_number,sipp_silp_number,sipp_silp_updated_at";
 
 export const counselorProfileService = {
   async getLicense(counselorId) {
@@ -45,7 +45,7 @@ export const counselorProfileService = {
       action: "counselor.license.update",
       entityType: "profile",
       entityId: counselorId,
-      metadata: { role: "counselor", sipp_silp_valid_until: input.sipp_silp_valid_until },
+      metadata: { role: "counselor" },
     });
 
     return data;

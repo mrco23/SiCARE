@@ -6,7 +6,14 @@ export const profilePatchSchema = z.object({
   public_name: z.string().trim().min(1).max(160).optional(),
   headline: z.string().trim().max(240).nullable().optional(),
   bio: z.string().trim().max(5000).nullable().optional(),
-  specialties: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
+  // Jumlah topik keahlian tidak dibatasi (keputusan pengguna 2026-11-26); panjang per topik tetap dibatasi.
+  specialties: z
+    .array(z.string().trim().min(1).max(100))
+    .refine(
+      (list) => new Set(list.map((topic) => topic.toLowerCase())).size === list.length,
+      { message: "Topik keahlian tidak boleh ganda." },
+    )
+    .optional(),
   years_experience: z.number().int().min(0).max(80).nullable().optional(),
   photo_path: z.string().trim().max(1000).nullable().optional(),
 }).strict();
@@ -14,16 +21,22 @@ export const profilePatchSchema = z.object({
 // SIAP sengaja tidak ada: nomor itu hanya dikelola Admin.
 export const licensePatchSchema = z.object({
   sipp_silp_number: z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9./_\- ]+$/),
-  sipp_silp_valid_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-}).strict().superRefine((value, ctx) => {
-  const date = value.sipp_silp_valid_until;
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Makassar" }).format(new Date());
-  if (Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
-    ctx.addIssue({ code: "custom", message: "Tanggal berlaku tidak valid.", path: ["sipp_silp_valid_until"] });
-  } else if (date < today) {
-    ctx.addIssue({ code: "custom", message: "Tanggal berlaku sudah lewat.", path: ["sipp_silp_valid_until"] });
-  }
-});
+}).strict();
+
+// Riwayat pendidikan konselor (tabel counselor_educations, one-to-many dari counselor_profiles).
+export const MAX_COUNSELOR_EDUCATIONS = 20;
+const educationFields = {
+  institution: z.string().trim().min(1, "Nama perguruan tinggi wajib diisi.").max(160),
+  degree: z.string().trim().min(1, "Gelar wajib diisi.").max(160),
+  graduation_year: z.number().int().min(1950, "Tahun kelulusan tidak valid.").max(2100, "Tahun kelulusan tidak valid."),
+};
+export const educationCreateSchema = z.object(educationFields).strict();
+export const educationPatchSchema = z
+  .object(educationFields)
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, { message: "Minimal satu field pendidikan harus dikirim." });
+export const educationIdSchema = z.object({ id: uuid }).strict();
 
 const noteField = (max) => z.string().trim().max(max).transform((value) => value || null).nullable();
 

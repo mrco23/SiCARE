@@ -82,18 +82,22 @@ test("redactClientIdentity removes client identity but keeps reporting fields", 
   assert.equal(redacted.counseling_sessions.length, 1);
 });
 
-test("counselor license patch cannot touch SIAP and needs a valid future date", () => {
-  const body = { sipp_silp_number: "SIPP-002", sipp_silp_valid_until: "2999-12-31" };
+test("counselor license patch only updates the SIPP/SILP number", () => {
+  const body = { sipp_silp_number: "SIPP-002" };
   assert.equal(licensePatchSchema.safeParse(body).success, true);
   assert.equal(licensePatchSchema.safeParse({ ...body, siap_number: "X" }).success, false);
-  assert.equal(licensePatchSchema.safeParse({ sipp_silp_number: "SIPP-002" }).success, false);
+  // Masa berlaku SIPP/SILP tidak lagi disimpan (sejak 2026-11-25).
+  assert.equal(licensePatchSchema.safeParse({ ...body, sipp_silp_valid_until: "2999-12-31" }).success, false);
+  assert.equal(licensePatchSchema.safeParse({}).success, false);
+});
 
-  const past = licensePatchSchema.safeParse({ ...body, sipp_silp_valid_until: "2000-01-01" });
-  assert.equal(past.success, false);
-  assert.equal(past.error.issues[0].message, "Tanggal berlaku sudah lewat.");
-
-  const invalid = licensePatchSchema.safeParse({ ...body, sipp_silp_valid_until: "2999-13-45" });
-  assert.equal(invalid.success, false);
+test("SIPP/SILP validity column is dropped from profiles", () => {
+  const sql = readFileSync(
+    new URL("../../supabase/migrations/20261125150000_sicare_drop_license_validity.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(sql, /drop column if exists sipp_silp_valid_until/);
+  assert.doesNotMatch(sql, /sipp_silp_number/);
 });
 
 test("license validity migration stays on the private profiles table", () => {

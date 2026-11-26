@@ -1,5 +1,6 @@
+/** Satu baris counselor_educations; `id` kosong untuk draf yang belum disimpan. */
 export type CounselorEducation = {
-  id: number;
+  id: string;
   school: string;
   year: string;
   major: string;
@@ -11,7 +12,6 @@ export type CounselorProfile = {
   headline?: string;
   bio: string;
   experienceStartYear: string;
-  educations: CounselorEducation[];
   topics: string[];
   phone: string;
 };

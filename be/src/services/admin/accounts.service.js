@@ -70,7 +70,7 @@ export const adminAccountsService = {
     let query = supa()
       .from("profiles")
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_updated_at,created_at,updated_at",
       )
       .order("created_at", { ascending: false })
       .limit(filters.limit);
@@ -116,7 +116,7 @@ export const adminAccountsService = {
     const { data, error } = await supa()
       .from("profiles")
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_updated_at,created_at,updated_at",
       )
       .eq("id", id)
       .maybeSingle();
@@ -160,8 +160,6 @@ export const adminAccountsService = {
       gender: input.gender ?? null,
       siap_number: input.app_role === "counselor" ? input.siap_number : null,
       sipp_silp_number: input.app_role === "counselor" ? input.sipp_silp_number : null,
-      sipp_silp_valid_until:
-        input.app_role === "counselor" ? (input.sipp_silp_valid_until ?? null) : null,
     };
 
     const { data, error } = await supa()
@@ -169,7 +167,7 @@ export const adminAccountsService = {
       .update(profilePatch)
       .eq("id", created.user.id)
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_updated_at,created_at,updated_at",
       )
       .single();
 
@@ -287,7 +285,7 @@ export const adminAccountsService = {
       .update(input)
       .eq("id", id)
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_updated_at,created_at,updated_at",
       )
       .maybeSingle();
 
