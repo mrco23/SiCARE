@@ -214,7 +214,9 @@ export default function KonselorPengaturanPage() {
     };
   }, [currentYear]);
 
-  const licenseDirty = license.sippSilp !== savedLicense.sippSilp;
+  const licenseDirty =
+    license.siap !== savedLicense.siap || license.sippSilp !== savedLicense.sippSilp;
+  const licenseIncomplete = !savedLicense.siap.trim() || !savedLicense.sippSilp.trim();
 
   const errors = useMemo<Errors>(
     () => validateCounselorProfile(profile, currentYear),
@@ -425,14 +427,15 @@ export default function KonselorPengaturanPage() {
   }
 
   async function saveLicense() {
+    const siap = license.siap.trim();
     const number = license.sippSilp.trim();
-    if (!number) {
-      setLicenseError("No. SIPP/SILP wajib diisi.");
+    if (!siap || !number) {
+      setLicenseError("No. SIAP dan No. SIPP/SILP wajib diisi.");
       return;
     }
-    if (!/^[A-Za-z0-9./_\- ]+$/.test(number)) {
+    if (![siap, number].every((value) => /^[A-Za-z0-9./_\- ]+$/.test(value))) {
       setLicenseError(
-        "No. SIPP/SILP hanya boleh berisi huruf, angka, spasi, titik, garis miring, dan tanda hubung.",
+        "No. SIAP dan No. SIPP/SILP hanya boleh berisi huruf, angka, spasi, titik, garis miring, garis bawah, dan tanda hubung.",
       );
       return;
     }
@@ -441,6 +444,7 @@ export default function KonselorPengaturanPage() {
     setLicenseError("");
     try {
       const updated = await counselorApi.updateLicense({
+        siap_number: siap,
         sipp_silp_number: number,
       });
       const next = {
@@ -1084,20 +1088,34 @@ export default function KonselorPengaturanPage() {
           </div>
         </Panel>
 
-        {/* Panel Izin Praktik: hanya baca, dikelola Admin */}
+        {/* Panel Izin Praktik: No. SIAP dan No. SIPP/SILP diisi sendiri oleh konselor */}
         <Panel
           icon={<BadgeCheck className="h-5 w-5" />}
           title="Izin Praktik"
-          description="Perbarui No. SIPP/SILP setiap izin diperpanjang. No. SIAP dikelola Admin."
+          description="Isi No. SIAP dan No. SIPP/SILP Anda, lalu perbarui setiap izin diperpanjang."
         >
           <div className="space-y-4">
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <p className="text-xs font-semibold text-gray-500">No. SIAP</p>
-              <p className="mt-1 break-words text-sm font-bold text-gray-900">
-                {license.siap || "Belum diisi Admin"}
+            {!loading && licenseIncomplete && (
+              <p
+                role="status"
+                className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900"
+              >
+                Lengkapi No. SIAP dan No. SIPP/SILP Anda.
               </p>
-            </div>
+            )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="No. SIAP">
+                <input
+                  value={license.siap}
+                  maxLength={80}
+                  disabled={savingLicense}
+                  onChange={(event) => {
+                    setLicense({ ...license, siap: event.target.value });
+                    setLicenseError("");
+                  }}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                />
+              </Field>
               <Field label="No. SIPP/SILP">
                 <input
                   value={license.sippSilp}

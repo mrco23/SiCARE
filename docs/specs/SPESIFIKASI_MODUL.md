@@ -57,7 +57,7 @@ Keputusan hasil klarifikasi:
 * **<Hak / Akses Role>:** Hanya `admin`: `GET/POST /admin/accounts`, `GET/PATCH/DELETE /admin/accounts/:id`, dan `PATCH /admin/counselors/:counselorId/publication`.
 * **<Alur Kerja>:**
   1. Admin membuka halaman manajemen akun. Frontend memanggil `GET /admin/accounts` dengan filter role atau status.
-  2. Saat membuat akun, admin mengisi data dan memilih role `counselor` atau `head_lmi`. Admin hanya mengetik nama email; akhiran `@unikadelasalle.ac.id` dipasang tetap. Kata sandi awal wajib memenuhi aturan kata sandi akun (§1). **NIP wajib diisi** (sejak 2026-11-17; admin hanya membuat akun staf/dosen, sehingga kolomnya berlabel "NIP", bukan "NIM / NIP"). Untuk konselor, nomor lisensi SIPP/SILP wajib diisi.
+  2. Saat membuat akun, admin mengisi data dan memilih role `counselor` atau `head_lmi`. Admin hanya mengetik nama email; akhiran `@unikadelasalle.ac.id` dipasang tetap. Kata sandi awal wajib memenuhi aturan kata sandi akun (§1). **NIP wajib diisi** (sejak 2026-11-17; admin hanya membuat akun staf/dosen, sehingga kolomnya berlabel "NIP", bukan "NIM / NIP"). No. SIAP dan No. SIPP/SILP tidak diisi admin (sejak 2026-11-26); konselor mengisinya sendiri di Pengaturan.
   3. Backend membuat user Supabase beserta profilnya dan mencatat aktivitas admin.
   4. Admin dapat mengubah data atau status akun (`PATCH`), atau menonaktifkannya (`DELETE`). Penonaktifan adalah soft delete: `account_status = disabled`.
   5. Admin dapat menerbitkan atau menyembunyikan profil konselor di daftar konselor publik.
@@ -66,7 +66,7 @@ Keputusan hasil klarifikasi:
   * Akun `client` hanya dibuat lewat registrasi mandiri.
   * Admin hanya dapat membuat atau mengubah role ke `counselor` dan `head_lmi` (`adminManageableRoles`). Akun `admin` tidak dapat dibuat lewat aplikasi; akun admin dibuat langsung di database oleh pengelola sistem.
   * Status akun: `pending`, `active`, atau `disabled`. Hanya akun `active` yang bisa login dan memakai API.
-  * Akun konselor wajib memiliki nomor SIPP/SILP (1–80 karakter).
+  * No. SIAP dan No. SIPP/SILP (1–80 karakter) diisi oleh konselor sendiri setelah akun dibuat.
   * Akun baru yang dibuat admin wajib memakai email `@unikadelasalle.ac.id`. Saat mengubah akun, email ditampilkan penuh dan tidak dapat diubah.
   * Nomor telepon pada form ubah akun memakai awalan tetap `+62` dan disimpan dalam format E.164 Indonesia (§1).
   * Foto profil admin memakai logo resmi SiCARE dan tidak dapat diubah.
@@ -272,13 +272,13 @@ Keputusan hasil klarifikasi:
   * Publik: membaca konselor terpublikasi dan slot tersedia.
 * **<Alur Kerja>:**
   1. Konselor memperbarui nama publik, nomor telepon (WhatsApp), headline, bio, spesialisasi, dan pengalaman.
-  2. Konselor memperbarui nomor SIPP/SILP beserta masa berlakunya.
+  2. Konselor mengisi dan memperbarui No. SIAP dan No. SIPP/SILP (masa berlaku tidak lagi disimpan sejak 2026-11-25).
   3. Konselor membuat slot jadwal (waktu mulai dan selesai, opsional periode akademik), mengubahnya, atau membatalkannya.
   4. Slot `available` milik konselor yang terpublikasi tampil di halaman publik untuk dipesan.
 * **<Aturan & Batasan>:**
   * Nama publik 1–160 karakter, headline maksimal 240, bio maksimal 5000.
   * Spesialisasi maksimal 20 item (masing-masing 1–100 karakter). Pengalaman 0–80 tahun.
-  * Nomor SIPP/SILP 1–80 karakter dengan masa berlaku format `YYYY-MM-DD`.
+  * No. SIAP dan No. SIPP/SILP masing-masing 1–80 karakter, keduanya wajib saat disimpan.
   * Nomor telepon konselor wajib diisi, memakai awalan tetap `+62` (§1), dan tidak ditampilkan ke klien. Nomor ini dipakai untuk notifikasi WhatsApp permintaan booking dan pengingat jadwal (§4).
   * Slot harus di masa depan, waktu selesai harus setelah waktu mulai, tidak boleh tumpang tindih dengan slot lain, dan harus berada dalam periode akademik yang valid.
   * Sejak 2026-11-15 konselor hanya dapat membuat atau mengubah slot pada hari kerja Senin–Jumat (dihitung dalam waktu WITA, `Asia/Makassar`). Sabtu dan Minggu ditandai "Libur" di kalender konselor dan ditolak backend (`slotSchema`). Aturan ini hanya berlaku lewat aplikasi: slot akhir pekan yang dimasukkan langsung ke database oleh pengelola (untuk uji atau pemeliharaan) tetap tampil dan dapat dipesan, dan konselor tetap dapat membatalkannya.

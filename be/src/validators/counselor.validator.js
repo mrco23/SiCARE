@@ -18,9 +18,16 @@ export const profilePatchSchema = z.object({
   photo_path: z.string().trim().max(1000).nullable().optional(),
 }).strict();
 
-// SIAP sengaja tidak ada: nomor itu hanya dikelola Admin.
+// No. SIAP dan No. SIPP/SILP diisi dan diperbarui sendiri oleh konselor (sejak 2026-11-26).
+const licenseNumber = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .regex(/^[A-Za-z0-9./_\- ]+$/, "Hanya boleh berisi huruf, angka, spasi, titik, garis miring, garis bawah, dan tanda hubung.");
 export const licensePatchSchema = z.object({
-  sipp_silp_number: z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9./_\- ]+$/),
+  siap_number: licenseNumber,
+  sipp_silp_number: licenseNumber,
 }).strict();
 
 // Riwayat pendidikan konselor (tabel counselor_educations, one-to-many dari counselor_profiles).

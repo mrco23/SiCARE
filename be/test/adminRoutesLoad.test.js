@@ -293,8 +293,6 @@ test("POST /admin/accounts with app_role: 'counselor' succeeds (201)", async () 
         password: "Sandi#Kuat123",
         full_name: "Konselor Baru",
         gender: "female",
-        siap_number: "SIAP-001",
-        sipp_silp_number: "SIPP-001",
         app_role: "counselor",
       },
     });

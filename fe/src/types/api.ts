@@ -506,7 +506,9 @@ export interface CounselorLicenseDto {
   sipp_silp_updated_at: string | null;
 }
 
+/** Konselor mengisi sendiri No. SIAP dan No. SIPP/SILP. */
 export interface CounselorLicensePatchApi {
+  siap_number: string;
   sipp_silp_number: string;
 }
 

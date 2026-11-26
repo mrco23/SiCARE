@@ -6,14 +6,6 @@ export const roles = ["client", "counselor", "admin", "head_lmi"];
 export const adminManageableRoles = ["counselor", "head_lmi"];
 
 const genderField = z.enum(["male", "female"]).nullable().optional();
-const licenseNumberField = z
-  .string()
-  .trim()
-  .min(1)
-  .max(80)
-  .regex(/^[A-Za-z0-9./_\- ]+$/)
-  .nullable()
-  .optional();
 
 export const accountQuerySchema = z
   .object({
@@ -43,19 +35,12 @@ export const createAccountSchema = z
     app_role: z.enum(adminManageableRoles),
     account_status: z.enum(["pending", "active", "disabled"]).default("active"),
     gender: genderField,
-    siap_number: licenseNumberField,
-    sipp_silp_number: licenseNumberField,
+    // No. SIAP dan No. SIPP/SILP diisi sendiri oleh konselor (PATCH /counselor/license), bukan admin.
   })
   .strict()
   .superRefine((input, ctx) => {
     if (!input.gender) {
       ctx.addIssue({ code: "custom", path: ["gender"], message: "Jenis kelamin wajib diisi." });
-    }
-    if (input.app_role !== "counselor") return;
-    for (const field of ["siap_number", "sipp_silp_number"]) {
-      if (!input[field]) {
-        ctx.addIssue({ code: "custom", path: [field], message: "Wajib diisi untuk akun konselor." });
-      }
     }
   });
 

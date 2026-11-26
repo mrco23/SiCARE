@@ -78,11 +78,7 @@ type FormState = {
   role: Role;
   status: AccountStatusApi;
   gender: GenderApi | "";
-  siapNumber: string;
-  sippSilpNumber: string;
 };
-
-const LICENSE_NUMBER_RE = /^[A-Za-z0-9./_\- ]+$/;
 
 const ROLES: Role[] = ["Konselor", "Kepala LMI"];
 // Akun admin sengaja tidak ditampilkan di halaman ini (tanpa tab maupun baris).
@@ -196,8 +192,6 @@ const emptyForm = (currentTab: Tab): FormState => ({
   role: defaultAccountRoleForCreation(currentTab),
   status: "active",
   gender: "",
-  siapNumber: "",
-  sippSilpNumber: "",
 });
 
 const inputClass =
@@ -313,9 +307,6 @@ export default function AdminAkunPage() {
     const email = form.email.trim();
     const password = form.password;
     const phone = toIndonesianE164(form.phone);
-    const siapNumber = form.siapNumber.trim();
-    const sippSilpNumber = form.sippSilpNumber.trim();
-    const isCounselorForm = form.role === "Konselor";
 
     if (!name || !email) {
       setFormError("Nama lengkap dan email wajib diisi.");
@@ -350,31 +341,8 @@ export default function AdminAkunPage() {
       return;
     }
 
-    if (isCounselorForm && (!siapNumber || !sippSilpNumber)) {
-      setFormError("No. SIAP dan No. SIPP/SILP wajib diisi untuk akun konselor.");
-      return;
-    }
-
-    if (
-      isCounselorForm &&
-      (!LICENSE_NUMBER_RE.test(siapNumber) ||
-        !LICENSE_NUMBER_RE.test(sippSilpNumber))
-    ) {
-      setFormError(
-        "No. SIAP dan No. SIPP/SILP hanya boleh berisi huruf, angka, spasi, titik, garis miring, dan tanda hubung.",
-      );
-      return;
-    }
-
-    const personalData = {
-      gender: form.gender || null,
-      ...(isCounselorForm
-        ? {
-            siap_number: siapNumber,
-            sipp_silp_number: sippSilpNumber,
-          }
-        : {}),
-    };
+    // No. SIAP dan No. SIPP/SILP diisi sendiri oleh konselor di Pengaturan, bukan oleh admin.
+    const personalData = { gender: form.gender || null };
 
     setSubmitting(true);
     setFormError("");
@@ -827,36 +795,9 @@ export default function AdminAkunPage() {
                 </select>
               </div>
               {form.role === "Konselor" && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600">
-                      No. SIAP
-                    </label>
-                    <input
-                      value={form.siapNumber}
-                      disabled={submitting}
-                      maxLength={80}
-                      onChange={(e) =>
-                        setForm({ ...form, siapNumber: e.target.value })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600">
-                      No. SIPP/SILP
-                    </label>
-                    <input
-                      value={form.sippSilpNumber}
-                      disabled={submitting}
-                      maxLength={80}
-                      onChange={(e) =>
-                        setForm({ ...form, sippSilpNumber: e.target.value })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  No. SIAP dan No. SIPP/SILP diisi sendiri oleh konselor melalui menu Pengaturan setelah akun dibuat.
+                </p>
               )}
               {form.role === "Kepala LMI" && form.status === "active" && activeHeadLmi && (
                 <p

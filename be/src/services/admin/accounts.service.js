@@ -206,8 +206,6 @@ export const adminAccountsService = {
       app_role: input.app_role,
       account_status: activatesHeadLmi ? "disabled" : input.account_status,
       gender: input.gender ?? null,
-      siap_number: input.app_role === "counselor" ? input.siap_number : null,
-      sipp_silp_number: input.app_role === "counselor" ? input.sipp_silp_number : null,
     };
 
     const { data, error } = await supa()
@@ -300,21 +298,10 @@ export const adminAccountsService = {
       );
     }
 
-    // Akun konselor lama boleh belum lengkap (mis. saat hanya mengubah status), tetapi
-    // menjadi konselor atau mengubah data ini harus menghasilkan data yang lengkap.
+    // No. SIAP dan No. SIPP/SILP tidak lagi diwajibkan di sini: konselor mengisinya sendiri.
     const finalRole = input.app_role ?? current.app_role;
-    const touchesCounselorData = ["gender", "siap_number", "sipp_silp_number"].some(
-      (field) => input[field] !== undefined,
-    );
-    if (finalRole === "counselor" && (current.app_role !== "counselor" || touchesCounselorData)) {
-      const merged = { ...current, ...input };
-      if (!merged.gender || !merged.siap_number || !merged.sipp_silp_number) {
-        throw new HttpError(
-          400,
-          "COUNSELOR_DATA_REQUIRED",
-          "Jenis kelamin, No. SIAP, dan No. SIPP/SILP wajib diisi untuk akun konselor.",
-        );
-      }
+    if (finalRole === "counselor" && current.app_role !== "counselor" && !(input.gender ?? current.gender)) {
+      throw new HttpError(400, "COUNSELOR_DATA_REQUIRED", "Jenis kelamin wajib diisi untuk akun konselor.");
     }
 
     const losingAdmin =
