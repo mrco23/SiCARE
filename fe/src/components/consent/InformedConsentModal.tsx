@@ -16,8 +16,13 @@ import { SignaturePad } from "./SignaturePad";
 import { consentApi } from "../../lib/consentApi";
 import type { ConsentIdentityDto, InformedConsentDto } from "../../types/api";
 
+/** Consent baru dapat ditandatangani mulai 15 menit sebelum sesi (sama dengan aturan server). */
+const CONSENT_SIGN_LEAD_MINUTES = 15;
+
 interface InformedConsentModalProps {
   bookingId: string;
+  /** Jadwal mulai sesi; dipakai untuk mengunci tanda tangan sampai 15 menit sebelum sesi. */
+  sessionStartsAt?: string | Date | null;
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
@@ -25,6 +30,7 @@ interface InformedConsentModalProps {
 
 export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
   bookingId,
+  sessionStartsAt = null,
   isOpen,
   onClose,
   onSuccess,
@@ -33,6 +39,25 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [consent, setConsent] = useState<InformedConsentDto | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const signOpensAtMs = sessionStartsAt
+    ? new Date(sessionStartsAt).getTime() - CONSENT_SIGN_LEAD_MINUTES * 60 * 1000
+    : null;
+  const signLocked = signOpensAtMs !== null && nowMs < signOpensAtMs;
+  const signOpensLabel = signOpensAtMs
+    ? new Date(signOpensAtMs).toLocaleString("id-ID", {
+        timeZone: "Asia/Makassar",
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
 
   // Identity Form State
   const [identity, setIdentity] = useState<ConsentIdentityDto>({
@@ -480,6 +505,16 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
                 <SignaturePad onSignatureChange={setSignatureDataUrl} height={160} />
               </div>
 
+              {signLocked && (
+                <p
+                  role="status"
+                  className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900"
+                >
+                  Tanda tangan baru dapat dilakukan mulai <strong>{signOpensLabel} WITA</strong> ({CONSENT_SIGN_LEAD_MINUTES} menit
+                  sebelum sesi). Kamu dapat membaca dokumen ini sekarang.
+                </p>
+              )}
+
               {/* Submit Buttons */}
               <div className="pt-2 flex items-center justify-end gap-3">
                 <button
@@ -491,7 +526,8 @@ export const InformedConsentModal: React.FC<InformedConsentModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={!agreementAccepted || !signatureDataUrl || submitting}
+                  disabled={signLocked || !agreementAccepted || !signatureDataUrl || submitting}
+                  title={signLocked ? `Tanda tangan dibuka mulai ${signOpensLabel} WITA.` : undefined}
                   className="px-5 py-2.5 rounded-xl bg-emerald-900 hover:bg-emerald-950 text-white text-sm font-semibold shadow-md transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   <span>Lanjutkan Konfirmasi</span>
