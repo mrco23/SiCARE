@@ -2921,3 +2921,34 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
   - **Belum diuji di browser.**
 - Dokumen `SPESIFIKASI_MODUL.md` dan matriks endpoint diperbarui.
+
+## 2026-11-26 — Hero Beranda Klien lebih ringkas di mobile
+
+- **Permintaan pengguna:** terapkan usulan dari prototype `docs/prototypes/beranda-klien-mobile.html` (frame "Usulan").
+- **`TypingGreeting`:** prop baru `mascot` (default `true`); `false` bila halaman menampilkan maskot sendiri. Beranda Konselor tidak berubah.
+- **`KlienBerandaPage`:**
+  - satu baris dua kolom, sapaan di kiri dan maskot melambai (`AnimatedMascot pose="wave"`) di kanan, 72px di mobile dan 96px mulai `sm`;
+  - di mobile nama turun ke baris kedua; mulai `sm` sapaan satu baris dan maskot tepat di sampingnya;
+  - kalimat kedua deskripsi disembunyikan di mobile (`hidden sm:block`);
+  - tombol "Buat janji konseling" lebar penuh di mobile;
+  - jarak antarbagian `space-y-4` (mobile) / `space-y-6`;
+  - padding kartu jadwal dan kotak kosongnya dirapatkan di mobile.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - Browser lokal (halaman dirender dengan data dan auth tiruan): pada 375px kartu "Jadwal konseling berikutnya" berakhir di 485px, tanpa scroll horizontal; desktop 1280px tampil satu baris dengan maskot di samping sapaan.
+  - Belum dicek dengan login asli.
+
+## 2026-11-26 — Pilihan jam Permintaan Konseling berbentuk kartu
+
+- **Permintaan pengguna:** terapkan prototype `docs/prototypes/pilih-jam-permintaan.html` dengan format jam `13.00`.
+- **`TimePanel` (`components/client/booking/BookingCalendar.tsx`):**
+  - pil jam mulai diganti kartu berisi rentang sesi ("13.00 – 14.00") dan status "Tersedia" atau "✓ Dipilih";
+  - grid 2 kolom di ponsel, 3 kolom mulai `sm`, tinggi minimal 64px;
+  - `role="radiogroup"`/`radio` dengan `aria-checked`;
+  - teks bantuan menyebut durasi 60 menit (WITA).
+- **Data:** `BookingCounselor.availabilityEndByDate` baru (tanggal → jam mulai → jam selesai), diisi dari `ends_at` ketersediaan publik di `KlienPesananPage`. Bila jam selesai tidak ada, kartu menghitung mulai + 60 menit.
+- Tidak ada perubahan backend atau kontrak API.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint`, `npm run build` **PASS**.
+  - Browser lokal (`TimePanel` dirender dengan data tiruan, 375px): lima kartu tampil benar, termasuk jam selesai dari data dan cadangan +60 menit; memilih 13.00 menandainya "Dipilih" (`aria-checked=true`); tanpa scroll horizontal.
+  - Belum dicek dengan login klien asli.

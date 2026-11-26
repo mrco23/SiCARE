@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Pilih Jam – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: "#064E3B", "primary-soft": "#e8f9f0" },
+          fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+        },
+      },
+    };
+  </script>
+  <style>
+    @keyframes pop { 0% { transform: scale(.97); } 60% { transform: scale(1.02); } 100% { transform: scale(1); } }
+    .pop { animation: pop .18s ease-out; }
+    @media (prefers-reduced-motion: reduce) { .pop { animation: none; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-gray-900 antialiased">
+  <header class="mx-auto max-w-5xl px-4 pt-8 sm:px-6">
+    <p class="text-xs font-semibold uppercase tracking-wider text-primary">Prototype · Permintaan Konseling · Langkah 2</p>
+    <h1 class="mt-1 font-display text-2xl font-extrabold">Pilihan jam berbentuk kartu</h1>
+    <p class="mt-2 max-w-3xl text-sm text-gray-600">
+      Setiap jam tampil sebagai kartu berisi rentang sesi (mulai – selesai, 60 menit) dan status.
+      Klik kartu untuk memilih. Ubah lebar jendela untuk melihat tampilan ponsel.
+    </p>
+    <div class="mt-4 flex flex-wrap items-center gap-2 text-sm">
+      <span class="font-semibold text-gray-700">Format jam:</span>
+      <button data-sep="." class="sep-btn rounded-full border border-primary bg-primary px-3 py-1 text-xs font-semibold text-white">13.00 (seperti bagian lain SiCARE)</button>
+      <button data-sep=":" class="sep-btn rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-700">13:00 (seperti gambar)</button>
+      <span class="mx-2 h-4 w-px bg-gray-300"></span>
+      <span class="font-semibold text-gray-700">Lebar:</span>
+      <button data-w="desktop" class="w-btn rounded-full border border-primary bg-primary px-3 py-1 text-xs font-semibold text-white">Desktop</button>
+      <button data-w="mobile" class="w-btn rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-700">Ponsel 375px</button>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <div id="stage" class="mx-auto transition-all">
+      <article class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+        <p class="text-xs font-semibold uppercase tracking-wider text-primary">Konselor dipilih</p>
+        <p class="mt-0.5 font-display text-lg font-bold">Giovana Maria Lumempouw</p>
+        <p class="text-sm text-gray-600">M.Psi., Psikolog</p>
+
+        <div class="mt-5">
+          <p class="text-sm font-semibold">Pilih Tanggal &amp; Jam</p>
+          <p class="mt-1 text-xs text-gray-500">Tanggal berwarna hijau tersedia. Janji dapat dibuat mulai hari ini sampai 30 hari ke depan.</p>
+
+          <div id="grid" class="mt-4 grid gap-5">
+            <!-- Kalender ringkas (tiruan) -->
+            <div class="rounded-2xl border border-gray-200 p-4">
+              <div class="flex items-center justify-between">
+                <span class="rounded-lg px-2 py-1 text-gray-400">‹</span>
+                <p class="text-sm font-semibold">November 2026</p>
+                <span class="rounded-lg px-2 py-1 text-gray-400">›</span>
+              </div>
+              <div class="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-gray-400">
+                <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span>
+              </div>
+              <div id="cal" class="mt-1 grid grid-cols-7 gap-1 text-center text-sm"></div>
+            </div>
+
+            <!-- Panel jam (yang diusulkan) -->
+            <div class="rounded-2xl border border-gray-200 p-4 md:p-5">
+              <p id="dateLabel" class="text-sm font-semibold"></p>
+              <p class="mt-1 text-xs text-gray-500">Pilih salah satu jam yang tersedia. Durasi sesi 60 menit (WITA).</p>
+              <div id="times" role="radiogroup" aria-label="Pilih jam konseling" class="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <div class="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm">
+        <p id="picked" class="text-gray-600">Belum ada jadwal dipilih.</p>
+        <button id="next" disabled class="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40">Lanjut</button>
+      </div>
+
+      <div class="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-700">
+        <h2 class="font-display text-base font-bold text-gray-900">Sebelum dan sesudah</h2>
+        <div class="mt-3 flex flex-wrap items-start gap-8">
+          <div>
+            <p class="text-xs font-semibold text-gray-500">Sekarang (pil jam mulai)</p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span class="rounded-full border border-primary/40 bg-primary-soft px-4 py-1.5 text-xs font-semibold text-primary">09.00</span>
+              <span class="rounded-full border border-primary bg-primary px-4 py-1.5 text-xs font-semibold text-white">13.00</span>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-gray-500">Usulan (kartu rentang + status)</p>
+            <div class="mt-2 flex gap-2.5" id="legend"></div>
+          </div>
+        </div>
+        <ul class="mt-4 list-disc space-y-1 pl-5">
+          <li>Kartu: border hijau muda, latar hijau sangat terang, jam tebal, status "Tersedia" hijau.</li>
+          <li>Dipilih: latar <code>#064E3B</code>, teks putih, status "Dipilih" dengan tanda centang.</li>
+          <li>Grid 2 kolom di ponsel, 3 kolom mulai tablet; target sentuh tinggi ±64px.</li>
+          <li>Jam selesai dihitung dari jam mulai + 60 menit (sesuai durasi sesi); implementasi akan memakai <code>ends_at</code> dari data ketersediaan.</li>
+          <li>Hanya jam yang tersedia yang ditampilkan, sama seperti sekarang.</li>
+        </ul>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const state = { sep: ".", width: "desktop", date: "2026-11-27", time: null };
+    const availability = {
+      "2026-11-26": ["09:00", "13:00"],
+      "2026-11-27": ["08:00", "09:00", "10:30", "13:00", "14:00"],
+      "2026-12-01": ["10:00"],
+      "2026-12-02": ["09:00", "11:00", "13:30"],
+    };
+    const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+    const fmt = (hhmm) => hhmm.replace(":", state.sep);
+    const plus60 = (hhmm) => {
+      const [h, m] = hhmm.split(":").map(Number);
+      const t = h * 60 + m + 60;
+      return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+    };
+    const longDate = (iso) => {
+      const d = new Date(`${iso}T00:00:00`);
+      return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    };
+
+    const check = '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+
+    function timeCard(time, selected, { demo = false } = {}) {
+      const range = `${fmt(time)} – ${fmt(plus60(time))}`;
+      const base = "flex min-h-[64px] w-full flex-col items-center justify-center rounded-2xl border-2 px-2 py-2.5 text-center sm:px-3 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/25";
+      const look = selected
+        ? "border-primary bg-primary text-white shadow-[0_10px_24px_rgba(6,78,59,0.25)]"
+        : "border-emerald-200 bg-emerald-50/60 text-gray-900 hover:border-emerald-400 hover:bg-emerald-50";
+      const status = selected
+        ? `<span class="mt-0.5 inline-flex items-center gap-1 text-[13px] font-medium text-emerald-100">${check} Dipilih</span>`
+        : `<span class="mt-0.5 text-[13px] font-medium text-emerald-700">Tersedia</span>`;
+      const tag = demo ? "div" : "button";
+      return `<${tag} ${demo ? "" : `type="button" role="radio" aria-checked="${selected}" data-time="${time}"`} class="${base} ${look} ${selected && !demo ? "pop" : ""}" ${demo ? 'style="width:170px"' : ""}>
+          <span class="whitespace-nowrap text-[15px] font-bold tabular-nums tracking-tight sm:text-[17px]">${range}</span>
+          ${status}
+        </${tag}>`;
+    }
+
+    function renderCalendar() {
+      const cal = document.getElementById("cal");
+      const first = new Date("2026-11-01T00:00:00");
+      const offset = (first.getDay() + 6) % 7; // Senin = 0
+      let html = "";
+      for (let i = 0; i < offset; i++) html += "<span></span>";
+      for (let d = 1; d <= 30; d++) {
+        const iso = `2026-11-${String(d).padStart(2, "0")}`;
+        const has = availability[iso];
+        const sel = iso === state.date;
+        const cls = sel
+          ? "bg-primary text-white"
+          : has ? "bg-primary-soft font-semibold text-primary hover:ring-2 hover:ring-primary/30" : "text-gray-300";
+        html += `<button ${has ? `data-date="${iso}"` : "disabled"} class="aspect-square rounded-lg text-sm ${cls}">${d}</button>`;
+      }
+      cal.innerHTML = html;
+      cal.querySelectorAll("[data-date]").forEach((b) => b.addEventListener("click", () => {
+        state.date = b.dataset.date; state.time = null; render();
+      }));
+    }
+
+    function renderTimes() {
+      document.getElementById("dateLabel").textContent = longDate(state.date);
+      const times = availability[state.date] ?? [];
+      const wrap = document.getElementById("times");
+      wrap.innerHTML = times.length
+        ? times.map((t) => timeCard(t, t === state.time)).join("")
+        : '<p class="col-span-full text-sm text-gray-500">Tidak ada jam tersedia.</p>';
+      wrap.querySelectorAll("[data-time]").forEach((b) => b.addEventListener("click", () => {
+        state.time = b.dataset.time; render();
+      }));
+      const picked = document.getElementById("picked");
+      const next = document.getElementById("next");
+      if (state.time) {
+        picked.innerHTML = `Dipilih: <strong>${longDate(state.date)}, ${fmt(state.time)} – ${fmt(plus60(state.time))} WITA</strong>`;
+        next.disabled = false;
+      } else {
+        picked.textContent = "Belum ada jadwal dipilih.";
+        next.disabled = true;
+      }
+      document.getElementById("legend").innerHTML = timeCard("13:00", false, { demo: true }) + timeCard("13:00", true, { demo: true });
+    }
+
+    function render() {
+      const stage = document.getElementById("stage");
+      const grid = document.getElementById("grid");
+      if (state.width === "mobile") {
+        stage.style.maxWidth = "375px";
+        grid.className = "mt-4 grid gap-5";
+        document.getElementById("times").className = "mt-3 grid grid-cols-2 gap-2.5";
+      } else {
+        stage.style.maxWidth = "";
+        grid.className = "mt-4 grid gap-5 md:grid-cols-[minmax(0,22rem)_1fr]";
+        document.getElementById("times").className = "mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3";
+      }
+      renderCalendar();
+      renderTimes();
+    }
+
+    function bind(selector, key, attr) {
+      document.querySelectorAll(selector).forEach((btn) => btn.addEventListener("click", () => {
+        state[key] = btn.dataset[attr];
+        document.querySelectorAll(selector).forEach((b) => {
+          const on = b === btn;
+          b.className = `${selector.slice(1)} rounded-full border px-3 py-1 text-xs font-semibold ${on ? "border-primary bg-primary text-white" : "border-gray-300 bg-white text-gray-700"}`;
+        });
+        render();
+      }));
+    }
+    bind(".sep-btn", "sep", "sep");
+    bind(".w-btn", "width", "w");
+    render();
+  </script>
+</body>
+</html>
