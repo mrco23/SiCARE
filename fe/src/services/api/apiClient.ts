@@ -30,6 +30,8 @@ export interface ApiRequestOptions {
   signal?: AbortSignal;
   /** Request timeout in milliseconds. Defaults to 15 seconds. */
   timeoutMs?: number;
+  /** "blob" mengembalikan isi respons sukses apa adanya (mis. berkas PDF). */
+  responseType?: "json" | "blob";
 }
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -148,7 +150,8 @@ export async function apiRequest<T>(
 
   let response: Response;
   let responseBody: unknown;
-  let responseText: string;
+  let responseText = "";
+  let responseBlob: Blob | undefined;
   try {
     response = await fetch(url, {
       method,
@@ -159,7 +162,11 @@ export async function apiRequest<T>(
     });
 
     try {
-      responseText = await response.text();
+      if (options.responseType === "blob" && response.ok) {
+        responseBlob = await response.blob();
+      } else {
+        responseText = await response.text();
+      }
     } catch {
       throw new ApiError(0, "API_RESPONSE_READ_FAILED", "Respons dari server tidak dapat dibaca.");
     }
@@ -195,6 +202,7 @@ export async function apiRequest<T>(
     );
   }
 
+  if (responseBlob) return responseBlob as T;
   if (!responseText.trim()) return undefined as T;
 
   if (responseBody === null && responseText.trim() !== "null") {

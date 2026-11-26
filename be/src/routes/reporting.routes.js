@@ -33,4 +33,18 @@ router.get(
   asyncHandler(reportingController.getReport),
 );
 
+router.post(
+  "/admin/reports/pdf",
+  authenticate,
+  allowRoles("admin"),
+  asyncHandler(reportingController.downloadReportPdf),
+);
+
+router.post(
+  "/head-lmi/reports/pdf",
+  authenticate,
+  allowRoles("head_lmi"),
+  asyncHandler(reportingController.downloadReportPdf),
+);
+
 export default router;
