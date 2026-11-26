@@ -2952,3 +2952,28 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - `fe: tsc -b`, `eslint`, `npm run build` **PASS**.
   - Browser lokal (`TimePanel` dirender dengan data tiruan, 375px): lima kartu tampil benar, termasuk jam selesai dari data dan cadangan +60 menit; memilih 13.00 menandainya "Dipilih" (`aria-checked=true`); tanpa scroll horizontal.
   - Belum dicek dengan login klien asli.
+
+## 2026-11-26 — Jadwal Konselor ramah ponsel
+
+- **Permintaan pengguna:** terapkan prototype `docs/prototypes/jadwal-konselor-mobile.html` (versi terakhir: hanya jadwal yang sudah dibuat, tombol Tambah di atas bar navigasi).
+- **`KonselorJadwalPage`, di bawah `lg`:**
+  - kalender mingguan 680px, kalender bulan, dan daftar slot diganti blok baru:
+    - strip minggu Senin–Minggu menempel di bawah navbar (`sticky top-[72px]`), dengan titik hijau untuk tersedia dan biru untuk diminta; akhir pekan dan tanggal lewat diredupkan; ada panah minggu, tombol "Hari ini", dan ikon kalender bulan;
+    - daftar jadwal hari terpilih: hanya jadwal yang ada, sebagai kartu (hijau/biru/abu) yang membuka modal ubah/detail; "Urungkan Sesi" tetap tersedia untuk sesi yang diminta; ada keterangan saat kosong dan saat akhir pekan;
+    - geser kiri/kanan pada daftar untuk pindah hari kerja;
+  - tombol "Tambah" melayang `fixed bottom-[calc(74px+env(safe-area-inset-bottom))]`, di atas bar navigasi `KonselorLayout`; tidak tampil pada tanggal lewat atau akhir pekan;
+  - kalender bulan sebagai lembar bawah;
+  - modal tambah/ubah dan modal urungkan sesi menjadi lembar bawah di layar kecil (di atas bar navigasi), dan tetap modal tengah mulai `sm`;
+  - tombol "Tambah Jadwal" di header disembunyikan di bawah `lg`.
+- **Desktop (`lg` ke atas):** tidak berubah; kalender mingguan dan panel kanan memakai `hidden lg:grid`.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - Browser lokal (halaman dirender dengan data tiruan, navbar 72px, dan bar bawah tiruan), 375px:
+    - 4 kartu tampil (termasuk 11.30 dan satu yang diminta), tanpa scroll horizontal;
+    - tombol Tambah berhenti di atas bar navigasi;
+    - di hari kerja berikutnya, Tambah membuka lembar bawah yang menutup bar navigasi, dengan jam 08.00 terisi;
+    - kalender bulan memilih tanggal 27 dan menampilkan keterangan kosong;
+    - Sabtu menampilkan keterangan akhir pekan tanpa tombol Tambah;
+    - panah minggu berikutnya pindah ke Senin, 30 November.
+  - 1280px: blok mobile tersembunyi, kalender mingguan tampil.
+  - Belum dicek dengan login konselor asli dan perangkat sentuh nyata (gestur geser).
