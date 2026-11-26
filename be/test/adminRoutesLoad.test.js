@@ -94,6 +94,16 @@ function createMockSupabase() {
   ];
 
   return {
+    profiles,
+    // Pergantian Kepala LMI aktif (sicare_activate_head_lmi): hanya satu yang aktif.
+    rpc: async (name, { p_profile_id }) => {
+      if (name !== "sicare_activate_head_lmi") return { data: null, error: { code: "PGRST202" } };
+      const off = profiles.filter((p) => p.app_role === "head_lmi" && p.account_status === "active" && p.id !== p_profile_id);
+      off.forEach((p) => { p.account_status = "disabled"; });
+      const target = profiles.find((p) => p.id === p_profile_id);
+      if (target) target.account_status = "active";
+      return { data: [{ activated_id: p_profile_id, deactivated_ids: off.map((p) => p.id) }], error: null };
+    },
     auth: {
       getUser: async (token) => {
         if (token === "valid-admin-token") {
@@ -316,6 +326,8 @@ test("POST /admin/accounts with app_role: 'head_lmi' succeeds (201)", async () =
     });
     assert.equal(res.status, 201);
     assert.equal(res.body.data.app_role, "head_lmi");
+    assert.equal(res.body.data.account_status, "active");
+    assert.equal(mockDb.profiles.filter((p) => p.app_role === "head_lmi" && p.account_status === "active").length, 1);
     assert.equal(res.body.data.email, "headlmi.baru@unikadelasalle.ac.id");
   } finally {
     setSupabaseAdminClientForTests(null);
