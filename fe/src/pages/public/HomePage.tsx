@@ -692,7 +692,7 @@ function Counselors({ counselors }: { counselors: PublicCounselor[] }) {
                   </div>
 
                   <Link
-                    to="/profil-konselor"
+                    to={`/profil-konselor?konselor=${encodeURIComponent(counselor.profile_id)}`}
                     className="mt-5 flex w-fit items-center gap-2 rounded-full bg-white py-2 pl-4 pr-1.5 text-xs font-medium text-[#1b1b1b] shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition hover:shadow-lg sm:text-sm"
                   >
                     Kenali Lebih Lanjut

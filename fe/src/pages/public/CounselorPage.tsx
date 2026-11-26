@@ -1,5 +1,5 @@
-import { useEffect, useId, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, CalendarDays, ChevronDown } from "lucide-react";
 import Badge from "../../components/shared/Badge";
 import { Skeleton } from "../../components/shared";
@@ -166,8 +166,26 @@ function ScheduleSection({ counselor, days }: { counselor: PublicCounselor; days
   );
 }
 
-function CounselorCard({ counselor, slots }: { counselor: PublicCounselor; slots: PublicAvailabilitySlot[] }) {
-  const [open, setOpen] = useState(false);
+function CounselorCard({
+  counselor,
+  slots,
+  initiallyOpen = false,
+}: {
+  counselor: PublicCounselor;
+  slots: PublicAvailabilitySlot[];
+  /** Dibuka otomatis bila pengunjung datang dari "Kenali Lebih Lanjut" konselor ini. */
+  initiallyOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const cardRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!initiallyOpen) return;
+    const frame = window.requestAnimationFrame(() =>
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [initiallyOpen]);
   const contentId = useId();
   const days = useMemo(() => groupSlotsByDay(slots), [slots]);
   const topics = counselor.specialties ?? [];
@@ -180,7 +198,8 @@ function CounselorCard({ counselor, slots }: { counselor: PublicCounselor; slots
 
   return (
     <article
-      className={`overflow-hidden rounded-2xl bg-white ring-1 ring-gray-100 transition-shadow duration-300 ${
+      ref={cardRef}
+      className={`scroll-mt-28 overflow-hidden rounded-2xl bg-white ring-1 ring-gray-100 transition-shadow duration-300 ${
         open ? "shadow-[0_18px_40px_rgba(6,78,59,0.12)]" : "shadow-[0_12px_32px_rgba(0,0,0,0.06)]"
       }`}
     >
@@ -295,6 +314,8 @@ function CounselorListSkeleton() {
 }
 
 export default function CounselorPage() {
+  const [searchParams] = useSearchParams();
+  const focusedCounselorId = searchParams.get("konselor");
   const [counselors, setCounselors] = useState<PublicCounselor[]>([]);
   const [slots, setSlots] = useState<PublicAvailabilitySlot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -373,6 +394,7 @@ export default function CounselorPage() {
               key={counselor.profile_id}
               counselor={counselor}
               slots={slotsByCounselor.get(counselor.profile_id) ?? []}
+              initiallyOpen={counselor.profile_id === focusedCounselorId}
             />
           ))}
       </main>
