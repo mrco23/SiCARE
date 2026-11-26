@@ -2839,30 +2839,6 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - **Belum diuji di browser.**
 - **Urutan deploy:** bebas, karena backend punya fallback. Disarankan `npx supabase db push --remote` dulu agar pergantian atomik.
 
-## 2026-11-26 — Hapus publikasi periode akademik (semua periode langsung berlaku)
-
-- **Keputusan pengguna:** website tidak lagi memakai status publikasi/Draft untuk periode akademik. Semua periode akademik langsung berlaku untuk konselor dan klien sesuai rentang tanggalnya.
-- **Database:** migrasi baru `20261126140000_sicare_drop_period_publication.sql`. **Belum diterapkan.**
-  - `alter table academic_periods drop column if exists is_published;`
-  - Memperbarui RPC `sicare_create_booking`, `sicare_create_availability_slot`, dan `sicare_reschedule_booking` untuk menghapus syarat `and ap.is_published = true`.
-- **Backend:**
-  - `createPeriodSchema` dan `patchPeriodSchema` tidak lagi menerima `is_published`;
-  - `adminPeriodsService` tidak lagi membaca atau menyimpan `is_published`;
-  - pencarian periode aktif di `domain.routes.js` tidak lagi memfilter `is_published = true`;
-  - pesan galat `BOOKING_PERIOD_UNAVAILABLE` diperbarui;
-  - tipe database dan tes disesuaikan.
-- **Frontend:**
-  - `AdminPeriodePage`: kolom publikasi, tombol toggle Draft/Dipublikasikan, dan checkbox publikasi di form modal dihapus;
-  - `AcademicPeriodFilter`, `CounselingReportView`, `KonselorRiwayatPage`, dan helper `presentation.ts` tidak lagi membaca atau memfilter `isPublished`;
-  - kontrak tipe DTO diperbarui (`AcademicPeriodDto`).
-- **Dokumentasi:** matriks endpoint diperbarui.
-- **Pemeriksaan:**
-  - `be: npm test` **373/374** (gagal: `heroMotivations.test.js`, baseline);
-  - `be: npm run check` **PASS**;
-  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
-- **Urutan deploy:** `npx supabase db push --remote` lalu deploy backend dan frontend.
-
-
 ## 2026-11-26 — Publikasi periode akademik dihapus
 
 - **Permintaan pengguna:** hapus field Publikasi di Admin Periode. Semua periode akademik langsung berlaku untuk konselor dan klien; tidak ada lagi status Draft.
@@ -2898,3 +2874,50 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Pemeriksaan:**
   - `fe: tsc -b`, `eslint src/pages/public` **PASS**;
   - browser lokal `/profil-konselor`: tidak ada teks "Periode akademik" (backend lokal tidak berjalan, data konselor tidak termuat).
+
+## 2026-11-26 — "Kenali Lebih Lanjut" membuka kartu konselor yang dipilih
+
+- **Permintaan pengguna:** klik "Kenali Lebih Lanjut" pada kartu konselor di beranda membuka halaman Profil Konselor dengan dropdown konselor tersebut langsung terbuka.
+- **`HomePage`:** tautan menjadi `/profil-konselor?konselor=<profile_id>`. Route tidak berubah; ID backend dipakai sebagai identitas.
+- **`CounselorPage`:**
+  - membaca `?konselor=` dengan `useSearchParams`;
+  - `CounselorCard` menerima `initiallyOpen`; kartu yang cocok terbuka dan digulir ke tampilan (`scrollIntoView` halus, `scroll-mt-28` agar tidak tertutup navbar);
+  - tanpa parameter (mis. tombol "Lihat Konselor"), semua kartu tertutup seperti sebelumnya.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src/pages/public` **PASS**.
+  - Browser lokal dengan data konselor tiruan (fetch dibelokkan di halaman karena backend di port 3000 menolak CORS dari port uji 5174): klik "Kenali Lebih Lanjut" Konselor B/C membuka hanya kartu itu, dan halaman menggulir ke kartu tepat di bawah navbar.
+
+## 2026-11-26 — Input jam ketersediaan otomatis memberi titik
+
+- **Permintaan pengguna:** keyboard angka di ponsel sering tidak punya tanda titik, jadi input "Jam Mulai (WITA)" di modal tambah/ubah ketersediaan (`KonselorJadwalPage`) menambahkan titik otomatis setelah dua digit jam.
+- `formatTimeInput` baru di `features/counselor/schedule/scheduleUtils.ts`:
+  - "0930" menjadi "09.30" dan "13" menjadi "13.";
+  - karakter selain angka dibuang, maksimal 4 digit;
+  - bila pengguna mengetik titik atau titik dua sendiri ("9.30", "9:30"), susunannya dipertahankan;
+  - saat menghapus, titik di ujung tidak ditambahkan lagi sehingga backspace berjalan normal.
+  - Validasi `parseTime` dan rentang 08.00–15.00 tidak berubah.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint` **PASS**;
+  - simulasi urutan ketikan (angka, titik manual, titik dua, backspace, huruf, digit kelima) lewat Node: semua sesuai.
+  - Modal belum dicoba di browser karena butuh login konselor.
+
+## 2026-11-26 — SIAP dan SIPP/SILP diisi sendiri oleh konselor
+
+- **Permintaan pengguna:** admin tidak lagi mengisi No. SIAP dan No. SIPP/SILP saat membuat akun konselor; konselor mengisinya sendiri.
+- **Backend:**
+  - `createAccountSchema` tidak menerima `siap_number`/`sipp_silp_number` (strict); akun konselor cukup wajib jenis kelamin.
+  - `accounts.service.js` tidak menulis kedua kolom saat membuat akun, dan syarat "SIAP/SIPP wajib" di `updateAccount` dihapus (tinggal jenis kelamin).
+  - `licensePatchSchema` (`PATCH /counselor/license`) kini wajib `{ siap_number, sipp_silp_number }`, karena SIAP tidak lagi dikelola admin.
+- **Frontend:**
+  - `AdminAkunPage`: input No. SIAP/SIPP/SILP dan validasinya dihapus, diganti keterangan bahwa konselor mengisinya di Pengaturan.
+  - `KonselorPengaturanPage` panel Izin Praktik: No. SIAP kini bisa diisi, disimpan bersama No. SIPP/SILP, dengan pengingat "Lengkapi No. SIAP dan No. SIPP/SILP Anda." bila salah satu kosong.
+- **Dampak:**
+  - konselor baru belum punya nomor sampai mengisinya; laporan sesi menampilkan "-" untuk No. SIPP yang kosong (perilaku yang sudah ada).
+  - Tidak ada migrasi.
+- **Tes:** `counselorLicense.test.js` dan `adminRoutesLoad.test.js` disesuaikan.
+- **Pemeriksaan:**
+  - `be: npm test` **374/375** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - **Belum diuji di browser.**
+- Dokumen `SPESIFIKASI_MODUL.md` dan matriks endpoint diperbarui.
