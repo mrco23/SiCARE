@@ -39,6 +39,7 @@ import {
   pad,
   parseKey,
   parseTime,
+  formatTimeInput,
   PX,
   SESSION,
   SNAP,
@@ -1205,7 +1206,7 @@ export default function KonselorJadwalPage() {
                   disabled={editor.isBooked || isPast(editor.dateKey) || isWeekendKey(editor.dateKey) || mutating}
                   value={editorText}
                   onChange={(e) => {
-                    setEditorText(e.target.value);
+                    setEditorText(formatTimeInput(e.target.value, editorText));
                     setEditorError(null);
                   }}
                   placeholder="Contoh: 09.00 atau 13.30"
