@@ -549,7 +549,6 @@ export default function KonselorRiwayatPage() {
             mapAcademicPeriodDto({
               ...item,
               semester: item.semester as AcademicSemesterApi,
-              is_published: true,
               created_at: "",
               updated_at: "",
             }),

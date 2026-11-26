@@ -424,6 +424,8 @@ export interface AccountBookingCleanupDto {
   cancelled_bookings?: number;
   ongoing_bookings_kept?: number;
   booking_cleanup_failed?: boolean;
+  /** Jumlah Kepala LMI yang dinonaktifkan karena Kepala LMI lain diaktifkan (hanya satu yang aktif). */
+  deactivated_head_lmi?: number;
 }
 
 export type UpdatedAdminAccountDto = AdminAccountRecordDto & AccountBookingCleanupDto;
@@ -521,7 +523,6 @@ export interface AcademicPeriodRecordDto {
   semester: AcademicSemesterApi;
   starts_on: string;
   ends_on: string;
-  is_published: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -531,7 +532,6 @@ export interface CreateAcademicPeriodApi {
   semester: AcademicSemesterApi;
   starts_on: string;
   ends_on: string;
-  is_published?: boolean;
 }
 
 export type UpdateAcademicPeriodApi = Partial<CreateAcademicPeriodApi>;

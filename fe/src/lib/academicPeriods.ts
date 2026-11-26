@@ -11,7 +11,7 @@ export type { AcademicPeriod, PeriodStatus, Semester } from "../types/academicPe
 
 export function mapAcademicPeriodDto(
   dto: AcademicPeriodRecordDto,
-): AcademicPeriod & { isPublished: boolean } {
+): AcademicPeriod {
   return {
     id: dto.id,
     ta: dto.academic_year,
@@ -19,7 +19,6 @@ export function mapAcademicPeriodDto(
     label: `${dto.academic_year} ${dto.semester}`,
     start: dto.starts_on,
     end: dto.ends_on,
-    isPublished: dto.is_published,
   };
 }
 

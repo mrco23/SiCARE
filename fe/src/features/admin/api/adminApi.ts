@@ -33,8 +33,10 @@ export const adminApi = {
     })}`, { auth: true });
   },
 
-  createAccount(input: CreateAdminAccountApi): Promise<AdminAccountDto> {
-    return apiRequest<AdminAccountDto>("/admin/accounts", { method: "POST", auth: true, body: input });
+  createAccount(
+    input: CreateAdminAccountApi,
+  ): Promise<AdminAccountDto & { deactivated_head_lmi?: number }> {
+    return apiRequest<AdminAccountDto & { deactivated_head_lmi?: number }>("/admin/accounts", { method: "POST", auth: true, body: input });
   },
 
   updateAccount(accountId: string, input: UpdateAdminAccountApi): Promise<UpdatedAdminAccountDto> {

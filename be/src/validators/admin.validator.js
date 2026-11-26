@@ -85,9 +85,7 @@ export const createPeriodSchema = z
       .string()
       .trim()
       .regex(/^\d{4}-\d{2}-\d{2}$/),
-    // Tabel academic_periods tidak punya kolom is_active; dulu nilai bawaannya ikut di-insert
-    // sehingga pembuatan periode selalu gagal (500). Status hanya diwakili is_published.
-    is_published: z.boolean().default(false),
+    // Periode tidak punya status (is_active/is_published dihapus): setiap periode langsung berlaku.
   })
   .strict()
   .superRefine((v, c) => {
@@ -117,7 +115,6 @@ export const patchPeriodSchema = z
       .trim()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
-    is_published: z.boolean().optional(),
   })
   .strict()
   .refine(
@@ -125,8 +122,7 @@ export const patchPeriodSchema = z
       input.academic_year !== undefined ||
       input.semester !== undefined ||
       input.starts_on !== undefined ||
-      input.ends_on !== undefined ||
-      input.is_published !== undefined,
+      input.ends_on !== undefined,
     { message: "Setidaknya satu field harus diisi." },
   );
 

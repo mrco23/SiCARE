@@ -20,7 +20,6 @@ export type Database = {
           created_at: string
           ends_on: string
           id: string
-          is_published: boolean
           semester: string
           starts_on: string
           updated_at: string
@@ -30,7 +29,6 @@ export type Database = {
           created_at?: string
           ends_on: string
           id?: string
-          is_published?: boolean
           semester: string
           starts_on: string
           updated_at?: string
@@ -40,7 +38,6 @@ export type Database = {
           created_at?: string
           ends_on?: string
           id?: string
-          is_published?: boolean
           semester?: string
           starts_on?: string
           updated_at?: string

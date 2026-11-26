@@ -4,7 +4,7 @@ export const DOMAIN_ERRORS = {
   BOOKING_CLIENT_NOT_ALLOWED: [403, "BOOKING_FORBIDDEN", "Akun ini tidak dapat membuat booking."],
   BOOKING_COUNSELOR_UNAVAILABLE: [404, "COUNSELOR_UNAVAILABLE", "Konselor tidak tersedia untuk permintaan publik."],
   BOOKING_SLOT_UNAVAILABLE: [409, "SLOT_UNAVAILABLE", "Ketersediaan jadwal sudah tidak tersedia atau sudah lewat."],
-  BOOKING_PERIOD_UNAVAILABLE: [409, "PERIOD_UNAVAILABLE", "Periode akademik untuk ketersediaan ini tidak aktif atau belum dipublikasikan."],
+  BOOKING_PERIOD_UNAVAILABLE: [409, "PERIOD_UNAVAILABLE", "Jadwal ketersediaan ini berada di luar periode akademiknya."],
   BOOKING_PARTICIPANTS_INVALID: [400, "INVALID_PARTICIPANTS", "Data peserta kelompok tidak valid."],
   BOOKING_GROUP_FIELDS_INVALID: [400, "INVALID_GROUP_BOOKING", "Data layanan kelompok tidak konsisten."],
   BOOKING_SERVICE_TYPE_INVALID: [400, "INVALID_SERVICE_TYPE", "Jenis layanan tidak valid."],

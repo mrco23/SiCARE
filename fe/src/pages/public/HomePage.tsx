@@ -16,12 +16,10 @@ import type { ElementType } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AnimatedMascot from "../../components/mood/AnimatedMascot";
 import {
-  getPublicAcademicPeriods,
   getPublicCounselors,
   getPublicFeedback,
   getPublicHeroMotivations,
   getPublicHomepageLogo,
-  type PublicAcademicPeriod,
   type PublicCounselor,
   type PublicFeedback,
   getPublicPhotoUrl,
@@ -599,13 +597,7 @@ function PublicCounselorPhoto({
   );
 }
 
-function Counselors({
-  counselors,
-  periods,
-}: {
-  counselors: PublicCounselor[];
-  periods: PublicAcademicPeriod[];
-}) {
+function Counselors({ counselors }: { counselors: PublicCounselor[] }) {
   return (
     <section className="bg-[#f5fdf9] py-12 md:py-16">
       <div className="mx-auto w-[90%] md:w-[84%] lg:w-[76%] xl:w-[80%]">
@@ -619,14 +611,6 @@ function Counselors({
           </p>
         </div>
 
-        {periods.length > 0 && (
-          <p className="mt-4 text-center text-xs text-gray-600 sm:text-sm">
-            Periode akademik:{" "}
-            {periods
-              .map((period) => `${period.academic_year} · ${period.semester}`)
-              .join(", ")}
-          </p>
-        )}
         {counselors.length === 0 ? (
           <p className="mt-8 text-center text-sm text-gray-500">
             Belum ada profil konselor yang dipublikasikan.
@@ -764,9 +748,6 @@ export default function HomePage() {
   const [publicCounselors, setPublicCounselors] = useState<PublicCounselor[]>(
     [],
   );
-  const [publicPeriods, setPublicPeriods] = useState<PublicAcademicPeriod[]>(
-    [],
-  );
   const [publicFeedback, setPublicFeedback] = useState<PublicFeedback[]>([]);
 
   useEffect(() => {
@@ -777,13 +758,6 @@ export default function HomePage() {
       })
       .catch(() => {
         if (active) setPublicCounselors([]);
-      });
-    void getPublicAcademicPeriods()
-      .then((items) => {
-        if (active) setPublicPeriods(items);
-      })
-      .catch(() => {
-        if (active) setPublicPeriods([]);
       });
     void getPublicFeedback(10)
       .then((items) => {
@@ -997,7 +971,7 @@ export default function HomePage() {
           </div>
         </section>
         <Panduan />
-        <Counselors counselors={publicCounselors} periods={publicPeriods} />
+        <Counselors counselors={publicCounselors} />
       </div>
       <Testimonials testimonials={publicFeedback} />
     </>

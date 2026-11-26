@@ -2808,3 +2808,93 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Backend:** `profilePatchSchema.specialties` tanpa `.max(20)`; panjang per topik tetap 1–100 karakter, dan topik ganda (tanpa membedakan huruf besar/kecil) ditolak. Database tidak berubah (`text[]` tanpa batas).
 - **Tes:** tes baru di `be/test/counselorEducation.test.js` (50 topik diterima, ganda ditolak, lebih dari 100 karakter ditolak).
 - **Pemeriksaan:** `be: npm test` **369/370** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `eslint src` **PASS**.
+
+## 2026-11-26 — Hanya satu Kepala LMI aktif
+
+- **Aturan (permintaan pengguna):** admin hanya dapat memiliki satu akun Kepala LMI aktif.
+  - Membuat akun Kepala LMI baru (status Aktif) membuat akun baru aktif dan Kepala LMI yang sedang aktif otomatis dinonaktifkan.
+  - Mengaktifkan Kepala LMI yang nonaktif juga menonaktifkan Kepala LMI yang sedang aktif.
+  - Menonaktifkan Kepala LMI tetap boleh tanpa pengganti.
+- **Database:** migrasi baru `20261126130000_sicare_single_active_head_lmi.sql`. **Belum diterapkan.**
+  - RPC `sicare_activate_head_lmi(p_profile_id)`: atomik dengan advisory lock, hanya untuk akun ber-role `head_lmi`, hanya `service_role`.
+  - Indeks unik parsial `profiles_single_active_head_lmi` sebagai pengaman terakhir.
+  - Dicek baca-saja di remote 2026-11-26: tepat satu Kepala LMI aktif, jadi indeks dapat dibuat.
+- **Backend:**
+  - `activateHeadLmi` di `accounts.service.js` dipakai `createAccount` dan `updateAccount`.
+  - Akun Kepala LMI baru disimpan nonaktif dulu, lalu diaktifkan lewat RPC; bila gagal, akun auth dihapus.
+  - Bila RPC belum ada (migrasi belum diterapkan), langkah yang sama dijalankan berurutan.
+  - Akun yang dinonaktifkan otomatis dicatat audit `admin.account.update`.
+  - Respons membawa `deactivated_head_lmi`.
+- **Frontend (`AdminAkunPage`):**
+  - form Tambah Akun memperingatkan nama Kepala LMI aktif yang akan dinonaktifkan;
+  - mengaktifkan Kepala LMI nonaktif membuka dialog "Ganti Kepala LMI aktif?";
+  - daftar dan toast diperbarui sesuai hasil server.
+- **Tes:**
+  - baru `be/test/singleHeadLmi.test.js` (pergantian lewat RPC dan fallback, tolak role lain, isi migrasi);
+  - `adminRoutesLoad.test.js`: mock Supabase mendapat `rpc` dan memeriksa hanya satu Kepala LMI aktif.
+- **Pemeriksaan:**
+  - `be: npm test` **373/374** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - **Belum diuji di browser.**
+- **Urutan deploy:** bebas, karena backend punya fallback. Disarankan `npx supabase db push --remote` dulu agar pergantian atomik.
+
+## 2026-11-26 — Hapus publikasi periode akademik (semua periode langsung berlaku)
+
+- **Keputusan pengguna:** website tidak lagi memakai status publikasi/Draft untuk periode akademik. Semua periode akademik langsung berlaku untuk konselor dan klien sesuai rentang tanggalnya.
+- **Database:** migrasi baru `20261126140000_sicare_drop_period_publication.sql`. **Belum diterapkan.**
+  - `alter table academic_periods drop column if exists is_published;`
+  - Memperbarui RPC `sicare_create_booking`, `sicare_create_availability_slot`, dan `sicare_reschedule_booking` untuk menghapus syarat `and ap.is_published = true`.
+- **Backend:**
+  - `createPeriodSchema` dan `patchPeriodSchema` tidak lagi menerima `is_published`;
+  - `adminPeriodsService` tidak lagi membaca atau menyimpan `is_published`;
+  - pencarian periode aktif di `domain.routes.js` tidak lagi memfilter `is_published = true`;
+  - pesan galat `BOOKING_PERIOD_UNAVAILABLE` diperbarui;
+  - tipe database dan tes disesuaikan.
+- **Frontend:**
+  - `AdminPeriodePage`: kolom publikasi, tombol toggle Draft/Dipublikasikan, dan checkbox publikasi di form modal dihapus;
+  - `AcademicPeriodFilter`, `CounselingReportView`, `KonselorRiwayatPage`, dan helper `presentation.ts` tidak lagi membaca atau memfilter `isPublished`;
+  - kontrak tipe DTO diperbarui (`AcademicPeriodDto`).
+- **Dokumentasi:** matriks endpoint diperbarui.
+- **Pemeriksaan:**
+  - `be: npm test` **373/374** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+- **Urutan deploy:** `npx supabase db push --remote` lalu deploy backend dan frontend.
+
+
+## 2026-11-26 — Publikasi periode akademik dihapus
+
+- **Permintaan pengguna:** hapus field Publikasi di Admin Periode. Semua periode akademik langsung berlaku untuk konselor dan klien; tidak ada lagi status Draft.
+- **Database:** migrasi baru `20261126140000_sicare_drop_period_publication.sql`. **Belum diterapkan.**
+  - `sicare_create_booking`, `sicare_reschedule_booking`, dan `sicare_public_availability` didefinisikan ulang dari definisi yang berlaku di remote (`pg_get_functiondef`, dibaca 2026-11-26). Satu-satunya perubahan: baris `and ap.is_published = true` dihapus. Aturan "jadwal harus berada di dalam periodenya" (`BOOKING_PERIOD_UNAVAILABLE`) tetap ada.
+  - Policy `academic_periods_select_published` diganti `academic_periods_select_all` (anon/authenticated, `using (true)`).
+  - Kolom `academic_periods.is_published` dihapus.
+  - Dicek baca-saja: kedua periode di remote sudah terpublikasi, jadi tidak ada periode Draft yang tiba-tiba aktif.
+- **Backend:**
+  - schema periode tidak menerima `is_published`;
+  - `periods.service.js` tidak membacanya, dan metadata audit periode hanya `role`;
+  - `GET /public/periods` mengembalikan semua periode;
+  - pesan `PERIOD_UNAVAILABLE` menjadi "Jadwal ketersediaan ini berada di luar periode akademiknya.".
+- **Frontend:**
+  - `AdminPeriodePage` tanpa kolom Publikasi, tombol toggle, dan checkbox "Publikasikan periode ini";
+  - `is_published`/`isPublished` dihapus dari tipe, mapper, `AcademicPeriodFilter`, dan `KonselorRiwayatPage`.
+- **Tes:**
+  - `readinessFixes.test.js`: schema menolak `is_published`, plus isi migrasi baru;
+  - `ownershipGuards.test.js` kini memeriksa definisi `sicare_reschedule_booking` terbaru di migrasi baru.
+- **Pemeriksaan:**
+  - `be: npm test` **374/375** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - Migrasi belum dijalankan di database mana pun, jadi sintaks SQL belum diuji di Postgres.
+- **Urutan deploy:** deploy backend dan frontend dulu, lalu segera `npx supabase db push --remote`. Backend lama membaca `is_published` dan akan gagal setelah kolom dihapus. Periode yang dibuat lewat backend baru sebelum migrasi masih tersimpan sebagai Draft sampai migrasi berjalan.
+
+## 2026-11-26 — Periode akademik tidak ditampilkan di halaman publik
+
+- **Permintaan pengguna:** halaman publik tidak menampilkan periode akademik.
+- `HomePage` (bagian "Ayo Bertemu dengan Konselor Anda!") dan `CounselorPage` (`/profil-konselor`) tidak lagi memanggil `getPublicAcademicPeriods` dan tidak menampilkan baris "Periode akademik: …".
+- Endpoint `GET /public/periods` tetap ada karena dipakai halaman klien, konselor, dan Kepala LMI untuk filter periode.
+- Kalimat langkah booking di beranda ("…jadwal yang telah dibuka konselor pada periode akademik aktif.") tidak diubah karena bukan daftar periode.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src/pages/public` **PASS**;
+  - browser lokal `/profil-konselor`: tidak ada teks "Periode akademik" (backend lokal tidak berjalan, data konselor tidak termuat).

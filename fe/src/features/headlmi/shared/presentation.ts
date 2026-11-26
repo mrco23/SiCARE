@@ -5,7 +5,7 @@ import type {
   PublicAcademicPeriodDto,
 } from "../../../types/api";
 
-/** Kepala LMI membaca periode dari direktori publik (hanya yang dipublikasikan). */
+/** Kepala LMI membaca periode dari direktori publik (semua periode akademik). */
 export function mapPublicAcademicPeriod(dto: PublicAcademicPeriodDto): AcademicPeriod {
   return {
     id: dto.id,

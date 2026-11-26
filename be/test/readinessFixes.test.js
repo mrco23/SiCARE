@@ -353,7 +353,7 @@ test("session format is no longer stored or sent (face-to-face only service)", (
   assert.match(migration, /drop function if exists public\.sicare_transition_booking\(uuid, uuid, text, text, text, text\);/);
 });
 
-test("academic period schemas only use columns that exist (no is_active)", async () => {
+test("academic period schemas only use columns that exist (no is_active, no is_published)", async () => {
   const { createPeriodSchema, patchPeriodSchema } = await import("../src/validators/admin.validator.js");
   const created = createPeriodSchema.parse({
     academic_year: "2026/2027",
@@ -361,10 +361,11 @@ test("academic period schemas only use columns that exist (no is_active)", async
     starts_on: "2027-02-01",
     ends_on: "2027-07-31",
   });
-  assert.deepEqual(Object.keys(created).sort(), ["academic_year", "ends_on", "is_published", "semester", "starts_on"]);
+  assert.deepEqual(Object.keys(created).sort(), ["academic_year", "ends_on", "semester", "starts_on"]);
   assert.equal(createPeriodSchema.safeParse({ ...created, is_active: true }).success, false);
   assert.equal(patchPeriodSchema.safeParse({ is_active: true }).success, false);
-  assert.equal(patchPeriodSchema.safeParse({ is_published: true }).success, true);
+  assert.equal(createPeriodSchema.safeParse({ ...created, is_published: true }).success, false);
+  assert.equal(patchPeriodSchema.safeParse({ is_published: true }).success, false);
 });
 
 test("consent readiness endpoint returns the snake_case contract the counselor page reads", async () => {
@@ -513,4 +514,20 @@ test("completed session queues a WhatsApp feedback request to the client", async
   assert.match(text, /Dr\. Rina/);
   const migration = readFileSync(new URL("../../supabase/migrations/20261125130000_sicare_whatsapp_feedback_request.sql", import.meta.url), "utf8");
   assert.match(migration, /'feedback_request'/);
+});
+
+test("period publication migration removes is_published everywhere it was enforced", () => {
+  const sql = readFileSync(
+    new URL("../../supabase/migrations/20261126140000_sicare_drop_period_publication.sql", import.meta.url),
+    "utf8",
+  );
+  for (const fn of ["sicare_create_booking", "sicare_reschedule_booking", "sicare_public_availability"]) {
+    assert.match(sql, new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}\\(`));
+  }
+  const code = sql.split("\n").filter((line) => !line.trim().startsWith("--")).join("\n");
+  assert.doesNotMatch(code, /ap\.is_published/);
+  assert.match(sql, /drop policy if exists academic_periods_select_published/);
+  assert.match(sql, /alter table public\.academic_periods drop column if exists is_published/);
+  // Aturan lain tetap: jadwal harus berada di dalam periodenya.
+  assert.match(sql, /BOOKING_PERIOD_UNAVAILABLE/);
 });

@@ -26,8 +26,6 @@ import {
 import {
   Calendar,
   CalendarX2,
-  Eye,
-  EyeOff,
   Loader2,
   Plus,
   RefreshCw,
@@ -38,13 +36,12 @@ import {
 } from "lucide-react";
 
 /* ========================= TIPE & DATA ========================= */
-type ManagedPeriod = AcademicPeriod & { isPublished: boolean };
+type ManagedPeriod = AcademicPeriod;
 type PeriodDraft = {
   ta: string;
   sem: Semester;
   start: string;
   end: string;
-  isPublished: boolean;
 };
 
 /* ========================= HELPER TANGGAL ========================= */
@@ -105,7 +102,6 @@ function suggestNext(
     ta,
     sem,
     label: `${ta} ${sem}`,
-    isPublished: true,
     ...defaultsFor(ta, sem),
   };
 }
@@ -128,13 +124,11 @@ export default function AdminPeriodePage() {
     sem: "Ganjil",
     start: "",
     end: "",
-    isPublished: true,
   });
   const [datesTouched, setDatesTouched] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const [togglingPublishId, setTogglingPublishId] = useState<string | null>(null);
 
   const toast = useToast();
 
@@ -244,7 +238,6 @@ export default function AdminPeriodePage() {
       sem: src.sem,
       start: src.start,
       end: src.end,
-      isPublished: "isPublished" in src ? src.isPublished : true,
     });
     setDatesTouched(!!p);
     setError("");
@@ -293,7 +286,6 @@ export default function AdminPeriodePage() {
         semester: draft.sem,
         starts_on: draft.start,
         ends_on: draft.end,
-        is_published: draft.isPublished,
       };
       if (editingId) {
         const updated = await adminApi.updateAcademicPeriod(editingId, payload);
@@ -314,30 +306,6 @@ export default function AdminPeriodePage() {
       );
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleTogglePublished = async (period: ManagedPeriod) => {
-    setTogglingPublishId(period.id);
-    try {
-      const updated = await adminApi.updateAcademicPeriod(period.id, {
-        is_published: !period.isPublished,
-      });
-      const mapped = mapAcademicPeriodDto(updated);
-      setPeriods((prev) => prev.map((p) => (p.id === period.id ? mapped : p)));
-      toast.success(
-        mapped.isPublished
-          ? `Periode ${mapped.label} dipublikasikan.`
-          : `Periode ${mapped.label} disembunyikan dari publikasi.`,
-      );
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Status publikasi periode tidak dapat diubah.",
-      );
-    } finally {
-      setTogglingPublishId(null);
     }
   };
 
@@ -486,14 +454,12 @@ export default function AdminPeriodePage() {
                   <th className="px-6 py-3">Mulai</th>
                   <th className="px-6 py-3">Selesai</th>
                   <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Publikasi</th>
                   <th className="px-6 py-3 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rows.map((p) => {
                   const st = periodStatus(p, today);
-                  const isToggling = togglingPublishId === p.id;
                   return (
                     <tr
                       key={p.id}
@@ -513,33 +479,6 @@ export default function AdminPeriodePage() {
                         <Badge bordered className={STATUS_STYLE[st]}>
                           {st}
                         </Badge>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          type="button"
-                          disabled={isToggling}
-                          onClick={() => void handleTogglePublished(p)}
-                          title={
-                            p.isPublished
-                              ? "Dipublikasikan — klik untuk menyembunyikan"
-                              : "Disembunyikan — klik untuk mempublikasikan"
-                          }
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
-                            p.isPublished
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                              : "border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200"
-                          } disabled:opacity-50`}
-                        >
-                          {p.isPublished ? (
-                            <>
-                              <Eye className="h-3 w-3" /> Dipublikasikan
-                            </>
-                          ) : (
-                            <>
-                              <EyeOff className="h-3 w-3" /> Draft
-                            </>
-                          )}
-                        </button>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center">
@@ -657,19 +596,6 @@ export default function AdminPeriodePage() {
                   />
                 </div>
               </div>
-
-              <label className="flex items-center gap-2.5 pt-1 text-xs font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={draft.isPublished}
-                  disabled={submitting}
-                  onChange={(e) =>
-                    setDraft({ ...draft, isPublished: e.target.checked })
-                  }
-                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                />
-                Publikasikan periode ini untuk konselor dan klien
-              </label>
 
               <p className="text-[11px] text-slate-400">
                 Tanggal terisi otomatis sesuai semester dan dapat diubah.

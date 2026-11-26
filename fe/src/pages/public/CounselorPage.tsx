@@ -4,11 +4,9 @@ import { ArrowRight, CalendarDays, ChevronDown } from "lucide-react";
 import Badge from "../../components/shared/Badge";
 import { Skeleton } from "../../components/shared";
 import {
-  getPublicAcademicPeriods,
   getAllPublicAvailability,
   getPublicCounselors,
   getPublicPhotoUrl,
-  type PublicAcademicPeriod,
   type PublicAvailabilitySlot,
   type PublicCounselor,
 } from "../../lib/publicApi";
@@ -299,7 +297,6 @@ function CounselorListSkeleton() {
 export default function CounselorPage() {
   const [counselors, setCounselors] = useState<PublicCounselor[]>([]);
   const [slots, setSlots] = useState<PublicAvailabilitySlot[]>([]);
-  const [periods, setPeriods] = useState<PublicAcademicPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -309,13 +306,11 @@ export default function CounselorPage() {
     Promise.all([
       getPublicCounselors(controller.signal),
       getAllPublicAvailability({ signal: controller.signal }),
-      getPublicAcademicPeriods(controller.signal),
     ])
-      .then(([nextCounselors, nextSlots, nextPeriods]) => {
+      .then(([nextCounselors, nextSlots]) => {
         if (!active) return;
         setCounselors(nextCounselors);
         setSlots(nextSlots);
-        setPeriods(nextPeriods);
         setError(null);
       })
       .catch(() => {
@@ -349,14 +344,6 @@ export default function CounselorPage() {
         <p className="mt-2 text-sm text-gray-600 sm:text-base">
           Kenali konselor dan lihat jadwal yang benar-benar tersedia.
         </p>
-        {periods.length > 0 && (
-          <p className="mt-3 text-sm text-gray-600">
-            Periode akademik dipublikasikan:{" "}
-            {periods
-              .map((period) => `${period.academic_year} · ${period.semester}`)
-              .join(", ")}
-          </p>
-        )}
         <div className="mt-4 h-1 w-24 rounded-full bg-primary" />
         {!loading && !error && counselors.length > 0 && (
           <p className="mt-5 inline-flex items-start gap-2 rounded-2xl bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary">

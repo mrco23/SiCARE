@@ -63,7 +63,7 @@ export interface ReportSource {
   role: "admin" | "headlmi";
   eyebrow?: string;
   description: string;
-  /** Periode non-publikasi tidak terbaca Kepala LMI, jadi peringatan ini khusus Admin. */
+  /** Peringatan sesi di luar periode terdaftar khusus Admin. */
   showOrphanWarning: boolean;
   load: () => Promise<{
     report: AdminReportDto;

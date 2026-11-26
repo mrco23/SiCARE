@@ -115,7 +115,6 @@ router.get("/public/counselors", asyncHandler(async (_request, response) => {
 router.get("/public/periods", asyncHandler(async (_request, response) => {
   const { data, error } = await supa().from("academic_periods")
     .select("id,academic_year,semester,starts_on,ends_on")
-    .eq("is_published", true)
     .order("starts_on", { ascending: false });
   if (error) supabaseError(error);
   return sendData(response, data ?? []);
