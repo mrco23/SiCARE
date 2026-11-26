@@ -2695,3 +2695,116 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - "slot ketersediaan" diringkas menjadi "ketersediaan".
 - **Pesan server yang tampil di UI:** `SLOT_UNAVAILABLE`, `PERIOD_UNAVAILABLE`, dan pesan duplikat (`domainRpc.js`, `http.js`). Kode galat (`SLOT_UNAVAILABLE`, `AVAILABILITY_BOOKED`), nama variabel, dan kolom database tidak diubah.
 - **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**; `be: npm test` **355/356** (gagal: `heroMotivations.test.js`, baseline). Pencarian ulang tidak menemukan teks "slot" yang tersisa di UI.
+
+## 2026-11-25 — Informed consent baru dapat ditandatangani 15 menit sebelum sesi
+
+- **Server (`consent.service.js`):** `assertBookingAcceptsConsent` menolak tanda tangan sebelum `starts_at − 15 menit` dengan `409 CONSENT_SIGN_TOO_EARLY` dan pesan jam buka (WITA). Ditambahkan juga `CONSENT_SIGN_LEAD_MINUTES` dan `consentSignOpensAt`. Berlaku untuk klien terdaftar dan tamu kelompok (keduanya lewat `signInformedConsent`).
+- **Frontend:** `InformedConsentModal` menerima `sessionStartsAt`. Sebelum waktunya, kotak informasi menampilkan jam buka dan tombol "Lanjutkan Konfirmasi" terkunci (dokumen tetap bisa dibaca). `KlienAktivitasPage` meneruskan jadwal sesi.
+- **Belum dikerjakan:** halaman tamu (`GuestConsentPage`) belum mengunci tombol lebih awal; tamu baru melihat pesan penolakan server saat mengirim. Tes khusus untuk aturan ini belum ditambahkan.
+- **Pemeriksaan:** `be: npm test` **355/356** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `lint` **PASS**. Perlu deploy frontend dan backend.
+
+## 2026-11-25 — Batas percobaan login (temuan A dikerjakan atas permintaan pengguna)
+
+- **Aturan:** 3 kali kata sandi atau identitas salah untuk identitas yang sama (email/NIM/NIP, dinormalisasi huruf kecil) dalam 30 menit mengunci login identitas itu selama 30 menit.
+  - Kegagalan ke-3 dan semua percobaan selama terkunci mendapat `429 LOGIN_LOCKED` dengan pesan "Terlalu banyak percobaan masuk yang gagal. Coba lagi kembali nanti.".
+  - Login berhasil menghapus hitungan.
+  - Setelah kunci berakhir, hitungan mulai dari nol.
+- **Database:** migrasi baru `20261125140000_sicare_login_attempts.sql` membuat tabel `public.login_attempts` (`identifier_hash` SHA-256, `failed_count`, `last_failed_at`, `locked_until`), RLS aktif tanpa policy, dan hak akses hanya untuk `service_role`. **Belum diterapkan.**
+- **Backend:**
+  - `loginAttempts.service.js` baru;
+  - `auth.service.js` membungkus `loginUser` (cek kunci → login → hapus atau catat kegagalan).
+  - Bila tabel belum ada atau database gagal, login tidak diblokir (fail-open) dan kejadian dicatat di log.
+- **Frontend:** tidak diubah; halaman login sudah menampilkan pesan server untuk kode lain.
+- **Tes baru `be/test/loginAttempts.test.js`:** kunci pada kegagalan ke-3, masih terkunci 29 menit, terbuka setelah 30 menit, reset setelah sukses, kegagalan lama kedaluwarsa, fail-open.
+- **Pemeriksaan:** `be: npm test` **358/359** (gagal: `heroMotivations.test.js`, baseline); `be: typecheck` **PASS**. Perlu `db push` lalu deploy backend.
+
+## 2026-11-25 — "Batalkan booking" menjadi "Batalkan penjadwalan"
+
+- `KlienAktivitasPage.tsx`: tombol "Batalkan penjadwalan" dan judul jendela "Batalkan penjadwalan?".
+- Pesan server: `consent.service.js` ("Batalkan penjadwalan bila anggota tidak cukup.") dan `booking.service.js` ("Klien hanya dapat membatalkan penjadwalan miliknya.").
+- **Pemeriksaan:** `fe: tsc -b` **PASS**; `be: npm test` **358/359** (gagal: `heroMotivations.test.js`, baseline).
+- **Tertunda:** unduh laporan PDF langsung (admin/Kepala LMI). Instalasi `html2pdf.js@0.14.0` ditolak pengaman otomatis sehingga belum dikerjakan; tombol masih memakai `window.print()`.
+
+## 2026-11-25 — Masa berlaku SIPP/SILP dihapus
+
+- **Permintaan pengguna:** website tidak lagi menyimpan "SIPP/SILP berlaku sampai". No. SIPP/SILP dan `sipp_silp_updated_at` tetap ada.
+- **Database:** migrasi baru `20261125150000_sicare_drop_license_validity.sql` (`alter table profiles drop column if exists sipp_silp_valid_until`). **Belum diterapkan.** Backend baru tidak membaca kolom ini lagi, jadi aman dideploy sebelum atau sesudah migrasi; backend lama akan gagal membaca akun konselor setelah kolom dihapus, jadi deploy backend dulu baru `db push`.
+- **Backend:**
+  - `licensePatchSchema` hanya menerima `sipp_silp_number`;
+  - `createAccountSchema` tidak menerima `sipp_silp_valid_until`;
+  - select di `accounts.service.js`, `profile.service.js`, dan `sessionReport.service.js` tidak lagi membaca kolom ini;
+  - metadata audit `counselor.license.update` hanya `role`.
+- **Frontend:**
+  - form Tambah Akun di `AdminAkunPage` tanpa input tanggal berlaku, dan tanpa badge kedaluwarsa;
+  - `KonselorPengaturanPage` tanpa input "Berlaku sampai" dan tanpa peringatan;
+  - `KonselorBerandaPage` tanpa pengingat izin;
+  - `KonselorRiwayatPage` tanpa toast kedaluwarsa saat mencetak;
+  - `licenseStatus.ts` dihapus karena tidak terpakai lagi.
+- **Label:** Riwayat Pendidikan konselor: "Program Studi / Gelar" menjadi "Gelar".
+
+## 2026-11-25 — Unduh Laporan PDF langsung (Admin dan Kepala LMI)
+
+- **Permintaan pengguna:** tombol "Unduh Laporan PDF" harus mengunduh berkas, bukan membuka dialog cetak.
+- **Backend:**
+  - `POST /admin/reports/pdf` (admin) dan `POST /head-lmi/reports/pdf` (head_lmi);
+  - `reportPdf.service.js` menyusun A4 dengan pdf-lib yang sudah ada (tanpa dependency baru), mengikuti `CounselingReportPrint.tsx`:
+    - sampul dengan logo `be/assets/kampus.png`;
+    - stempel CONFIDENTIAL;
+    - footer "Laporan Bimbingan & Konseling | n" mulai halaman 2;
+    - bagian A–H, grafik batang bulanan, tabel dengan judul kolom yang diulang di halaman baru;
+    - Kesimpulan dan tanda tangan dalam satu blok.
+  - Body divalidasi `reportPdfSchema` (strict, data agregat saja). Peran diambil dari rute dan penanda tangan dari profil Kepala LMI yang masuk, bukan dari body.
+  - Teks di luar Latin-1 (misalnya emoji) dibuang karena font Helvetica.
+- **Frontend:**
+  - `apiRequest` mendapat opsi `responseType: "blob"`;
+  - `reportingApi.downloadReportPdf`;
+  - tombol di `CounselingReportView` mengunduh berkas `Laporan-Bimbingan-Konseling-<periode>.pdf`, dengan status "Menyiapkan PDF...", toast sukses atau gagal, dan ikon Download. Sesi dikirim tanpa alasan pembatalan dan tanpa ID konselor.
+  - Tampilan cetak lama (Ctrl+P) tetap ada.
+- **Tes baru `be/test/reportPdf.test.js`:** schema menolak `role`/`signer`; PDF admin paginasi; PDF Kepala LMI; pembersihan teks dan nama berkas; controller mengirim attachment dan menolak field tambahan.
+- **Pemeriksaan:**
+  - `be: npm test` **364/365** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**;
+  - contoh PDF admin dan Kepala LMI dibuat lalu diperiksa visual.
+  - **Belum diuji:** unduhan lewat browser dengan login asli.
+- **Perlu deploy:** backend dan frontend. Logo harus ikut terbundel di fungsi Vercel, dengan pola yang sama seperti `informed-consent.pdf`.
+
+## 2026-11-26 — Riwayat pendidikan konselor disimpan di database (one-to-many)
+
+- **Temuan sebelumnya:** riwayat pendidikan di Pengaturan Konselor hanya tersimpan di state halaman dan hilang saat dimuat ulang, padahal tombol Simpan menampilkan "berhasil disimpan". Halaman klien menampilkan `headline` sebagai pendidikan.
+- **Database:** migrasi baru `20261126120000_sicare_counselor_educations.sql` membuat tabel `public.counselor_educations`, berelasi one-to-many dari `counselor_profiles`:
+  - kolom `counselor_profile_id` (FK, cascade), `institution`, `degree` (Gelar), `graduation_year`, `created_at`, `updated_at`;
+  - trigger `set_updated_at`;
+  - RLS aktif tanpa policy, akses hanya `service_role`.
+  - **Belum diterapkan.**
+- **Backend:**
+  - `GET`, `POST /counselor/educations` dan `PATCH`, `DELETE /counselor/educations/:id` (`education.service.js`, `education.controller.js`);
+  - kepemilikan dicek lewat `counselor_profile_id`;
+  - maksimal 20 entri;
+  - audit `counselor.education.create|update|delete` dengan metadata hanya `role`;
+  - `GET /public/counselors` membawa `educations[]`; bila tabel belum ada, daftar konselor tetap tampil tanpa pendidikan.
+- **Frontend:**
+  - `KonselorPengaturanPage` memuat pendidikan dari server;
+  - Simpan di modal langsung `POST`/`PATCH` dengan status "Menyimpan..." dan pesan galat di modal;
+  - hapus memakai konfirmasi "Hapus? Ya/Batal";
+  - pesan "Coba lagi" bila gagal dimuat;
+  - pendidikan tidak lagi bagian dari draf profil.
+  - `KlienKonselorPage` menampilkan pendidikan asli (perguruan tinggi, tahun, gelar), bukan `headline`.
+- **Tes baru `be/test/counselorEducation.test.js`:** validasi schema, CRUD milik sendiri, tolak milik konselor lain, batas 20, isi migrasi.
+- **Pemeriksaan:**
+  - `be: npm test` **368/369** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - **Belum diuji di browser.**
+- **Urutan deploy:** `npx supabase db push --remote` lalu deploy backend dan frontend. Sebelum migrasi diterapkan, endpoint `/counselor/educations` akan gagal, tetapi halaman publik tetap berjalan.
+
+## 2026-11-26 — Topik keahlian konselor tanpa batas jumlah
+
+- **Permintaan pengguna:** jumlah topik keahlian konselor tidak dibatasi. Sebelumnya UI membatasi 6 topik dan server 20 topik.
+- **Frontend:**
+  - `MAX_COUNSELOR_TOPICS` dihapus dari `profileValidation.ts`;
+  - input "Tambah topik" di `KonselorPengaturanPage` selalu tampil;
+  - topik ganda (tanpa membedakan huruf besar/kecil) dan panjang 40 karakter per topik tetap dicegah.
+- **Backend:** `profilePatchSchema.specialties` tanpa `.max(20)`; panjang per topik tetap 1–100 karakter, dan topik ganda (tanpa membedakan huruf besar/kecil) ditolak. Database tidak berubah (`text[]` tanpa batas).
+- **Tes:** tes baru di `be/test/counselorEducation.test.js` (50 topik diterima, ganda ditolak, lebih dari 100 karakter ditolak).
+- **Pemeriksaan:** `be: npm test` **369/370** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `eslint src` **PASS**.
