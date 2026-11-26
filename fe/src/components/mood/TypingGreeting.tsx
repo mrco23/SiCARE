@@ -14,8 +14,11 @@ const CHAR_MS = 55;
 export default function TypingGreeting({
   segments,
   ready = true,
+  mascot = true,
 }: {
   segments: GreetingSegment[];
+  /** false bila halaman menampilkan maskot sendiri (mis. di kolom terpisah di kanan sapaan). */
+  mascot?: boolean;
   /**
    * false selama data sapaan (mis. nama dan jenis kelamin) masih dimuat: hanya kursor yang
    * berkedip, tanpa mengetik kalimat sementara, sehingga kalimat diketik sekali saja.
@@ -83,8 +86,13 @@ export default function TypingGreeting({
             <span className="ml-0.5 inline-block h-[0.9em] w-[2px] translate-y-[0.1em] animate-pulse bg-current" />
           )}
         </span>
-      </span>{" "}
-      <MascotGreeting />
+      </span>
+      {mascot && (
+        <>
+          {" "}
+          <MascotGreeting />
+        </>
+      )}
     </>
   );
 }
