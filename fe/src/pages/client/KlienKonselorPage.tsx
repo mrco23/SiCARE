@@ -91,15 +91,12 @@ function mapDirectoryCounselors(
         profile.bio?.trim() ||
         headline ||
         "Informasi singkat mengenai konselor belum tersedia. Silakan lihat kualifikasi, pengalaman, topik keahlian, dan jadwal konseling berikut.",
-      education: headline
-        ? [
-            {
-              school: headline,
-              year: "",
-              degree: "Kualifikasi & Bidang Keahlian",
-            },
-          ]
-        : [],
+      // Riwayat pendidikan dari counselor_educations (diisi konselor di Pengaturan).
+      education: (profile.educations ?? []).map((item) => ({
+        school: item.institution,
+        year: String(item.graduation_year),
+        degree: item.degree,
+      })),
       experience:
         typeof profile.years_experience === "number"
           ? `${profile.years_experience} Tahun`

@@ -30,6 +30,31 @@ const supa = () => {
 };
 
 // The server-side Supabase client bypasses RLS, so active counselor check is enforced here.
+/**
+ * Riwayat pendidikan publik per konselor (counselor_educations). Bila tabel belum dimigrasi
+ * atau gagal dibaca, daftar konselor tetap tampil tanpa pendidikan.
+ */
+async function loadPublicEducations(counselorIds) {
+  const map = new Map();
+  if (!counselorIds.length) return map;
+  const { data, error } = await supa()
+    .from("counselor_educations")
+    .select("id,counselor_profile_id,institution,degree,graduation_year")
+    .in("counselor_profile_id", counselorIds)
+    .order("graduation_year", { ascending: false })
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.warn("[public/counselors] riwayat pendidikan tidak dapat dibaca:", error.code ?? error.message);
+    return map;
+  }
+  for (const row of data ?? []) {
+    const list = map.get(row.counselor_profile_id) ?? [];
+    list.push({ id: row.id, institution: row.institution, degree: row.degree, graduation_year: row.graduation_year });
+    map.set(row.counselor_profile_id, list);
+  }
+  return map;
+}
+
 async function loadPublicCounselors() {
   const { data: activeProfiles, error: profileError } = await supa()
     .from("profiles")
@@ -49,6 +74,7 @@ async function loadPublicCounselors() {
   if (counselorError) supabaseError(counselorError);
 
   const counselorMap = new Map((counselorProfiles ?? []).map((cp) => [cp.profile_id, cp]));
+  const educationMap = await loadPublicEducations(active.map((profile) => profile.id));
 
   return active
     .map((profile) => {
@@ -62,6 +88,7 @@ async function loadPublicCounselors() {
         specialties: cp?.specialties ?? [],
         years_experience: cp?.years_experience ?? null,
         photo_path: cp?.photo_path ?? null,
+        educations: educationMap.get(profile.id) ?? [],
       };
     })
     .filter((profile) => profile.public_name.trim().length > 0)

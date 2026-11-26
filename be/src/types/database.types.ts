@@ -868,7 +868,6 @@ export type Database = {
           siap_number: string | null
           sipp_silp_number: string | null
           sipp_silp_updated_at: string | null
-          sipp_silp_valid_until: string | null
           updated_at: string
         }
         Insert: {
@@ -884,7 +883,6 @@ export type Database = {
           siap_number?: string | null
           sipp_silp_number?: string | null
           sipp_silp_updated_at?: string | null
-          sipp_silp_valid_until?: string | null
           updated_at?: string
         }
         Update: {
@@ -900,7 +898,6 @@ export type Database = {
           siap_number?: string | null
           sipp_silp_number?: string | null
           sipp_silp_updated_at?: string | null
-          sipp_silp_valid_until?: string | null
           updated_at?: string
         }
         Relationships: []

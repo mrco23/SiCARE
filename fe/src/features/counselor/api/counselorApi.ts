@@ -2,6 +2,8 @@ import { apiRequest } from "../../../services/api/apiClient";
 import { buildQueryString } from "../../../services/api/apiQuery";
 import type {
   CounselorAvailabilitySlotDto,
+  CounselorEducationDto,
+  CounselorEducationInputApi,
   CounselorFeedbackDto,
   CounselorHistoryPasswordStatusDto,
   CounselorHistoryResponseDto,
@@ -19,6 +21,33 @@ import type {
 
 /** API operations owned by the counselor workspace. */
 export const counselorApi = {
+  listEducations(): Promise<CounselorEducationDto[]> {
+    return apiRequest<CounselorEducationDto[]>("/counselor/educations", { auth: true });
+  },
+
+  createEducation(input: CounselorEducationInputApi): Promise<CounselorEducationDto> {
+    return apiRequest<CounselorEducationDto>("/counselor/educations", {
+      method: "POST",
+      auth: true,
+      body: input,
+    });
+  },
+
+  updateEducation(id: string, input: CounselorEducationInputApi): Promise<CounselorEducationDto> {
+    return apiRequest<CounselorEducationDto>(`/counselor/educations/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      auth: true,
+      body: input,
+    });
+  },
+
+  deleteEducation(id: string): Promise<{ id: string }> {
+    return apiRequest<{ id: string }>(`/counselor/educations/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      auth: true,
+    });
+  },
+
   getLicense(): Promise<CounselorLicenseDto> {
     return apiRequest<CounselorLicenseDto>("/counselor/license", { auth: true });
   },
