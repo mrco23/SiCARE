@@ -2977,3 +2977,19 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
     - panah minggu berikutnya pindah ke Senin, 30 November.
   - 1280px: blok mobile tersembunyi, kalender mingguan tampil.
   - Belum dicek dengan login konselor asli dan perangkat sentuh nyata (gestur geser).
+
+## 2026-11-26 — Snippet Seed Dummy & Reset Dummy untuk konselor Giovana
+
+- **Permintaan pengguna:** query untuk disimpan di SQL Editor Supabase: (a) 9 sesi selesai dengan `giovana@unikadelasalle.ac.id` oleh klien berbeda, 3 tanpa feedback dan 6 dengan feedback; (b) 2 jadwal mendatang untuk 2 klien; (c) sesi berlangsung Giovana dengan 24013031; (d) 3 sesi tidak terjadi karena dibatalkan konselor dengan alasan berbeda; (e) sesi selesai tersebar di bulan-bulan sebelumnya dalam periode berjalan; serta reset tanpa menghapus akun.
+- **Seed (`be/scripts/seed-dummy-current-period.sql`) ditulis ulang:** hanya untuk konselor Giovana. Klien lain dipakai lebih dulu (urut dibuat), 24013031 paling akhir; NOTICE bila klien < 9. Sesi selesai dibagi rata ke bulan-bulan sebelumnya (Agu–Okt untuk Ganjil 2026/2027), satu sesi tanpa feedback per bulan; satu sesi selesai berbentuk kelompok. B1 consent lengkap, B2 consent pending. D1–D3 `cancelled` dengan `cancellation_reason` berbeda, tanpa consent. Opsional: 3 slot kosong Giovana (aktif), uji Mulai Sesi (mati). Kompatibel dengan penghapusan `academic_periods.is_published` (`20261126140000`), `counseling_sessions.format`, dan `consent_templates`.
+- **Reset:** judul "Reset Dummy", daftar yang dipertahankan ditambah `counselor_educations` dan `login_attempts`; opsi hapus akun dummy lama dihapus agar skrip tidak pernah menghapus akun.
+- **Pemeriksaan:** **NOT RUN** di database (tidak ada Postgres lokal); pemeriksaan keseimbangan blok/kurung, jumlah kolom skenario, dan tinjauan manual.
+
+## 2026-11-27 — Aturan Senin–Jumat mati saat pengembangan; snippet sesi berlangsung hari ini
+
+- **Permintaan pengguna:** saat development, alur konseling dapat diuji di hari libur (aturan hari kerja dimatikan), sedangkan di production aturan tetap ada; serta query terpisah untuk membuat sesi berlangsung hari ini (hari libur).
+- **Frontend:** `fe/src/lib/operationalRules.ts` baru (`WEEKDAY_ONLY` = `import.meta.env.PROD`, override `VITE_WEEKDAY_ONLY`; `isClosedWeekday`, `SERVICE_DAY_NAMES`, `serviceDayName`). `isWeekendKey` (kalender Jadwal Konselor), kartu jadwal mingguan konselor (`CounselorCard`, `KlienKonselorPage`), dan fallback `clientBookingCalendar` mengikuti sakelar; di dev Sabtu/Minggu bisa dibuatkan jadwal dan tampil. Bundle production tidak memuat daftar 7 hari (aturan aktif).
+- **Backend:** `isWeekdayOnlyEnforced()` di `counselor.validator.js`: override `WEEKDAY_ONLY`, selain itu aktif kecuali `NODE_ENV` development/test (NODE_ENV kosong tetap aktif). `.env.example` fe/be ditambah variabel opsional.
+- **Snippet baru `be/scripts/seed-ongoing-session-today.sql`:** satu sesi `ongoing` Giovana dengan 24013031 mulai 15 menit lalu, durasi 60 menit, tanpa syarat hari kerja; tidak mensyaratkan bookings kosong, menolak bila bentrok; consent signed, notifikasi, tanpa WhatsApp.
+- **Pemeriksaan:** `be: node --test test/availabilityWeekday.test.js` **5/5 PASS** (2 tes baru); `be: npm test` **376/377** (gagal: `heroMotivations.test.js`, baseline); `be: check` **PASS**; `be: typecheck` **FAIL baseline** (`education.service.js`, tipe database belum diregenerasi untuk `counselor_educations`, tidak terkait); `fe: tsc`, `lint`, `build` **PASS**. Browser dev: `WEEKDAY_ONLY=false`, Sabtu/Minggu tidak diblokir (cek modul di dev server); uji UI login konselor/klien **NOT RUN** (butuh login). Snippet SQL **NOT RUN** (tidak ada Postgres lokal).
+- **Risiko:** database dipakai bersama production; slot akhir pekan hasil uji terlihat di production sampai dihapus.
