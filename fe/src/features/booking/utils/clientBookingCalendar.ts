@@ -1,12 +1,12 @@
 import { formatIndonesianDate, parseLocalISODate } from "../../../lib/dateUtils";
 import type { BookingCounselor } from "../../../types/clientCounselor";
+import { serviceDayName } from "../../../lib/operationalRules";
 
 export interface BookingSlot {
   date: string;
   time: string;
 }
 
-const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"] as const;
 // Same-day slots are allowed; the server only returns slots that have not started yet.
 const MIN_LEAD_DAYS = 0;
 export const MAX_AHEAD_DAYS = 60;
@@ -58,7 +58,8 @@ export function slotsForCounselor(
     return counselor.availabilityByDate[iso] ?? [];
   }
 
-  const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
-  if (dayOfWeek === 0 || dayOfWeek === 6) return [];
-  return counselor.schedule[DAYS[dayOfWeek - 1]] ?? [];
+  // Sabtu/Minggu hanya ikut saat aturan hari kerja mati (pengembangan).
+  const dayName = serviceDayName(date.getDay());
+  if (!dayName) return [];
+  return counselor.schedule[dayName] ?? [];
 }

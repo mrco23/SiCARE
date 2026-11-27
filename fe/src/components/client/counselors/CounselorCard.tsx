@@ -2,8 +2,9 @@ import Badge from "../../../components/shared/Badge";
 import { Link } from "react-router-dom";
 import { ArrowRight, Briefcase, GraduationCap } from "lucide-react";
 import type { ClientDirectoryCounselor } from "../../../types/clientCounselor";
+import { SERVICE_DAY_NAMES } from "../../../lib/operationalRules";
 
-const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"] as const;
+const DAYS = SERVICE_DAY_NAMES;
 
 
 

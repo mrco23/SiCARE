@@ -1,4 +1,5 @@
 import { CANCEL_REASONS } from "../../../constants/counseling";
+import { isClosedWeekday } from "../../../lib/operationalRules";
 
 export { CANCEL_REASONS };
 
@@ -56,10 +57,11 @@ export const parseKey = (key: string) => {
   return new Date(year, month - 1, day);
 };
 
-export const isWeekendKey = (key: string) => {
-  const day = parseKey(key).getDay();
-  return day === 0 || day === 6;
-};
+/**
+ * True bila tanggal adalah akhir pekan DAN aturan hari kerja aktif (production). Saat
+ * pengembangan (WEEKDAY_ONLY mati) selalu false agar jadwal akhir pekan bisa dibuat untuk uji.
+ */
+export const isWeekendKey = (key: string) => isClosedWeekday(parseKey(key).getDay());
 
 export const dateLabel = (key: string) => {
   const date = parseKey(key);
