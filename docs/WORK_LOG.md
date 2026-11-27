@@ -3028,3 +3028,17 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
     - Terima membuka modal "Terima Permintaan Konseling"; ketuk kartu membuka detail.
   - 1280px: label tab panjang, select urutan, dan kartu desktop tampil; elemen mobile tersembunyi.
   - Belum dicek dengan login konselor asli.
+
+## 2026-11-27 — Perbaikan Beranda Konselor menyempit di ponsel
+
+- **Laporan pengguna:** di ponsel, konten Beranda Konselor tampak menyempit dengan area kosong di kanan.
+- **Penyebab:** grid bawah (`grid gap-6 lg:grid-cols-12`) tidak punya template kolom di bawah `lg`, sehingga kolom implisitnya ikut lebar konten minimum kartu ("Permintaan Menunggu Konfirmasi" dan "Jadwal Hari Ini"). Di 451px halaman menjadi 464px (`scrollWidth` > viewport); di ponsel nyata browser lalu memperkecil seluruh halaman.
+- **Perbaikan di `KonselorBerandaPage`:**
+  - grid menjadi `grid-cols-1` (`minmax(0,1fr)`);
+  - kedua kolom diberi `min-w-0`;
+  - padding kartu permintaan `p-4` di ponsel dan `sm:p-6` mulai tablet.
+  - Desktop tidak berubah (`lg:grid-cols-12`).
+- **Pemeriksaan:**
+  - Browser lokal (Beranda di dalam `KonselorLayout` asli, auth dan data tiruan dengan nama kelompok, perwakilan, dan ruangan yang panjang): sebelum 464px > 451px; sesudah `scrollWidth` 451 = viewport, dan 360 = viewport di 360px.
+  - `fe: tsc -b`, `eslint`, `npm run build` **PASS**.
+  - Belum dicek di perangkat nyata.

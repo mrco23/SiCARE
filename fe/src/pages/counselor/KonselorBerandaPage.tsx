@@ -445,9 +445,9 @@ export default function KonselorBerandaPage() {
         </div>
 
         {/* Konten Utama: Permintaan Terlama + Ringkasan Hari Ini */}
-        <div className="grid gap-6 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Kolom Kiri (7 col): Permintaan Menunggu Konfirmasi */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs lg:col-span-7">
+          <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs sm:p-6 lg:col-span-7">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-base font-bold text-gray-900">
@@ -547,7 +547,7 @@ export default function KonselorBerandaPage() {
           </div>
 
           {/* Kolom Kanan (5 col): Jadwal Sesi Hari Ini + Rating */}
-          <div className="space-y-6 lg:col-span-5">
+          <div className="min-w-0 space-y-6 lg:col-span-5">
             {/* Jadwal Hari Ini */}
             <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
               <div className="flex items-center justify-between">
