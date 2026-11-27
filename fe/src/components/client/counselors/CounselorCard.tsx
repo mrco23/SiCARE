@@ -1,165 +1,205 @@
-import Badge from "../../../components/shared/Badge";
 import { Link } from "react-router-dom";
 import { ArrowRight, Briefcase, GraduationCap } from "lucide-react";
 import type { ClientDirectoryCounselor } from "../../../types/clientCounselor";
-import { SERVICE_DAY_NAMES } from "../../../lib/operationalRules";
 
-const DAYS = SERVICE_DAY_NAMES;
+const VISIBLE_TOPICS = 3;
+const VISIBLE_SLOTS = 3;
 
-
-
-
-
-
-function CounselorSchedule({
-  schedule,
+export function CounselorAvatar({
+  counselor,
+  className = "h-16 w-16 text-lg",
 }: {
-  schedule: Record<string, string[]>;
+  counselor: ClientDirectoryCounselor;
+  className?: string;
 }) {
   return (
-    <div className="mt-3 divide-y divide-gray-100 rounded-2xl border border-gray-200 px-4">
-      {DAYS.map((day) => {
-        const slots = schedule[day] || [];
-
-        return (
-          <div
-            key={day}
-            className="flex items-start justify-between gap-3 py-3 sm:items-center"
-          >
-            <span className="w-16 shrink-0 text-sm font-medium text-gray-800">
-              {day}
-            </span>
-            <div className="flex min-w-0 flex-1 flex-wrap justify-end gap-1.5 sm:justify-start">
-              {slots.length > 0 ? (
-                slots.map((slot) => (
-                  <Badge size="md" weight="semibold" className="bg-blue-50 text-blue-700" key={slot}>
-                    {slot}
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-xs text-gray-400">Tidak tersedia</span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+    <div
+      aria-hidden="true"
+      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary font-bold text-white shadow-sm ${className}`}
+    >
+      {counselor.photoUrl ? (
+        <img
+          src={counselor.photoUrl}
+          alt=""
+          className="h-full w-full object-cover object-top"
+          loading="lazy"
+        />
+      ) : (
+        counselor.initials
+      )}
     </div>
   );
 }
 
-export function CounselorCard({ counselor }: { counselor: ClientDirectoryCounselor }) {
+export function AvailabilityBadge({ count }: { count: number }) {
+  if (count === 0) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+        Belum ada jadwal
+      </span>
+    );
+  }
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md">
-      <div className="flex items-center gap-4 border-b border-gray-100 p-5">
-        <div
-          aria-hidden="true"
-          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary text-lg font-bold text-white"
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-100">
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      {count} jadwal tersedia
+    </span>
+  );
+}
+
+export function TopicChips({ topics, max }: { topics: string[]; max?: number }) {
+  if (topics.length === 0) {
+    return <span className="text-xs text-gray-400">Topik keahlian belum dicantumkan</span>;
+  }
+  const shown = max ? topics.slice(0, max) : topics;
+  const rest = topics.length - shown.length;
+  return (
+    <>
+      {shown.map((topic) => (
+        <span
+          key={topic}
+          className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-900"
         >
-          {counselor.photoUrl ? (
-            <img
-              src={counselor.photoUrl}
-              alt={`Foto ${counselor.name}`}
-              className="h-full w-full object-cover object-top"
-              loading="lazy"
-            />
-          ) : (
-            counselor.initials
-          )}
-        </div>
-        <div className="min-w-0">
-          <Badge weight="semibold" className="bg-blue-50 text-blue-700">
-            Profil Konselor
-          </Badge>
-          <h2 className="mt-1.5 font-display text-base font-bold leading-snug text-gray-900">
+          {topic}
+        </span>
+      ))}
+      {rest > 0 && (
+        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
+          +{rest} topik
+        </span>
+      )}
+    </>
+  );
+}
+
+export function BookCounselorButton({
+  counselor,
+  className = "",
+}: {
+  counselor: ClientDirectoryCounselor;
+  className?: string;
+}) {
+  if (counselor.upcomingSlots.length === 0) {
+    return (
+      <span
+        aria-disabled="true"
+        className={`inline-flex cursor-not-allowed items-center justify-center rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-400 ${className}`}
+      >
+        Belum ada jadwal
+      </span>
+    );
+  }
+  return (
+    <Link
+      to="/klien/permintaan"
+      state={{ counselorProfileId: counselor.entityId }}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark focus:outline-none focus:ring-4 focus:ring-primary/20 ${className}`}
+    >
+      Buat janji
+      <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
+    </Link>
+  );
+}
+
+export function CounselorCard({
+  counselor,
+  onOpenProfile,
+}: {
+  counselor: ClientDirectoryCounselor;
+  onOpenProfile: (counselor: ClientDirectoryCounselor) => void;
+}) {
+  const subtitle = counselor.headline || counselor.bio;
+  const latestEducation = counselor.education[0];
+  const slots = counselor.upcomingSlots;
+  const hiddenSlots = slots.length - VISIBLE_SLOTS;
+
+  return (
+    <article className="flex h-full flex-col rounded-3xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start gap-4">
+        <CounselorAvatar counselor={counselor} />
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-[15px] font-bold leading-snug text-gray-900">
             {counselor.name}
           </h2>
+          {subtitle && (
+            <p className="mt-0.5 line-clamp-2 text-sm font-medium text-emerald-800">
+              {subtitle}
+            </p>
+          )}
+          <div className="mt-2">
+            <AvailabilityBadge count={slots.length} />
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-5 p-5">
-        <p className="text-sm leading-relaxed text-gray-600">
-          {counselor.about}
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
-              <GraduationCap className="h-4 w-4" strokeWidth={1.8} />
+      {(counselor.experience || latestEducation) && (
+        <div className="mt-4 flex flex-col gap-1.5 text-xs text-gray-600">
+          {counselor.experience && (
+            <span className="flex items-center gap-2">
+              <Briefcase aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} />
+              {counselor.experience} pengalaman
             </span>
-            <div className="min-w-0 space-y-3">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                Pendidikan
-              </p>
-              {counselor.education.length > 0 ? (
-                counselor.education.map((item) => (
-                  <div key={`${item.school}-${item.year}-${item.degree}`}>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {item.school}
-                      {item.year ? (
-                        <span className="font-normal text-gray-400">
-                          {" "}
-                          · {item.year}
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="text-sm text-gray-500">{item.degree}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500">Belum dicantumkan</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3 sm:pl-4">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
-              <Briefcase className="h-4 w-4" strokeWidth={1.8} />
+          )}
+          {latestEducation && (
+            <span className="flex min-w-0 items-center gap-2" title={`${latestEducation.degree} · ${latestEducation.school}`}>
+              <GraduationCap aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} />
+              <span className="truncate">
+                {latestEducation.degree} · {latestEducation.school}
+              </span>
             </span>
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                Pengalaman
-              </p>
-              <p className="text-sm font-semibold text-gray-900">
-                {counselor.experience}
-              </p>
-            </div>
-          </div>
+          )}
         </div>
+      )}
 
-        <div>
-          <h3 className="text-sm font-bold text-gray-900">Topik Keahlian</h3>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {counselor.topics.length > 0 ? (
-              counselor.topics.map((topic) => (
-                <span
-                  key={topic}
-                  className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800"
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        <TopicChips topics={counselor.topics} max={VISIBLE_TOPICS} />
+      </div>
+
+      <div className="mt-5 flex-1 rounded-2xl bg-gray-50 p-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Jadwal terdekat</p>
+          <p className="text-[11px] text-gray-400">Sesi 1 jam · WITA</p>
+        </div>
+        {slots.length > 0 ? (
+          <>
+            <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-2 2xl:grid-cols-3">
+              {slots.slice(0, VISIBLE_SLOTS).map((slot) => (
+                <li
+                  key={slot.id}
+                  className="flex flex-col rounded-xl border border-emerald-200 bg-white px-3 py-2"
                 >
-                  {topic}
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-gray-400">Belum dicantumkan</span>
+                  <span className="text-[11px] font-semibold text-gray-500">{slot.dateLabel}</span>
+                  <span className="text-sm font-bold text-primary">{slot.timeLabel}</span>
+                </li>
+              ))}
+            </ul>
+            {hiddenSlots > 0 && (
+              <button
+                type="button"
+                onClick={() => onOpenProfile(counselor)}
+                className="mt-2 text-xs font-semibold text-primary hover:underline"
+              >
+                Lihat {hiddenSlots} jadwal lainnya
+              </button>
             )}
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-sm font-bold text-gray-900">Jadwal Konseling</h3>
-          <p className="mt-0.5 text-xs text-gray-400">Sesi berdurasi 1 jam</p>
-          <CounselorSchedule schedule={counselor.schedule} />
-        </div>
+          </>
+        ) : (
+          <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
+            Konselor belum membuka jadwal. Coba cek lagi nanti atau pilih konselor lain.
+          </p>
+        )}
       </div>
 
-      <div className="border-t border-gray-100 p-5">
-        <Link
-          to="/klien/permintaan"
-          state={{ counselorProfileId: counselor.entityId }}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-primary px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary-soft focus:outline-none focus:ring-4 focus:ring-primary/15"
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => onOpenProfile(counselor)}
+          className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-4 focus:ring-primary/15"
         >
-          Buat janji konseling
-          <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
-        </Link>
+          Lihat profil
+        </button>
+        <BookCounselorButton counselor={counselor} />
       </div>
     </article>
   );

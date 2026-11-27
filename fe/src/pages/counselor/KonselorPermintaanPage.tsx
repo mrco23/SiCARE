@@ -43,7 +43,7 @@ import type {
   BookingRecordBaseDto,
   BookingStatusApi,
 } from "../../types/api";
-import { EXPIRED_BOOKING_LABEL } from "../../lib/sessionStatus";
+import { expiredBookingLabel } from "../../lib/sessionStatus";
 import { formatWitaTime } from "../../lib/witaTime";
 import { hasUrgentIntake, URGENT_INTAKE_LABEL, urgentIntakeMessage } from "../../lib/intakeRisk";
 
@@ -63,7 +63,7 @@ type StatusTab = "waiting_confirmation" | "reschedule_requested" | "confirmed" |
 type TypeFilter = "Semua" | "Individu" | "Kelompok";
 type SortOrder = "terlama" | "terbaru";
 
-function getStatusBadge(status: BookingStatusApi) {
+function getStatusBadge(status: BookingStatusApi, expiredReason?: BookingRecordBaseDto["expired_reason"]) {
   switch (status) {
     case "waiting_confirmation":
       return {
@@ -77,7 +77,7 @@ function getStatusBadge(status: BookingStatusApi) {
       };
     case "reschedule_requested":
       return {
-        label: "Jadwal Ulang Diminta",
+        label: "Menunggu Jadwal Pengganti",
         className: "border-blue-200 bg-blue-50 text-blue-800",
       };
     case "rejected":
@@ -92,7 +92,7 @@ function getStatusBadge(status: BookingStatusApi) {
       };
     case "expired":
       return {
-        label: EXPIRED_BOOKING_LABEL,
+        label: expiredBookingLabel(expiredReason),
         className: "border-slate-200 bg-slate-100 text-slate-700",
       };
     default:
@@ -348,8 +348,8 @@ export default function KonselorPermintaanPage() {
                       <h2 className="text-lg font-bold text-gray-900">
                         {formatBookingClientTitle(selectedBooking)}
                       </h2>
-                      <Badge size="md" weight="semibold" bordered className={getStatusBadge(selectedBooking.status).className}>
-                        {getStatusBadge(selectedBooking.status).label}
+                      <Badge size="md" weight="semibold" bordered className={getStatusBadge(selectedBooking.status, selectedBooking.expired_reason).className}>
+                        {getStatusBadge(selectedBooking.status, selectedBooking.expired_reason).label}
                       </Badge>
                       <Badge size="md" weight="semibold" className={selectedBooking.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}>
                         {selectedBooking.service_type === "group"
@@ -540,7 +540,7 @@ export default function KonselorPermintaanPage() {
               {(
                 [
                   ["waiting_confirmation", "Menunggu Konfirmasi", "Menunggu", counts.waiting_confirmation],
-                  ["reschedule_requested", "Jadwal Ulang Diminta", "Jadwal Ulang", counts.reschedule_requested],
+                  ["reschedule_requested", "Menunggu Jadwal Pengganti", "Jadwal Ulang", counts.reschedule_requested],
                   ["confirmed", "Dikonfirmasi", "Dikonfirmasi", counts.confirmed],
                   ["closed", "Tidak Diterima / Batal", "Ditolak/Batal", counts.closed],
                   ["all", "Semua Status", "Semua", counts.all],
@@ -663,7 +663,7 @@ export default function KonselorPermintaanPage() {
                 {filteredBookings.map((booking) => {
                   const title = formatBookingClientTitle(booking);
                   const repName = formatBookingRepresentative(booking);
-                  const badge = getStatusBadge(booking.status);
+                  const badge = getStatusBadge(booking.status, booking.expired_reason);
                   const urgent = hasUrgentIntake(booking.intake_answers);
                   const dateParts = witaDateParts(booking.starts_at);
 

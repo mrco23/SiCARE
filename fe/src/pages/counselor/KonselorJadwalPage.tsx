@@ -880,7 +880,7 @@ export default function KonselorJadwalPage() {
                             }
                             className="text-xs font-semibold text-red-600"
                           >
-                            <IconLabel icon={XCircle}>Urungkan Sesi</IconLabel>
+                            <IconLabel icon={XCircle}>Batalkan tanpa jadwal ulang</IconLabel>
                           </button>
                         </div>
                       )}
@@ -1379,7 +1379,7 @@ export default function KonselorJadwalPage() {
                           }
                           className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
                         >
-                          <IconLabel icon={XCircle}>Urungkan Sesi</IconLabel>
+                          <IconLabel icon={XCircle}>Batalkan tanpa jadwal ulang</IconLabel>
                         </button>
                       )}
                     </li>
@@ -1610,7 +1610,7 @@ export default function KonselorJadwalPage() {
                     }}
                     className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
                   >
-                    <IconLabel icon={XCircle}>Urungkan Sesi</IconLabel>
+                    <IconLabel icon={XCircle}>Batalkan tanpa jadwal ulang</IconLabel>
                   </button>
                 )}
 
@@ -1673,7 +1673,7 @@ export default function KonselorJadwalPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">
-                  Urungkan Sesi Konseling?
+                  Batalkan Tanpa Jadwal Ulang?
                 </h2>
                 <p className="mt-1 text-xs text-gray-500">
                   {cancelSessionTarget.clientLabel} ·{" "}
@@ -1698,8 +1698,9 @@ export default function KonselorJadwalPage() {
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
                 <span>
                   Sesi dan booking akan ditandai <strong>dibatalkan</strong> dan ketersediaan
-                  ini dibuka kembali. Klien menerima notifikasi beserta alasan di
-                  bawah, dan pengingat yang belum terkirim dibatalkan.
+                  ini dibuka kembali. Klien <strong>tidak</strong> ditawari jadwal pengganti.
+                  Bila Anda hanya berhalangan, gunakan <strong>Jadwal Ulang</strong> di halaman
+                  Aktivitas agar klien cukup memilih jam baru.
                 </span>
               </div>
             </div>
@@ -1712,7 +1713,7 @@ export default function KonselorJadwalPage() {
                 maxLength={1000}
                 rows={3}
                 disabled={cancelSubmitting}
-                placeholder="Contoh: Konselor berhalangan karena tugas mendadak. Silakan buat booking baru."
+                placeholder="Contoh: Kasus ini kami rujuk ke psikolog klinis untuk penanganan lanjutan."
                 className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm font-normal outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
               />
               <span className="mt-1 block font-normal text-gray-500">
@@ -1740,7 +1741,7 @@ export default function KonselorJadwalPage() {
                 ) : (
                   <XCircle className="h-3.5 w-3.5" />
                 )}
-                Ya, Urungkan Sesi
+                Ya, Batalkan Sesi
               </button>
             </div>
           </div>

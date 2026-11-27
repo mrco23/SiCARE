@@ -6,6 +6,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Calendar,
+  CalendarClock,
   CheckCircle2,
   Clock,
   FileText,
@@ -40,6 +41,7 @@ import { formatWitaTime } from "../../lib/witaTime";
 import { sicareApi } from "../../lib/sicareApi";
 import { consentApi } from "../../lib/consentApi";
 import { GroupConsentModal } from "../../components/consent/GroupConsentModal";
+import { BookingDecisionModal } from "../../components/counselor/BookingDecisionModal";
 import { ClientIntakeView } from "../../components/counselor/ClientIntakeView";
 import { hasUrgentIntake, URGENT_INTAKE_LABEL, urgentIntakeMessage } from "../../lib/intakeRisk";
 import type {
@@ -125,6 +127,8 @@ export default function KonselorAktivitasPage() {
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const [typeSheetOpen, setTypeSheetOpen] = useState(false);
   const [actionSheetSessionId, setActionSheetSessionId] = useState<string | null>(null);
+  // "Minta Jadwal Ulang" untuk sesi terjadwal: booking tidak dibatalkan, klien memilih jam pengganti.
+  const [rescheduleBooking, setRescheduleBooking] = useState<BookingRecordBaseDto | null>(null);
 
   const [transitionDialog, setTransitionDialog] = useState<{
     session: SessionListItemDto;
@@ -555,19 +559,16 @@ export default function KonselorAktivitasPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       {selectedSession.status === "scheduled" && (
                         <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTransitionError(null);
-                              setTransitionDialog({
-                                session: selectedSession,
-                                targetStatus: "cancelled",
-                              });
-                            }}
-                            className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                          >
-                            <IconLabel icon={XCircle}>Urungkan Sesi</IconLabel>
-                          </button>
+                          {/* Jadwal ulang adalah aksi utama bila konselor berhalangan (2026-11-28). */}
+                          {bookingMap.get(selectedSession.booking_id) && (
+                            <button
+                              type="button"
+                              onClick={() => setRescheduleBooking(bookingMap.get(selectedSession.booking_id) ?? null)}
+                              className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+                            >
+                              <IconLabel icon={CalendarClock}>Jadwal Ulang</IconLabel>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setConsentModalBookingId(selectedSession.booking_id)}
@@ -605,6 +606,21 @@ export default function KonselorAktivitasPage() {
                             {startBlockReason(selectedSession)}
                           </p>
                         )}
+                      {selectedSession.status === "scheduled" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTransitionError(null);
+                            setTransitionDialog({
+                              session: selectedSession,
+                              targetStatus: "cancelled",
+                            });
+                          }}
+                          className="w-full text-left text-xs font-semibold text-red-600 underline-offset-2 hover:underline sm:w-auto"
+                        >
+                          Batalkan tanpa jadwal ulang
+                        </button>
+                      )}
 
                       {selectedSession.status === "ongoing" && (
                         <>
@@ -1040,6 +1056,20 @@ export default function KonselorAktivitasPage() {
                             <p className="mt-1.5 text-[11px] font-medium text-amber-700">{blockReason}</p>
                           )}
                           {(isOngoing || isScheduled) && (
+                            <div className={`mt-2.5 grid gap-2 ${isScheduled && booking ? "grid-cols-2" : "grid-cols-1"}`}>
+                            {isScheduled && booking && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setRescheduleBooking(booking);
+                                }}
+                                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+                              >
+                                <CalendarClock className="h-3.5 w-3.5" />
+                                Jadwal Ulang
+                              </button>
+                            )}
                             <button
                               type="button"
                               disabled={isScheduled && Boolean(blockReason)}
@@ -1047,7 +1077,7 @@ export default function KonselorAktivitasPage() {
                                 event.stopPropagation();
                                 openTransition(isOngoing ? "completed" : "ongoing");
                               }}
-                              className="mt-2.5 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-[#064E3B] text-xs font-semibold text-white transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:hover:bg-gray-300"
+                              className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-[#064E3B] text-xs font-semibold text-white transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:hover:bg-gray-300"
                             >
                               {isOngoing ? (
                                 <>
@@ -1061,6 +1091,7 @@ export default function KonselorAktivitasPage() {
                                 </>
                               )}
                             </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1141,19 +1172,16 @@ export default function KonselorAktivitasPage() {
 
                           {session.status === "scheduled" && (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTransitionError(null);
-                                  setTransitionDialog({
-                                    session,
-                                    targetStatus: "cancelled",
-                                  });
-                                }}
-                                className="rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 sm:text-sm"
-                              >
-                                <IconLabel icon={X}>Urungkan</IconLabel>
-                              </button>
+                              {/* "Batalkan tanpa jadwal ulang" dipindah ke Detail Sesi (desktop) dan menu ⋯ (mobile). */}
+                              {booking && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRescheduleBooking(booking)}
+                                  className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 sm:text-sm"
+                                >
+                                  <IconLabel icon={CalendarClock}>Jadwal Ulang</IconLabel>
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => setConsentModalBookingId(session.booking_id)}
@@ -1248,7 +1276,7 @@ export default function KonselorAktivitasPage() {
                     ? "Selesaikan Sesi Konseling?"
                     : transitionDialog.session.status === "ongoing"
                       ? "Hentikan Sesi Konseling?"
-                      : "Urungkan Sesi Konseling?"}
+                      : "Batalkan Tanpa Jadwal Ulang?"}
               </h2>
               <button
                 type="button"
@@ -1272,6 +1300,13 @@ export default function KonselorAktivitasPage() {
                     ? "Sesi dan booking terkait akan dihentikan dan ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."
                     : "Sesi dan booking terkait akan dibatalkan dan ketersediaan Anda dibuka kembali. Klien menerima notifikasi beserta alasan di bawah, dan pengingat yang belum terkirim dibatalkan."}
             </p>
+            {transitionDialog.targetStatus === "cancelled" &&
+              transitionDialog.session.status === "scheduled" && (
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                  Klien <b>tidak</b> ditawari jadwal pengganti dengan Anda. Gunakan{" "}
+                  <b>Jadwal Ulang</b> bila Anda hanya berhalangan pada jam ini.
+                </div>
+              )}
 
             {transitionDialog.targetStatus === "completed" && (
               <div className="mt-4 space-y-4">
@@ -1329,7 +1364,11 @@ export default function KonselorAktivitasPage() {
                   maxLength={1000}
                   rows={3}
                   disabled={transitionSubmitting}
-                  placeholder="Contoh: Konselor berhalangan karena tugas mendadak. Silakan buat booking baru."
+                  placeholder={
+                    transitionDialog.session.status === "ongoing"
+                      ? "Contoh: Klien tidak hadir sampai 15 menit setelah jadwal dimulai."
+                      : "Contoh: Kasus ini kami rujuk ke psikolog klinis untuk penanganan lanjutan."
+                  }
                   className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm font-normal outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15"
                 />
                 <span className="mt-1 block text-xs font-normal text-gray-500">
@@ -1399,7 +1438,7 @@ export default function KonselorAktivitasPage() {
                     ? "Ya, Selesaikan Sesi"
                     : transitionDialog.session.status === "ongoing"
                       ? "Ya, Hentikan Sesi"
-                      : "Ya, Urungkan Sesi"}
+                      : "Ya, Batalkan Sesi"}
               </button>
             </div>
           </div>
@@ -1411,6 +1450,22 @@ export default function KonselorAktivitasPage() {
           bookingId={consentModalBookingId}
           isOpen={Boolean(consentModalBookingId)}
           onClose={() => setConsentModalBookingId(null)}
+        />
+      )}
+
+      {rescheduleBooking && (
+        <BookingDecisionModal
+          booking={rescheduleBooking}
+          action="reschedule"
+          onClose={() => setRescheduleBooking(null)}
+          onSuccess={() => {
+            const clientTitle = formatBookingClientTitle(rescheduleBooking);
+            setRescheduleBooking(null);
+            toast.info(
+              `Permintaan jadwal ulang dikirim ke ${clientTitle}. Klien memilih jam pengganti dari ketersediaan Anda.`,
+            );
+            void handleManualRefresh();
+          }}
         />
       )}
 
@@ -1520,10 +1575,20 @@ export default function KonselorAktivitasPage() {
                     setTransitionError(null);
                     setTransitionDialog({ session: actionSheetSession, targetStatus: "cancelled" });
                   }}
-                  className="flex w-full items-center gap-3 py-3 text-left text-sm font-semibold text-red-600"
+                  className="flex w-full items-start gap-3 py-3 text-left text-sm font-semibold text-red-600"
                 >
-                  <XCircle className="h-4 w-4" />
-                  {actionSheetSession.status === "ongoing" ? "Hentikan Sesi" : "Urungkan"}
+                  <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  {actionSheetSession.status === "ongoing" ? (
+                    "Hentikan Sesi"
+                  ) : (
+                    <span>
+                      Batalkan tanpa jadwal ulang
+                      <span className="mt-0.5 block text-[11px] font-normal text-gray-500">
+                        Hanya untuk rujukan, di luar kompetensi, klien tidak lagi berhak, atau cuti
+                        panjang. Bila hanya berhalangan, gunakan Jadwal Ulang.
+                      </span>
+                    </span>
+                  )}
                 </button>
               )}
             </div>

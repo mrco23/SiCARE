@@ -5,6 +5,7 @@ export const SAFE_ACTIONS = new Set([
   "booking.create",
   "booking.status",
   "booking.reschedule",
+  "booking.rebook",
   "booking.participant.remove",
   "session.status",
   "feedback.submit",
@@ -41,6 +42,8 @@ const SAFE_METADATA_KEYS = new Set([
   "role",
   "field",
   "count",
+  // ID booking asal untuk "Ajukan jadwal baru" (booking.rebook); bukan data sensitif.
+  "source_booking_id",
 ]);
 
 /**

@@ -6,6 +6,7 @@ import {
   SectionTitle,
   StarShape,
 } from "../../components/public/guide/GuideSections";
+import { PwaInstallSection } from "../../components/public/guide/PwaInstallSection";
 import { audiences, faqs } from "../../features/public/constants/guideContent";
 
 const audienceTags: Record<string, string> = {
@@ -113,8 +114,12 @@ export default function PanduanPage() {
 
       <AlurSistem />
 
+      {/* ============ PWA: pasang sebagai aplikasi ============ */}
+      <PwaInstallSection />
+
       {/* ============ FAQ ============ */}
-      <section className="mx-auto w-[92%] pb-24 pt-32 sm:w-[88%] md:pt-40 lg:w-[86%]">
+      {/* Jarak atas lebih kecil: gelombang Alur Sistem kini diikuti section PWA. */}
+      <section className="mx-auto w-[92%] pb-24 pt-20 sm:w-[88%] md:pt-24 lg:w-[86%]">
         <SectionTitle>Pertanyaan yang Sering Diajukan (FAQ)</SectionTitle>
 
         <div className="mx-auto mt-14 max-w-4xl space-y-6">

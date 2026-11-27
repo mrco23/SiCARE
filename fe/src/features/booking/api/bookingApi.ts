@@ -100,6 +100,15 @@ export const sicareApi = {
     });
   },
 
+  /** "Ajukan jadwal baru" dari booking batal/ditolak/kedaluwarsa/terlewat: konselor sama, form awal disalin. */
+  rebookBooking(bookingId: string, availabilitySlotId: string): Promise<ApiTypes.BookingRebookDto> {
+    return apiRequest<ApiTypes.BookingRebookDto>(`/bookings/${encodeURIComponent(bookingId)}/rebook`, {
+      method: "POST",
+      auth: true,
+      body: { availability_slot_id: availabilitySlotId },
+    });
+  },
+
   sessions(limit = 50, status?: ApiTypes.SessionStatusApi, offset = 0): Promise<ApiTypes.SessionListItemDto[]> {
     return apiRequest<ApiTypes.SessionListItemDto[]>(`/sessions${buildQueryString({ limit, status, offset: offset || undefined })}`, { auth: true });
   },

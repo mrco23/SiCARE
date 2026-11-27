@@ -244,6 +244,11 @@ export interface BookingRecordBaseDto {
   updated_at: string;
   booking_participants: BookingParticipantDto[];
   /**
+   * Hanya untuk klien: ID booking baru bila booking ini sudah diajukan ulang lewat
+   * "Ajukan jadwal baru" (POST /bookings/:id/rebook); null/absen bila belum.
+   */
+  rebooked_booking_id?: string | null;
+  /**
    * The client's intake form answers, filled in when the booking was created.
    * Only present when the requester is the counselor who owns this booking
    * (backend omits it entirely for the client's own requests) — absent means
@@ -259,6 +264,12 @@ export interface BookingRecordBaseDto {
 
 export type BookingListItemDto = BookingRecordBaseDto;
 export type BookingDetailDto = BookingRecordBaseDto;
+
+/** Respons POST /bookings/:id/rebook: booking baru + asal + status salin form awal. */
+export interface BookingRebookDto extends BookingRecordBaseDto {
+  source_booking_id: string;
+  intake_copied: boolean;
+}
 
 export interface CreateBookingApi {
   counselor_id: string;

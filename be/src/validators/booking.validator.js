@@ -153,3 +153,8 @@ export const rescheduleBookingSchema = z.object({
   availability_slot_id: uuid,
 }).strict();
 
+/** "Ajukan jadwal baru" dari booking yang batal/ditolak/kedaluwarsa/terlewat: cukup slot baru. */
+export const rebookBookingSchema = z.object({
+  availability_slot_id: uuid,
+}).strict();
+

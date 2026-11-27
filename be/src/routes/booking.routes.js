@@ -21,6 +21,13 @@ router.post("/", authenticate, allowRoles("client"), asyncHandler(bookingControl
  */
 router.patch("/:id/reschedule", authenticate, allowRoles("client"), asyncHandler(bookingController.rescheduleBooking));
 
+/**
+ * "Ajukan jadwal baru": klien pemilik booking yang batal/ditolak/kedaluwarsa/terlewat membuat
+ * booking baru dengan konselor yang sama lewat sicare_create_booking; layanan, anggota kelompok,
+ * dan jawaban form awal disalin dari booking asal. action: "booking.rebook".
+ */
+router.post("/:id/rebook", authenticate, allowRoles("client"), asyncHandler(bookingController.rebookBooking));
+
 router.get("/:id", authenticate, allowRoles("client", "counselor"), asyncHandler(bookingController.getBooking));
 router.patch("/:id/status", authenticate, allowRoles("client", "counselor"), asyncHandler(bookingController.transitionBooking));
 router.get("/:id/consent-summary", authenticate, allowRoles("client", "counselor"), asyncHandler(bookingController.getConsentSummary));

@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Filter Riwayat – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: "#064E3B", mint: "#e8f9f0" },
+          fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+        },
+      },
+    };
+  </script>
+  <style>
+    .client-bg {
+      background:
+        radial-gradient(circle at 85% 8%, rgba(16, 185, 129, .10), transparent 40%),
+        radial-gradient(circle at 10% 60%, rgba(16, 185, 129, .07), transparent 45%),
+        #f7fbf9;
+    }
+    .sheet-enter { animation: sheet-up .22s ease-out; }
+    @keyframes sheet-up { from { transform: translateY(24px); } to { transform: none; } }
+    @media (min-width: 640px) {
+      .sheet-enter { animation-name: pop; }
+      @keyframes pop { from { transform: scale(.97); } to { transform: none; } }
+    }
+    @media (prefers-reduced-motion: reduce) { .sheet-enter { animation: none; } }
+    .note { position: relative; }
+    .note::after {
+      content: attr(data-note);
+      position: absolute; right: 8px; top: -9px; z-index: 5; pointer-events: none;
+      background: #7c3aed; color: #fff; font-size: 9px; font-weight: 700; line-height: 1.5;
+      padding: 0 6px; border-radius: 999px; white-space: nowrap;
+    }
+    body:not(.show-notes) .note::after { display: none; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-gray-900 antialiased">
+
+  <!-- ================= PANEL KONTROL PROTOTYPE ================= -->
+  <div class="relative z-40 border-b border-slate-200 bg-white/95 backdrop-blur sm:sticky sm:top-0">
+    <div class="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+      <p class="text-xs font-bold uppercase tracking-wider text-primary">Prototype · Filter Riwayat (Klien)</p>
+      <div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1 text-sm font-semibold" role="tablist" aria-label="Pilih opsi">
+        <button data-variant="a" class="variant-btn rounded-lg px-3 py-1.5">Opsi A · Periode tetap di luar</button>
+        <button data-variant="b" class="variant-btn rounded-lg px-3 py-1.5">Opsi B · Semua filter di modal</button>
+      </div>
+      <label class="flex items-center gap-2 text-sm font-semibold text-slate-600">
+        <input id="notes" type="checkbox" class="h-4 w-4 accent-violet-600" checked /> Tampilkan catatan
+      </label>
+    </div>
+  </div>
+
+  <section class="mx-auto max-w-[1280px] px-4 pt-5 sm:px-6">
+    <details class="rounded-2xl border border-violet-200 bg-violet-50/70 p-4 text-sm text-violet-950" open>
+      <summary class="cursor-pointer font-bold">Apa yang berubah</summary>
+      <ul class="mt-2 list-disc space-y-1 pl-5 text-violet-900/90">
+        <li>Tombol Individu/Kelompok dan 6 tab status digabung menjadi satu tombol <b>Filter</b>. Angka di tombol menunjukkan jumlah filter yang sedang aktif.</li>
+        <li>Klik <b>Filter</b> → muncul modal di tengah layar (desktop) atau dari bawah (ponsel). Pilihan baru berlaku setelah menekan <b>Terapkan</b>; tombolnya juga menampilkan jumlah hasil.</li>
+        <li>Filter yang aktif tampil sebagai chip di bawah bar dan bisa dihapus satu per satu.</li>
+        <li>Jenis layanan tetap Individu atau Kelompok seperti sekarang (tanpa "Semua"); Atur ulang mengembalikan ke Individu + Semua status.</li>
+        <li><b>Opsi A:</b> Periode akademik tetap di bar (sering diganti). <b>Opsi B:</b> periode ikut masuk modal sehingga bar hanya berisi pencarian + Filter.</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- ================= HALAMAN ================= -->
+  <main class="client-bg mx-auto mt-5 max-w-[1280px] rounded-t-3xl border border-b-0 border-slate-200 px-4 pb-16 pt-8 sm:px-8 lg:px-12">
+    <h1 class="font-display text-3xl font-extrabold">Riwayat Konseling</h1>
+    <p class="mt-1 text-gray-600">Riwayat konseling yang telah kamu ikuti beserta statusnya.</p>
+
+    <!-- Bar filter -->
+    <div class="note mt-6 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4" data-note="2 kontrol digabung jadi 1 tombol">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div class="flex min-w-0 flex-1 gap-2">
+          <div class="relative min-w-0 flex-1">
+            <svg class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="search" type="search" placeholder="Cari kode permintaan atau nama kelompok ..." class="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm outline-none placeholder:text-gray-500 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15" />
+          </div>
+          <button id="open-filter" type="button" aria-haspopup="dialog" class="relative inline-flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 transition hover:border-primary hover:text-primary focus:outline-none focus:ring-4 focus:ring-primary/15">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+            <span class="hidden sm:inline">Filter</span>
+            <span id="filter-count" class="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-white">2</span>
+          </button>
+        </div>
+        <!-- Periode (Opsi A) -->
+        <button id="period-outside" type="button" class="flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-2.5 text-left shadow-sm lg:w-80">
+          <span>
+            <span class="block text-[10px] font-bold uppercase tracking-wider text-gray-400">Periode akademik</span>
+            <span id="period-outside-label" class="block text-sm font-bold text-gray-900">Semua periode</span>
+          </span>
+          <svg class="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+      </div>
+      <!-- Chip filter aktif -->
+      <div id="chips" class="note mt-3 flex flex-wrap items-center gap-2" data-note="filter aktif, bisa dihapus"></div>
+    </div>
+
+    <p id="result-count" class="mt-5 text-sm text-gray-500"></p>
+    <ul id="list" class="mt-3 space-y-3"></ul>
+  </main>
+
+  <!-- ================= MODAL FILTER ================= -->
+  <div id="modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div data-close class="absolute inset-0 bg-gray-900/40"></div>
+    <div class="sheet-enter absolute inset-x-0 bottom-0 flex max-h-[90vh] flex-col rounded-t-3xl bg-white shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[520px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl">
+      <div class="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-gray-200 sm:hidden"></div>
+      <div class="flex items-center justify-between px-5 pb-3 pt-4 sm:pt-5">
+        <h2 id="modal-title" class="font-display text-lg font-bold">Filter riwayat</h2>
+        <button type="button" data-close class="rounded-full p-2 text-gray-400 hover:bg-gray-100" aria-label="Tutup">✕</button>
+      </div>
+      <div class="flex-1 space-y-6 overflow-y-auto px-5 pb-5">
+        <fieldset>
+          <legend class="text-xs font-bold uppercase tracking-wider text-gray-500">Jenis layanan</legend>
+          <div id="m-service" class="mt-2 grid grid-cols-2 gap-2"></div>
+        </fieldset>
+        <fieldset>
+          <legend class="text-xs font-bold uppercase tracking-wider text-gray-500">Status</legend>
+          <div id="m-status" class="mt-2 grid grid-cols-2 gap-2"></div>
+        </fieldset>
+        <fieldset id="m-period-wrap" class="hidden">
+          <legend class="text-xs font-bold uppercase tracking-wider text-gray-500">Periode akademik</legend>
+          <select id="m-period" class="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-4 focus:ring-primary/15"></select>
+        </fieldset>
+      </div>
+      <div class="flex gap-2 border-t border-gray-100 p-4">
+        <button id="reset" type="button" class="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Atur ulang</button>
+        <button id="apply" type="button" class="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#053e2f]"></button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const SERVICES = [["individual", "Individu", "Sesi 1 klien"], ["group", "Kelompok", "2–10 peserta"]];
+  const STATUSES = [
+    ["semua", "Semua"], ["menunggu", "Menunggu"], ["terjadwal", "Terjadwal"],
+    ["selesai", "Selesai"], ["terlewat", "Terlewat/Kedaluwarsa"], ["batal", "Batal/Ditolak"],
+  ];
+  const PERIODS = [["all", "Semua periode"], ["2026-1", "2026/2027 Ganjil"], ["2025-2", "2025/2026 Genap"]];
+  const BADGE = {
+    menunggu: ["Menunggu konfirmasi", "bg-amber-50 text-amber-700"],
+    terjadwal: ["Sesi terjadwal", "bg-sky-50 text-sky-700"],
+    selesai: ["Sesi selesai", "bg-emerald-50 text-emerald-800"],
+    terlewat: ["Sesi terlewat", "bg-slate-100 text-slate-700"],
+    batal: ["Dibatalkan", "bg-red-50 text-red-700"],
+  };
+  const ITEMS = [
+    ["SC-7A21F0", "individual", "terjadwal", "2026-12-02", "10.00–11.00", "2026-1", "Konseling Individu"],
+    ["SC-4C90B2", "individual", "menunggu", "2026-12-01", "14.00–15.00", "2026-1", "Konseling Individu"],
+    ["SC-91DE33", "individual", "selesai", "2026-11-20", "09.00–10.00", "2026-1", "Konseling Individu"],
+    ["SC-2B7741", "individual", "terlewat", "2026-11-14", "13.00–14.00", "2026-1", "Konseling Individu"],
+    ["SC-0F12A9", "individual", "batal", "2026-11-10", "08.00–09.00", "2026-1", "Konseling Individu"],
+    ["SC-88A0C1", "individual", "selesai", "2026-05-12", "10.00–11.00", "2025-2", "Konseling Individu"],
+    ["SC-5D3E17", "group", "selesai", "2026-11-18", "13.00–14.00", "2026-1", "Kelompok Angkatan 2024"],
+    ["SC-C4410E", "group", "terjadwal", "2026-12-03", "09.00–10.00", "2026-1", "Kelompok PKM Psikologi"],
+    ["SC-61F9B8", "group", "batal", "2026-04-22", "14.00–15.00", "2025-2", "Kelompok Asisten Lab"],
+  ];
+  const DEFAULT = { service: "individual", status: "semua", period: "all" };
+
+  let variant = "a";
+  let applied = { ...DEFAULT };
+  let draft = { ...DEFAULT };
+  let query = "";
+  let lastFocus = null;
+
+  const label = (list, key) => list.find(([k]) => k === key)[1];
+  const fmtDate = (d) => new Date(d + "T00:00:00").toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+
+  function match(f, item, withQuery = true) {
+    const [code, service, status, , , period, title] = item;
+    const q = query.trim().toLowerCase();
+    return service === f.service &&
+      (f.status === "semua" || status === f.status) &&
+      (f.period === "all" || period === f.period) &&
+      (!withQuery || !q || code.toLowerCase().includes(q) || title.toLowerCase().includes(q));
+  }
+
+  function activeCount(f) {
+    // Bawaan (Individu + Semua status + Semua periode) = 0 filter aktif.
+    let n = f.service !== DEFAULT.service ? 1 : 0;
+    if (f.status !== "semua") n++;
+    if (variant === "b" && f.period !== "all") n++;
+    return n;
+  }
+
+  function renderPage() {
+    document.querySelectorAll(".variant-btn").forEach((b) => {
+      b.className = `variant-btn rounded-lg px-3 py-1.5 ${b.dataset.variant === variant ? "bg-white text-primary shadow-sm" : "text-slate-500"}`;
+    });
+    document.getElementById("period-outside").classList.toggle("hidden", variant === "b");
+    document.getElementById("period-outside-label").textContent = label(PERIODS, applied.period);
+    const count = activeCount(applied);
+    const badge = document.getElementById("filter-count");
+    badge.textContent = count;
+    badge.classList.toggle("hidden", count === 0);
+
+    const chips = [
+      [`${label(SERVICES, applied.service)}`, null],
+      ...(applied.status !== "semua" ? [[label(STATUSES, applied.status), "status"]] : []),
+      ...(variant === "b" && applied.period !== "all" ? [[label(PERIODS, applied.period), "period"]] : []),
+    ];
+    const isDefault = applied.status === "semua" && (variant === "a" || applied.period === "all") && applied.service === DEFAULT.service;
+    document.getElementById("chips").innerHTML = chips.map(([text, key]) => key
+      ? `<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 py-1 pl-3 pr-1.5 text-xs font-semibold text-emerald-900 ring-1 ring-emerald-100">${text}<button type="button" data-remove="${key}" class="rounded-full p-0.5 text-emerald-700 hover:bg-emerald-100" aria-label="Hapus filter ${text}">✕</button></span>`
+      : `<span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">${text}</span>`
+    ).join("") + (isDefault ? "" : `<button type="button" data-remove="all" class="text-xs font-semibold text-primary hover:underline">Atur ulang</button>`);
+
+    const list = ITEMS.filter((it) => match(applied, it));
+    document.getElementById("result-count").textContent = `${list.length} riwayat`;
+    document.getElementById("list").innerHTML = list.length ? list.map(([code, , status, date, time, , title]) => {
+      const d = new Date(date + "T00:00:00");
+      return `<li><div class="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+        <div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-emerald-50 text-primary"><span class="text-lg font-extrabold leading-none">${d.getDate()}</span><span class="text-[11px] font-semibold uppercase">${d.toLocaleDateString("id-ID", { month: "short" })}</span></div>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center justify-between gap-2"><p class="truncate font-bold">${title}</p><span class="font-mono text-xs text-gray-400">#${code}</span></div>
+          <p class="mt-1 text-sm text-gray-600">${fmtDate(date)} · ${time} WITA</p>
+          <span class="mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${BADGE[status][1]}">${BADGE[status][0]}</span>
+        </div></div></li>`;
+    }).join("") : `<li class="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-8 text-center text-sm text-gray-500">Tidak ada riwayat untuk filter ini.</li>`;
+  }
+
+  function renderModal() {
+    document.getElementById("m-service").innerHTML = SERVICES.map(([k, l, hint]) => {
+      const on = draft.service === k;
+      return `<button type="button" role="radio" aria-checked="${on}" data-service="${k}" class="rounded-2xl border px-4 py-3 text-left transition ${on ? "border-primary bg-emerald-50 ring-2 ring-primary/20" : "border-gray-200 hover:border-gray-300"}">
+        <span class="block text-sm font-bold ${on ? "text-primary" : "text-gray-800"}">${l}</span>
+        <span class="block text-xs text-gray-500">${hint}</span></button>`;
+    }).join("");
+    document.getElementById("m-status").innerHTML = STATUSES.map(([k, l]) => {
+      const on = draft.status === k;
+      const n = ITEMS.filter((it) => match({ ...draft, status: k }, it, false)).length;
+      return `<button type="button" role="radio" aria-checked="${on}" data-status="${k}" class="flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ${k === "terlewat" ? "col-span-2 sm:col-span-1" : ""} ${on ? "border-primary bg-emerald-50 font-semibold text-primary" : "border-gray-200 text-gray-700 hover:border-gray-300"}">
+        <span>${l}</span><span class="rounded-full ${on ? "bg-primary text-white" : "bg-gray-100 text-gray-500"} px-2 text-xs font-bold">${n}</span></button>`;
+    }).join("");
+    document.getElementById("m-period-wrap").classList.toggle("hidden", variant === "a");
+    const sel = document.getElementById("m-period");
+    sel.innerHTML = PERIODS.map(([k, l]) => `<option value="${k}" ${draft.period === k ? "selected" : ""}>${l}</option>`).join("");
+    const n = ITEMS.filter((it) => match(draft, it)).length;
+    document.getElementById("apply").textContent = `Terapkan · ${n} hasil`;
+  }
+
+  function openModal() {
+    lastFocus = document.activeElement;
+    draft = { ...applied };
+    renderModal();
+    document.getElementById("modal").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    document.querySelector("#modal [data-close]:not(.absolute)")?.focus();
+  }
+  function closeModal() {
+    document.getElementById("modal").classList.add("hidden");
+    document.body.style.overflow = "";
+    lastFocus?.focus();
+  }
+
+  document.addEventListener("click", (e) => {
+    const t = (s) => e.target.closest(s);
+    if (t("[data-variant]")) { variant = t("[data-variant]").dataset.variant; if (variant === "a") applied.period = applied.period; renderPage(); return; }
+    if (t("#open-filter")) return openModal();
+    if (t("[data-close]")) return closeModal();
+    if (t("[data-service]")) { draft.service = t("[data-service]").dataset.service; return renderModal(); }
+    if (t("[data-status]")) { draft.status = t("[data-status]").dataset.status; return renderModal(); }
+    if (t("#reset")) { draft = { ...DEFAULT, period: variant === "a" ? draft.period : "all" }; return renderModal(); }
+    if (t("#apply")) { applied = { ...draft }; closeModal(); return renderPage(); }
+    if (t("#period-outside")) { const i = PERIODS.findIndex(([k]) => k === applied.period); applied.period = PERIODS[(i + 1) % PERIODS.length][0]; return renderPage(); }
+    const r = t("[data-remove]");
+    if (r) {
+      const k = r.dataset.remove;
+      if (k === "status") applied.status = "semua";
+      else if (k === "period") applied.period = "all";
+      else applied = { ...DEFAULT, period: variant === "a" ? applied.period : "all" };
+      renderPage();
+    }
+  });
+  document.getElementById("m-period").addEventListener("change", (e) => { draft.period = e.target.value; renderModal(); });
+  document.getElementById("search").addEventListener("input", (e) => { query = e.target.value; renderPage(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !document.getElementById("modal").classList.contains("hidden")) closeModal(); });
+  document.getElementById("notes").addEventListener("change", (e) => document.body.classList.toggle("show-notes", e.target.checked));
+  document.body.classList.add("show-notes");
+
+  applied = { service: "individual", status: "terlewat", period: "all" };
+  renderPage();
+</script>
+</body>
+</html>

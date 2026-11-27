@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Panduan: Alur &amp; PWA – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: "#064E3B", brand: "#1e5b3a", mint: "#E3F2E7", leaf: "#236c44",
+            gold: "#D4A72C", soft: "#DCE8DE",
+          },
+          fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+        },
+      },
+    };
+  </script>
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+    .flow-fill { transform-origin: left; transform: scaleX(0); transition: transform 1.4s ease-out; }
+    .flow-fill.v { transform-origin: top; transform: scaleY(0); }
+    .in .flow-fill { transform: none; }
+    .step { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+    .in .step { opacity: 1; transform: none; }
+    .in .step:nth-child(2) { transition-delay: .1s; } .in .step:nth-child(3) { transition-delay: .2s; }
+    .in .step:nth-child(4) { transition-delay: .3s; } .in .step:nth-child(5) { transition-delay: .4s; }
+    .in .step:nth-child(6) { transition-delay: .5s; }
+    @media (prefers-reduced-motion: reduce) { .flow-fill, .step { transition: none; transform: none; opacity: 1; } }
+    .platform-tab[aria-selected="true"] { background: #064E3B; color: #fff; border-color: #064E3B; }
+    .proto-note { background: #7c3aed; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+  </style>
+</head>
+<body class="bg-white font-sans text-slate-800 antialiased">
+
+  <div class="border-b border-slate-200 bg-slate-50">
+    <div class="mx-auto max-w-6xl px-4 py-3 text-xs text-slate-600 sm:px-6">
+      <b class="uppercase tracking-wider text-primary">Prototype · Halaman Panduan</b> — hanya section yang diusulkan:
+      <b>Alur Sistem</b> (layout, judul, dan teks sama seperti sekarang; hanya kartu langkah berganti gaya tiket) dan <b>Akses sebagai Aplikasi (PWA)</b> (baru), di antara Alur dan FAQ.
+      Ubah lebar jendela untuk melihat versi ponsel.
+    </div>
+  </div>
+
+  <!-- konteks: akhir section Jenis Layanan -->
+  <div class="mx-auto max-w-6xl px-6 py-10 text-center text-sm text-slate-400">… section Jenis Layanan Konseling (tidak berubah) …</div>
+
+  <!-- ===================================================================== -->
+  <!-- ==== ALUR SISTEM: layout SAMA dengan halaman sekarang, hanya kartu ==== -->
+  <!-- ===================================================================== -->
+  <section id="alur" class="relative mt-16 bg-[#E3F2E7] pb-28 pt-20 md:mt-24 md:pb-32">
+    <svg class="absolute -top-[59px] left-0 h-[60px] w-full" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0,60 L0,30 C200,0 400,50 720,25 C1040,0 1240,45 1440,20 L1440,60 Z" fill="#E3F2E7" />
+    </svg>
+    <svg class="absolute -bottom-[59px] left-0 h-[60px] w-full" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0,0 L1440,0 L1440,25 C1200,60 1000,5 720,35 C440,65 240,10 0,40 Z" fill="#E3F2E7" />
+    </svg>
+    <svg class="pointer-events-none absolute inset-0 hidden h-full w-full md:block" viewBox="0 0 1440 1000" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M20,70 C120,190 300,230 560,215 C800,200 900,80 1200,50 L1420,40" fill="none" stroke="#B8D8C2" stroke-width="3" stroke-dasharray="18 22" vector-effect="non-scaling-stroke" />
+      <path d="M1420,640 C1250,680 1150,760 1000,860 C850,960 600,990 300,960 C200,950 120,900 60,860" fill="none" stroke="#B8D8C2" stroke-width="3" stroke-dasharray="18 22" vector-effect="non-scaling-stroke" />
+    </svg>
+
+    <div class="relative mx-auto w-[92%] sm:w-[88%] lg:w-[86%]">
+      <h2 class="font-display text-2xl font-extrabold leading-tight text-primary md:text-[30px]">
+        Alur Sistem dari Pengunjung hingga Selesai
+      </h2>
+
+      <div id="flow" class="relative mt-24">
+        <div id="flow-line" class="absolute bottom-0 left-4 top-0 w-[3px] origin-top -translate-x-1/2 scale-y-0 bg-[#B8C9BC] transition-transform duration-1000 md:left-1/2"></div>
+        <ol id="flow-list" class="space-y-20 md:space-y-28"></ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- ====================== AKSES SEBAGAI APLIKASI (PWA) ================== -->
+  <!-- ===================================================================== -->
+  <section id="pwa" class="mx-auto w-[92%] max-w-6xl pb-8 pt-32 md:pt-36">
+    <div class="grid items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
+      <!-- Ilustrasi perangkat -->
+      <div class="relative mx-auto h-[360px] w-full max-w-[440px] sm:h-[400px]" aria-hidden="true">
+        <div class="absolute inset-6 rounded-full bg-mint blur-2xl"></div>
+        <!-- laptop -->
+        <div class="absolute left-0 top-10 w-[78%]">
+          <div class="rounded-t-xl border-[6px] border-slate-800 bg-white shadow-xl">
+            <div class="flex items-center gap-1 border-b border-slate-100 bg-slate-50 px-2 py-1">
+              <span class="h-1.5 w-1.5 rounded-full bg-red-300"></span><span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span><span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span>
+              <span class="ml-2 text-[8px] font-semibold text-slate-500">SiCARE</span>
+            </div>
+            <div class="space-y-1.5 p-3">
+              <div class="h-3 w-1/2 rounded bg-primary/80"></div>
+              <div class="h-2 w-3/4 rounded bg-slate-200"></div>
+              <div class="grid grid-cols-2 gap-1.5 pt-1"><div class="h-12 rounded-lg bg-mint"></div><div class="h-12 rounded-lg bg-mint"></div></div>
+            </div>
+          </div>
+          <div class="mx-auto h-2.5 w-[112%] -translate-x-[5%] rounded-b-lg bg-slate-700"></div>
+        </div>
+        <!-- ponsel -->
+        <div class="absolute bottom-0 right-2 w-[40%] rounded-[26px] border-[6px] border-slate-900 bg-white shadow-2xl">
+          <div class="mx-auto mt-1 h-1.5 w-10 rounded-full bg-slate-900"></div>
+          <div class="grid grid-cols-3 gap-3 p-3 pb-6 pt-4">
+            <div class="flex flex-col items-center gap-1"><div class="h-9 w-9 rounded-xl bg-sky-200"></div><span class="text-[7px] text-slate-500">Kalender</span></div>
+            <div class="flex flex-col items-center gap-1"><div class="h-9 w-9 rounded-xl bg-rose-200"></div><span class="text-[7px] text-slate-500">Foto</span></div>
+            <div class="flex flex-col items-center gap-1">
+              <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-[9px] font-extrabold text-white ring-4 ring-gold/40">Si</div>
+              <span class="text-[7px] font-bold text-primary">SiCARE</span>
+            </div>
+            <div class="flex flex-col items-center gap-1"><div class="h-9 w-9 rounded-xl bg-amber-200"></div><span class="text-[7px] text-slate-500">Catatan</span></div>
+            <div class="flex flex-col items-center gap-1"><div class="h-9 w-9 rounded-xl bg-violet-200"></div><span class="text-[7px] text-slate-500">Musik</span></div>
+            <div class="flex flex-col items-center gap-1"><div class="h-9 w-9 rounded-xl bg-emerald-200"></div><span class="text-[7px] text-slate-500">Peta</span></div>
+          </div>
+        </div>
+        <span class="absolute right-0 top-4 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-primary shadow-md">Tanpa Play Store / App Store</span>
+      </div>
+
+      <!-- Teks & langkah per platform -->
+      <div>
+        <span class="inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-leaf">
+          <span class="h-0.5 w-7 rounded-full bg-gold"></span>Akses Lebih Cepat
+        </span>
+        <h2 class="mt-3 font-display text-2xl font-extrabold leading-tight text-primary sm:text-3xl">Pasang SiCARE seperti Aplikasi</h2>
+        <p class="mt-3 text-[15px] leading-relaxed text-slate-600">
+          SiCARE adalah <b>Progressive Web App (PWA)</b>. Kamu bisa memasangnya di ponsel Android, iPhone/iPad, maupun laptop langsung dari browser, tanpa mengunduh dari toko aplikasi.
+        </p>
+
+        <ul class="mt-5 grid gap-3 sm:grid-cols-3">
+          <li class="flex items-start gap-3 rounded-2xl border border-soft bg-white p-3.5 shadow-sm sm:block">
+            <p class="text-lg leading-none">📲</p><div><p class="text-sm font-semibold text-slate-900 sm:mt-1">Ikon di layar utama</p>
+            <p class="mt-0.5 text-xs leading-relaxed text-slate-500">Buka SiCARE sekali sentuh, seperti aplikasi lain.</p></div>
+          </li>
+          <li class="flex items-start gap-3 rounded-2xl border border-soft bg-white p-3.5 shadow-sm sm:block">
+            <p class="text-lg leading-none">🖥️</p><div><p class="text-sm font-semibold text-slate-900 sm:mt-1">Layar penuh</p>
+            <p class="mt-0.5 text-xs leading-relaxed text-slate-500">Tampil di jendela sendiri tanpa bilah alamat browser.</p></div>
+          </li>
+          <li class="flex items-start gap-3 rounded-2xl border border-soft bg-white p-3.5 shadow-sm sm:block">
+            <p class="text-lg leading-none">🔄</p><div><p class="text-sm font-semibold text-slate-900 sm:mt-1">Selalu terbaru</p>
+            <p class="mt-0.5 text-xs leading-relaxed text-slate-500">Pembaruan terpasang otomatis, tidak perlu update manual.</p></div>
+          </li>
+        </ul>
+
+        <!-- Tab platform -->
+        <div class="mt-6 rounded-3xl border border-soft bg-[#F6FBF7] p-4 sm:p-5">
+          <div class="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1" role="tablist" aria-label="Pilih perangkat">
+            <button class="platform-tab shrink-0 rounded-full border border-soft bg-white px-4 py-2 text-sm font-semibold text-slate-700" role="tab" aria-selected="true" data-p="android">Android</button>
+            <button class="platform-tab shrink-0 rounded-full border border-soft bg-white px-4 py-2 text-sm font-semibold text-slate-700" role="tab" aria-selected="false" data-p="ios">iPhone / iPad</button>
+            <button class="platform-tab shrink-0 rounded-full border border-soft bg-white px-4 py-2 text-sm font-semibold text-slate-700" role="tab" aria-selected="false" data-p="desktop">Laptop / PC</button>
+          </div>
+
+          <ol class="mt-4 space-y-3" data-panel="android" role="tabpanel">
+            <li class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">1</span><p class="pt-0.5 text-sm text-slate-700">Buka SiCARE di <b>Google Chrome</b>.</p></li>
+            <li class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">2</span><p class="pt-0.5 text-sm text-slate-700">Ketuk menu <b class="rounded bg-white px-1.5 py-0.5 font-mono">⋮</b> di pojok kanan atas.</p></li>
+            <li class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">3</span><p class="pt-0.5 text-sm text-slate-700">Pilih <b>Instal aplikasi</b> atau <b>Tambahkan ke layar utama</b>, lalu konfirmasi.</p></li>
+          </ol>
+          <ol class="mt-4 hidden space-y-3" data-panel="ios" role="tabpanel">
+            <li class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">1</span><p class="pt-0.5 text-sm text-slate-700">Buka SiCARE di <b>Safari</b>.</p></li>
+            <li class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">2</span><p class="pt-0.5 text-sm text-slate-700">Ketuk tombol <b>Bagikan</b> <span class="rounded bg-white px-1.5 py-0.5">⬆︎</span> di bagian bawah layar.</p></li>
+            <li class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">3</span><p class="pt-0.5 text-sm text-slate-700">Pilih <b>Tambah ke Layar Utama</b>, lalu ketuk <b>Tambah</b>.</p></li>
+          </ol>
+          <ol class="mt-4 hidden space-y-3" data-panel="desktop" role="tabpanel">
+            <li class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">1</span><p class="pt-0.5 text-sm text-slate-700">Buka SiCARE di <b>Google Chrome</b> atau <b>Microsoft Edge</b>.</p></li>
+            <li class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">2</span><p class="pt-0.5 text-sm text-slate-700">Klik ikon <b>Instal</b> <span class="rounded bg-white px-1.5 py-0.5">⊕</span> di ujung kanan bilah alamat.</p></li>
+            <li class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">3</span><p class="pt-0.5 text-sm text-slate-700">Klik <b>Instal</b>. SiCARE muncul di menu Start / Launchpad dan desktop.</p></li>
+          </ol>
+
+          <p class="mt-4 border-t border-soft pt-3 text-xs leading-relaxed text-slate-500">
+            Tetap butuh koneksi internet saat digunakan. Data konseling tetap tersimpan di server kampus, bukan di perangkatmu.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- konteks: FAQ -->
+  <div class="mx-auto max-w-6xl px-6 py-16 text-center text-sm text-slate-400">… section FAQ (tidak berubah) …</div>
+
+  <!-- Catatan untuk tim -->
+  <section class="mx-auto mb-16 w-[92%] max-w-6xl rounded-3xl border border-violet-200 bg-violet-50/50 p-5 text-sm text-slate-700 sm:p-6">
+    <p><span class="proto-note">Catatan prototype</span></p>
+    <ul class="mt-3 list-disc space-y-1.5 pl-5">
+      <li><b>Alur Sistem:</b> judul, latar, gelombang, garis putus-putus, garis tengah, node, angka bayangan, posisi zigzag, animasi, dan teks langkah sama persis dengan halaman sekarang. Yang berubah hanya kartu: kepala hijau bertuliskan nomor langkah, ikon menumpang di batas kepala, dan bagian bawah bergaya sobekan tiket berisi label singkat. Kartu di sisi kiri dicerminkan (ikon dan teks rata kanan).</li>
+      <li><b>PWA:</b> hanya klaim yang sesuai konfigurasi sekarang: dapat dipasang, tampil layar penuh (<code>display: standalone</code>), dan pembaruan otomatis. Tidak menjanjikan mode offline atau notifikasi push.</li>
+    </ul>
+  </section>
+
+  <script>
+    // ===== Alur Sistem: teks & posisi langkah SAMA dengan guideContent.tsx; hanya kartu yang baru =====
+    const ICONS = {
+      globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+      login: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/>',
+      calendar: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/>',
+      sign: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+      message: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/>',
+    };
+    const svg = (name) => `<svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+
+    const steps = [
+      { no: "01", side: "right", icon: "globe", tag: "Tanpa perlu masuk", title: "Pengunjung Masuk ke Portal",
+        numClass: "text-[72px] right-0 -top-[76px] md:-top-10 md:-right-6",
+        desc: "Kunjungi portal SiCARE untuk melihat informasi layanan bimbingan konseling, profil konselor, dan jadwal yang tersedia pada periode aktif." },
+      { no: "02", side: "left", icon: "login", tag: "Akun kampus", title: "Log In dengan Akun Kampus",
+        numClass: "text-[72px] right-0 -top-[76px] md:right-auto md:-top-4 md:-left-24",
+        desc: "Masuk menggunakan kredensial akun kampus Anda untuk mengakses formulir reservasi dan riwayat aktivitas konseling." },
+      { no: "03", side: "right", icon: "calendar", tag: "Individu · Kelompok", title: "Booking Sesi Konseling",
+        numClass: "text-[72px] right-0 -top-[76px] md:top-auto md:-bottom-14 md:-right-6",
+        desc: "Tentukan konselor yang sesuai, pilih ketersediaan waktu konselor, dan ajukan permohonan sesi individu maupun kelompok." },
+      { no: "04", side: "left", icon: "sign", tag: "Informed consent digital", title: "Pelaksanaan Konseling",
+        numClass: "text-[72px] right-0 -top-[76px] md:right-auto md:top-auto md:-bottom-12 md:-left-28",
+        desc: "Lengkapi lembar Informed Consent secara digital, lalu ikuti sesi konseling bersama konselor sesuai jadwal yang dikonfirmasi." },
+      { no: "05", side: "right", icon: "message", tag: "Anonim & aman", title: "Pemberian Feedback Anonim",
+        numClass: "text-[72px] right-0 -top-[76px] md:top-auto md:-bottom-12 md:-right-6",
+        desc: "Setelah sesi selesai, sampaikan evaluasi dan umpan balik secara aman dan anonim untuk peningkatan kualitas layanan berkelanjutan." },
+    ];
+
+    const dotPattern = '<svg class="pointer-events-none absolute inset-0 h-full w-full opacity-20" aria-hidden="true"><defs><pattern id="tk-dots" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" fill="#fff"/></pattern></defs><rect width="100%" height="100%" fill="url(#tk-dots)"/></svg>';
+
+    // Kartu tiket. Kartu di sisi kiri (desktop) dicerminkan: ikon & teks rata kanan.
+    const ticketCard = (s) => {
+      const left = s.side === "left";
+      return `
+        <div class="group relative max-w-[420px] overflow-hidden rounded-[22px] bg-white text-left shadow-[0_18px_40px_-22px_rgba(6,78,59,.45)] ring-1 ring-black/5 transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_26px_50px_-22px_rgba(6,78,59,.55)] ${left ? "md:ml-auto md:text-right" : ""}">
+          <div class="relative h-[70px] overflow-hidden bg-gradient-to-br from-primary to-leaf px-6 pt-3.5 md:px-7">
+            ${dotPattern}
+            <span class="relative text-[11px] font-bold uppercase tracking-[0.18em] text-white/85">Langkah ${s.no}</span>
+          </div>
+          <span class="absolute left-6 top-[70px] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl bg-white text-primary shadow-md ring-4 ring-white transition duration-300 group-hover:-rotate-6 group-hover:scale-110 md:left-7 ${left ? "md:left-auto md:right-7" : ""}">${svg(s.icon)}</span>
+          <div class="px-6 pb-5 pt-9 md:px-7">
+            <h3 class="font-display text-lg font-semibold text-primary md:text-xl">${s.title}</h3>
+            <p class="mt-3 text-[13px] leading-relaxed text-[#3b4a44] md:text-[14px]">${s.desc}</p>
+          </div>
+          <div class="relative border-t-2 border-dashed border-slate-200 px-6 py-3 md:px-7">
+            <span class="absolute -left-2.5 -top-2.5 h-5 w-5 rounded-full bg-[#E3F2E7]"></span>
+            <span class="absolute -right-2.5 -top-2.5 h-5 w-5 rounded-full bg-[#E3F2E7]"></span>
+            <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#e8f9f0] px-2.5 py-1 text-[11px] font-semibold text-brand ring-1 ring-emerald-200"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>${s.tag}</span>
+          </div>
+        </div>`;
+    };
+
+    // Struktur <li> sama dengan StepItem di GuideSections.tsx (node, konektor, angka bayangan, konten).
+    const list = document.getElementById("flow-list");
+    steps.forEach((s) => {
+      const right = s.side === "right";
+      list.insertAdjacentHTML("beforeend", `
+        <li class="step-item relative md:grid md:grid-cols-2">
+          <div class="absolute left-4 top-7 z-10 -translate-x-1/2 md:left-1/2">
+            <span class="node relative block h-5 w-5 rounded-full border-[3px] border-primary bg-[#DCE8DE] transition-colors duration-500">
+              <span class="connector absolute top-1/2 hidden h-[3px] w-10 origin-left -translate-y-1/2 scale-x-0 bg-[#B8C9BC] transition-transform duration-700 md:block ${right ? "left-full" : "right-full origin-right"}"></span>
+            </span>
+          </div>
+          <span class="pointer-events-none absolute select-none font-bold leading-none text-[#C4E2CE] md:text-[150px] ${s.numClass}">${s.no}</span>
+          <div class="content relative z-10 pl-12 opacity-0 transition-all duration-700 ease-out md:pl-0 translate-y-6 md:translate-y-0 ${
+            right ? "md:col-start-2 md:pl-14 md:translate-x-10" : "md:col-start-1 md:pr-14 md:-translate-x-10"}">
+            ${ticketCard(s)}
+          </div>
+        </li>`);
+    });
+
+    // Animasi masuk seperti useInView di komponen asli.
+    const reveal = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      const li = e.target;
+      li.querySelector(".node").classList.replace("bg-[#DCE8DE]", "bg-primary");
+      li.querySelector(".connector").classList.replace("scale-x-0", "scale-x-100");
+      const c = li.querySelector(".content");
+      c.classList.remove("opacity-0", "translate-y-6", "md:translate-x-10", "md:-translate-x-10");
+      c.classList.add("opacity-100", "translate-x-0", "translate-y-0", "md:translate-x-0");
+      reveal.unobserve(li);
+    }), { threshold: 0.3 });
+    document.querySelectorAll(".step-item").forEach((li) => reveal.observe(li));
+    const lineIo = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { document.getElementById("flow-line").classList.replace("scale-y-0", "scale-y-100"); lineIo.disconnect(); }
+    }, { threshold: 0.15 });
+    lineIo.observe(document.getElementById("flow"));
+
+    // Tab platform PWA; pilih otomatis sesuai perangkat pengunjung.
+    const tabs = document.querySelectorAll(".platform-tab");
+    const select = (p) => {
+      tabs.forEach((t) => t.setAttribute("aria-selected", String(t.dataset.p === p)));
+      document.querySelectorAll("[data-panel]").forEach((panel) => panel.classList.toggle("hidden", panel.dataset.panel !== p));
+    };
+    tabs.forEach((t) => t.addEventListener("click", () => select(t.dataset.p)));
+    const ua = navigator.userAgent;
+    select(/iPhone|iPad|iPod/.test(ua) ? "ios" : /Android/.test(ua) ? "android" : "desktop");
+  </script>
+</body>
+</html>

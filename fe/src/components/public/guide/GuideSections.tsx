@@ -30,6 +30,7 @@ function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.3) {
 function StepItem({ s }: { s: GuideStep }) {
   const [ref, inView] = useInView<HTMLLIElement>();
   const isRight = s.side === "right";
+  const Icon = s.icon;
 
   return (
     <li ref={ref} className="relative md:grid md:grid-cols-2">
@@ -70,17 +71,52 @@ function StepItem({ s }: { s: GuideStep }) {
               }`
         }`}
       >
+        {/* Kartu tiket: kepala hijau, ikon menumpang di batas, bagian bawah bergaya sobekan tiket. */}
         <div
-          className={`max-w-[420px] rounded-2xl border border-[#DCE8DE] bg-white p-6 shadow-sm backdrop-blur-sm md:p-7 ${
-            isRight ? "" : "md:ml-auto"
+          className={`group relative max-w-[420px] overflow-hidden rounded-[22px] bg-white text-left shadow-[0_18px_40px_-22px_rgba(6,78,59,0.45)] ring-1 ring-black/5 transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_26px_50px_-22px_rgba(6,78,59,0.55)] ${
+            isRight ? "" : "md:ml-auto md:text-right"
           }`}
         >
-          <h3 className="font-[Montserrat] text-lg font-semibold text-primary md:text-xl">
-            {s.title}
-          </h3>
-          <p className="mt-3 text-[13px] leading-relaxed text-[#3b4a44] md:text-[14px]">
-            {s.desc}
-          </p>
+          <div className="relative h-[70px] overflow-hidden bg-gradient-to-br from-primary to-[#236c44] px-6 pt-3.5 md:px-7">
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full opacity-20"
+              aria-hidden="true"
+            >
+              <defs>
+                <pattern id={`step-dots-${s.no}`} width="12" height="12" patternUnits="userSpaceOnUse">
+                  <circle cx="2" cy="2" r="1.2" fill="#fff" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill={`url(#step-dots-${s.no})`} />
+            </svg>
+            <span className="relative text-[11px] font-bold uppercase tracking-[0.18em] text-white/85">
+              Langkah {s.no}
+            </span>
+          </div>
+          <span
+            aria-hidden="true"
+            className={`absolute left-6 top-[70px] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl bg-white text-primary shadow-md ring-4 ring-white transition duration-300 group-hover:-rotate-6 group-hover:scale-110 md:left-7 ${
+              isRight ? "" : "md:left-auto md:right-7"
+            }`}
+          >
+            <Icon className="h-6 w-6" strokeWidth={2} />
+          </span>
+          <div className="px-6 pb-5 pt-9 md:px-7">
+            <h3 className="font-[Montserrat] text-lg font-semibold text-primary md:text-xl">
+              {s.title}
+            </h3>
+            <p className="mt-3 text-[13px] leading-relaxed text-[#3b4a44] md:text-[14px]">
+              {s.desc}
+            </p>
+          </div>
+          <div className="relative border-t-2 border-dashed border-slate-200 px-6 py-3 md:px-7">
+            <span aria-hidden="true" className="absolute -left-2.5 -top-2.5 h-5 w-5 rounded-full bg-[#E3F2E7]" />
+            <span aria-hidden="true" className="absolute -right-2.5 -top-2.5 h-5 w-5 rounded-full bg-[#E3F2E7]" />
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-semibold text-[#1e5b3a] ring-1 ring-emerald-200">
+              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
+              {s.tag}
+            </span>
+          </div>
         </div>
       </div>
     </li>

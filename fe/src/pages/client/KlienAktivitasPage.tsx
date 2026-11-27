@@ -5,7 +5,8 @@ import {
   useToast,
 } from "../../components/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { RESCHEDULE_QUERY_KEY } from "../../constants/counseling";
 import {
   ArrowLeft,
   CalendarPlus,
@@ -42,6 +43,7 @@ import {
   expiredReasonText,
   MISSED_SESSION_LABEL,
   missedReasonText,
+  RESCHEDULE_PENDING_LABEL,
 } from "../../lib/sessionStatus";
 import { formatWitaTime } from "../../lib/witaTime";
 
@@ -87,9 +89,16 @@ type Session = {
   needsNewSlot?: boolean;
   /** Alasan konselor meminta jadwal ulang. */
   rescheduleReason?: string | null;
+  /** ID booking baru bila booking ini sudah diajukan ulang ("Ajukan jadwal baru"). */
+  rebookedBookingId?: string | null;
+  /** Booking dibatalkan/ditolak: label status dan alasannya untuk kartu "Perlu jadwal baru". */
+  closedLabel?: string;
+  closedReason?: string | null;
 };
 
 type RescheduleState = {
+  /** reschedule: konselor meminta jadwal ulang; rebook: ajukan jadwal baru dari booking yang ditutup. */
+  mode: "reschedule" | "rebook";
   sessionId: number | string;
   date: Date | null;
   slotIndex: number | null;
@@ -173,6 +182,13 @@ const statusOf = (session: Session, now: number): SessionStatus => {
 
 const MISSED_VISIBLE_DAYS = 14;
 
+/**
+ * "Ajukan jadwal baru" (konselor sama, form awal dipakai lagi). Server memeriksa ulang status,
+ * batas waktu, dan pengajuan ganda (POST /bookings/:id/rebook).
+ */
+const canRebook = (session: Session) =>
+  Boolean(session.bookingId && session.counselorId && !session.rebookedBookingId);
+
 const canReschedule = (session: Session, now: number) => {
   const hoursLeft = (session.start.getTime() - now) / 3_600_000;
   return (
@@ -233,6 +249,8 @@ const SectionHeader = ({
 
 export default function KlienAktivitasPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  // Booking dibatalkan/ditolak yang dapat diajukan ulang (tidak termasuk di `sessions`).
+  const [rebookItems, setRebookItems] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [dynamicSlots, setDynamicSlots] = useState<PublicAvailabilitySlot[]>([]);
   const [now, setNow] = useState(() => Date.now());
@@ -254,6 +272,20 @@ export default function KlienAktivitasPage() {
   const toast = useToast();
   const [view, setView] = useState<"main" | "reschedule">("main");
   const [reschedule, setReschedule] = useState<RescheduleState | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Tautan dari Beranda (?jadwal-ulang=<booking id>): dibaca sekali saat halaman dibuka.
+  const [deepLinkBookingId] = useState(() => searchParams.get(RESCHEDULE_QUERY_KEY));
+  const clearRescheduleDeepLink = () => {
+    if (!searchParams.has(RESCHEDULE_QUERY_KEY)) return;
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.delete(RESCHEDULE_QUERY_KEY);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   const fetchActivity = useCallback(async () => {
     try {
@@ -374,6 +406,7 @@ export default function KlienAktivitasPage() {
           isGroup: booking?.service_type === "group",
           needsNewSlot: isRescheduled,
           rescheduleReason: isRescheduled ? booking?.reschedule_reason ?? null : null,
+          rebookedBookingId: booking?.rebooked_booking_id ?? null,
         });
       }
 
@@ -434,12 +467,60 @@ export default function KlienAktivitasPage() {
           isGroup: b.service_type === "group",
           needsNewSlot: isRescheduled,
           rescheduleReason: isRescheduled ? b.reschedule_reason ?? null : null,
+          rebookedBookingId: b.rebooked_booking_id ?? null,
         });
       }
+
+      // "Perlu jadwal baru": booking dibatalkan/ditolak dalam MISSED_VISIBLE_DAYS hari terakhir yang
+      // belum diajukan ulang dan sesinya belum pernah berjalan.
+      const rebookCandidates: Session[] = [];
+      const nowMs = Date.now();
+      for (const b of bookingRows) {
+        if (b.status !== "cancelled" && b.status !== "rejected") continue;
+        if (b.rebooked_booking_id) continue;
+        if (nowMs - Date.parse(b.starts_at) > MISSED_VISIBLE_DAYS * 86_400_000) continue;
+        const sessionRow = sessionRows.find((s) => s.booking_id === b.id);
+        if (sessionRow && (sessionRow.status === "ongoing" || sessionRow.status === "completed")) continue;
+
+        const counselorName = counselorMap.get(b.counselor_id) || "Konselor LMI";
+        rebookCandidates.push({
+          id: `rebook-${b.id}`,
+          counselor: counselorName,
+          initials:
+            counselorName
+              .split(" ")
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase() || "KL",
+          service:
+            b.service_type === "group"
+              ? b.group_name
+                ? `Konseling Kelompok (${b.group_name})`
+                : "Konseling Kelompok"
+              : "Konseling Individu",
+          room: sessionRow?.room || "Ruang Konseling LMI",
+          start: new Date(b.starts_at),
+          end: new Date(b.ends_at),
+          rescheduleCount: 0,
+          feedbackGiven: false,
+          rating: 0,
+          bookingId: b.id,
+          counselorId: b.counselor_id,
+          bookingStatus: b.status,
+          isGroup: b.service_type === "group",
+          rebookedBookingId: null,
+          closedLabel: b.status === "rejected" ? "Ditolak" : "Dibatalkan",
+          closedReason: b.cancellation_reason,
+        });
+      }
+      rebookCandidates.sort((a, b) => b.start.getTime() - a.start.getTime());
 
       return {
         filteredSlots,
         mappedSessions,
+        rebookCandidates,
       };
     } catch {
       return null;
@@ -451,6 +532,7 @@ export default function KlienAktivitasPage() {
     if (!res) return;
     setDynamicSlots(res.filteredSlots);
     setSessions(res.mappedSessions);
+    setRebookItems(res.rebookCandidates);
   }, [fetchActivity]);
 
   useEffect(() => {
@@ -460,6 +542,30 @@ export default function KlienAktivitasPage() {
         if (!active || !res) return;
         setDynamicSlots(res.filteredSlots);
         setSessions(res.mappedSessions);
+        setRebookItems(res.rebookCandidates);
+
+        // Buka langsung layar pilih jadwal pengganti bila tautan menunjuk booking yang
+        // memang diminta jadwal ulang dan jadwal semulanya belum lewat; selain itu tetap
+        // tampilkan daftar aktivitas agar status terbarunya terlihat.
+        if (deepLinkBookingId) {
+          const target = res.mappedSessions.find(
+            (item) => item.bookingId === deepLinkBookingId && item.needsNewSlot,
+          );
+          const openedAt = Date.now();
+          if (target && canReschedule(target, openedAt)) {
+            const today = new Date(openedAt);
+            setReschedule({
+              mode: "reschedule",
+              sessionId: target.id,
+              date: null,
+              slotIndex: null,
+              error: "",
+              month: new Date(today.getFullYear(), today.getMonth(), 1),
+              submitting: false,
+            });
+            setView("reschedule");
+          }
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -467,7 +573,7 @@ export default function KlienAktivitasPage() {
     return () => {
       active = false;
     };
-  }, [fetchActivity]);
+  }, [fetchActivity, deepLinkBookingId]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -492,6 +598,7 @@ export default function KlienAktivitasPage() {
         .filter(
           (session) =>
             statusOf(session, now) === "expired" &&
+            !session.rebookedBookingId &&
             now - session.start.getTime() <= MISSED_VISIBLE_DAYS * 86_400_000,
         )
         .sort((a, b) => b.start.getTime() - a.start.getTime()),
@@ -504,6 +611,7 @@ export default function KlienAktivitasPage() {
         .filter(
           (session) =>
             statusOf(session, now) === "missed" &&
+            !session.rebookedBookingId &&
             now - session.end.getTime() <= MISSED_VISIBLE_DAYS * 86_400_000,
         )
         .sort((a, b) => b.start.getTime() - a.start.getTime()),
@@ -557,8 +665,9 @@ export default function KlienAktivitasPage() {
   );
 
   const rescheduleSession = reschedule
-    ? sessions.find((session) => session.id === reschedule.sessionId)
+    ? [...sessions, ...rebookItems].find((session) => session.id === reschedule.sessionId)
     : undefined;
+  const isRebook = reschedule?.mode === "rebook";
 
   /** Slot pengganti: hanya slot server milik konselor yang sama (dicocokkan lewat ID). */
   const slotsFor = (session: Session, date: Date): TimeSlot[] => {
@@ -583,6 +692,13 @@ export default function KlienAktivitasPage() {
         };
       });
   };
+
+  /** Konselor punya setidaknya satu slot kosong mendatang yang dapat dipilih klien. */
+  const counselorHasOpenSlots = (session: Session) =>
+    Boolean(session.counselorId) &&
+    dynamicSlots.some(
+      (slot) => slot.counselor_id === session.counselorId && Date.parse(slot.starts_at) > now,
+    );
 
   const openFeedback = (sessionId: number | string) => {
     const session = sessions.find((item) => item.id === sessionId);
@@ -634,6 +750,7 @@ export default function KlienAktivitasPage() {
 
     const today = new Date(now);
     setReschedule({
+      mode: "reschedule",
       sessionId,
       date: null,
       slotIndex: null,
@@ -645,7 +762,25 @@ export default function KlienAktivitasPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  /** "Ajukan jadwal baru": layar pilih jam yang sama, konselor yang sama, tanpa isi form ulang. */
+  const openRebook = (session: Session) => {
+    if (!canRebook(session)) return;
+    const today = new Date(now);
+    setReschedule({
+      mode: "rebook",
+      sessionId: session.id,
+      date: null,
+      slotIndex: null,
+      error: "",
+      month: new Date(today.getFullYear(), today.getMonth(), 1),
+      submitting: false,
+    });
+    setView("reschedule");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const backToActivity = () => {
+    clearRescheduleDeepLink();
     setView("main");
     setReschedule(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -679,6 +814,35 @@ export default function KlienAktivitasPage() {
       return;
     }
 
+    if (reschedule.mode === "rebook") {
+      updateReschedule({ submitting: true, error: "" });
+      try {
+        // Sukses hanya ditampilkan setelah server membuat booking baru.
+        const result = await sicareApi.rebookBooking(
+          rescheduleSession.bookingId,
+          selectedSlot.slotId,
+        );
+        setReschedule(null);
+        setView("main");
+        if (result.intake_copied === false) {
+          toast.info(
+            "Permintaan jadwal baru terkirim, tetapi jawaban form awal tidak ikut tersalin. Konselor tetap dapat menerima permintaanmu.",
+          );
+        } else {
+          toast.success("Permintaan jadwal baru terkirim. Menunggu konfirmasi konselor.");
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        void refreshActivity();
+      } catch (cause) {
+        const msg =
+          cause instanceof Error
+            ? cause.message
+            : "Permintaan jadwal baru gagal dikirim. Silakan coba lagi.";
+        updateReschedule({ error: msg, submitting: false });
+      }
+      return;
+    }
+
     if (!canReschedule(rescheduleSession, now)) {
       updateReschedule({
         error:
@@ -694,6 +858,7 @@ export default function KlienAktivitasPage() {
         rescheduleSession.bookingId,
         selectedSlot.slotId,
       );
+      clearRescheduleDeepLink();
       setReschedule(null);
       setView("main");
       toast.success(
@@ -828,6 +993,16 @@ export default function KlienAktivitasPage() {
           </p>
         </div>
       </div>
+      {canRebook(session) ? (
+        <button
+          type="button"
+          onClick={() => openRebook(session)}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1e5b3a] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#174a2f]"
+        >
+          <CalendarPlus className="h-4 w-4" />
+          Ajukan jadwal baru
+        </button>
+      ) : (
       <Link
         to="/klien/permintaan"
         className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-[#1e5b3a] px-4 py-2 text-sm font-semibold text-[#1e5b3a] transition hover:bg-[#f7fcf9]"
@@ -835,6 +1010,41 @@ export default function KlienAktivitasPage() {
         <CalendarPlus className="h-4 w-4" />
         Pesan jadwal baru
       </Link>
+      )}
+    </div>
+  );
+
+  /** Kartu booking dibatalkan/ditolak di bagian "Perlu jadwal baru". */
+  const renderRebookCard = (session: Session) => (
+    <div
+      key={session.id}
+      className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex min-w-0 items-center gap-4">
+        {dateBadge(session.start)}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-gray-900">{session.counselor}</p>
+            <Badge weight="semibold" className="bg-red-50 text-red-700">
+              {session.closedLabel}
+            </Badge>
+          </div>
+          <p className="text-xs text-gray-500">
+            {session.service} · {formatTime(session.start)}–{formatTime(session.end)} WITA
+          </p>
+          {session.closedReason && (
+            <p className="mt-1 text-xs text-gray-600">“{session.closedReason}”</p>
+          )}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => openRebook(session)}
+        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1e5b3a] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#174a2f]"
+      >
+        <CalendarPlus className="h-4 w-4" />
+        Ajukan jadwal baru
+      </button>
     </div>
   );
 
@@ -978,13 +1188,20 @@ export default function KlienAktivitasPage() {
         </div>
 
         {session.needsNewSlot && (
-          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Konselor meminta jadwal ulang
-            {session.rescheduleReason ? `: ${session.rescheduleReason}` : ""}.
-            Pilih jadwal pengganti sebelum {dayLabel(session.start, now).toLowerCase()},{" "}
-            {formatTime(session.start)} WITA; setelah itu permintaan otomatis
-            kedaluwarsa.
-          </p>
+          <div className="mt-3 space-y-2">
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <span className="font-semibold">{RESCHEDULE_PENDING_LABEL}.</span> Konselor meminta
+              jadwal ulang
+              {session.rescheduleReason ? `: “${session.rescheduleReason}”` : ""}. Pilih jadwal
+              pengganti sebelum {dayLabel(session.start, now).toLowerCase()},{" "}
+              {formatTime(session.start)} WITA; bila tidak dipilih, sesi tercatat dibatalkan.
+            </p>
+            {!counselorHasOpenSlots(session) && (
+              <p className="rounded-xl bg-gray-100 px-3 py-2 text-xs text-gray-700">
+                Belum ada jadwal baru dari konselor. Silakan kembali lagi nanti.
+              </p>
+            )}
+          </div>
         )}
         {canSignConsent && (
           <p className="mt-3 text-xs text-gray-500">
@@ -1072,7 +1289,7 @@ export default function KlienAktivitasPage() {
 
         <section>
           <h1 className="font-display text-2xl font-extrabold text-gray-900 sm:text-3xl">
-            Pilih jadwal pengganti
+            {isRebook ? "Ajukan jadwal baru" : "Pilih jadwal pengganti"}
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             {rescheduleSession.counselor} · jadwal semula{" "}
@@ -1082,6 +1299,24 @@ export default function KlienAktivitasPage() {
         </section>
 
         <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+          {isRebook ? (
+            <section className="rounded-3xl border border-emerald-200 bg-[#e8f9f0] p-5 sm:p-6">
+              <p className="text-sm font-bold text-emerald-900">Tidak perlu isi form lagi</p>
+              <p className="mt-2 text-sm text-emerald-900">
+                {rescheduleSession.service}
+                {rescheduleSession.isGroup ? ", data anggota kelompok," : ""} dan jawaban form
+                awal dari permintaan sebelumnya dipakai lagi untuk konselor yang sama.
+              </p>
+              <p className="mt-4 text-xs text-emerald-800">
+                Setelah dikirim, konselor akan mengonfirmasi jadwal baru. Informed consent
+                ditandatangani lagi untuk jadwal ini. Ingin ganti konselor atau mengubah jawaban?{" "}
+                <Link to="/klien/permintaan" className="font-semibold underline">
+                  Isi permintaan baru
+                </Link>
+                .
+              </p>
+            </section>
+          ) : (
           <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 sm:p-6">
             <p className="text-sm font-bold text-amber-900">
               Alasan dari konselor
@@ -1095,7 +1330,26 @@ export default function KlienAktivitasPage() {
               jadwal semula tiba, permintaan otomatis kedaluwarsa.
             </p>
           </section>
+          )}
 
+          {!counselorHasOpenSlots(rescheduleSession) ? (
+          <section className="rounded-3xl border border-dashed border-gray-300 bg-white p-6 text-center sm:p-8">
+            <CalendarPlus className="mx-auto h-10 w-10 text-gray-300" />
+            <p className="mt-3 font-display text-base font-bold text-gray-900">
+              Belum ada jadwal baru
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              Konselor belum membuka jadwal kosong. Silakan kembali lagi nanti untuk memilih
+              jadwal{isRebook ? "" : " pengganti"}.
+            </p>
+            {!isRebook && (
+              <p className="mt-3 text-xs text-gray-500">
+                Kamu masih bisa memilih sampai {dayLabel(rescheduleSession.start, now).toLowerCase()},{" "}
+                {formatTime(rescheduleSession.start)} WITA.
+              </p>
+            )}
+          </section>
+          ) : (
           <section className="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6">
             <p className="text-sm font-bold text-gray-900">
               1. Pilih tanggal <span className="text-red-600">*</span>
@@ -1184,6 +1438,7 @@ export default function KlienAktivitasPage() {
               </div>
             )}
           </section>
+          )}
         </div>
 
         {reschedule.error && (
@@ -1210,7 +1465,11 @@ export default function KlienAktivitasPage() {
             className="rounded-xl bg-[#1e5b3a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a2f] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <IconLabel icon={Send}>
-              {reschedule.submitting ? "Mengirim..." : "Kirim jadwal pengganti"}
+              {reschedule.submitting
+                ? "Mengirim..."
+                : isRebook
+                  ? "Kirim permintaan"
+                  : "Kirim jadwal pengganti"}
             </IconLabel>
           </button>
         </div>
@@ -1244,6 +1503,23 @@ export default function KlienAktivitasPage() {
             Sedang berlangsung
           </h2>
           {ongoing.map(renderOngoingCard)}
+        </section>
+      )}
+
+      {rebookItems.length > 0 && (
+        <section
+          className="space-y-4 rounded-3xl border border-amber-200 bg-amber-50/40 p-5 sm:p-6"
+          aria-labelledby="rebook-section-title"
+        >
+          <div id="rebook-section-title">
+            <SectionHeader
+              title="Perlu jadwal baru"
+              description="Permintaan ini dibatalkan atau ditolak. Pilih jam lain dengan konselor yang sama tanpa mengisi form awal lagi."
+              count={rebookItems.length}
+              tone="amber"
+            />
+          </div>
+          <div className="space-y-3">{rebookItems.map(renderRebookCard)}</div>
         </section>
       )}
 

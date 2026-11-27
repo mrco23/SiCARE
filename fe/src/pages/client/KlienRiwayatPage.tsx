@@ -5,8 +5,10 @@ import {
   ChevronRight,
   Clock,
   Search,
+  SlidersHorizontal,
   Star,
   Users,
+  X,
 } from "lucide-react";
 import {
   AcademicPeriodFilter,
@@ -29,7 +31,17 @@ import type {
   FeedbackModerationStatusApi,
   SessionStatusApi,
 } from "../../types/api";
-import { EXPIRED_BOOKING_LABEL, MISSED_SESSION_LABEL, missedReasonText } from "../../lib/sessionStatus";
+import {
+  EXPIRED_BOOKING_LABEL,
+  expiredBookingLabel,
+  MISSED_SESSION_LABEL,
+  missedReasonText,
+  RESCHEDULE_PENDING_LABEL,
+} from "../../lib/sessionStatus";
+import {
+  HistoryFilterModal,
+  type HistoryFilterValue,
+} from "../../components/client/history/HistoryFilterModal";
 
 /* ========================= TIPE & LABEL ========================= */
 
@@ -42,10 +54,13 @@ interface HistoryItem {
   session: SessionRecordApi | null;
 }
 
-const SERVICE_OPTIONS: [ServiceType, string][] = [
-  ["individual", "Individu"],
-  ["group", "Kelompok"],
+const SERVICE_OPTIONS: { key: ServiceType; label: string; hint: string }[] = [
+  { key: "individual", label: "Individu", hint: "Sesi satu klien" },
+  { key: "group", label: "Kelompok", hint: "2–10 peserta" },
 ];
+
+type HistoryFilter = HistoryFilterValue<ServiceType, StatusFilter>;
+const DEFAULT_FILTER: HistoryFilter = { service: "individual", status: "semua" };
 
 const BOOKING_STATUS: Record<BookingStatusApi, { label: string; style: string }> = {
   waiting_confirmation: {
@@ -55,7 +70,7 @@ const BOOKING_STATUS: Record<BookingStatusApi, { label: string; style: string }>
   confirmed: { label: "Dikonfirmasi", style: "bg-emerald-50 text-emerald-700" },
   rejected: { label: "Ditolak", style: "bg-red-50 text-red-700" },
   reschedule_requested: {
-    label: "Jadwal ulang diminta",
+    label: RESCHEDULE_PENDING_LABEL,
     style: "bg-sky-50 text-sky-700",
   },
   cancelled: { label: "Dibatalkan", style: "bg-red-50 text-red-700" },
@@ -180,7 +195,12 @@ function DateBadge({ iso, className = "" }: { iso: string; className?: string })
 }
 
 function StatusPills({ item }: { item: HistoryItem }) {
-  const booking = BOOKING_STATUS[item.booking.status];
+  const baseBooking = BOOKING_STATUS[item.booking.status];
+  // Kedaluwarsa karena jadwal pengganti tidak dipilih ditampilkan sebagai dibatalkan.
+  const booking =
+    baseBooking && item.booking.status === "expired"
+      ? { ...baseBooking, label: expiredBookingLabel(item.booking.expired_reason) }
+      : baseBooking;
   const session = item.session ? SESSION_STATUS[item.session.status] : null;
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -240,8 +260,8 @@ export default function KlienRiwayatPage() {
   const [error, setError] = useState("");
 
   const [query, setQuery] = useState("");
-  const [serviceType, setServiceType] = useState<ServiceType>("individual");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("semua");
+  const [filter, setFilter] = useState<HistoryFilter>(DEFAULT_FILTER);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [periodId, setPeriodId] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [noteTab, setNoteTab] = useState<NoteTab>("klien");
@@ -326,19 +346,44 @@ export default function KlienRiwayatPage() {
 
   const selectedPeriod = periods.find((period) => period.id === periodId) ?? null;
 
-  const filtered = useMemo(() => {
+  // Periode dan pencarian tetap di luar modal; dipakai juga untuk menghitung jumlah per pilihan filter.
+  const baseItems = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter(
       (item) =>
-        item.booking.service_type === serviceType &&
-        (statusFilter === "semua" || statusGroup(item) === statusFilter) &&
         (!selectedPeriod ||
           isInAcademicPeriod(item.booking.starts_at, selectedPeriod)) &&
         (!q ||
           bookingCode(item.booking.id).toLowerCase().includes(q) ||
           historyTitle(item.booking).toLowerCase().includes(q)),
     );
-  }, [items, serviceType, statusFilter, selectedPeriod, query]);
+  }, [items, selectedPeriod, query]);
+
+  const matchesFilter = useCallback(
+    (item: HistoryItem, value: HistoryFilter) =>
+      item.booking.service_type === value.service &&
+      (value.status === "semua" || statusGroup(item) === value.status),
+    [],
+  );
+
+  const countFor = useCallback(
+    (value: HistoryFilter) => baseItems.filter((item) => matchesFilter(item, value)).length,
+    [baseItems, matchesFilter],
+  );
+
+  const filtered = useMemo(
+    () => baseItems.filter((item) => matchesFilter(item, filter)),
+    [baseItems, filter, matchesFilter],
+  );
+
+  const activeFilterCount =
+    (filter.service !== DEFAULT_FILTER.service ? 1 : 0) +
+    (filter.status !== DEFAULT_FILTER.status ? 1 : 0);
+  const serviceLabel =
+    SERVICE_OPTIONS.find((option) => option.key === filter.service)?.label ?? "";
+  const statusLabel =
+    STATUS_FILTERS.find(([key]) => key === filter.status)?.[1] ?? "";
+  const closeFilter = useCallback(() => setFilterOpen(false), []);
 
   const selected = items.find((item) => item.booking.id === selectedId) ?? null;
   const selectedFeedback = selected?.session
@@ -634,43 +679,36 @@ export default function KlienRiwayatPage() {
         refresh={{ onClick: refresh, loading }}
       />
 
-      {/* Filter */}
-      <div className="mt-6 space-y-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+      {/* Filter: pencarian + tombol Filter (jenis layanan & status di modal) + periode */}
+      <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari kode permintaan atau nama kelompok ..."
-              className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15"
-            />
-          </div>
-          <div
-            role="tablist"
-            aria-label="Jenis layanan"
-            className="flex w-full rounded-xl border border-gray-200 bg-gray-100/70 p-1 lg:w-auto"
-          >
-            {SERVICE_OPTIONS.map(([key, label]) => {
-              const active = serviceType === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setServiceType(key)}
-                  className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition lg:flex-none ${
-                    active
-                      ? "bg-white font-semibold text-gray-900 shadow-sm"
-                      : "font-medium text-gray-500"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
+          <div className="flex min-w-0 flex-1 gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Cari kode permintaan atau nama kelompok ..."
+                className="w-full rounded-xl border border-gray-200 bg-gray-100/70 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15"
+              />
+            </div>
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={filterOpen}
+              onClick={() => setFilterOpen(true)}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 transition hover:border-primary hover:text-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              <span className="sr-only sm:not-sr-only">Filter</span>
+              {activeFilterCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-white">
+                  {activeFilterCount}
+                  <span className="sr-only"> filter aktif</span>
+                </span>
+              )}
+            </button>
           </div>
           <AcademicPeriodFilter
             periods={periods}
@@ -679,32 +717,49 @@ export default function KlienRiwayatPage() {
             className="relative w-full lg:w-80"
           />
         </div>
-        <div
-          role="tablist"
-          aria-label="Status riwayat"
-          className="no-scrollbar flex gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-100/70 p-1"
-        >
-          {STATUS_FILTERS.map(([key, label]) => {
-            const active = statusFilter === key;
-            return (
+        <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Filter aktif">
+          <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+            {serviceLabel}
+          </span>
+          {filter.status !== "semua" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft py-1 pl-3 pr-1.5 text-xs font-semibold text-primary">
+              {statusLabel}
               <button
-                key={key}
                 type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setStatusFilter(key)}
-                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition sm:flex-1 sm:text-sm ${
-                  active
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-900"
-                }`}
+                onClick={() => setFilter((current) => ({ ...current, status: "semua" }))}
+                aria-label={`Hapus filter ${statusLabel}`}
+                className="rounded-full p-0.5 transition hover:bg-primary/10"
               >
-                {label}
+                <X className="h-3.5 w-3.5" />
               </button>
-            );
-          })}
+            </span>
+          )}
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilter(DEFAULT_FILTER)}
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              Atur ulang
+            </button>
+          )}
         </div>
       </div>
+
+      {filterOpen && (
+        <HistoryFilterModal
+          value={filter}
+          defaultValue={DEFAULT_FILTER}
+          serviceOptions={SERVICE_OPTIONS}
+          statusOptions={STATUS_FILTERS.map(([key, label]) => ({ key, label }))}
+          countFor={countFor}
+          onApply={(value) => {
+            setFilter(value);
+            setFilterOpen(false);
+          }}
+          onClose={closeFilter}
+        />
+      )}
 
       {error && (
         <p

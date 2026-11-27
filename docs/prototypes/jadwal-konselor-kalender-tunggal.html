@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Jadwal Kalender Tunggal – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: "#064E3B", "primary-soft": "#e8f9f0" },
+          fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+        },
+      },
+    };
+  </script>
+  <style>
+    .stage { transition: width .25s ease; }
+    @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .fade { animation: fade .16s ease-out; }
+    @media (prefers-reduced-motion: reduce) { .stage, .fade { transition: none; animation: none; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-gray-900 antialiased">
+  <header class="mx-auto max-w-[1180px] px-4 pt-8 sm:px-6">
+    <p class="text-xs font-semibold uppercase tracking-wider text-primary">Prototype · Jadwal &amp; Ketersediaan (konselor)</p>
+    <h1 class="mt-1 font-display text-2xl font-extrabold">Satu kalender bulan + daftar jadwal tanggal terpilih</h1>
+    <p class="mt-2 max-w-3xl text-sm text-gray-600">
+      Kalender mingguan besar dihapus. Kalender bulan menjadi kalender utama; titik
+      <span class="font-semibold text-emerald-700">hijau</span> = ada jadwal kosong, titik
+      <span class="font-semibold text-blue-700">biru</span> = ada sesi diminta/terkonfirmasi. Klik tanggal untuk melihat dan
+      mengelola jadwalnya (default: hari ini). Contoh: hari ini Jumat, 27 November 2026; Sabtu–Minggu libur (aturan production).
+    </p>
+    <div class="mt-4 flex items-center gap-2 text-sm">
+      <span class="font-semibold text-gray-600">Tampilan:</span>
+      <button data-width="1080" class="w-btn rounded-full border border-gray-300 bg-white px-4 py-1.5 font-semibold">Desktop</button>
+      <button data-width="375" class="w-btn rounded-full border border-gray-300 bg-white px-4 py-1.5 font-semibold">Mobile</button>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-[1180px] px-4 py-6 sm:px-6">
+    <div id="stage" class="stage relative mx-auto max-w-full rounded-3xl border border-gray-200 bg-[#f7fbf9] shadow-xl" style="width: 1080px">
+      <div id="app" class="p-5 sm:p-8"></div>
+      <div id="toast" class="pointer-events-none absolute inset-x-4 bottom-4 z-40 mx-auto hidden max-w-sm rounded-xl bg-gray-900 px-4 py-3 text-center text-xs font-semibold text-white"></div>
+    </div>
+  </main>
+
+  <script>
+    const TODAY = new Date(2026, 10, 27);
+    const MONTHS = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    const DOW = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+    const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const fromKey = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+    const fmt = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}.${String(min % 60).padStart(2, "0")}`;
+    const parse = (t) => { const m = /^(\d{1,2})[.:](\d{2})$/.exec(t.trim()); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+
+    // status: free = tersedia (hijau), requested = diminta klien (biru), confirmed = terkonfirmasi (biru)
+    let nextId = 100;
+    const SLOTS = [
+      { id: 1, date: "2026-11-23", start: 600, status: "confirmed", client: "Klien Individu · #A13F09" },
+      { id: 2, date: "2026-11-27", start: 540, status: "free" },
+      { id: 3, date: "2026-11-27", start: 900, status: "requested", client: "Klien Individu · #7E73FE6C" },
+      { id: 4, date: "2026-11-30", start: 600, status: "confirmed", client: "Klien Individu · #6892472E" },
+      { id: 5, date: "2026-11-30", start: 780, status: "free" },
+      { id: 6, date: "2026-12-01", start: 540, status: "free" },
+      { id: 7, date: "2026-12-01", start: 660, status: "free" },
+      { id: 8, date: "2026-12-02", start: 780, status: "requested", client: "Kelompok Dummy B2 · 3 orang" },
+      { id: 9, date: "2026-12-03", start: 660, status: "free" },
+      { id: 10, date: "2026-12-07", start: 840, status: "free" },
+    ];
+    const state = { width: 1080, month: new Date(2026, 10, 1), selected: key(TODAY), form: null };
+    const $ = (id) => document.getElementById(id);
+    const mobile = () => state.width < 640;
+    const toast = (m) => { const t = $("toast"); t.textContent = m; t.classList.remove("hidden"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add("hidden"), 2000); };
+    const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
+    const isPast = (d) => d < TODAY;
+    const slotsOn = (k) => SLOTS.filter((s) => s.date === k).sort((a, b) => a.start - b.start);
+
+    function calendar() {
+      const y = state.month.getFullYear(), m = state.month.getMonth();
+      const offset = (new Date(y, m, 1).getDay() + 6) % 7;
+      const days = new Date(y, m + 1, 0).getDate();
+      let cells = "";
+      for (let i = 0; i < offset; i++) cells += `<span></span>`;
+      for (let d = 1; d <= days; d++) {
+        const date = new Date(y, m, d), k = key(date);
+        const list = slotsOn(k);
+        const hasFree = list.some((s) => s.status === "free");
+        const hasSession = list.some((s) => s.status !== "free");
+        const sel = state.selected === k, today = k === key(TODAY);
+        const muted = isPast(date) || isWeekend(date);
+        cells += `
+          <button data-act="date" data-date="${k}" aria-pressed="${sel}" aria-label="${DOW[date.getDay()]}, ${d} ${MONTHS[m]}${hasFree ? ", ada jadwal kosong" : ""}${hasSession ? ", ada sesi" : ""}"
+            class="relative flex ${mobile() ? "h-11" : "h-14"} flex-col items-center justify-center rounded-2xl text-sm font-semibold transition
+            ${sel ? "bg-primary text-white shadow" : today ? "ring-2 ring-primary/40 text-primary" : muted ? "text-gray-300 hover:bg-gray-50" : "text-gray-800 hover:bg-primary-soft"}">
+            <span>${d}</span>
+            <span class="mt-1 flex h-1.5 gap-1">
+              ${hasFree ? `<span class="h-1.5 w-1.5 rounded-full ${sel ? "bg-emerald-200" : "bg-emerald-600"}"></span>` : ""}
+              ${hasSession ? `<span class="h-1.5 w-1.5 rounded-full ${sel ? "bg-blue-200" : "bg-blue-600"}"></span>` : ""}
+            </span>
+          </button>`;
+      }
+      return `
+        <section class="rounded-3xl border border-gray-200 bg-white p-5">
+          <div class="flex items-center justify-between">
+            <p class="font-display text-lg font-bold">${MONTHS[m]} ${y}</p>
+            <div class="flex items-center gap-1">
+              <button data-act="today" class="mr-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold hover:bg-gray-50">Hari ini</button>
+              <button data-act="month" data-dir="-1" aria-label="Bulan sebelumnya" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100">‹</button>
+              <button data-act="month" data-dir="1" aria-label="Bulan berikutnya" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100">›</button>
+            </div>
+          </div>
+          <div class="mt-4 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-gray-400">${["Sen","Sel","Rab","Kam","Jum","Sab","Min"].map((x) => `<span>${x}</span>`).join("")}</div>
+          <div class="mt-1 grid grid-cols-7 gap-1">${cells}</div>
+          <div class="mt-4 flex flex-wrap gap-4 border-t border-gray-100 pt-3 text-xs text-gray-600">
+            <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-600"></span>Jadwal kosong</span>
+            <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-blue-600"></span>Sesi diminta / terkonfirmasi</span>
+          </div>
+        </section>`;
+    }
+
+    function slotItem(s, readOnly) {
+      const free = s.status === "free";
+      const label = free ? "Kosong · dapat dipesan klien" : s.status === "requested" ? `Diminta · ${s.client}` : `Terkonfirmasi · ${s.client}`;
+      return `
+        <li class="flex ${mobile() ? "flex-col gap-2" : "items-center gap-4"} rounded-2xl border ${free ? "border-emerald-200 bg-emerald-50/60" : "border-blue-200 bg-blue-50/60"} p-4">
+          <div class="flex flex-1 items-center gap-3">
+            <span class="h-10 w-1.5 shrink-0 rounded-full ${free ? "bg-emerald-600" : "bg-blue-600"}"></span>
+            <div class="min-w-0">
+              <p class="text-base font-bold">${fmt(s.start)} – ${fmt(s.start + 60)} <span class="text-xs font-medium text-gray-500">WITA</span></p>
+              <p class="truncate text-xs ${free ? "text-emerald-800" : "text-blue-800"}">${label}</p>
+            </div>
+          </div>
+          ${readOnly ? "" : free ? `
+            <div class="flex gap-2 ${mobile() ? "pl-5" : ""}">
+              <button data-act="edit" data-id="${s.id}" class="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-gray-50">Ubah jam</button>
+              <button data-act="delete" data-id="${s.id}" class="rounded-xl px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">Hapus</button>
+            </div>` : `
+            <button data-act="open" data-id="${s.id}" class="${mobile() ? "ml-5 self-start" : ""} rounded-xl border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-50">${s.status === "requested" ? "Buka di Permintaan" : "Buka di Aktivitas"}</button>`}
+        </li>`;
+    }
+
+    function form() {
+      const f = state.form;
+      return `
+        <div class="fade rounded-2xl border border-primary/30 bg-white p-4">
+          <p class="text-sm font-bold">${f.id ? "Ubah jam jadwal" : "Tambah jadwal kosong"}</p>
+          <div class="mt-3 flex ${mobile() ? "flex-col" : "items-end"} gap-3">
+            <label class="text-xs font-semibold text-gray-600">Jam mulai
+              <input id="fStart" value="${f.value}" inputmode="numeric" placeholder="09.00" class="mt-1 block h-10 w-32 rounded-xl border border-gray-300 px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" />
+            </label>
+            <p class="pb-2 text-xs text-gray-500">Durasi 1 jam · antara 08.00 dan 16.00 WITA</p>
+            <div class="flex gap-2 ${mobile() ? "" : "ml-auto"}">
+              <button data-act="formCancel" class="h-10 rounded-xl border border-gray-300 px-4 text-sm font-semibold">Batal</button>
+              <button data-act="formSave" class="h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-white">Simpan</button>
+            </div>
+          </div>
+          <p id="fErr" class="mt-2 hidden text-xs text-red-600"></p>
+        </div>`;
+    }
+
+    function dayPanel() {
+      const d = fromKey(state.selected);
+      const list = slotsOn(state.selected);
+      const past = isPast(d), weekend = isWeekend(d);
+      const readOnly = past || weekend;
+      const free = list.filter((s) => s.status === "free").length;
+      const sessions = list.length - free;
+      const isToday = state.selected === key(TODAY);
+      return `
+        <section class="rounded-3xl border border-gray-200 bg-white p-5">
+          <div class="flex ${mobile() ? "flex-col gap-3" : "items-start justify-between gap-4"}">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-primary">${isToday ? "Hari ini" : past ? "Sudah lewat · hanya lihat" : weekend ? "Libur" : "Tanggal terpilih"}</p>
+              <p class="font-display text-xl font-bold">${DOW[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</p>
+              <p class="mt-0.5 text-sm text-gray-500">${list.length ? `${free} kosong · ${sessions} sesi` : weekend ? "Konseling hanya dilayani Senin–Jumat." : "Belum ada jadwal."}</p>
+            </div>
+            ${readOnly || state.form ? "" : `<button data-act="add" class="h-10 shrink-0 whitespace-nowrap rounded-xl bg-primary px-4 text-sm font-semibold text-white">+ Tambah jadwal</button>`}
+          </div>
+          <div class="mt-4 space-y-3">
+            ${state.form ? form() : ""}
+            ${list.length ? `<ul class="space-y-2">${list.map((s) => slotItem(s, readOnly)).join("")}</ul>` : `
+              <div class="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
+                ${readOnly ? "Tidak ada jadwal pada tanggal ini." : "Belum ada jadwal kosong. Tambahkan agar klien dapat memesan."}
+              </div>`}
+          </div>
+        </section>`;
+    }
+
+    function render() {
+      $("app").innerHTML = `
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="font-display text-3xl font-extrabold">Jadwal</h2>
+            <p class="mt-1 text-sm text-gray-500">Atur jam ketersediaan konseling Anda</p>
+          </div>
+          <button data-act="refresh" aria-label="Muat ulang" title="Muat ulang" class="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600">⟳</button>
+        </div>
+        <div class="mt-5 grid gap-5 ${mobile() ? "" : "grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] items-start"}">
+          ${calendar()}
+          ${dayPanel()}
+        </div>`;
+      document.querySelectorAll(".w-btn").forEach((b) => {
+        const on = Number(b.dataset.width) === state.width;
+        b.classList.toggle("!bg-primary", on); b.classList.toggle("!text-white", on); b.classList.toggle("!border-primary", on);
+      });
+      const f = $("fStart"); if (f) f.focus();
+    }
+
+    function saveForm() {
+      const v = parse($("fStart").value);
+      const err = (m) => { $("fErr").textContent = m; $("fErr").classList.remove("hidden"); };
+      if (v === null) return err("Format jam HH.MM, contoh 09.00.");
+      if (v < 480 || v + 60 > 960) return err("Jam mulai antara 08.00 dan 15.00 WITA.");
+      const clash = slotsOn(state.selected).some((s) => s.id !== state.form.id && v < s.start + 60 && v + 60 > s.start);
+      if (clash) return err("Bentrok dengan jadwal lain pada tanggal ini.");
+      if (state.form.id) { SLOTS.find((s) => s.id === state.form.id).start = v; toast("Jam jadwal diperbarui."); }
+      else { SLOTS.push({ id: nextId++, date: state.selected, start: v, status: "free" }); toast("Jadwal kosong ditambahkan."); }
+      state.form = null; render();
+    }
+
+    $("app").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-act]"); if (!b) return;
+      const a = b.dataset.act;
+      if (a === "date") { state.selected = b.dataset.date; state.form = null; }
+      else if (a === "month") state.month = new Date(state.month.getFullYear(), state.month.getMonth() + Number(b.dataset.dir), 1);
+      else if (a === "today") { state.month = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1); state.selected = key(TODAY); state.form = null; }
+      else if (a === "add") state.form = { id: null, value: "" };
+      else if (a === "edit") { const s = SLOTS.find((x) => x.id === Number(b.dataset.id)); state.form = { id: s.id, value: fmt(s.start) }; }
+      else if (a === "delete") { SLOTS.splice(SLOTS.findIndex((x) => x.id === Number(b.dataset.id)), 1); toast("Jadwal kosong dihapus."); }
+      else if (a === "formCancel") state.form = null;
+      else if (a === "formSave") return saveForm();
+      else if (a === "open") { toast(b.textContent.trim()); return; }
+      else if (a === "refresh") { toast("Data dimuat ulang."); return; }
+      render();
+    });
+    $("app").addEventListener("keydown", (e) => { if (e.target.id === "fStart" && e.key === "Enter") saveForm(); });
+    document.querySelectorAll(".w-btn").forEach((b) => b.addEventListener("click", () => { state.width = Number(b.dataset.width); $("stage").style.width = state.width + "px"; render(); }));
+    render();
+  </script>
+</body>
+</html>

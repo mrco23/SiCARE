@@ -11,8 +11,12 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import type { ClientDirectoryCounselor } from "../../types/clientCounselor";
+import type {
+  ClientDirectoryCounselor,
+  CounselorUpcomingSlot,
+} from "../../types/clientCounselor";
 import { CounselorCard } from "../../components/client/counselors/CounselorCard";
+import { CounselorProfilePanel } from "../../components/client/counselors/CounselorProfilePanel";
 import { filterClientDirectoryCounselors } from "../../features/client/counselors/filterClientCounselors";
 import {
   getAllPublicAvailability,
@@ -20,22 +24,75 @@ import {
   getPublicPhotoUrl,
 } from "../../lib/publicApi";
 import { ApiError } from "../../lib/api";
-import { SERVICE_DAY_NAMES, serviceDayName } from "../../lib/operationalRules";
+import { serviceDayName } from "../../lib/operationalRules";
 import type {
   PublicAvailabilitySlotDto,
   PublicCounselorDto,
 } from "../../types/api";
 
 const MAX_AHEAD_DAYS = 60;
+const OPERATIONAL_TIME_ZONE = "Asia/Makassar";
+
+const timeFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: OPERATIONAL_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+const dateLabelFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: OPERATIONAL_TIME_ZONE,
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+const dateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: OPERATIONAL_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 function formatSlotRange(startsAt: string, endsAt: string): string {
-  const fmt = new Intl.DateTimeFormat("id-ID", {
-    timeZone: "Asia/Makassar",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return `${fmt.format(new Date(startsAt))}–${fmt.format(new Date(endsAt))}`;
+  return `${timeFormatter.format(new Date(startsAt))}–${timeFormatter.format(new Date(endsAt))}`;
+}
+
+function formatSlotDate(startsAt: string): string {
+  // "Sen, 30 Nov" — Intl menghasilkan "Sen, 30 Nov" atau "Sen 30 Nov" tergantung engine.
+  const parts = dateLabelFormatter.formatToParts(new Date(startsAt));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("weekday")}, ${part("day")} ${part("month")}`.replace(/\.$/, "");
+}
+
+function mapUpcomingSlots(
+  profileId: string,
+  slots: PublicAvailabilitySlotDto[],
+): CounselorUpcomingSlot[] {
+  const now = Date.now();
+  const seen = new Set<string>();
+  return slots
+    .filter(
+      (slot) =>
+        slot.counselor_id === profileId &&
+        slot.status === "available" &&
+        new Date(slot.starts_at).getTime() > now &&
+        // Sabtu/Minggu hanya ikut saat aturan hari kerja mati (pengembangan).
+        serviceDayName(new Date(slot.starts_at).getDay()) !== null,
+    )
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+    .filter((slot) => {
+      const key = `${slot.starts_at}|${slot.ends_at}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((slot) => ({
+      id: slot.id,
+      startsAt: slot.starts_at,
+      dateKey: dateKeyFormatter.format(new Date(slot.starts_at)),
+      dateLabel: formatSlotDate(slot.starts_at),
+      timeLabel: formatSlotRange(slot.starts_at, slot.ends_at),
+    }));
 }
 
 function mapDirectoryCounselors(
@@ -43,27 +100,6 @@ function mapDirectoryCounselors(
   slots: PublicAvailabilitySlotDto[],
 ): ClientDirectoryCounselor[] {
   return profiles.map((profile, index) => {
-    const schedule: Record<string, string[]> = Object.fromEntries(
-      SERVICE_DAY_NAMES.map((day) => [day, [] as string[]]),
-    );
-
-    slots
-      .filter(
-        (slot) =>
-          slot.counselor_id === profile.profile_id &&
-          slot.status === "available",
-      )
-      .forEach((slot) => {
-        // Sabtu/Minggu hanya ikut saat aturan hari kerja mati (pengembangan).
-        const dayName = serviceDayName(new Date(slot.starts_at).getDay());
-        if (dayName) {
-          const label = formatSlotRange(slot.starts_at, slot.ends_at);
-          if (!schedule[dayName].includes(label)) {
-            schedule[dayName].push(label);
-          }
-        }
-      });
-
     const trimmedName = profile.public_name.trim();
     const initials = trimmedName
       .split(/\s+/)
@@ -73,8 +109,6 @@ function mapDirectoryCounselors(
       .join("")
       .toUpperCase();
 
-    const headline = profile.headline?.trim() ?? "";
-
     return {
       entityId: profile.profile_id,
       id: index + 1,
@@ -83,22 +117,21 @@ function mapDirectoryCounselors(
       historyName: trimmedName,
       initials: initials || "K",
       photoUrl: getPublicPhotoUrl(profile.photo_path),
-      about:
-        profile.bio?.trim() ||
-        headline ||
-        "Informasi singkat mengenai konselor belum tersedia. Silakan lihat kualifikasi, pengalaman, topik keahlian, dan jadwal konseling berikut.",
+      headline: profile.headline?.trim() ?? "",
+      bio: profile.bio?.trim() ?? "",
       // Riwayat pendidikan dari counselor_educations (diisi konselor di Pengaturan).
       education: (profile.educations ?? []).map((item) => ({
         school: item.institution,
         year: String(item.graduation_year),
         degree: item.degree,
       })),
+      // 0 tahun atau kosong tidak ditampilkan.
       experience:
-        typeof profile.years_experience === "number"
+        typeof profile.years_experience === "number" && profile.years_experience > 0
           ? `${profile.years_experience} Tahun`
-          : "Belum dicantumkan",
+          : null,
       topics: profile.specialties ?? [],
-      schedule,
+      upcomingSlots: mapUpcomingSlots(profile.profile_id, slots),
     };
   });
 }
@@ -108,6 +141,7 @@ export default function KlienKonselorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [profileCounselorId, setProfileCounselorId] = useState<string | null>(null);
 
   const fetchDirectory = useCallback(async (signal?: AbortSignal) => {
     const fromDate = new Date();
@@ -172,10 +206,18 @@ export default function KlienKonselorPage() {
       .finally(() => setLoading(false));
   };
 
-  const filteredCounselors = useMemo(
-    () => filterClientDirectoryCounselors(counselors, searchQuery),
-    [counselors, searchQuery],
-  );
+  // Konselor yang punya jadwal tampil lebih dulu; urutan asli dipertahankan di dalam tiap kelompok.
+  const filteredCounselors = useMemo(() => {
+    const matches = filterClientDirectoryCounselors(counselors, searchQuery);
+    return [
+      ...matches.filter((counselor) => counselor.upcomingSlots.length > 0),
+      ...matches.filter((counselor) => counselor.upcomingSlots.length === 0),
+    ];
+  }, [counselors, searchQuery]);
+
+  const profileCounselor =
+    counselors.find((counselor) => counselor.entityId === profileCounselorId) ?? null;
+  const closeProfile = useCallback(() => setProfileCounselorId(null), []);
 
   return (
     <div className="space-y-6">
@@ -242,7 +284,11 @@ export default function KlienKonselorPage() {
           className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
         >
           {filteredCounselors.map((counselor) => (
-            <CounselorCard key={counselor.entityId} counselor={counselor} />
+            <CounselorCard
+              key={counselor.entityId}
+              counselor={counselor}
+              onOpenProfile={(item) => setProfileCounselorId(item.entityId)}
+            />
           ))}
         </section>
       ) : !error && counselors.length === 0 ? (
@@ -277,6 +323,10 @@ export default function KlienKonselorPage() {
           </button>
         </section>
       ) : null}
+
+      {profileCounselor && (
+        <CounselorProfilePanel counselor={profileCounselor} onClose={closeProfile} />
+      )}
     </div>
   );
 }

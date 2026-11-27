@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Ajukan Jadwal Baru – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: "#064E3B", client: "#1e5b3a", "client-soft": "#e8f9f0" },
+          fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+        },
+      },
+    };
+  </script>
+  <style>
+    .phone { width: 375px; height: 780px; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+    @keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+    .sheet { animation: sheet-in .22s ease-out; }
+    @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .enter { animation: fade-in .2s ease-out; }
+    @media (prefers-reduced-motion: reduce) { .sheet, .enter { animation: none; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-gray-900 antialiased">
+  <header class="mx-auto max-w-[1180px] px-4 pt-8 sm:px-6">
+    <p class="text-xs font-semibold uppercase tracking-wider text-primary">Prototype · Jadwal ulang tanpa isi form ulang (mobile 375px)</p>
+    <h1 class="mt-1 font-display text-2xl font-extrabold">"Ajukan jadwal baru" dari permintaan yang batal, ditolak, atau kedaluwarsa</h1>
+    <p class="mt-2 max-w-4xl text-sm text-gray-600">
+      Kiri: alur sekarang. Tengah: usulan untuk klien (bisa diklik sampai terkirim). Kanan: usulan pendamping untuk
+      konselor, "Minta jadwal ulang" sebagai pengganti "Urungkan" agar booking tidak perlu dibatalkan.
+      Layar pilih tanggal & jam memakai layar "Pilih jadwal pengganti" yang sudah ada.
+    </p>
+  </header>
+
+  <main class="mx-auto flex max-w-[1180px] flex-wrap justify-center gap-8 px-4 py-8 sm:px-6">
+    <!-- ================= SEKARANG ================= -->
+    <section>
+      <p class="font-display text-base font-bold">Sekarang</p>
+      <p class="mb-3 w-[375px] text-xs text-gray-600">Booking batal/ditolak tidak tampil di Aktivitas. Untuk jadwal baru, klien membuka "Pesan" dan mengisi ulang semua langkah.</p>
+      <div class="phone relative overflow-hidden rounded-[2.2rem] border-[10px] border-gray-900 bg-[#f7fbf9] shadow-2xl">
+        <div class="h-full overflow-y-auto no-scrollbar pb-24">
+          <div class="flex h-14 items-center justify-between border-b border-gray-100 bg-white px-4">
+            <span class="font-display text-lg font-extrabold text-primary">SiCARE</span>
+            <span class="h-8 w-8 rounded-full bg-gray-200"></span>
+          </div>
+          <div class="space-y-4 px-4 pt-4">
+            <div class="flex items-center gap-2 text-xs font-semibold text-gray-500">
+              <span class="rounded-full bg-client px-2 py-0.5 text-white">Pesan</span> Langkah 1 dari 4
+            </div>
+            <h2 class="font-display text-xl font-extrabold">Formulir awal konseling</h2>
+            <p class="text-xs text-gray-500">Semua harus diisi lagi walaupun sudah pernah diisi untuk permintaan yang ditolak.</p>
+            <div class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 text-xs">
+              <p class="font-semibold">1. Apakah kamu pernah berpikir untuk menyakiti diri? *</p>
+              <div class="flex gap-2"><span class="rounded-full border px-3 py-1">Ya</span><span class="rounded-full border px-3 py-1">Tidak</span></div>
+              <p class="font-semibold">2. Seberapa besar tekanan yang kamu rasakan? *</p>
+              <div class="flex gap-2"><span class="rounded-full border px-3 py-1">Ya</span><span class="rounded-full border px-3 py-1">Mungkin</span><span class="rounded-full border px-3 py-1">Tidak</span></div>
+              <p class="font-semibold">3. Kualitas tidur (1–5) *</p>
+              <div class="h-2 rounded-full bg-gray-100"></div>
+              <p class="font-semibold">4. Masalah yang ingin dibahas *</p>
+              <div class="h-8 rounded-lg border border-dashed"></div>
+              <p class="font-semibold">5. Keluhan utama *</p>
+              <div class="h-16 rounded-lg border border-dashed"></div>
+              <p class="font-semibold">6. Sejak kapan dirasakan? *</p>
+              <div class="h-16 rounded-lg border border-dashed"></div>
+              <p class="font-semibold">7. Alasan ingin konseling *</p>
+              <div class="h-16 rounded-lg border border-dashed"></div>
+              <p class="text-gray-400">… dan 5 pertanyaan isian lagi, lalu data anggota kelompok, pilih konselor, pilih jadwal.</p>
+            </div>
+          </div>
+        </div>
+        <nav class="absolute inset-x-0 bottom-0 flex h-16 items-center justify-around border-t border-gray-200 bg-white text-[10px] font-semibold text-gray-500">
+          <span>Beranda</span><span>Aktivitas</span><span class="text-client">Pesan</span><span>Riwayat</span><span>Lainnya</span>
+        </nav>
+      </div>
+    </section>
+
+    <!-- ================= USULAN KLIEN ================= -->
+    <section>
+      <p class="font-display text-base font-bold">Usulan · Klien</p>
+      <p class="mb-3 w-[375px] text-xs text-gray-600">Kartu "Perlu jadwal baru" di Aktivitas → pilih tanggal & jam konselor yang sama → terkirim. Form awal dan data anggota dipakai lagi.</p>
+      <div class="phone relative overflow-hidden rounded-[2.2rem] border-[10px] border-gray-900 bg-[#f7fbf9] shadow-2xl">
+        <div id="clientScroll" class="h-full overflow-y-auto no-scrollbar pb-24">
+          <div class="flex h-14 items-center justify-between border-b border-gray-100 bg-white px-4">
+            <span class="font-display text-lg font-extrabold text-primary">SiCARE</span>
+            <span class="h-8 w-8 rounded-full bg-gray-200"></span>
+          </div>
+          <div id="clientView" class="px-4 pt-4"></div>
+        </div>
+        <nav class="absolute inset-x-0 bottom-0 z-10 flex h-16 items-center justify-around border-t border-gray-200 bg-white text-[10px] font-semibold text-gray-500">
+          <span>Beranda</span><span class="text-client">Aktivitas</span><span>Pesan</span><span>Riwayat</span><span>Lainnya</span>
+        </nav>
+
+        <div id="reuseSheet" class="absolute inset-0 z-30 hidden">
+          <div data-close class="absolute inset-0 bg-black/40"></div>
+          <div class="sheet absolute inset-x-0 bottom-0 max-h-[75%] overflow-y-auto rounded-t-3xl bg-white p-5 pb-6">
+            <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-gray-200"></div>
+            <p class="font-display text-base font-bold">Data yang dipakai lagi</p>
+            <p class="mt-1 text-xs text-gray-500">Dari permintaan #SC-A13F09 (21 Nov 2026). Hanya kamu dan konselormu yang dapat melihat jawaban form awal.</p>
+            <dl class="mt-4 space-y-3 text-sm">
+              <div><dt class="text-xs font-semibold text-gray-500">Layanan</dt><dd class="font-semibold">Konseling kelompok · 3 orang</dd></div>
+              <div><dt class="text-xs font-semibold text-gray-500">Anggota</dt><dd>Kamu (perwakilan), Maria Sondakh, Paulus Watung</dd></div>
+              <div><dt class="text-xs font-semibold text-gray-500">Form awal</dt><dd>Terisi lengkap · topik: Relasi di lingkungan sosial</dd></div>
+            </dl>
+            <div class="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
+              Ada yang berubah? Pakai <b>Isi permintaan baru</b> untuk mengisi ulang form atau memilih konselor lain.
+            </div>
+            <button data-close class="mt-4 h-11 w-full rounded-xl border border-gray-300 text-sm font-semibold">Tutup</button>
+          </div>
+        </div>
+        <div id="toast" class="pointer-events-none absolute inset-x-4 bottom-20 z-40 hidden rounded-xl bg-gray-900 px-4 py-3 text-center text-xs font-semibold text-white"></div>
+      </div>
+    </section>
+
+    <!-- ================= USULAN KONSELOR ================= -->
+    <section>
+      <p class="font-display text-base font-bold">Usulan · Konselor (pendamping)</p>
+      <p class="mb-3 w-[375px] text-xs text-gray-600">Saat berhalangan, konselor memilih "Minta jadwal ulang" (sudah didukung database). Booking, form awal, dan consent tetap; klien cukup memilih jam baru.</p>
+      <div class="phone relative overflow-hidden rounded-[2.2rem] border-[10px] border-gray-900 bg-[#f7fbf9] shadow-2xl">
+        <div class="h-full overflow-y-auto no-scrollbar pb-24">
+          <div class="flex h-14 items-center justify-between border-b border-gray-100 bg-white px-4">
+            <span class="font-display text-lg font-extrabold text-primary">SiCARE</span>
+            <span class="h-8 w-8 rounded-full bg-gray-200"></span>
+          </div>
+          <div class="px-4 pt-3">
+            <h2 class="text-xl font-extrabold">Aktivitas</h2>
+            <p class="text-[11px] text-gray-500">Diperbarui pukul 10.58 WITA</p>
+            <p class="mt-4 text-[11px] font-bold uppercase tracking-wide text-gray-500">Senin, 30 Nov</p>
+            <article class="mt-2 rounded-2xl border border-gray-200 bg-white p-3">
+              <div class="flex gap-3">
+                <div class="w-12 shrink-0 text-center"><p class="text-sm font-bold">10.00</p><p class="text-[11px] text-gray-500">11.00</p></div>
+                <div class="min-w-0 flex-1 border-l border-gray-100 pl-3">
+                  <div class="flex items-start justify-between gap-2">
+                    <p class="truncate text-sm font-bold">Klien Individu</p>
+                    <button id="couMore" class="-mr-1 -mt-1 flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100" aria-label="Aksi lain">⋯</button>
+                  </div>
+                  <div class="mt-1 flex gap-1.5"><span class="rounded-md border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[11px] font-semibold text-sky-700">Terjadwal</span><span class="rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-700">Individu</span></div>
+                  <button class="mt-2.5 h-9 w-full rounded-xl bg-gray-200 text-xs font-semibold text-gray-500" disabled>Mulai Sesi</button>
+                </div>
+              </div>
+            </article>
+            <p id="couStatus" class="mt-3 hidden rounded-xl bg-amber-50 p-3 text-xs text-amber-900"></p>
+          </div>
+        </div>
+        <nav class="absolute inset-x-0 bottom-0 z-10 flex h-16 items-center justify-around border-t border-gray-200 bg-white text-[10px] font-semibold text-gray-500">
+          <span>Beranda</span><span class="text-primary">Aktivitas</span><span>Permintaan</span><span>Jadwal</span><span>Lainnya</span>
+        </nav>
+
+        <div id="couSheet" class="absolute inset-0 z-30 hidden">
+          <div data-cclose class="absolute inset-0 bg-black/40"></div>
+          <div class="sheet absolute inset-x-0 bottom-0 rounded-t-3xl bg-white p-5 pb-6">
+            <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-gray-200"></div>
+            <p class="font-display text-base font-bold">Klien Individu</p>
+            <p class="text-xs text-gray-500">Senin, 30 November 2026 · 10.00 – 11.00 WITA</p>
+            <div class="mt-3 divide-y divide-gray-100 text-sm font-semibold">
+              <button data-cclose class="block w-full py-3 text-left">Detail Sesi</button>
+              <button data-cclose class="block w-full py-3 text-left">Persetujuan</button>
+              <button id="couResched" class="block w-full py-3 text-left text-amber-700">Minta Jadwal Ulang <span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px]">baru</span></button>
+              <button data-cclose class="block w-full py-3 text-left text-red-600">Urungkan</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="couDialog" class="absolute inset-0 z-40 hidden">
+          <div class="absolute inset-0 bg-black/40"></div>
+          <div class="sheet absolute inset-x-0 bottom-0 rounded-t-3xl bg-white p-5 pb-6">
+            <p class="font-display text-base font-bold">Minta jadwal ulang?</p>
+            <p class="mt-1 text-xs text-gray-600">Sesi ini dibatalkan dan klien diminta memilih jadwal pengganti dari ketersediaan Anda. Form awal dan data peserta tetap dipakai.</p>
+            <label class="mt-3 block text-xs font-semibold">Alasan (dibaca klien) *</label>
+            <textarea id="couReason" rows="3" class="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-primary" placeholder="Contoh: ada tugas dinas mendadak pada jam ini."></textarea>
+            <p id="couErr" class="mt-1 hidden text-xs text-red-600">Tuliskan alasan minimal 3 karakter.</p>
+            <div class="mt-4 flex gap-2">
+              <button id="couCancel" class="h-11 flex-1 rounded-xl border border-gray-300 text-sm font-semibold">Batal</button>
+              <button id="couSend" class="h-11 flex-1 rounded-xl bg-primary text-sm font-semibold text-white">Kirim permintaan</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="mx-auto max-w-[1180px] px-4 pb-12 sm:px-6">
+    <div class="rounded-2xl border border-gray-200 bg-white p-6">
+      <h2 class="font-display text-lg font-extrabold">Ringkasan usulan</h2>
+      <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700">
+        <li><b>Aktivitas Klien:</b> bagian "Perlu jadwal baru" menampilkan permintaan yang <i>dibatalkan konselor, dibatalkan klien, ditolak, kedaluwarsa,</i> atau <i>terlewat</i> (30 hari terakhir, belum diajukan ulang). Bagian "Sesi terlewat" dan "Permintaan kedaluwarsa" yang sudah ada digabung ke sini.</li>
+        <li><b>Ajukan jadwal baru:</b> membuka layar pilih tanggal & jam yang sudah ada (dipakai untuk "Pilih jadwal pengganti"), berisi slot kosong konselor yang sama. Kotak hijau menjelaskan data yang dipakai lagi; "Lihat data" membuka ringkasannya.</li>
+        <li><b>Server:</b> endpoint baru <code>POST /bookings/:id/rebook</code> membuat booking baru lewat <code>sicare_create_booking</code> (aturan slot, periode, bentrok, dan batas 2 booking aktif tetap berlaku), lalu menyalin jenis layanan, anggota kelompok, dan jawaban form awal. Hubungan booking lama → baru dicatat di audit. Tanpa migrasi.</li>
+        <li><b>Tetap seperti sekarang:</b> konselor harus menerima permintaan baru; consent ditandatangani lagi untuk booking baru; ganti konselor atau ubah form lewat "Isi permintaan baru".</li>
+        <li><b>Konselor (pendamping):</b> "Minta Jadwal Ulang" di menu ⋯ sesi terjadwal, memakai transisi yang sudah ada di database (<code>reschedule_requested</code>), sehingga booking tidak perlu dibatalkan.</li>
+      </ol>
+      <p class="mt-3 text-xs text-gray-500">Keputusan yang masih perlu: apakah jawaban form awal boleh dipakai ulang tanpa konfirmasi klien (usulan: boleh, dengan tautan "Isi permintaan baru" bila ada perubahan).</p>
+    </div>
+  </section>
+
+  <script>
+    const TODAY = new Date(2026, 10, 28); // Sabtu 28 Nov 2026 (waktu contoh)
+    const ITEMS = [
+      { id: "A13F09", counselor: "Giovana Yudi, M.Psi.", service: "Kelompok · 3 orang", date: "Sen, 23 Nov", time: "13.00–14.00", tag: "Dibatalkan konselor", tagCls: "bg-red-50 text-red-700", reason: "Ada tugas dinas mendadak dari lembaga pada jam yang sama." },
+      { id: "7C2D11", counselor: "Giovana Yudi, M.Psi.", service: "Individu", date: "Kam, 19 Nov", time: "10.00–11.00", tag: "Ditolak", tagCls: "bg-red-50 text-red-700", reason: "Konselor berhalangan pada jadwal tersebut." },
+      { id: "55E0A9", counselor: "Giovana Yudi, M.Psi.", service: "Individu", date: "Sel, 17 Nov", time: "09.00–10.00", tag: "Kedaluwarsa", tagCls: "bg-gray-100 text-gray-700", reason: "Belum dikonfirmasi konselor sampai jadwalnya tiba." },
+    ];
+    // Slot kosong konselor (contoh) per tanggal 2026-12-xx.
+    const SLOTS = { 1: ["09.00–10.00", "13.00–14.00"], 2: ["10.00–11.00"], 3: ["11.00–12.00", "14.00–15.00"], 7: ["09.00–10.00"], 9: ["13.00–14.00"], 30: [] };
+    const state = { view: "list", item: null, date: null, slot: null, month: 11 }; // month index 11 = Desember
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const toast = (m) => { const t = $("toast"); t.textContent = m; t.classList.remove("hidden"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add("hidden"), 1800); };
+
+    function renderList() {
+      return `
+        <div class="enter">
+          <p class="text-xs text-gray-500">Sabtu, 28 November 2026</p>
+          <h2 class="font-display text-2xl font-extrabold">Aktivitasmu</h2>
+          <p class="mt-1 text-sm text-gray-600">Belum ada sesi terjadwal.</p>
+
+          <section class="mt-5 space-y-3 rounded-3xl border border-amber-200 bg-amber-50/50 p-4">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="font-display text-base font-bold">Perlu jadwal baru</p>
+                <p class="text-xs text-gray-600">Pilih jam lain tanpa mengisi form awal lagi.</p>
+              </div>
+              <span class="rounded-full bg-amber-200 px-2 text-xs font-bold text-amber-900">${ITEMS.length}</span>
+            </div>
+            ${ITEMS.map((it) => `
+              <article class="rounded-2xl border border-gray-200 bg-white p-3">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-semibold">${esc(it.counselor)}</p>
+                    <p class="text-xs text-gray-500">${it.service} · ${it.date}, ${it.time} WITA</p>
+                  </div>
+                  <span class="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${it.tagCls}">${it.tag}</span>
+                </div>
+                <p class="mt-1.5 text-xs text-gray-600">“${esc(it.reason)}”</p>
+                <button data-rebook="${it.id}" class="mt-2.5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-client text-sm font-semibold text-white active:bg-[#174a2f]">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>
+                  Ajukan jadwal baru
+                </button>
+              </article>`).join("")}
+            <p class="text-center text-[11px] text-gray-500">Ingin ganti konselor atau ubah jawaban? <a href="#" data-fullform class="font-semibold text-client underline">Isi permintaan baru</a></p>
+          </section>
+        </div>`;
+    }
+
+    function calendar() {
+      const year = 2026, m = state.month;
+      const first = new Date(year, m, 1);
+      const offset = (first.getDay() + 6) % 7;
+      const days = new Date(year, m + 1, 0).getDate();
+      let cells = "";
+      for (let i = 0; i < offset; i++) cells += "<span></span>";
+      for (let d = 1; d <= days; d++) {
+        const date = new Date(year, m, d);
+        const has = m === 11 && SLOTS[d] && SLOTS[d].length > 0;
+        const sel = state.date === d && m === 11;
+        const past = date <= TODAY;
+        cells += `<button ${has && !past ? `data-date="${d}"` : "disabled"} class="h-9 rounded-full text-xs font-semibold ${sel ? "bg-client text-white" : has && !past ? "bg-client-soft text-client" : "text-gray-300"}">${d}</button>`;
+      }
+      const label = first.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+      return `
+        <div class="mt-3 rounded-2xl border border-gray-200 p-3">
+          <div class="flex items-center justify-between">
+            <button data-month="-1" ${m <= 10 ? "disabled" : ""} class="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 disabled:opacity-30">‹</button>
+            <p class="font-display text-sm font-bold capitalize">${label}</p>
+            <button data-month="1" ${m >= 11 ? "disabled" : ""} class="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 disabled:opacity-30">›</button>
+          </div>
+          <div class="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-gray-500">${["Sen","Sel","Rab","Kam","Jum","Sab","Min"].map((x) => `<span>${x}</span>`).join("")}</div>
+          <div class="mt-1 grid grid-cols-7 gap-1">${cells}</div>
+        </div>`;
+    }
+
+    function renderPick() {
+      const it = state.item;
+      const slots = state.date ? SLOTS[state.date] || [] : [];
+      return `
+        <div class="enter space-y-4 pb-4">
+          <button data-back class="text-sm font-semibold text-client">‹ Kembali ke aktivitas</button>
+          <div>
+            <h2 class="font-display text-2xl font-extrabold">Ajukan jadwal baru</h2>
+            <p class="mt-1 text-sm text-gray-600">${esc(it.counselor)} · semula ${it.date}, ${it.time} WITA</p>
+          </div>
+          <div class="rounded-2xl border border-emerald-200 bg-client-soft p-3 text-xs text-emerald-900">
+            <p class="font-bold">Tidak perlu isi form lagi</p>
+            <p class="mt-1">Layanan (${it.service}), data anggota, dan jawaban form awal dari permintaan sebelumnya dipakai lagi.
+              <button data-reuse class="font-semibold underline">Lihat data</button></p>
+          </div>
+          <section class="rounded-3xl border border-gray-200 bg-white p-4">
+            <p class="text-sm font-bold">1. Pilih tanggal <span class="text-red-600">*</span></p>
+            <p class="text-xs text-gray-500">Tanggal hijau memiliki jadwal konselor yang masih kosong.</p>
+            ${calendar()}
+            <p class="mt-5 text-sm font-bold">2. Pilih jam <span class="text-red-600">*</span></p>
+            ${!state.date ? `<p class="mt-2 text-sm text-gray-500">Pilih tanggal terlebih dahulu.</p>` :
+              `<div class="mt-2 flex flex-wrap gap-2">${slots.map((s, i) => `<button data-slot="${i}" class="rounded-full border px-4 py-2 text-xs font-semibold ${state.slot === i ? "border-client bg-client text-white" : "border-client text-client"}">${s} WITA</button>`).join("")}</div>`}
+          </section>
+          <div class="flex gap-2">
+            <button data-back class="h-11 flex-1 rounded-xl border border-gray-300 text-sm font-semibold">Batal</button>
+            <button data-send ${state.date && state.slot !== null ? "" : "disabled"} class="h-11 flex-[1.4] rounded-xl bg-client text-sm font-semibold text-white disabled:opacity-40">Kirim permintaan</button>
+          </div>
+        </div>`;
+    }
+
+    function renderDone() {
+      const it = state.item;
+      const d = new Date(2026, 11, state.date).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
+      return `
+        <div class="enter space-y-4 pt-6 text-center">
+          <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-client-soft text-2xl text-client">✓</div>
+          <h2 class="font-display text-xl font-extrabold">Permintaan terkirim</h2>
+          <p class="text-sm text-gray-600">${esc(it.counselor)}<br>${d}, ${SLOTS[state.date][state.slot]} WITA</p>
+          <div class="rounded-2xl border border-gray-200 bg-white p-4 text-left text-xs text-gray-700">
+            <p class="font-semibold text-gray-900">Langkah berikutnya</p>
+            <ol class="mt-2 list-decimal space-y-1 pl-4">
+              <li>Konselor mengonfirmasi jadwal baru.</li>
+              <li>Tanda tangani informed consent untuk jadwal ini${it.service.startsWith("Kelompok") ? " (anggota kelompok menerima undangan lagi)" : ""}.</li>
+            </ol>
+          </div>
+          <button data-back class="h-11 w-full rounded-xl bg-client text-sm font-semibold text-white">Kembali ke aktivitas</button>
+        </div>`;
+    }
+
+    function render() {
+      $("clientView").innerHTML = state.view === "list" ? renderList() : state.view === "pick" ? renderPick() : renderDone();
+    }
+
+    $("clientView").addEventListener("click", (e) => {
+      const t = e.target.closest("button, a"); if (!t) return;
+      if (t.dataset.rebook) { state.item = ITEMS.find((x) => x.id === t.dataset.rebook); Object.assign(state, { view: "pick", date: null, slot: null, month: 11 }); $("clientScroll").scrollTop = 0; }
+      else if ("back" in t.dataset) { state.view = "list"; }
+      else if (t.dataset.date) { state.date = Number(t.dataset.date); state.slot = null; }
+      else if (t.dataset.slot) { state.slot = Number(t.dataset.slot); }
+      else if (t.dataset.month) { state.month += Number(t.dataset.month); }
+      else if ("send" in t.dataset) { state.view = "done"; $("clientScroll").scrollTop = 0; }
+      else if ("reuse" in t.dataset) { $("reuseSheet").classList.remove("hidden"); return; }
+      else if ("fullform" in t.dataset) { e.preventDefault(); toast("Membuka alur Pesan seperti sekarang (form lengkap)"); return; }
+      render();
+    });
+    document.querySelectorAll("#reuseSheet [data-close]").forEach((b) => b.addEventListener("click", () => $("reuseSheet").classList.add("hidden")));
+
+    // Konselor
+    const showCou = (id, on) => $(id).classList.toggle("hidden", !on);
+    $("couMore").addEventListener("click", () => showCou("couSheet", true));
+    document.querySelectorAll("[data-cclose]").forEach((b) => b.addEventListener("click", () => showCou("couSheet", false)));
+    $("couResched").addEventListener("click", () => { showCou("couSheet", false); showCou("couDialog", true); $("couReason").focus(); });
+    $("couCancel").addEventListener("click", () => showCou("couDialog", false));
+    $("couSend").addEventListener("click", () => {
+      const r = $("couReason").value.trim();
+      $("couErr").classList.toggle("hidden", r.length >= 3);
+      if (r.length < 3) return;
+      showCou("couDialog", false);
+      const s = $("couStatus");
+      s.textContent = `Permintaan jadwal ulang terkirim. Klien memilih jam pengganti dari ketersediaan Anda; booking dan form awal tetap. Alasan: “${r}”`;
+      s.classList.remove("hidden");
+    });
+
+    render();
+  </script>
+</body>
+</html>

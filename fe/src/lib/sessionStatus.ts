@@ -24,6 +24,17 @@ export function expiredReasonText(reason?: BookingExpiredReasonApi | null): stri
   return EXPIRED_BOOKING_REASON;
 }
 
+/** Label booking `reschedule_requested`: konselor meminta jadwal ulang, klien memilih jam pengganti. */
+export const RESCHEDULE_PENDING_LABEL = "Menunggu jadwal pengganti";
+
+/** Label booking `expired` karena jadwal pengganti tidak dipilih (expired_reason reschedule_not_selected). */
+export const RESCHEDULE_NOT_SELECTED_LABEL = "Dibatalkan · jadwal pengganti tidak dipilih";
+
+/** Label booking kedaluwarsa sesuai alasannya; tanpa migrasi status baru. */
+export function expiredBookingLabel(reason?: BookingExpiredReasonApi | null): string {
+  return reason === "reschedule_not_selected" ? RESCHEDULE_NOT_SELECTED_LABEL : EXPIRED_BOOKING_LABEL;
+}
+
 /** Catatan untuk sesi berlangsung yang ditutup otomatis oleh sistem. */
 export const AUTO_COMPLETED_NOTE =
   "Ditutup otomatis karena sesi belum diakhiri sampai 2 jam setelah jadwal selesai.";

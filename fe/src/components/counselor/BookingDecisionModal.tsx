@@ -28,12 +28,8 @@ const REJECT_PRESETS = [
   "Lainnya",
 ] as const;
 
-const RESCHEDULE_PRESETS = [
-  "Konselor berhalangan hadir pada waktu ketersediaan yang dipilih",
-  "Terdapat agenda rapat atau tugas mendadak di unit LMI",
-  "Penyesuaian jam operasional ruang konseling",
-  "Lainnya",
-] as const;
+/** Panjang minimal alasan jadwal ulang yang diketik konselor (dibaca klien). */
+const RESCHEDULE_REASON_MIN = 10;
 
 export function BookingDecisionModal({
   booking,
@@ -68,6 +64,8 @@ export function BookingDecisionModal({
   const scheduleTime = formatIsoTimeRangeWita(booking.starts_at, booking.ends_at);
 
   const composedReason = (() => {
+    // Jadwal ulang: alasan diketik sendiri oleh konselor (keputusan pengguna 2026-11-28).
+    if (action === "reschedule") return extraNote.trim().slice(0, 1000);
     const base = presetReason === "Lainnya" ? customReason.trim() : presetReason.trim();
     const note = extraNote.trim();
     if (!base && !note) return "";
@@ -78,6 +76,8 @@ export function BookingDecisionModal({
   const isReasonValid =
     action === "approve"
       ? room.trim().length <= 240
+      : action === "reschedule"
+        ? composedReason.length >= RESCHEDULE_REASON_MIN
       : Boolean(presetReason) &&
         (presetReason !== "Lainnya" || customReason.trim().length >= 3) &&
         composedReason.length >= 3 &&
@@ -120,7 +120,7 @@ export function BookingDecisionModal({
     }
   };
 
-  const presets = action === "reject" ? REJECT_PRESETS : RESCHEDULE_PRESETS;
+  const presets = REJECT_PRESETS;
 
   return (
     <div
@@ -215,14 +215,42 @@ export function BookingDecisionModal({
                 </p>
               </div>
             </>
+          ) : action === "reschedule" ? (
+            <div>
+              <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                Sesi ini tidak jadi berlangsung pada jam ini. Klien memilih jam pengganti dari
+                ketersediaan Anda sebelum jadwal semula tiba. Form awal, data peserta, dan consent
+                tetap dipakai. Pastikan Anda sudah membuka jadwal kosong di halaman Jadwal.
+              </p>
+              <label
+                htmlFor="rescheduleReasonInput"
+                className="mt-4 block text-sm font-semibold text-gray-800"
+              >
+                Alasan (dibaca klien) <span className="text-red-600">*</span>
+              </label>
+              <textarea
+                id="rescheduleReasonInput"
+                rows={4}
+                maxLength={1000}
+                value={extraNote}
+                onChange={(event) => setExtraNote(event.target.value)}
+                placeholder="Contoh: saya ada tugas dinas mendadak pada jam ini, mohon pilih jadwal lain."
+                className="mt-1.5 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/15"
+              />
+              <p className="mt-1 flex justify-between text-xs text-gray-400">
+                <span>
+                  {composedReason.length > 0 && composedReason.length < RESCHEDULE_REASON_MIN
+                    ? `Minimal ${RESCHEDULE_REASON_MIN} karakter.`
+                    : "Jangan tuliskan isi konseling."}
+                </span>
+                <span>{extraNote.length}/1000</span>
+              </p>
+            </div>
           ) : (
             <>
               <fieldset>
                 <legend className="text-sm font-semibold text-gray-800">
-                  {action === "reject"
-                    ? "Alasan"
-                    : "Alasan Permintaan Jadwal Ulang"}{" "}
-                  <span className="text-red-600">*</span>
+                  Alasan <span className="text-red-600">*</span>
                 </legend>
                 <div className="mt-2.5 space-y-2">
                   {presets.map((item) => (
@@ -283,18 +311,12 @@ export function BookingDecisionModal({
                   maxLength={750}
                   value={extraNote}
                   onChange={(event) => setExtraNote(event.target.value)}
-                  placeholder={
-                    action === "reschedule"
-                      ? "Misal: Silakan memilih ketersediaan pada hari Rabu atau Kamis."
-                      : "Tambahkan catatan penjelasan untuk klien bila diperlukan."
-                  }
+                  placeholder="Tambahkan catatan penjelasan untuk klien bila diperlukan."
                   className="mt-1.5 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none focus:border-gray-500"
                 />
                 <p className="mt-1 text-xs text-gray-400">
-                  Total alasan: {composedReason.length}/1000 karakter.{" "}
-                  {action === "reschedule"
-                    ? "Alasan ini dikirim ke klien, dan klien akan diminta memilih jadwal baru."
-                    : "Alasan ini dikirim ke klien sebagai pemberitahuan."}
+                  Total alasan: {composedReason.length}/1000 karakter. Alasan ini dikirim ke klien
+                  sebagai pemberitahuan.
                 </p>
               </div>
             </>

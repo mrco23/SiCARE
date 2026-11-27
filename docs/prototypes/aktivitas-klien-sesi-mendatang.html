@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Sesi Mendatang Klien – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: "#064E3B", client: "#1e5b3a", "client-soft": "#e8f9f0" },
+          fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+        },
+      },
+    };
+  </script>
+  <style>
+    .stage { transition: width .25s ease; }
+    @keyframes pop { from { opacity: 0; transform: translateY(4px) scale(.98); } to { opacity: 1; transform: none; } }
+    .pop { animation: pop .14s ease-out; }
+    @keyframes sheet-in { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .sheet { animation: sheet-in .2s ease-out; }
+    @media (prefers-reduced-motion: reduce) { .stage, .pop, .sheet { transition: none; animation: none; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-gray-900 antialiased">
+  <header class="mx-auto max-w-[1180px] px-4 pt-8 sm:px-6">
+    <p class="text-xs font-semibold uppercase tracking-wider text-primary">Prototype v2 · Aktivitas Saya (klien) · Sesi mendatang</p>
+    <h1 class="mt-1 font-display text-2xl font-extrabold">Lebih tenang dan ringkas, menu "Lainnya" tetap</h1>
+    <p class="mt-2 max-w-3xl text-sm text-gray-600">
+      Dua arah desain untuk dipilih. Keduanya memakai menu <b>Lainnya ▾</b> untuk detail dan pembatalan,
+      satu tombol per sesi hanya bila klien perlu bertindak, dan tanpa panduan/penunjuk langkah yang ramai.
+      <b>Pembaruan:</b> sesi yang diminta jadwal ulang dipisah ke bagian <b>"Perlu jadwal ulang"</b> di atas
+      (klik "Pilih jadwal pengganti" untuk melihat layarnya). Permintaan yang tidak jadi berlangsung pindah ke
+      bagian tenang <b>"Tidak jadi berlangsung"</b> di bawah. Keduanya tidak dihitung sebagai sesi mendatang.
+    </p>
+    <div class="mt-4 flex flex-wrap items-center gap-2 text-sm">
+      <span class="font-semibold text-gray-600">Varian:</span>
+      <button data-variant="A" class="v-btn rounded-full border border-gray-300 bg-white px-4 py-1.5 font-semibold">A · Daftar agenda</button>
+      <button data-variant="B" class="v-btn rounded-full border border-gray-300 bg-white px-4 py-1.5 font-semibold">B · Sorotan sesi berikutnya</button>
+      <span class="ml-4 font-semibold text-gray-600">Tampilan:</span>
+      <button data-width="960" class="w-btn rounded-full border border-gray-300 bg-white px-4 py-1.5 font-semibold">Desktop</button>
+      <button data-width="375" class="w-btn rounded-full border border-gray-300 bg-white px-4 py-1.5 font-semibold">Mobile</button>
+    </div>
+    <p id="variantNote" class="mt-3 max-w-3xl text-xs text-gray-600"></p>
+  </header>
+
+  <main class="mx-auto max-w-[1180px] px-4 py-6 sm:px-6">
+    <div id="stage" class="stage relative mx-auto max-w-full rounded-3xl border border-gray-200 bg-[#f7fbf9] shadow-xl" style="width: 960px">
+      <div id="app" class="px-5 py-6 sm:px-8"></div>
+
+      <div id="cancelDialog" class="absolute inset-0 z-30 hidden items-end justify-center rounded-3xl bg-black/40 p-0 sm:items-center sm:p-6">
+        <div class="sheet w-full max-w-md rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl">
+          <p class="font-display text-lg font-extrabold">Batalkan sesi ini?</p>
+          <p id="cancelWhen" class="mt-1 text-sm text-gray-600"></p>
+          <p class="mt-3 text-xs leading-relaxed text-gray-600">Jam ini akan dibuka untuk klien lain. Pembatalan paling lambat 2 jam sebelum sesi, dan kamu tetap dapat mengajukan jadwal baru tanpa mengisi form awal lagi.</p>
+          <label for="cancelReason" class="mt-4 block text-sm font-semibold">Alasan (dibaca konselor) <span class="text-red-600">*</span></label>
+          <textarea id="cancelReason" rows="3" class="mt-1.5 w-full rounded-xl border border-gray-300 p-3 text-sm outline-none focus:border-client focus:ring-2 focus:ring-client/15" placeholder="Contoh: ada ujian susulan pada jam ini."></textarea>
+          <p id="cancelErr" class="mt-1 hidden text-xs text-red-600">Tuliskan alasan minimal 3 karakter.</p>
+          <div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button id="cancelKeep" class="h-11 rounded-xl bg-client px-5 text-sm font-semibold text-white">Tetap ikut sesi</button>
+            <button id="cancelConfirm" class="h-11 rounded-xl border border-red-200 px-5 text-sm font-semibold text-red-700 hover:bg-red-50">Ya, batalkan</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast" class="pointer-events-none absolute inset-x-4 bottom-4 z-40 mx-auto hidden max-w-sm rounded-xl bg-gray-900 px-4 py-3 text-center text-xs font-semibold text-white"></div>
+    </div>
+  </main>
+
+  <script>
+    const SESSIONS = [
+      { id: "s1", kind: "reschedule", day: "30", mon: "Nov", dow: "Senin", relative: "Lusa", time: "10.00–11.00",
+        counselor: "Giovanna Yudi, S.Psi., M.Psi., Psikolog", initials: "GY", service: "Individu", room: "Ruang Konseling LMI",
+        reason: "Sibuk boss", deadline: "Senin, 30 Nov, 10.00 WITA", hasSlots: false },
+      { id: "s2", kind: "consent", day: "2", mon: "Des", dow: "Rabu", relative: "4 hari lagi", time: "13.00–14.00",
+        counselor: "Giovanna Yudi, S.Psi., M.Psi., Psikolog", initials: "GY", service: "Individu", room: "Ruang Konseling LMI" },
+      { id: "s3", kind: "ready", day: "4", mon: "Des", dow: "Jumat", relative: "6 hari lagi", time: "09.00–10.00",
+        counselor: "Giovanna Yudi, S.Psi., M.Psi., Psikolog", initials: "GY", service: "Kelompok · 3 orang", room: "Ruang Konseling LMI" },
+      { id: "s4", kind: "waiting", day: "8", mon: "Des", dow: "Selasa", relative: "10 hari lagi", time: "14.00–15.00",
+        counselor: "Giovanna Yudi, S.Psi., M.Psi., Psikolog", initials: "GY", service: "Individu", room: "Ruang Konseling LMI" },
+      // Permintaan yang tidak jadi berlangsung: "Ajukan jadwal baru" (tanpa tenggat, jadi booking baru).
+      { id: "r1", kind: "rebook", day: "19", mon: "Nov", dow: "Kamis", time: "10.00–11.00", closed: "Belum dapat dilayani",
+        counselor: "Giovanna Yudi, S.Psi., M.Psi., Psikolog", initials: "GY", service: "Individu", room: "Ruang Konseling LMI",
+        reason: "Konselor berhalangan pada jadwal tersebut." },
+    ];
+    // Status singkat: titik warna + teks, tanpa kotak besar.
+    const STATUS = {
+      reschedule: { dot: "bg-amber-500", text: "Pilih jadwal pengganti", tone: "text-amber-800" },
+      consent:    { dot: "bg-amber-500", text: "Tanda tangani consent", tone: "text-amber-800" },
+      ready:      { dot: "bg-emerald-500", text: "Terkonfirmasi", tone: "text-emerald-700" },
+      waiting:    { dot: "bg-sky-500", text: "Menunggu konfirmasi konselor", tone: "text-sky-800" },
+    };
+    const state = { variant: "B", width: 960, openMenu: null, cancelId: null, removed: new Set(), slotsOpen: false, view: "list", pickId: null, pickMonth: 10, pickDate: null, pickSlot: null };
+    // Slot kosong konselor (contoh) yang dapat dipilih sebagai jadwal pengganti.
+    const OPEN_SLOTS = { "2026-11-30": ["14.00–15.00"], "2026-12-01": ["09.00–10.00", "13.00–14.00"], "2026-12-03": ["11.00–12.00"], "2026-12-07": ["10.00–11.00", "14.00–15.00"] };
+    const MONTHS = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    const DOW = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+    const TODAY = new Date(2026, 10, 28);
+    const $ = (id) => document.getElementById(id);
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const mobile = () => state.width < 640;
+    const toast = (m) => { const t = $("toast"); t.textContent = m; t.classList.remove("hidden"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add("hidden"), 2000); };
+
+    // ---------- bagian bersama ----------
+    function menu(s, { canCancel = true } = {}) {
+      const open = state.openMenu === s.id;
+      return `
+        <div class="relative">
+          <button data-act="menu" data-id="${s.id}" aria-haspopup="menu" aria-expanded="${open}" class="flex h-9 items-center gap-1 rounded-full px-3 text-xs font-semibold text-gray-600 hover:bg-gray-100">Lainnya <span aria-hidden="true">▾</span></button>
+          ${open ? `
+          <div role="menu" class="pop absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-2xl border border-gray-200 bg-white py-1 text-sm shadow-xl">
+            <button role="menuitem" data-act="detail" data-id="${s.id}" class="block w-full px-4 py-2.5 text-left hover:bg-gray-50">Lihat detail sesi</button>
+            ${canCancel ? `<div class="my-1 border-t border-gray-100"></div>
+            <button role="menuitem" data-act="cancel" data-id="${s.id}" class="block w-full px-4 py-2.5 text-left text-red-700 hover:bg-red-50">Batalkan sesi…</button>` : ""}
+          </div>` : ""}
+        </div>`;
+    }
+    const statusLine = (s) => {
+      const st = STATUS[s.kind];
+      return `<span class="inline-flex items-center gap-1.5 text-xs font-semibold ${st.tone}"><span class="h-2 w-2 rounded-full ${st.dot}"></span>${st.text}</span>`;
+    };
+    function action(s, size = "md") {
+      const h = size === "lg" ? "h-11 px-6" : "h-10 px-4";
+      if (s.kind === "reschedule") {
+        return s.hasSlots
+          ? `<button data-act="pick" data-id="${s.id}" class="${h} rounded-xl bg-client text-sm font-semibold text-white">Pilih jadwal</button>`
+          : `<button data-act="pick" data-id="${s.id}" class="${h} rounded-xl border border-gray-300 bg-white text-sm font-semibold text-gray-700">Cek jadwal</button>`;
+      }
+      if (s.kind === "consent") return `<button data-act="consent" data-id="${s.id}" class="${h} rounded-xl bg-client text-sm font-semibold text-white">Tanda tangan</button>`;
+      return "";
+    }
+    function note(s) {
+      if (s.kind === "reschedule") {
+        return `<p class="mt-3 border-l-2 border-amber-400 pl-3 text-xs leading-relaxed text-gray-600">
+          Konselor meminta jadwal ulang: “${esc(s.reason)}”. Pilih sebelum <b class="text-gray-800">${s.deadline}</b>.
+          ${s.hasSlots ? "" : `<span class="block text-gray-500">Belum ada jadwal baru dari konselor. Silakan kembali lagi nanti.</span>`}</p>`;
+      }
+      if (s.kind === "consent") return `<p class="mt-3 border-l-2 border-amber-400 pl-3 text-xs text-gray-600">Tanda tangani sebelum sesi agar konselor dapat memulai tepat waktu.</p>`;
+      return "";
+    }
+
+    // ---------- Varian A: daftar agenda ----------
+    function rowA(s) {
+      const act = action(s);
+      return `
+        <article class="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div class="flex gap-4">
+            <div class="w-14 shrink-0 text-center">
+              <p class="text-[11px] font-semibold uppercase text-gray-500">${s.dow.slice(0, 3)}</p>
+              <p class="text-2xl font-extrabold leading-tight text-gray-900">${s.day}</p>
+              <p class="text-[11px] font-semibold uppercase text-gray-500">${s.mon}</p>
+            </div>
+            <div class="min-w-0 flex-1 border-l border-gray-100 pl-4">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-sm font-bold text-gray-900">${s.time} WITA <span class="font-medium text-gray-400">· ${s.relative}</span></p>
+                  <p class="mt-0.5 text-sm text-gray-700">${esc(s.counselor)}</p>
+                  <p class="text-xs text-gray-500">${s.service} · ${s.room}</p>
+                </div>
+                ${menu(s)}
+              </div>
+              <div class="mt-3 flex ${mobile() ? "flex-col items-stretch" : "items-center justify-between"} gap-3">
+                ${statusLine(s)}
+                ${act}
+              </div>
+              ${note(s)}
+            </div>
+          </div>
+        </article>`;
+    }
+    function renderA(list) {
+      return `
+        <section class="mt-6">
+          <h3 class="font-display text-lg font-bold">Sesi mendatang</h3>
+          <div class="mt-3 space-y-3">${list.map(rowA).join("")}</div>
+        </section>`;
+    }
+
+    // ---------- Varian B: sorotan sesi berikutnya ----------
+    function heroB(s) {
+      const act = action(s, "lg");
+      return `
+        <article class="overflow-hidden rounded-3xl border border-gray-200 bg-white">
+          <div class="flex items-center justify-between bg-client px-5 py-3 text-white">
+            <p class="text-xs font-semibold uppercase tracking-wide">Sesi berikutnya · ${s.relative}</p>
+            <div class="rounded-full bg-white/10">${menu(s).replace("text-gray-600 hover:bg-gray-100", "text-white hover:bg-white/10")}</div>
+          </div>
+          <div class="p-5 sm:p-6">
+            <p class="font-display text-2xl font-extrabold leading-tight">${s.dow}, ${s.day} ${s.mon === "Nov" ? "November" : "Desember"}</p>
+            <p class="mt-1 text-lg font-semibold text-gray-800">${s.time} WITA</p>
+            <div class="mt-4 flex items-center gap-3">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-client-soft text-sm font-bold text-client">${s.initials}</span>
+              <div class="min-w-0"><p class="text-sm font-semibold leading-snug">${esc(s.counselor)}</p><p class="text-xs text-gray-500">${s.service} · ${s.room}</p></div>
+            </div>
+            <div class="mt-5 flex ${mobile() ? "flex-col items-stretch" : "items-center justify-between"} gap-3 rounded-2xl bg-gray-50 p-4">
+              <div>${statusLine(s)}${note(s).replace("mt-3 ", "mt-2 ")}</div>
+              ${act}
+            </div>
+          </div>
+        </article>`;
+    }
+    function rowB(s) {
+      const act = action(s);
+      return `
+        <li class="flex ${mobile() ? "flex-col gap-2" : "items-center gap-4"} py-4">
+          <div class="flex flex-1 items-center gap-4">
+            <div class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-client-soft text-client">
+              <span class="text-lg font-extrabold leading-none">${s.day}</span><span class="text-[10px] font-bold uppercase">${s.mon}</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold">${s.dow}, ${s.time} WITA</p>
+              <p class="truncate text-xs text-gray-500">${esc(s.counselor)} · ${s.service}</p>
+              <div class="mt-1">${statusLine(s)}</div>
+            </div>
+            ${mobile() ? menu(s) : ""}
+          </div>
+          <div class="flex items-center gap-2 ${mobile() ? "pl-16" : ""}">${act}${mobile() ? "" : menu(s)}</div>
+        </li>`;
+    }
+    function renderB(list) {
+      if (!list.length) return "";
+      const [first, ...rest] = list;
+      return `
+        <section class="mt-6">${heroB(first)}</section>
+        ${rest.length ? `
+        <section class="mt-6">
+          <h3 class="font-display text-lg font-bold">Berikutnya</h3>
+          <ul class="mt-2 divide-y divide-gray-100 rounded-3xl border border-gray-200 bg-white px-5">${rest.map(rowB).join("")}</ul>
+        </section>` : ""}`;
+    }
+
+    // ---------- Bagian terpisah: perlu tindakan jadwal ----------
+    function rescheduleCard(s) {
+      return `
+        <article class="rounded-2xl border border-amber-200 bg-white p-4 sm:p-5">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">Jadwal ulang diminta konselor</span>
+              <p class="mt-2 text-xs font-semibold text-amber-800">Pilih sebelum ${s.deadline} · ${s.relative === "Lusa" ? "2 hari lagi" : s.relative}</p>
+            </div>
+            ${menu(s)}
+          </div>
+          <div class="mt-3 flex items-center gap-3">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-600">${s.initials}</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold leading-snug">${esc(s.counselor)}</p>
+              <p class="text-xs text-gray-500">Jadwal semula: <span class="line-through">${s.dow}, ${s.day} ${s.mon}, ${s.time} WITA</span></p>
+            </div>
+          </div>
+          <p class="mt-3 border-l-2 border-amber-400 pl-3 text-sm text-gray-700">“${esc(s.reason)}”</p>
+          <div class="mt-4 border-t border-gray-100 pt-3">
+            ${state.slotsOpen
+              ? `<button data-act="pick" data-id="${s.id}" class="h-10 w-full rounded-xl bg-client px-5 text-sm font-semibold text-white sm:w-auto">Pilih jadwal pengganti</button>`
+              : `<p class="flex items-start gap-2 text-xs text-gray-600"><span aria-hidden="true">🗓️</span><span>Belum ada jadwal baru dari konselor. Silakan kembali lagi nanti.</span></p>`}
+          </div>
+        </article>`;
+    }
+    function rebookCard(s) {
+      return `
+        <article class="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div class="flex items-start justify-between gap-2">
+            <span class="inline-flex rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-bold text-red-700">${s.closed}</span>
+            ${menu(s, { canCancel: false })}
+          </div>
+          <p class="mt-2 text-sm font-semibold">${s.dow}, ${s.day} ${s.mon} · ${s.time} WITA</p>
+          <p class="text-xs text-gray-500">${esc(s.counselor)} · ${s.service}</p>
+          <p class="mt-2 text-xs text-gray-600">“${esc(s.reason)}”</p>
+          <div class="mt-3 flex ${mobile() ? "flex-col" : "items-center justify-between"} gap-2 border-t border-gray-100 pt-3">
+            <p class="text-xs text-gray-500">Pilih jam lain dengan konselor yang sama, tanpa isi form awal lagi.</p>
+            <button data-act="rebook" data-id="${s.id}" class="h-10 rounded-xl border border-client px-4 text-sm font-semibold text-client">Ajukan jadwal baru</button>
+          </div>
+        </article>`;
+    }
+    function renderActions(resched) {
+      if (!resched.length) return "";
+      return `
+        <section class="mt-6 rounded-3xl bg-amber-50/60 p-4 sm:p-5">
+          <div class="flex items-end justify-between gap-2">
+            <div>
+              <h3 class="font-display text-lg font-bold">Perlu jadwal ulang</h3>
+              <p class="text-xs text-gray-600">Konselor meminta jadwal ulang. Pilih jam pengganti sebelum tenggatnya.</p>
+            </div>
+            <span class="rounded-full bg-amber-200 px-2.5 py-0.5 text-sm font-bold text-amber-900">${resched.length}</span>
+          </div>
+          <div class="mt-3 space-y-3">${resched.map(rescheduleCard).join("")}</div>
+        </section>`;
+    }
+
+    // Permintaan yang tidak jadi berlangsung: bagian tenang di bawah, bukan "perlu tindakan".
+    function renderClosed(rebook) {
+      if (!rebook.length) return "";
+      return `
+        <section class="mt-8">
+          <h3 class="text-sm font-bold text-gray-700">Tidak jadi berlangsung</h3>
+          <ul class="mt-2 divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white/70 px-4">
+            ${rebook.map((r) => `
+            <li class="flex ${mobile() ? "flex-col gap-2" : "items-center gap-4"} py-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm text-gray-700">${r.dow}, ${r.day} ${r.mon} · ${r.time} WITA <span class="ml-1 rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-600">${r.closed}</span></p>
+                <p class="mt-0.5 text-xs text-gray-500">${esc(r.counselor)} · “${esc(r.reason)}”</p>
+              </div>
+              <button data-act="rebook" data-id="${r.id}" class="shrink-0 self-start text-sm font-semibold text-client underline-offset-2 hover:underline">Ajukan jadwal baru</button>
+            </li>`).join("")}
+          </ul>
+          <p class="mt-1.5 text-[11px] text-gray-500">Ajukan jadwal baru dengan konselor yang sama tanpa mengisi form awal lagi.</p>
+        </section>`;
+    }
+
+    // ---------- Layar pilih jadwal pengganti ----------
+    const keyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    function renderPick() {
+      const s = SESSIONS.find((x) => x.id === state.pickId);
+      const year = 2026, m = state.pickMonth;
+      const first = new Date(year, m, 1);
+      const offset = (first.getDay() + 6) % 7;
+      const days = new Date(year, m + 1, 0).getDate();
+      let cells = "";
+      for (let i = 0; i < offset; i++) cells += "<span></span>";
+      for (let d = 1; d <= days; d++) {
+        const date = new Date(year, m, d);
+        const k = keyOf(date);
+        const has = Boolean(OPEN_SLOTS[k]) && date >= TODAY;
+        const sel = state.pickDate === k;
+        cells += `<button ${has ? `data-act="pickDate" data-date="${k}"` : "disabled"} aria-pressed="${sel}"
+          class="flex h-10 items-center justify-center rounded-xl text-sm font-semibold ${sel ? "bg-client text-white" : has ? "bg-client-soft text-client hover:ring-2 hover:ring-client/30" : "text-gray-300"}">${d}</button>`;
+      }
+      const slots = state.pickDate ? OPEN_SLOTS[state.pickDate] : [];
+      let chosen = null;
+      if (state.pickDate && state.pickSlot !== null) {
+        const d = new Date(state.pickDate + "T00:00:00");
+        chosen = `${DOW[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} · ${slots[state.pickSlot]} WITA`;
+      }
+      return `
+        <div class="space-y-5">
+          <button data-act="pickBack" class="text-sm font-semibold text-client">‹ Kembali ke aktivitas</button>
+          <div>
+            <h2 class="font-display text-2xl font-extrabold sm:text-3xl">Pilih jadwal pengganti</h2>
+            <p class="mt-1 text-sm text-gray-600">${esc(s.counselor)}</p>
+          </div>
+
+          <div class="grid gap-4 ${mobile() ? "" : "grid-cols-[1fr_1.3fr] items-start"}">
+            <section class="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm">
+              <p class="text-xs font-semibold uppercase tracking-wide text-amber-800">Jadwal semula</p>
+              <p class="mt-1 text-gray-500 line-through">${s.dow}, ${s.day} ${s.mon} · ${s.time} WITA</p>
+              <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-amber-800">Alasan konselor</p>
+              <p class="mt-1 text-gray-800">“${esc(s.reason)}”</p>
+              <p class="mt-3 text-xs text-amber-900">Pilih sebelum <b>${s.deadline}</b>. Form awal dan consent yang sudah kamu tanda tangani tetap berlaku.</p>
+            </section>
+
+            <section class="rounded-3xl border border-gray-200 bg-white p-5">
+              <p class="text-sm font-bold">1. Pilih tanggal</p>
+              <p class="text-xs text-gray-500">Tanggal hijau punya jam kosong.</p>
+              <div class="mt-3 flex items-center justify-between">
+                <button data-act="pickMonth" data-dir="-1" ${m <= 10 ? "disabled" : ""} aria-label="Bulan sebelumnya" class="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 disabled:opacity-30">‹</button>
+                <p class="font-display text-sm font-bold">${MONTHS[m]} ${year}</p>
+                <button data-act="pickMonth" data-dir="1" ${m >= 11 ? "disabled" : ""} aria-label="Bulan berikutnya" class="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 disabled:opacity-30">›</button>
+              </div>
+              <div class="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-gray-500">${["Sen","Sel","Rab","Kam","Jum","Sab","Min"].map((x) => `<span>${x}</span>`).join("")}</div>
+              <div class="mt-1 grid grid-cols-7 gap-1">${cells}</div>
+
+              <p class="mt-5 text-sm font-bold">2. Pilih jam</p>
+              ${!state.pickDate ? `<p class="mt-2 text-sm text-gray-500">Pilih tanggal terlebih dahulu.</p>` : `
+              <div class="mt-2 flex flex-wrap gap-2">${slots.map((t, i) => `<button data-act="pickSlot" data-i="${i}" aria-pressed="${state.pickSlot === i}" class="rounded-full border px-4 py-2 text-xs font-semibold ${state.pickSlot === i ? "border-client bg-client text-white" : "border-client text-client hover:bg-client-soft"}">${t} WITA</button>`).join("")}</div>`}
+            </section>
+          </div>
+
+          <div class="flex ${mobile() ? "flex-col" : "items-center justify-between"} gap-3 rounded-2xl border border-gray-200 bg-white p-4">
+            <p class="text-sm ${chosen ? "text-gray-800" : "text-gray-500"}">${chosen ? `Jadwal baru: <b>${chosen}</b>` : "Belum ada jam yang dipilih."}</p>
+            <div class="flex gap-2 ${mobile() ? "flex-col-reverse" : ""}">
+              <button data-act="pickBack" class="h-11 rounded-xl border border-gray-300 px-5 text-sm font-semibold text-gray-700">Batal</button>
+              <button data-act="pickSend" ${chosen ? "" : "disabled"} class="h-11 rounded-xl bg-client px-5 text-sm font-semibold text-white disabled:opacity-40">Kirim jadwal pengganti</button>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500">Setelah dikirim, konselor mengonfirmasi jadwal baru. Sampai dikonfirmasi, sesi tampil sebagai "Menunggu konfirmasi konselor" di sesi mendatang.</p>
+        </div>`;
+    }
+
+
+    function render() {
+      if (state.view === "pick") {
+        $("app").innerHTML = renderPick();
+        document.querySelectorAll(".v-btn").forEach((b) => paint(b, b.dataset.variant === state.variant));
+        document.querySelectorAll(".w-btn").forEach((b) => paint(b, Number(b.dataset.width) === state.width));
+        return;
+      }
+      const all = SESSIONS.filter((s) => !state.removed.has(s.id));
+      // Sesi jadwal ulang & booking ditutup tidak dihitung sebagai sesi mendatang.
+      const resched = all.filter((s) => s.kind === "reschedule");
+      const rebook = all.filter((s) => s.kind === "rebook");
+      const list = all.filter((s) => s.kind !== "reschedule" && s.kind !== "rebook");
+      const need = list.filter((s) => s.kind === "consent").length;
+      const summary = [
+        list.length ? `${list.length} sesi mendatang` : "Belum ada sesi mendatang",
+        resched.length ? `<span class="font-semibold text-amber-800">${resched.length} perlu jadwal ulang</span>` : "",
+        need ? `<span class="font-semibold text-amber-800">${need} perlu tanda tangan</span>` : "",
+      ].filter(Boolean).join(" · ");
+      $("app").innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm text-gray-500">Sabtu, 28 November 2026</p>
+          <label class="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-gray-600 shadow-sm">
+            <input id="slotsToggle" type="checkbox" ${state.slotsOpen ? "checked" : ""} class="h-3.5 w-3.5 accent-[#1e5b3a]" /> Simulasi: konselor sudah buka jadwal
+          </label>
+        </div>
+        <h2 class="font-display text-3xl font-extrabold">Aktivitasmu</h2>
+        <p class="mt-1 text-gray-600">${summary}</p>
+        ${renderActions(resched)}
+        ${state.variant === "A" ? renderA(list) : renderB(list)}
+        ${renderClosed(rebook)}
+        <p class="mt-6 text-center text-xs text-gray-500">Perlu mengubah jadwal? Sampaikan ke konselor; konselor dapat meminta jadwal ulang sehingga kamu cukup memilih jam baru.</p>`;
+      $("variantNote").innerHTML = state.variant === "A"
+        ? "<b>A · Daftar agenda:</b> semua sesi sama bentuknya seperti agenda; tanggal di kiri, status singkat bertitik warna, tombol hanya muncul bila perlu tindakan. Paling dekat dengan tampilan sekarang, tetapi lebih bersih."
+        : "<b>B · Sorotan sesi berikutnya:</b> sesi terdekat tampil besar dengan tanggal yang mudah dibaca; sesi lain jadi daftar ringkas di bawahnya. Cocok bila klien biasanya hanya punya 1–2 sesi.";
+      document.querySelectorAll(".v-btn").forEach((b) => paint(b, b.dataset.variant === state.variant));
+      document.querySelectorAll(".w-btn").forEach((b) => paint(b, Number(b.dataset.width) === state.width));
+    }
+    function paint(b, on) { b.classList.toggle("!bg-client", on); b.classList.toggle("!text-white", on); b.classList.toggle("!border-client", on); }
+
+    $("app").addEventListener("change", (e) => {
+      if (e.target.id === "slotsToggle") { state.slotsOpen = e.target.checked; render(); }
+    });
+    $("app").addEventListener("click", (e) => {
+      if (e.target.closest("label")) return;
+      const p = e.target.closest("[data-act]");
+      if (p && p.dataset.act.startsWith("pick") && p.dataset.act !== "pick") {
+        if (p.dataset.act === "pickBack") state.view = "list";
+        else if (p.dataset.act === "pickDate") { state.pickDate = p.dataset.date; state.pickSlot = null; }
+        else if (p.dataset.act === "pickSlot") state.pickSlot = Number(p.dataset.i);
+        else if (p.dataset.act === "pickMonth") state.pickMonth += Number(p.dataset.dir);
+        else if (p.dataset.act === "pickSend") {
+          const s = SESSIONS.find((x) => x.id === state.pickId);
+          const d = new Date(state.pickDate + "T00:00:00");
+          const diff = Math.round((d - TODAY) / 86400000);
+          Object.assign(s, {
+            kind: "waiting", day: String(d.getDate()), mon: MONTHS[d.getMonth()].slice(0, 3),
+            dow: DOW[d.getDay()], time: OPEN_SLOTS[state.pickDate][state.pickSlot],
+            relative: diff === 1 ? "Besok" : diff === 2 ? "Lusa" : `${diff} hari lagi`,
+          });
+          const dateOf = (x) => new Date(2026, x.mon === "Nov" ? 10 : 11, Number(x.day));
+          SESSIONS.sort((a, b) => (a.kind === "rebook") - (b.kind === "rebook") || dateOf(a) - dateOf(b));
+          state.view = "list";
+          toast("Jadwal pengganti dikirim. Menunggu konfirmasi konselor.");
+        }
+        render();
+        return;
+      }
+      const b = p;
+
+      if (!b) { if (state.openMenu) { state.openMenu = null; render(); } return; }
+      const s = SESSIONS.find((x) => x.id === b.dataset.id);
+      const act = b.dataset.act;
+      if (act === "menu") { state.openMenu = state.openMenu === s.id ? null : s.id; render(); return; }
+      state.openMenu = null;
+      if (act === "cancel") {
+        state.cancelId = s.id;
+        $("cancelWhen").textContent = `${s.dow}, ${s.day} ${s.mon} · ${s.time} WITA · ${s.counselor}`;
+        $("cancelReason").value = ""; $("cancelErr").classList.add("hidden");
+        $("cancelDialog").classList.remove("hidden"); $("cancelDialog").classList.add("flex");
+      }
+      else if (act === "pick") { Object.assign(state, { view: "pick", pickId: s.id, pickMonth: 10, pickDate: null, pickSlot: null }); $("stage").scrollIntoView({ behavior: "smooth" }); }
+      else if (act === "rebook") toast("Membuka layar \"Ajukan jadwal baru\" (konselor sama, tanpa isi form)");
+      else if (act === "consent") toast("Membuka formulir informed consent");
+      else if (act === "detail") toast("Membuka detail sesi");
+      render();
+    });
+    const closeCancel = () => { $("cancelDialog").classList.add("hidden"); $("cancelDialog").classList.remove("flex"); };
+    $("cancelKeep").addEventListener("click", closeCancel);
+    $("cancelDialog").addEventListener("click", (e) => { if (e.target === $("cancelDialog")) closeCancel(); });
+    $("cancelConfirm").addEventListener("click", () => {
+      if ($("cancelReason").value.trim().length < 3) { $("cancelErr").classList.remove("hidden"); return; }
+      closeCancel(); state.removed.add(state.cancelId); render(); toast("Sesi dibatalkan. Kamu dapat mengajukan jadwal baru kapan saja.");
+    });
+    document.querySelectorAll(".v-btn").forEach((b) => b.addEventListener("click", () => { state.variant = b.dataset.variant; state.openMenu = null; render(); }));
+    document.querySelectorAll(".w-btn").forEach((b) => b.addEventListener("click", () => {
+      state.width = Number(b.dataset.width); $("stage").style.width = state.width + "px"; render();
+    }));
+    render();
+  </script>
+</body>
+</html>

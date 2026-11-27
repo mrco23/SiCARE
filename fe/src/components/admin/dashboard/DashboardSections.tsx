@@ -389,7 +389,7 @@ export function RecentClientBookings({
     waiting_confirmation: "Menunggu konfirmasi",
     confirmed: "Dikonfirmasi",
     rejected: "Ditolak",
-    reschedule_requested: "Perubahan jadwal",
+    reschedule_requested: "Menunggu jadwal pengganti",
     cancelled: "Dibatalkan",
     expired: EXPIRED_BOOKING_LABEL,
   };

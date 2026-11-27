@@ -3,6 +3,7 @@ import { HttpError, parseBody, sendData } from "../lib/http.js";
 import {
   bookingListQuerySchema,
   createBookingSchema,
+  rebookBookingSchema,
   rescheduleBookingSchema,
   bookingTransitionSchema,
 } from "../validators/booking.validator.js";
@@ -67,6 +68,22 @@ export const bookingController = {
     });
 
     return sendData(res, booking);
+  },
+
+  async rebookBooking(req, res) {
+    if (!uuid.safeParse(req.params.id).success) {
+      throw new HttpError(400, "INVALID_ID", "ID booking tidak valid.");
+    }
+
+    const input = parseBody(rebookBookingSchema, req.body);
+    const booking = await bookingService.rebookBooking({
+      authUser: req.auth.user,
+      authProfile: req.auth.profile,
+      sourceBookingId: req.params.id,
+      availabilitySlotId: input.availability_slot_id,
+    });
+
+    return sendData(res, booking, 201);
   },
 
   async transitionBooking(req, res) {

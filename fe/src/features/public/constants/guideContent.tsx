@@ -1,5 +1,15 @@
 import type { ReactNode } from "react";
-import { Briefcase, GraduationCap, Presentation } from "lucide-react";
+import {
+  Briefcase,
+  CalendarPlus,
+  Globe,
+  GraduationCap,
+  LogIn,
+  MessageSquareText,
+  PenLine,
+  Presentation,
+  type LucideIcon,
+} from "lucide-react";
 
 export type GuideStep = {
   no: string;
@@ -7,6 +17,10 @@ export type GuideStep = {
   side: "right" | "left";
   numClass: string;
   desc: string;
+  /** Ikon di kartu tiket langkah. */
+  icon: LucideIcon;
+  /** Label singkat di bagian bawah kartu, diringkas dari `desc`. */
+  tag: string;
 };
 
 export const audiences: { title: string; icon: ReactNode; desc: string }[] = [
@@ -30,6 +44,8 @@ export const audiences: { title: string; icon: ReactNode; desc: string }[] = [
 export const steps: GuideStep[] = [
   {
     no: "01",
+    icon: Globe,
+    tag: "Tanpa perlu masuk",
     title: "Pengunjung Masuk ke Portal",
     side: "right",
     numClass: "text-[72px] right-0 -top-[76px] md:-top-10 md:-right-6",
@@ -37,6 +53,8 @@ export const steps: GuideStep[] = [
   },
   {
     no: "02",
+    icon: LogIn,
+    tag: "Akun kampus",
     title: "Log In dengan Akun Kampus",
     side: "left",
     numClass: "text-[72px] right-0 -top-[76px] md:right-auto md:-top-4 md:-left-24",
@@ -44,6 +62,8 @@ export const steps: GuideStep[] = [
   },
   {
     no: "03",
+    icon: CalendarPlus,
+    tag: "Individu · Kelompok",
     title: "Booking Sesi Konseling",
     side: "right",
     numClass: "text-[72px] right-0 -top-[76px] md:top-auto md:-bottom-14 md:-right-6",
@@ -51,6 +71,8 @@ export const steps: GuideStep[] = [
   },
   {
     no: "04",
+    icon: PenLine,
+    tag: "Informed consent digital",
     title: "Pelaksanaan Konseling",
     side: "left",
     numClass: "text-[72px] right-0 -top-[76px] md:right-auto md:top-auto md:-bottom-12 md:-left-28",
@@ -58,6 +80,8 @@ export const steps: GuideStep[] = [
   },
   {
     no: "05",
+    icon: MessageSquareText,
+    tag: "Anonim & aman",
     title: "Pemberian Feedback Anonim",
     side: "right",
     numClass: "text-[72px] right-0 -top-[76px] md:top-auto md:-bottom-12 md:-right-6",

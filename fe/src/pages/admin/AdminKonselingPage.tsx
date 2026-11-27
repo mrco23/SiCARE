@@ -182,7 +182,7 @@ function resolveStatusInfo(
     return { outcome: "active", label: "Terjadwal" };
   }
   if (bookingStatus === "reschedule_requested") {
-    return { outcome: "active", label: "Perubahan Jadwal" };
+    return { outcome: "active", label: "Menunggu Jadwal Pengganti" };
   }
   return { outcome: "active", label: "Menunggu Konfirmasi" };
 }

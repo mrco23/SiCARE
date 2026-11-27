@@ -708,3 +708,38 @@ body {
     text-align: justify;
   }
 }
+
+/* Panel profil konselor (direktori klien): bottom sheet di ponsel, panel samping di desktop. */
+@keyframes counselor-panel-up {
+  from { transform: translateY(24px); }
+  to { transform: none; }
+}
+@keyframes counselor-panel-left {
+  from { transform: translateX(32px); }
+  to { transform: none; }
+}
+.counselor-panel-enter { animation: counselor-panel-up 0.22s ease-out; }
+@media (min-width: 768px) {
+  .counselor-panel-enter { animation-name: counselor-panel-left; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .counselor-panel-enter { animation: none; }
+}
+
+/* Modal filter (bottom sheet di ponsel, dialog di tengah ≥640px). Memakai properti
+   `translate`/`scale` terpisah agar tidak menimpa transform pemusatan Tailwind. */
+@keyframes sheet-modal-up {
+  from { translate: 0 24px; }
+  to { translate: 0 0; }
+}
+@keyframes sheet-modal-pop {
+  from { scale: 0.97; }
+  to { scale: 1; }
+}
+.sheet-modal-enter { animation: sheet-modal-up 0.22s ease-out; }
+@media (min-width: 640px) {
+  .sheet-modal-enter { animation-name: sheet-modal-pop; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-modal-enter { animation: none; }
+}

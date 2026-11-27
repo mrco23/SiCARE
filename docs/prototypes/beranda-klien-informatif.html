@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Beranda Klien Informatif – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: "#064E3B", brand: "#1e5b3a", mint: "#e8f9f0" },
+          fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+        },
+      },
+    };
+  </script>
+  <style>
+    .client-bg {
+      background:
+        radial-gradient(circle at 85% 8%, rgba(16, 185, 129, .10), transparent 40%),
+        radial-gradient(circle at 10% 60%, rgba(16, 185, 129, .07), transparent 45%),
+        #f7fbf9;
+    }
+    @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+    .mascot { animation: bob 2.8s ease-in-out infinite; }
+    @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, .35); } 100% { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0); } }
+    .pulse { animation: pulse-ring 1.8s ease-out infinite; }
+    @media (prefers-reduced-motion: reduce) { .mascot, .pulse { animation: none; } }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+    [data-show] { display: none; }
+    .note { position: relative; }
+    .note::after {
+      content: attr(data-note);
+      position: absolute; right: 0; bottom: calc(100% + 2px); z-index: 5;
+      pointer-events: none;
+      background: #7c3aed; color: #fff; font-size: 9px; font-weight: 700; line-height: 1.4;
+      padding: 0 5px; border-radius: 999px; white-space: nowrap;
+    }
+    body:not(.show-notes) .note::after { display: none; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-gray-900 antialiased">
+
+  <!-- ================= PANEL KONTROL PROTOTYPE ================= -->
+  <div class="relative z-50 border-b sm:sticky sm:top-0 border-slate-200 bg-white/95 backdrop-blur">
+    <div class="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+      <p class="text-xs font-bold uppercase tracking-wider text-primary">Prototype · Beranda Klien</p>
+      <div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1 text-sm font-semibold" role="tablist" aria-label="Pilih saran">
+        <button data-variant="a" class="variant-btn rounded-lg px-3 py-1.5">Saran 1 · Rombak</button>
+        <button data-variant="b" class="variant-btn rounded-lg px-3 py-1.5">Saran 2 · Minim perubahan</button>
+      </div>
+      <label class="flex items-center gap-2 text-sm">
+        <span class="font-semibold text-slate-600">Kondisi data:</span>
+        <select id="state" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+          <option value="reschedule">Konselor minta jadwal ulang</option>
+          <option value="normal">Sesi mendatang + permintaan menunggu</option>
+          <option value="empty">Belum pernah booking</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2 text-sm text-slate-600">
+        <input id="notes" type="checkbox" checked class="h-4 w-4 accent-violet-600" /> Tampilkan label perubahan
+      </label>
+      <p class="w-full text-xs text-slate-500">Data contoh. Anggap hari ini <b>Sabtu, 28 Nov 2026 · 09.00 WITA</b>. Ubah lebar jendela untuk melihat versi ponsel.</p>
+    </div>
+  </div>
+
+  <!-- ================= NAVBAR (sama dengan aplikasi) ================= -->
+  <div class="client-bg pb-16">
+    <div class="px-3 pt-3 sm:px-6">
+      <nav class="mx-auto flex max-w-[1600px] items-center justify-between rounded-full bg-white px-4 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.06)] sm:px-6">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full border-[1.5px] border-amber-400 bg-white text-xs font-bold text-primary sm:h-12 sm:w-12">UK</div>
+          <div class="leading-tight">
+            <p class="font-display text-lg font-bold text-[#1e3a8a]">SiCARE</p>
+            <p class="hidden text-[11px] font-semibold text-gray-700 sm:block">Universitas Katolik De La Salle Manado</p>
+          </div>
+        </div>
+        <div class="hidden items-center gap-8 text-[15px] font-medium text-gray-800 lg:flex">
+          <span class="border-b-2 border-primary pb-1 font-semibold text-primary">Beranda</span>
+          <span>Permintaan Konseling</span><span>Konselor</span>
+          <span class="relative">Aktivitas Saya
+            <span data-show-state="reschedule normal" class="absolute -right-4 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">2</span>
+          </span>
+          <span>Riwayat</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="relative text-gray-700">🔔<span class="absolute -right-2 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">3</span></span>
+          <div class="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-200 to-emerald-600"></div>
+        </div>
+      </nav>
+    </div>
+
+    <!-- =============================================================== -->
+    <!-- ======================= SARAN 1 · ROMBAK ======================= -->
+    <!-- =============================================================== -->
+    <main data-show="a" class="mx-auto max-w-[1440px] px-4 pt-6 sm:px-8 lg:px-[120px] lg:pt-10">
+
+      <!-- Hero ringkas + ringkasan angka -->
+      <section class="grid items-center gap-5 lg:grid-cols-[1fr_auto]">
+        <div class="flex items-center gap-4">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-gray-500">Sabtu, 28 November 2026</p>
+            <h1 class="mt-1 font-display text-[26px] font-extrabold leading-tight sm:text-3xl">
+              Halo, <span class="text-brand">Marcois!</span>
+            </h1>
+            <p class="mt-1 text-sm text-gray-600 sm:text-base">
+              <span data-show-state="reschedule">Ada <b class="text-amber-700">1 hal yang perlu kamu lakukan</b> hari ini.</span>
+              <span data-show-state="normal">Sesi berikutnya <b class="text-brand">Senin, 30 Nov pukul 10.00</b>. 1 permintaan masih menunggu konfirmasi.</span>
+              <span data-show-state="empty">Jaga kesehatan mentalmu, karena kamu juga penting.</span>
+            </p>
+          </div>
+          <svg class="mascot ml-auto w-[68px] shrink-0 sm:w-[84px] lg:hidden" viewBox="0 0 120 140" aria-hidden="true">
+            <circle cx="60" cy="52" r="34" fill="#1e3a8a"/><circle cx="48" cy="50" r="7" fill="#fff"/><circle cx="72" cy="50" r="7" fill="#fff"/>
+            <circle cx="48" cy="51" r="3" fill="#111"/><circle cx="72" cy="51" r="3" fill="#111"/><path d="M50 66 q10 8 20 0" stroke="#fff" stroke-width="3" fill="none"/>
+            <rect x="44" y="86" width="32" height="40" rx="12" fill="#15803d"/><path d="M60 14 l4 8 9 1 -7 6 2 9 -8 -5 -8 5 2 -9 -7 -6 9 -1z" fill="#f59e0b"/>
+          </svg>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0" data-hide-state="empty">
+            <div class="note shrink-0 rounded-2xl border border-gray-200 bg-white px-4 py-2.5" data-note="baru">
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Mendatang</p>
+              <p class="text-lg font-bold">1 <span class="text-sm font-medium text-gray-500">sesi</span></p>
+            </div>
+            <div class="shrink-0 rounded-2xl border border-gray-200 bg-white px-4 py-2.5">
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Permintaan aktif</p>
+              <p class="text-lg font-bold">1</p>
+            </div>
+            <div class="shrink-0 rounded-2xl border border-gray-200 bg-white px-4 py-2.5">
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Sesi selesai</p>
+              <p class="text-lg font-bold">3</p>
+            </div>
+          </div>
+          <a class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm sm:w-auto">
+            ＋ Buat janji konseling
+          </a>
+        </div>
+      </section>
+
+      <!-- Perlu tindakan: hanya muncul bila ada -->
+      <section data-show-state="reschedule" class="note mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-6" data-note="baru: perlu tindakan">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <span class="pulse flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-xl text-white">⟳</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-bold uppercase tracking-wide text-amber-700">Perlu tindakan · batas Rabu, 2 Des 11.00 WITA</p>
+            <p class="mt-1 text-base font-bold text-gray-900 sm:text-lg">Konselor meminta kamu memilih jadwal baru</p>
+            <p class="mt-1 text-sm text-gray-700">Konseling Individu · Giovanna Yudi · jadwal semula <span class="line-through">Rab, 2 Des · 11.00</span></p>
+            <p class="mt-2 rounded-xl bg-white/70 px-3 py-2 text-sm text-gray-700"><b>Alasan:</b> “Ada rapat fakultas mendadak di jam tersebut.”</p>
+          </div>
+          <div class="flex flex-col gap-2 sm:w-48">
+            <a class="rounded-full bg-amber-600 px-4 py-2.5 text-center text-sm font-semibold text-white">Pilih jadwal baru</a>
+            <p class="text-center text-xs text-amber-800">Bila tidak dipilih, permintaan otomatis kedaluwarsa.</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="mt-6 grid gap-6 lg:grid-cols-12">
+        <!-- Kolom kiri: tiket sesi berikutnya -->
+        <section class="min-w-0 lg:col-span-7">
+          <h2 class="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-500">Sesi berikutnya</h2>
+
+          <article data-hide-state="empty" class="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+            <div class="flex flex-col sm:flex-row">
+              <div class="flex items-center gap-4 bg-primary px-5 py-5 text-white sm:w-48 sm:flex-col sm:items-start sm:justify-between">
+                <div>
+                  <p class="text-sm text-emerald-100">Senin</p>
+                  <p class="font-display text-4xl font-extrabold leading-none">30</p>
+                  <p class="text-sm font-semibold">Nov 2026</p>
+                </div>
+                <div class="ml-auto sm:ml-0">
+                  <p class="text-2xl font-bold">10.00</p>
+                  <p class="text-xs text-emerald-100">s.d. 11.00 WITA</p>
+                </div>
+              </div>
+              <div class="flex-1 p-5">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="rounded-full bg-mint px-3 py-1 text-xs font-semibold text-brand">Terjadwal</span>
+                  <span class="note rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700" data-note="baru">2 hari lagi</span>
+                </div>
+                <p class="mt-3 text-lg font-bold">Konseling Individu</p>
+                <p class="text-sm text-gray-600">Giovanna Yudi, S.Psi., M.Psi., Psikolog</p>
+                <p class="mt-1 text-sm text-gray-600">📍 Ruang Konseling LMI</p>
+
+                <!-- Checklist persiapan -->
+                <ol class="note mt-4 space-y-2 rounded-2xl bg-gray-50 p-3 text-sm" data-note="baru: persiapan">
+                  <li class="flex items-start gap-2"><span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] text-white">✓</span><span>Jadwal dikonfirmasi konselor</span></li>
+                  <li class="flex items-start gap-2"><span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-gray-300 text-[11px] text-gray-400">2</span><span>Tanda tangan informed consent <span class="text-gray-500">— dibuka Senin 09.45 (15 menit sebelum sesi)</span></span></li>
+                  <li class="flex items-start gap-2"><span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-gray-300 text-[11px] text-gray-400">3</span><span>Datang ke ruang konseling tepat waktu</span></li>
+                </ol>
+
+                <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p class="text-xs text-gray-500">Pembatalan paling lambat Senin 08.00 (2 jam sebelum sesi).</p>
+                  <a class="whitespace-nowrap rounded-full border border-primary px-4 py-2 text-center text-sm font-semibold text-primary">Lihat detail</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article data-show-state="empty" class="rounded-3xl border border-dashed border-gray-300 bg-white p-6 text-center">
+            <p class="text-4xl">🗓️</p>
+            <p class="mt-2 text-lg font-bold">Belum ada sesi terjadwal</p>
+            <p class="mx-auto mt-1 max-w-md text-sm text-gray-600">Pilih konselor dan jadwal yang cocok. Permintaanmu akan dikonfirmasi oleh konselor.</p>
+            <ol class="mx-auto mt-5 grid max-w-lg gap-3 text-left text-sm sm:grid-cols-3">
+              <li class="rounded-2xl bg-gray-50 p-3"><b class="text-primary">1.</b> Pilih layanan &amp; konselor</li>
+              <li class="rounded-2xl bg-gray-50 p-3"><b class="text-primary">2.</b> Pilih tanggal &amp; jam</li>
+              <li class="rounded-2xl bg-gray-50 p-3"><b class="text-primary">3.</b> Isi formulir awal</li>
+            </ol>
+            <a class="mt-5 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">Buat janji konseling</a>
+          </article>
+        </section>
+
+        <!-- Kolom kanan: semua permintaan aktif dalam bentuk timeline -->
+        <section class="min-w-0 lg:col-span-5">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-gray-500">Permintaan berjalan</h2>
+            <a class="text-sm font-semibold text-primary" data-hide-state="empty">Lihat semua →</a>
+          </div>
+          <div data-hide-state="empty" class="note space-y-3 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5" data-note="baru: semua permintaan, bukan cuma terakhir">
+            <!-- item reschedule -->
+            <div data-show-state="reschedule" class="rounded-2xl border border-amber-200 p-3">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <p class="font-semibold">Konseling Individu</p>
+                  <p class="text-xs text-gray-500">Giovanna Yudi · diajukan 26 Nov</p>
+                </div>
+                <span class="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800">Pilih jadwal baru</span>
+              </div>
+              <p class="mt-2 text-sm text-gray-700"><span class="line-through">Rab, 2 Des · 11.00</span> → <span class="font-semibold text-amber-700">menunggu pilihanmu</span></p>
+            </div>
+            <!-- item menunggu -->
+            <div data-show-state="normal" class="rounded-2xl border border-gray-200 p-3">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <p class="font-semibold">Konseling Kelompok (UKM Musik)</p>
+                  <p class="text-xs text-gray-500">Giovanna Yudi · diajukan 27 Nov</p>
+                </div>
+                <span class="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">Menunggu konfirmasi</span>
+              </div>
+              <p class="mt-2 text-sm text-gray-700">Rab, 2 Des · 11.00–12.00 WITA</p>
+              <!-- progress -->
+              <div class="mt-3 grid grid-cols-4 gap-1 text-[10px] font-semibold text-gray-500">
+                <div><div class="h-1.5 rounded-full bg-primary"></div><p class="mt-1 text-primary">Diajukan</p></div>
+                <div><div class="h-1.5 rounded-full bg-amber-300"></div><p class="mt-1 text-amber-700">Konfirmasi</p></div>
+                <div><div class="h-1.5 rounded-full bg-gray-200"></div><p class="mt-1">Sesi</p></div>
+                <div><div class="h-1.5 rounded-full bg-gray-200"></div><p class="mt-1">Selesai</p></div>
+              </div>
+              <p class="mt-2 text-xs text-gray-500">Belum dikonfirmasi sampai jadwal dimulai → kedaluwarsa otomatis.</p>
+            </div>
+            <!-- item terjadwal -->
+            <div class="rounded-2xl border border-gray-200 p-3">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <p class="font-semibold">Konseling Individu</p>
+                  <p class="text-xs text-gray-500">Giovanna Yudi</p>
+                </div>
+                <span class="shrink-0 rounded-full bg-mint px-2.5 py-1 text-[11px] font-semibold text-brand">Terjadwal</span>
+              </div>
+              <p class="mt-2 text-sm text-gray-700">Sen, 30 Nov · 10.00–11.00 WITA</p>
+              <div class="mt-3 grid grid-cols-4 gap-1 text-[10px] font-semibold text-gray-500">
+                <div><div class="h-1.5 rounded-full bg-primary"></div><p class="mt-1 text-primary">Diajukan</p></div>
+                <div><div class="h-1.5 rounded-full bg-primary"></div><p class="mt-1 text-primary">Konfirmasi</p></div>
+                <div><div class="h-1.5 rounded-full bg-gray-200"></div><p class="mt-1">Sesi</p></div>
+                <div><div class="h-1.5 rounded-full bg-gray-200"></div><p class="mt-1">Selesai</p></div>
+              </div>
+            </div>
+          </div>
+          <div data-show-state="empty" class="rounded-3xl border border-gray-200 bg-white p-5 text-sm text-gray-600">
+            Permintaan yang kamu ajukan akan tampil di sini beserta statusnya: menunggu konfirmasi, terjadwal, atau diminta jadwal ulang.
+          </div>
+
+          <!-- Riwayat singkat -->
+          <div data-hide-state="empty" class="note mt-4 rounded-3xl border border-gray-200 bg-white p-4 sm:p-5" data-note="baru">
+            <p class="text-sm font-bold text-gray-900">Terakhir selesai</p>
+            <div class="mt-2 flex items-center justify-between gap-3 text-sm">
+              <div><p class="font-semibold">Konseling Individu</p><p class="text-xs text-gray-500">20 Nov 2026 · Giovanna Yudi</p></div>
+              <a class="shrink-0 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">Beri ulasan</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Akses cepat jadi baris ikon ringkas -->
+      <section class="note mt-8" data-note="diringkas">
+        <h2 class="mb-3 text-sm font-bold uppercase tracking-wide text-gray-500">Akses cepat</h2>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <a class="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-mint">🗓️</span><span class="text-sm font-semibold">Booking jadwal</span></a>
+          <a class="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-mint">👤</span><span class="text-sm font-semibold">Profil konselor</span></a>
+          <a class="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-mint">📈</span><span class="text-sm font-semibold">Aktivitas saya</span></a>
+          <a class="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-mint">🕘</span><span class="text-sm font-semibold">Riwayat</span></a>
+        </div>
+      </section>
+    </main>
+
+    <!-- =============================================================== -->
+    <!-- =================== SARAN 2 · MINIM PERUBAHAN =================== -->
+    <!-- =============================================================== -->
+    <main data-show="b" class="mx-auto max-w-[1440px] px-4 pt-6 sm:px-8 lg:px-[120px] lg:pt-10">
+      <!-- Hero: SAMA seperti sekarang -->
+      <section>
+        <div class="flex items-center justify-between gap-3 sm:justify-start sm:gap-4">
+          <h1 class="min-w-0 font-display text-[26px] font-extrabold leading-tight sm:text-4xl">
+            Selamat datang kembali, <span class="block text-brand sm:inline">Marcois!</span>
+          </h1>
+          <svg class="mascot w-[72px] shrink-0 sm:w-[110px]" viewBox="0 0 120 140" aria-hidden="true">
+            <circle cx="60" cy="52" r="34" fill="#1e3a8a"/><circle cx="48" cy="50" r="7" fill="#fff"/><circle cx="72" cy="50" r="7" fill="#fff"/>
+            <circle cx="48" cy="51" r="3" fill="#111"/><circle cx="72" cy="51" r="3" fill="#111"/><path d="M50 66 q10 8 20 0" stroke="#fff" stroke-width="3" fill="none"/>
+            <rect x="44" y="86" width="32" height="40" rx="12" fill="#15803d"/><path d="M60 14 l4 8 9 1 -7 6 2 9 -8 -5 -8 5 2 -9 -7 -6 9 -1z" fill="#f59e0b"/>
+          </svg>
+        </div>
+        <p class="mt-3 text-[15px] text-gray-600 sm:text-lg">Jaga kesehatan mentalmu, karena kamu juga penting.<span class="hidden sm:block">Disini tempat kamu bisa berbagi, bercerita, didengar, dan mendapatkan dukungan.</span></p>
+        <a class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-primary/30 bg-white px-6 py-3 font-semibold text-primary sm:w-auto">Buat janji konseling →</a>
+      </section>
+
+      <!-- TAMBAHAN 1: satu baris pemberitahuan, hanya bila perlu -->
+      <a data-show-state="reschedule" class="note mt-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm" data-note="tambahan 1">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">!</span>
+        <span class="min-w-0 flex-1"><b>Konselor meminta jadwal ulang.</b> Pilih jadwal baru sebelum Rab, 2 Des 11.00 WITA.</span>
+        <span class="shrink-0 font-semibold text-amber-800">Pilih →</span>
+      </a>
+      <a data-show-state="normal" class="note mt-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-mint px-4 py-3 text-sm" data-note="tambahan 1">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white">⏰</span>
+        <span class="min-w-0 flex-1"><b>Sesi berikutnya Senin, 30 Nov pukul 10.00 WITA</b> di Ruang Konseling LMI. Pada hari H, banner ini berubah menjadi “Sesi hari ini”.</span>
+      </a>
+
+      <!-- Dua kartu: struktur SAMA, isi lebih informatif -->
+      <section class="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <!-- Jadwal berikutnya -->
+        <article class="min-w-0 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7">
+          <div class="flex items-center gap-3">
+            <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-mint text-primary">🗓️</span>
+            <h2 class="text-xl font-bold sm:text-2xl">Jadwal konseling berikutnya</h2>
+          </div>
+          <div data-hide-state="empty" class="mt-5 grid gap-5 sm:grid-cols-[220px_1fr]">
+            <div class="rounded-2xl bg-sky-50/70 p-4">
+              <div class="flex items-center justify-between">
+                <p class="text-base">Senin</p>
+                <span class="note whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-amber-700" data-note="tambahan 2">2 hari lagi</span>
+              </div>
+              <p class="text-xl font-bold">30 Nov 2026</p>
+              <p class="mt-3 whitespace-nowrap text-base text-gray-700">🕙 <span class="note" data-note="tambahan 3">10.00–11.00 WITA</span></p>
+            </div>
+            <dl class="space-y-3 text-sm">
+              <div><dt class="text-xs text-gray-500">Konselor</dt><dd class="text-base font-semibold">Giovanna Yudi, S.Psi., M.Psi., Psikolog</dd></div>
+              <div><dt class="text-xs text-gray-500">Layanan</dt><dd class="text-base font-semibold">Konseling Individu</dd></div>
+              <div><dt class="text-xs text-gray-500">Lokasi</dt><dd class="text-base font-semibold">Ruang Konseling LMI</dd></div>
+            </dl>
+          </div>
+          <!-- TAMBAHAN 4: satu baris info consent -->
+          <p data-hide-state="empty" class="note mt-5 flex items-start gap-2 rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-600" data-note="tambahan 4">
+            <span>✍️</span><span>Tanda tangan informed consent dibuka Senin 09.45. Pembatalan paling lambat 08.00.</span>
+          </p>
+          <p data-show-state="empty" class="mt-5 rounded-2xl bg-gray-50 p-4 text-sm text-gray-600">Belum ada sesi terjadwal. Buat janji, lalu jadwal yang dikonfirmasi konselor akan tampil di sini.</p>
+          <div class="mt-5 flex justify-end">
+            <a class="rounded-full border-2 border-primary px-5 py-2 text-sm font-semibold text-primary" data-hide-state="empty">Lihat Detail »</a>
+            <a class="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white" data-show-state="empty">Buat janji konseling</a>
+          </div>
+        </article>
+
+        <!-- Status booking terakhir -->
+        <article class="min-w-0 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7">
+          <div class="flex items-center gap-3">
+            <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-mint text-primary">✅</span>
+            <h2 class="text-xl font-bold sm:text-2xl">Status Booking Terakhir</h2>
+          </div>
+
+          <div data-hide-state="empty">
+            <p class="mt-5 text-base font-semibold">Konseling <span data-show-state="normal">Kelompok (UKM Musik)</span><span data-show-state="reschedule">Individu</span></p>
+            <p class="text-sm font-semibold text-gray-700">Giovanna Yudi, S.Psi., M.Psi., Psikolog</p>
+
+            <span data-show-state="reschedule" class="note mt-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800" data-note="perbaikan label">Perlu pilih jadwal baru</span>
+            <span data-show-state="normal" class="mt-3 inline-flex rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">Menunggu Konfirmasi</span>
+
+            <!-- TAMBAHAN 5: progres 4 langkah -->
+            <div class="note mt-4 grid grid-cols-4 gap-1 text-[10px] font-semibold text-gray-500 sm:text-[11px]" data-note="tambahan 5">
+              <div><div class="h-1.5 rounded-full bg-primary"></div><p class="mt-1 text-primary">Diajukan</p></div>
+              <div><div class="h-1.5 rounded-full bg-amber-300"></div><p class="mt-1 text-amber-700">Konfirmasi</p></div>
+              <div><div class="h-1.5 rounded-full bg-gray-200"></div><p class="mt-1">Sesi</p></div>
+              <div><div class="h-1.5 rounded-full bg-gray-200"></div><p class="mt-1">Selesai</p></div>
+            </div>
+
+            <p class="mt-4 text-xs text-gray-500"><span class="note" data-note="perbaikan label">Jadwal</span></p>
+            <p class="text-base font-bold"><span data-show-state="reschedule" class="font-semibold text-gray-400 line-through">Rab, 2 Des 2026 · 11.00 WITA</span><span data-show-state="normal">Rab, 2 Des 2026 · 11.00 WITA</span></p>
+
+            <!-- TAMBAHAN 6: alasan reschedule -->
+            <p data-show-state="reschedule" class="note mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-gray-700" data-note="tambahan 6"><b>Alasan konselor:</b> “Ada rapat fakultas mendadak di jam tersebut.”</p>
+          </div>
+          <p data-show-state="empty" class="mt-5 rounded-2xl bg-gray-50 p-4 text-sm text-gray-600">Belum ada permintaan konseling.</p>
+
+          <div class="mt-5 flex justify-end">
+            <a data-show-state="reschedule" class="rounded-full bg-amber-600 px-5 py-2 text-sm font-semibold text-white">Pilih jadwal baru »</a>
+            <a data-show-state="normal" class="rounded-full border-2 border-primary px-5 py-2 text-sm font-semibold text-primary">Lihat Detail »</a>
+          </div>
+        </article>
+      </section>
+
+      <!-- Akses cepat: SAMA, ditambah badge jumlah -->
+      <section class="mt-8 rounded-3xl bg-gray-50/80 p-5 sm:p-7">
+        <h2 class="text-center text-2xl font-bold text-brand">» Akses Cepat</h2>
+        <div class="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <div class="rounded-2xl border border-gray-200 bg-white p-4">
+            <span class="inline-flex rounded-full bg-mint px-3 py-1 text-sm font-semibold text-brand">Booking Jadwal</span>
+            <p class="mt-3 text-sm text-gray-600">Atur jadwal konseling sesuai kebutuhan.</p>
+          </div>
+          <div class="rounded-2xl border border-gray-200 bg-white p-4">
+            <span class="inline-flex rounded-full bg-mint px-3 py-1 text-sm font-semibold text-brand">Profile Konselor</span>
+            <p class="mt-3 text-sm text-gray-600">Lihat data konselor dan keahliannya.</p>
+          </div>
+          <div class="rounded-2xl border border-gray-200 bg-white p-4">
+            <span class="inline-flex items-center gap-2 rounded-full bg-mint px-3 py-1 text-sm font-semibold text-brand">Aktivitas Saya
+              <span data-hide-state="empty" class="note rounded-full bg-amber-500 px-1.5 text-[11px] text-white" data-note="tambahan 7">2</span></span>
+            <p class="mt-3 text-sm text-gray-600">Lihat aktivitas dan booking yang sedang berjalan.</p>
+          </div>
+          <div class="rounded-2xl border border-gray-200 bg-white p-4">
+            <span class="inline-flex rounded-full bg-mint px-3 py-1 text-sm font-semibold text-brand">Riwayat</span>
+            <p class="mt-3 text-sm text-gray-600">Lihat riwayat konseling dan booking kamu.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ================= CATATAN PERBANDINGAN ================= -->
+    <section class="mx-auto mt-10 max-w-[1440px] px-4 sm:px-8 lg:px-[120px]">
+      <div data-show="a" class="rounded-3xl border border-violet-200 bg-white p-5 text-sm text-gray-700 sm:p-6">
+        <p class="font-bold text-violet-700">Saran 1 · Rombak</p>
+        <ul class="mt-2 list-disc space-y-1 pl-5">
+          <li>Sapaan diringkas dan menyebut tanggal hari ini serta ringkasan kondisi (“ada 1 hal yang perlu kamu lakukan”).</li>
+          <li>Kartu <b>Perlu tindakan</b> paling atas, hanya muncul bila konselor meminta jadwal ulang, lengkap dengan alasan dan batas waktu.</li>
+          <li>Sesi berikutnya jadi “tiket” dengan hitung mundur, jam mulai–selesai, dan checklist persiapan (consent dibuka 15 menit sebelum sesi, batas batal 2 jam).</li>
+          <li><b>Permintaan berjalan</b> menampilkan semua booking aktif dengan progres 4 langkah, bukan hanya booking terakhir.</li>
+          <li>Ada pengingat ulasan untuk sesi yang baru selesai; Akses Cepat diringkas karena isinya sama dengan navbar.</li>
+        </ul>
+      </div>
+      <div data-show="b" class="rounded-3xl border border-violet-200 bg-white p-5 text-sm text-gray-700 sm:p-6">
+        <p class="font-bold text-violet-700">Saran 2 · Minim perubahan (tata letak yang sudah di-ACC tetap)</p>
+        <ol class="mt-2 list-decimal space-y-1 pl-5">
+          <li>Satu baris pemberitahuan di bawah hero, hanya muncul bila ada jadwal ulang atau sesi dalam beberapa hari ke depan.</li>
+          <li>Label hitung mundur (“2 hari lagi”, “Besok”, “Hari ini”) di kotak tanggal.</li>
+          <li>Jam ditampilkan sebagai rentang 10.00–11.00 WITA.</li>
+          <li>Satu baris info consent dan batas pembatalan di kartu jadwal.</li>
+          <li>Progres 4 langkah di kartu Status Booking Terakhir.</li>
+          <li>Booking yang diminta jadwal ulang punya label sendiri, alasan konselor, dan tombol “Pilih jadwal baru” (sekarang keliru tampil “Menunggu Konfirmasi”). Label “Tanggal diminta” diganti “Jadwal” dan menyertakan jam.</li>
+          <li>Badge jumlah aktivitas berjalan di Akses Cepat.</li>
+        </ol>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    let variant = params.get("v") === "b" ? "b" : "a";
+    const stateSelect = document.getElementById("state");
+    if (params.get("s")) stateSelect.value = params.get("s");
+
+    function render() {
+      const state = stateSelect.value;
+      document.querySelectorAll("[data-show]").forEach((el) => {
+        el.style.display = el.dataset.show === variant ? "block" : "none";
+      });
+      document.querySelectorAll("[data-show-state]").forEach((el) => {
+        el.style.display = el.dataset.showState.split(" ").includes(state) ? "" : "none";
+      });
+      document.querySelectorAll("[data-hide-state]").forEach((el) => {
+        el.style.display = el.dataset.hideState.split(" ").includes(state) ? "none" : "";
+      });
+      document.querySelectorAll(".variant-btn").forEach((btn) => {
+        const active = btn.dataset.variant === variant;
+        btn.className = `variant-btn rounded-lg px-3 py-1.5 ${active ? "bg-white text-primary shadow-sm" : "text-slate-600"}`;
+        btn.setAttribute("aria-selected", String(active));
+      });
+      document.body.classList.toggle("show-notes", document.getElementById("notes").checked);
+    }
+    document.querySelectorAll(".variant-btn").forEach((btn) =>
+      btn.addEventListener("click", () => { variant = btn.dataset.variant; render(); }));
+    stateSelect.addEventListener("change", render);
+    document.getElementById("notes").addEventListener("change", render);
+    render();
+  </script>
+</body>
+</html>

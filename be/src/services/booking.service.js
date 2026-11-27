@@ -53,6 +53,56 @@ export function isPastClientCancelCutoff(booking, nowMs) {
   return Date.parse(booking.starts_at) - nowMs < CLIENT_CANCEL_CUTOFF_HOURS * 3_600_000;
 }
 
+/** "Ajukan jadwal baru" hanya untuk booking yang jadwalnya dalam sekian hari terakhir. */
+export const REBOOK_WINDOW_DAYS = 30;
+
+function sessionStatusOf(booking) {
+  const sessions = booking?.counseling_sessions;
+  const session = Array.isArray(sessions) ? sessions[0] : sessions;
+  return session?.status ?? null;
+}
+
+/**
+ * Alasan booking asal tidak dapat diajukan ulang, atau null bila boleh. Boleh untuk booking
+ * dibatalkan/ditolak/kedaluwarsa, atau terkonfirmasi yang sesinya terlewat, selama sesinya belum
+ * pernah berjalan dan jadwalnya tidak lebih dari REBOOK_WINDOW_DAYS hari lalu.
+ *
+ * @param {{ status: string, starts_at: string, counseling_sessions?: unknown }} source
+ * @param {number} nowMs
+ * @returns {{ code: string, message: string } | null}
+ */
+export function rebookIneligibleReason(source, nowMs) {
+  const sessionStatus = sessionStatusOf(source);
+  if (sessionStatus === "ongoing" || sessionStatus === "completed") {
+    return { code: "BOOKING_REBOOK_NOT_ALLOWED", message: "Sesi ini sudah berjalan sehingga tidak dapat diajukan ulang." };
+  }
+  const closed = ["cancelled", "rejected", "expired"].includes(source.status)
+    || (source.status === "confirmed" && sessionStatus === "missed");
+  if (!closed) {
+    return { code: "BOOKING_REBOOK_NOT_ALLOWED", message: "Hanya permintaan yang dibatalkan, ditolak, kedaluwarsa, atau terlewat yang dapat diajukan ulang." };
+  }
+  if (nowMs - Date.parse(source.starts_at) > REBOOK_WINDOW_DAYS * 86_400_000) {
+    return {
+      code: "BOOKING_REBOOK_WINDOW_PASSED",
+      message: `Pengajuan ulang hanya untuk jadwal dalam ${REBOOK_WINDOW_DAYS} hari terakhir. Silakan isi permintaan baru.`,
+    };
+  }
+  return null;
+}
+
+/** Anggota kelompok booking asal dalam format p_participants sicare_create_booking. */
+export function rebookParticipants(source) {
+  if (source.service_type !== "group") return [];
+  return (source.booking_participants ?? [])
+    .filter((participant) => participant.participant_status !== "removed")
+    .map((participant) => ({
+      display_name: participant.display_name,
+      full_name: participant.full_name ?? participant.display_name,
+      phone_e164: participant.phone_e164 ?? null,
+      is_representative: participant.is_representative === true,
+    }));
+}
+
 export const bookingService = {
   async listBookings({ authUser, authProfile, authRole, status, limit, offset }) {
     const client = getClient();
@@ -65,7 +115,74 @@ export const bookingService = {
       limit,
       offset,
     });
+    if (authRole === "client") {
+      // Tandai booking yang sudah diajukan ulang agar kartu "Perlu jadwal baru" tidak muncul lagi.
+      // Gagal baca tidak memblokir daftar (server tetap menolak pengajuan ganda).
+      try {
+        const rebooked = await bookingRepository.findRebookedMap(client, authUser.id);
+        for (const booking of bookings) booking.rebooked_booking_id = rebooked.get(booking.id) ?? null;
+      } catch (rebookError) {
+        console.warn("Gagal membaca riwayat pengajuan ulang booking:", rebookError?.message);
+      }
+    }
     return attachIntakeAnswersForCounselor(client, authProfile, bookings);
+  },
+
+  /**
+   * "Ajukan jadwal baru" (2026-11-28): booking baru dengan konselor yang sama memakai
+   * sicare_create_booking (aturan slot, periode, bentrok, dan batas 2 booking aktif tetap berlaku),
+   * lalu menyalin jawaban form awal. Booking asal tidak diubah.
+   */
+  async rebookBooking({ authUser, authProfile, sourceBookingId, availabilitySlotId }) {
+    const client = getClient();
+    const source = await bookingRepository.findRebookSource(client, sourceBookingId, authUser.id);
+    if (!source) throw new HttpError(404, "BOOKING_NOT_FOUND", "Booking tidak ditemukan.");
+
+    const ineligible = rebookIneligibleReason(source, Date.now());
+    if (ineligible) throw new HttpError(409, ineligible.code, ineligible.message);
+
+    const rebooked = await bookingRepository.findRebookedMap(client, authUser.id);
+    if (rebooked.has(source.id)) {
+      throw new HttpError(409, "BOOKING_ALREADY_REBOOKED", "Permintaan ini sudah diajukan ulang. Lihat jadwal barunya di Aktivitas.");
+    }
+
+    const bookingId = await callDomainRpc(
+      client,
+      "sicare_create_booking",
+      {
+        p_client_id: authUser.id,
+        p_counselor_id: source.counselor_id,
+        p_slot_id: availabilitySlotId,
+        p_service_type: source.service_type,
+        p_group_name: source.service_type === "group" ? source.group_name : null,
+        p_participants: rebookParticipants(source),
+      },
+      "Jadwal baru tidak dapat diajukan.",
+    );
+
+    // Salin form awal; gagal salin tidak membatalkan booking (slot sudah terpakai).
+    let intakeCopied = false;
+    try {
+      const answers = (await bookingRepository.findIntakeAnswersByBookingIds(client, [source.id])).get(source.id);
+      if (answers) {
+        await bookingRepository.saveIntakeAnswers(client, { bookingId, clientId: authUser.id, answers });
+        intakeCopied = true;
+      }
+    } catch (intakeError) {
+      console.warn("Gagal menyalin jawaban formulir klien ke booking baru:", intakeError?.message);
+    }
+
+    await writeAudit({
+      actorUserId: authUser.id,
+      action: "booking.rebook",
+      entityType: "booking",
+      entityId: bookingId,
+      // Hanya ID booking asal; isi form awal tidak pernah disalin ke audit.
+      metadata: { status: "waiting_confirmation", role: "client", source_booking_id: source.id },
+    });
+
+    const booking = await bookingRepository.findById(client, bookingId, authProfile);
+    return { ...booking, source_booking_id: source.id, intake_copied: intakeCopied };
   },
 
   async getBookingDetail({ authProfile, bookingId }) {

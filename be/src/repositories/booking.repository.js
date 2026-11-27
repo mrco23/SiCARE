@@ -75,6 +75,44 @@ export const bookingRepository = {
     return new Map((data ?? []).map((row) => [row.booking_id, row.answers]));
   },
 
+  /**
+   * Booking asal untuk "Ajukan jadwal baru", hanya milik klien tersebut, beserta peserta dan
+   * status sesinya. Mengembalikan null bila tidak ada (atau bukan milik klien).
+   */
+  async findRebookSource(supabaseClient, bookingId, clientId) {
+    const { data, error } = await supabaseClient
+      .from("bookings")
+      .select(
+        "id,client_id,counselor_id,service_type,group_name,status,starts_at,"
+          + "booking_participants(display_name,full_name,phone_e164,is_representative,participant_status),"
+          + "counseling_sessions(status)",
+      )
+      .eq("id", bookingId)
+      .eq("client_id", clientId)
+      .maybeSingle();
+    if (error) supabaseError(error, "Booking asal tidak dapat dibaca.");
+    return data ?? null;
+  },
+
+  /**
+   * Peta booking asal -> booking baru untuk semua "Ajukan jadwal baru" milik klien, dibaca dari
+   * audit_events (action booking.rebook, metadata.source_booking_id). Tanpa migrasi kolom baru.
+   */
+  async findRebookedMap(supabaseClient, clientId) {
+    const { data, error } = await supabaseClient
+      .from("audit_events")
+      .select("entity_id,metadata")
+      .eq("action", "booking.rebook")
+      .eq("actor_user_id", clientId);
+    if (error) supabaseError(error, "Riwayat pengajuan ulang tidak dapat dibaca.");
+    const map = new Map();
+    for (const row of data ?? []) {
+      const source = row.metadata?.source_booking_id;
+      if (typeof source === "string" && row.entity_id) map.set(source, row.entity_id);
+    }
+    return map;
+  },
+
   async saveIntakeAnswers(supabaseClient, { bookingId, clientId, answers }) {
     const { error } = await supabaseClient
       .from("booking_intakes")

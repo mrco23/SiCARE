@@ -67,7 +67,7 @@ const STATUS_LABELS: Record<string, { label: string; badgeClass: string }> = {
     badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
   reschedule_requested: {
-    label: "Perubahan Jadwal",
+    label: "Menunggu Jadwal Pengganti",
     badgeClass: "border-sky-200 bg-sky-50 text-sky-700",
   },
   rejected: {

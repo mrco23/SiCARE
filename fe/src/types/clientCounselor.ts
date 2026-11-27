@@ -15,13 +15,30 @@ export interface CounselorEducation {
   degree: string;
 }
 
+/** Satu slot ketersediaan bertanggal untuk direktori konselor (label dalam WITA). */
+export interface CounselorUpcomingSlot {
+  id: string;
+  startsAt: string;
+  /** Kunci tanggal WITA "YYYY-MM-DD" untuk pengelompokan. */
+  dateKey: string;
+  /** Contoh: "Sen, 30 Nov". */
+  dateLabel: string;
+  /** Contoh: "09.00–10.00". */
+  timeLabel: string;
+}
+
 export interface ClientDirectoryCounselor extends ClientCounselorIdentity {
   photoUrl?: string | null;
-  about: string;
+  /** Bidang/judul singkat konselor (headline profil); kosong bila belum diisi. */
+  headline: string;
+  /** Deskripsi profil (bio); kosong bila belum diisi. */
+  bio: string;
   education: CounselorEducation[];
-  experience: string;
+  /** Mis. "5 Tahun"; null bila belum diisi atau 0 tahun. */
+  experience: string | null;
   topics: string[];
-  schedule: Record<string, string[]>;
+  /** Slot tersedia yang akan datang, urut dari yang terdekat. */
+  upcomingSlots: CounselorUpcomingSlot[];
 }
 
 export interface BookingCounselor extends ClientCounselorIdentity {
