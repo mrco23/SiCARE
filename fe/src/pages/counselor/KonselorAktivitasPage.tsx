@@ -1,6 +1,6 @@
 import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -12,9 +12,10 @@ import {
   Info,
   Loader2,
   MapPin,
+  MoreHorizontal,
   Play,
-  RefreshCw,
   Search,
+  SlidersHorizontal,
   Users,
   X,
   XCircle,
@@ -35,6 +36,7 @@ import {
   toLocalDateKey,
 } from "../../features/counselor/shared/presentation";
 import { ApiError } from "../../lib/api";
+import { formatWitaTime } from "../../lib/witaTime";
 import { sicareApi } from "../../lib/sicareApi";
 import { consentApi } from "../../lib/consentApi";
 import { GroupConsentModal } from "../../components/consent/GroupConsentModal";
@@ -119,6 +121,10 @@ export default function KonselorAktivitasPage() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("Semua");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  // Layar kecil: waktu data terakhir dimuat, lembar filter jenis, dan lembar aksi kartu.
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [typeSheetOpen, setTypeSheetOpen] = useState(false);
+  const [actionSheetSessionId, setActionSheetSessionId] = useState<string | null>(null);
 
   const [transitionDialog, setTransitionDialog] = useState<{
     session: SessionListItemDto;
@@ -204,6 +210,7 @@ export default function KonselorAktivitasPage() {
         if (!active) return;
         setSessions(data.sessions);
         setBookings(data.bookings);
+        setLastSyncedAt(Date.now());
         setErrorMessage(null);
       })
       .catch((err: unknown) => {
@@ -230,6 +237,7 @@ export default function KonselorAktivitasPage() {
       const data = await fetchActivityData();
       setSessions(data.sessions);
       setBookings(data.bookings);
+      setLastSyncedAt(Date.now());
     } catch (err: unknown) {
       setErrorMessage(
         err instanceof ApiError
@@ -251,6 +259,20 @@ export default function KonselorAktivitasPage() {
 
   // Ikut berganti setelah tengah malam (jam `now` diperbarui tiap 30 detik).
   const todayKey = useMemo(() => toLocalDateKey(new Date(now)), [now]);
+  const tomorrowKey = useMemo(() => {
+    const d = new Date(now);
+    return toLocalDateKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1));
+  }, [now]);
+  /** Judul grup hari pada daftar layar kecil: "Hari ini · …", "Besok · …", atau tanggal. */
+  const mobileDayLabel = (iso: string, dayKey: string) => {
+    const date = formatIsoDateId(iso);
+    if (dayKey === todayKey) return `Hari ini · ${date}`;
+    if (dayKey === tomorrowKey) return `Besok · ${date}`;
+    return date;
+  };
+  const actionSheetSession = actionSheetSessionId
+    ? sessions.find((s) => s.id === actionSheetSessionId) ?? null
+    : null;
 
   const tabCounts = useMemo(() => {
     return {
@@ -417,6 +439,7 @@ export default function KonselorAktivitasPage() {
       const fresh = await fetchActivityData();
       setSessions(fresh.sessions);
       setBookings(fresh.bookings);
+      setLastSyncedAt(Date.now());
     } catch (err: unknown) {
       setTransitionError(
         err instanceof ApiError
@@ -430,22 +453,26 @@ export default function KonselorAktivitasPage() {
 
   return (
     <PageContainer>
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <PageHeader
-            title="Aktivitas"
-            description="Kelola jalannya sesi konseling yang terjadwal dan sedang berlangsung"
-          />
-          <button
-            type="button"
-            onClick={() => void handleManualRefresh()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Muat Ulang
-          </button>
-        </div>
+      <div className="space-y-4 sm:space-y-6">
+        {/* Layar kecil: judul lebih kecil dan deskripsi diganti waktu pembaruan agar daftar sesi naik. */}
+        <PageHeader
+          title="Aktivitas"
+          titleClassName="max-sm:text-xl"
+          descriptionClassName="max-sm:mt-0 max-sm:text-[11px] max-sm:text-gray-500"
+          description={
+            <>
+              <span className="hidden sm:inline">
+                Kelola jalannya sesi konseling yang terjadwal dan sedang berlangsung
+              </span>
+              <span className="sm:hidden">
+                {lastSyncedAt
+                  ? `Diperbarui pukul ${formatWitaTime(new Date(lastSyncedAt))} WITA`
+                  : "Sesi terjadwal dan sedang berlangsung"}
+              </span>
+            </>
+          }
+          refresh={{ onClick: () => void handleManualRefresh(), loading }}
+        />
 
 
         {errorMessage && (
@@ -793,29 +820,38 @@ export default function KonselorAktivitasPage() {
         ) : (
           /* ========================= DAFTAR SESI AKTIVITAS ========================= */
           <>
+            {/* Layar kecil: tab + cari menempel di bawah navbar saat daftar digulir. */}
+            <div className="sticky top-[72px] z-10 -mx-4 space-y-2 border-b border-gray-200 bg-white/95 px-4 pb-2 pt-2 backdrop-blur sm:static sm:mx-0 sm:space-y-6 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
             {/* Tab Kategori Sesi */}
-            <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
+            <div
+              role="tablist"
+              aria-label="Kategori sesi"
+              className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:border-b sm:border-gray-200 sm:px-0 sm:pb-3"
+            >
               {(
                 [
-                  ["active", "Aktif (Berlangsung & Terjadwal)", tabCounts.active],
-                  ["today", "Hari Ini", tabCounts.today],
-                  ["upcoming", "Mendatang", tabCounts.upcoming],
-                  ["finished", "Selesai / Batal", tabCounts.finished],
+                  ["active", "Aktif (Berlangsung & Terjadwal)", "Aktif", tabCounts.active],
+                  ["today", "Hari Ini", "Hari Ini", tabCounts.today],
+                  ["upcoming", "Mendatang", "Mendatang", tabCounts.upcoming],
+                  ["finished", "Selesai / Batal", "Selesai / Batal", tabCounts.finished],
                 ] as const
-              ).map(([key, label, count]) => {
+              ).map(([key, label, shortLabel, count]) => {
                 const active = activeTab === key;
                 return (
                   <button
                     key={key}
                     type="button"
+                    role="tab"
+                    aria-selected={active}
                     onClick={() => setActiveTab(key)}
-                    className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition sm:text-sm ${
+                    className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition sm:h-auto sm:gap-2 sm:rounded-xl sm:py-2 sm:text-sm ${
                       active
                         ? "bg-[#064E3B] text-white shadow-xs"
                         : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                     }`}
                   >
-                    <span>{label}</span>
+                    <span className="sm:hidden">{shortLabel}</span>
+                    <span className="hidden sm:inline">{label}</span>
                     <Badge className={active ? "bg-white/20 text-white" : "bg-gray-100 text-gray-700"}>
                       {count}
                     </Badge>
@@ -825,7 +861,7 @@ export default function KonselorAktivitasPage() {
             </div>
 
             {/* Filter Bar */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2 sm:flex-col sm:items-stretch sm:gap-3 sm:rounded-2xl sm:border sm:border-gray-200 sm:bg-white sm:p-4 sm:shadow-xs lg:flex-row lg:items-center lg:justify-between">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
@@ -847,7 +883,21 @@ export default function KonselorAktivitasPage() {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Layar kecil: jenis dipilih lewat lembar bawah agar bar tetap satu baris. */}
+              <button
+                type="button"
+                onClick={() => setTypeSheetOpen(true)}
+                aria-haspopup="dialog"
+                className="relative inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 sm:hidden"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                {typeFilter === "Semua" ? "Jenis" : typeFilter}
+                {typeFilter !== "Semua" && (
+                  <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#064E3B] ring-2 ring-white" />
+                )}
+              </button>
+
+              <div className="hidden flex-wrap items-center gap-2 sm:flex">
                 <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
                   {(["Semua", "Individu", "Kelompok"] as const).map((item) => (
                     <button
@@ -865,6 +915,13 @@ export default function KonselorAktivitasPage() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            {activeTab === "active" && (
+              <p className="text-[11px] text-gray-500 sm:hidden">
+                Aktif = sesi yang sedang berlangsung dan terjadwal.
+              </p>
+            )}
             </div>
 
             {loading ? (
@@ -888,17 +945,130 @@ export default function KonselorAktivitasPage() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredSessions.map((session) => {
+              <div className="space-y-2 sm:space-y-3">
+                {filteredSessions.map((session, index) => {
                   const booking = bookingMap.get(session.booking_id);
                   const title = formatBookingClientTitle(booking);
                   const badge = getSessionStatusBadge(session.status);
                   const isOngoing = session.status === "ongoing";
+                  const isScheduled = session.status === "scheduled";
+                  const blockReason = isScheduled ? startBlockReason(session) : null;
+                  const dayKey = toLocalDateKey(session.starts_at);
+                  const showDayHeader =
+                    index === 0 || toLocalDateKey(filteredSessions[index - 1].starts_at) !== dayKey;
+                  const openTransition = (targetStatus: "ongoing" | "completed") => {
+                    setTransitionError(null);
+                    setTransitionDialog({ session, targetStatus });
+                  };
 
                   return (
+                    <Fragment key={session.id}>
+                    {/* ===== Layar kecil: judul hari + kartu ringkas (ketuk kartu = Detail Sesi) ===== */}
+                    {showDayHeader && (
+                      <p className="pt-1 text-[11px] font-bold uppercase tracking-wide text-gray-500 sm:hidden">
+                        {mobileDayLabel(session.starts_at, dayKey)}
+                      </p>
+                    )}
                     <div
-                      key={session.id}
-                      className={`rounded-2xl border bg-white p-5 shadow-xs transition ${
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => void handleOpenDetail(session.id)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          void handleOpenDetail(session.id);
+                        }
+                      }}
+                      aria-label={`Detail sesi ${title}`}
+                      className={`rounded-2xl border bg-white p-3 shadow-xs sm:hidden ${
+                        isOngoing ? "border-[#064E3B] ring-2 ring-[#064E3B]/10" : "border-gray-200"
+                      }`}
+                    >
+                      <div className="flex gap-3">
+                        <div className="w-12 shrink-0 text-center">
+                          <p className="text-sm font-bold text-gray-900">
+                            {formatWitaTime(new Date(session.starts_at))}
+                          </p>
+                          <p className="text-[11px] text-gray-500">
+                            {formatWitaTime(new Date(session.ends_at))}
+                          </p>
+                        </div>
+                        <div className="min-w-0 flex-1 border-l border-gray-100 pl-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="truncate text-sm font-bold text-gray-900">{title}</p>
+                            {(isOngoing || isScheduled) && (
+                              <button
+                                type="button"
+                                aria-label="Aksi lain"
+                                aria-haspopup="dialog"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setActionSheetSessionId(session.id);
+                                }}
+                                className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <Badge weight="semibold" bordered className={`gap-1 ${badge.className}`}>
+                              {isOngoing && (
+                                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+                                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                                </span>
+                              )}
+                              {badge.label}
+                            </Badge>
+                            <Badge weight="semibold" className={booking?.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}>
+                              {booking?.service_type === "group"
+                                ? `Kelompok · ${booking.participant_count} orang`
+                                : "Individu"}
+                            </Badge>
+                            <span className="truncate text-[11px] text-gray-500">
+                              {session.room || "Ruang Konseling LMI"}
+                            </span>
+                          </div>
+                          {session.completed_at && (
+                            <p className="mt-1 text-[11px] text-gray-500">
+                              Selesai {formatIsoShortDateId(session.completed_at)}
+                            </p>
+                          )}
+                          {blockReason && (
+                            <p className="mt-1.5 text-[11px] font-medium text-amber-700">{blockReason}</p>
+                          )}
+                          {(isOngoing || isScheduled) && (
+                            <button
+                              type="button"
+                              disabled={isScheduled && Boolean(blockReason)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openTransition(isOngoing ? "completed" : "ongoing");
+                              }}
+                              className="mt-2.5 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-[#064E3B] text-xs font-semibold text-white transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:hover:bg-gray-300"
+                            >
+                              {isOngoing ? (
+                                <>
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Selesaikan Sesi
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-3.5 w-3.5" />
+                                  Mulai Sesi
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ===== Layar sedang ke atas: kartu seperti sebelumnya ===== */}
+                    <div
+                      className={`hidden rounded-2xl border bg-white p-5 shadow-xs transition sm:block ${
                         isOngoing
                           ? "border-[#064E3B] ring-2 ring-[#064E3B]/10"
                           : "border-gray-200 hover:border-gray-300"
@@ -1050,6 +1220,7 @@ export default function KonselorAktivitasPage() {
                         </div>
                       </div>
                     </div>
+                    </Fragment>
                   );
                 })}
               </div>
@@ -1241,6 +1412,123 @@ export default function KonselorAktivitasPage() {
           isOpen={Boolean(consentModalBookingId)}
           onClose={() => setConsentModalBookingId(null)}
         />
+      )}
+
+      {/* ==================== LAYAR KECIL: LEMBAR FILTER JENIS ==================== */}
+      {typeSheetOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-[#0c2619]/45 sm:hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setTypeSheetOpen(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setTypeSheetOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Jenis konseling"
+            className="w-full rounded-t-3xl bg-white px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl"
+          >
+            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-gray-300" />
+            <p className="text-base font-bold text-gray-900">Jenis konseling</p>
+            <div className="mt-3 space-y-2">
+              {(["Semua", "Individu", "Kelompok"] as const).map((item) => {
+                const selected = typeFilter === item;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setTypeFilter(item);
+                      setTypeSheetOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold ${
+                      selected
+                        ? "border-[#064E3B] bg-emerald-50 text-[#064E3B]"
+                        : "border-gray-200 text-gray-700"
+                    }`}
+                  >
+                    {item}
+                    {selected && <CheckCircle2 className="h-4 w-4" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== LAYAR KECIL: LEMBAR AKSI KARTU SESI ==================== */}
+      {actionSheetSession && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-[#0c2619]/45 sm:hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActionSheetSessionId(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setActionSheetSessionId(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Aksi sesi"
+            className="w-full rounded-t-3xl bg-white px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl"
+          >
+            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-gray-300" />
+            <p className="truncate text-base font-bold text-gray-900">
+              {formatBookingClientTitle(bookingMap.get(actionSheetSession.booking_id))}
+            </p>
+            <p className="text-xs text-gray-500">
+              {formatIsoDateId(actionSheetSession.starts_at)} ·{" "}
+              {formatIsoTimeRangeWita(actionSheetSession.starts_at, actionSheetSession.ends_at)}
+            </p>
+            <div className="mt-3 divide-y divide-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setActionSheetSessionId(null);
+                  void handleOpenDetail(actionSheetSession.id);
+                }}
+                className="flex w-full items-center gap-3 py-3 text-left text-sm font-semibold text-gray-800"
+              >
+                <Info className="h-4 w-4 text-gray-500" />
+                Detail Sesi
+              </button>
+              {actionSheetSession.status === "scheduled" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionSheetSessionId(null);
+                    setConsentModalBookingId(actionSheetSession.booking_id);
+                  }}
+                  className="flex w-full items-center gap-3 py-3 text-left text-sm font-semibold text-gray-800"
+                >
+                  <FileText className="h-4 w-4 text-emerald-800" />
+                  Persetujuan
+                </button>
+              )}
+              {(actionSheetSession.status === "scheduled" ||
+                actionSheetSession.status === "ongoing") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionSheetSessionId(null);
+                    setTransitionError(null);
+                    setTransitionDialog({ session: actionSheetSession, targetStatus: "cancelled" });
+                  }}
+                  className="flex w-full items-center gap-3 py-3 text-left text-sm font-semibold text-red-600"
+                >
+                  <XCircle className="h-4 w-4" />
+                  {actionSheetSession.status === "ongoing" ? "Hentikan Sesi" : "Urungkan"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </PageContainer>
   );
