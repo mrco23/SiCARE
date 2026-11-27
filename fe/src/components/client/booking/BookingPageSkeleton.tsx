@@ -11,15 +11,19 @@ export default function BookingPageSkeleton({ step = 1, stepCount = 5 }: { step?
       <span className="sr-only">Memuat konselor dan jadwal...</span>
 
       {/* Stepper */}
-      <div className="mt-6 flex items-start pb-2" aria-hidden="true">
+      <div
+        className="mt-6 grid"
+        style={{ gridTemplateColumns: `repeat(${stepCount}, minmax(0, 1fr))` }}
+        aria-hidden="true"
+      >
         {Array.from({ length: stepCount }, (_, i) => {
           const last = i === stepCount - 1;
           return (
-            <div key={i} className={`flex min-w-[88px] flex-col ${i === 0 ? "items-start" : "items-center"} ${last ? "flex-none" : "flex-1"}`}>
-              <div className="flex w-full items-center">
-                <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
-                {!last && <span className="h-0.5 flex-1 bg-slate-200/80" />}
-              </div>
+            <div key={i} className="relative flex flex-col items-center">
+              {!last && (
+                <span className="absolute left-[calc(50%+18px)] right-[calc(-50%+18px)] top-[13px] h-0.5 bg-slate-200/80" />
+              )}
+              <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
               <Skeleton className="mt-2 h-3 w-14" />
             </div>
           );
@@ -42,13 +46,13 @@ export default function BookingPageSkeleton({ step = 1, stepCount = 5 }: { step?
 function ServiceStepSkeleton() {
   return (
     <div aria-hidden="true">
-      <div className="mt-6 grid gap-5 md:grid-cols-2">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-6 sm:gap-5">
         {[0, 1].map((i) => (
-          <div key={i} className="rounded-2xl border-2 border-slate-200 bg-white p-4">
-            <Skeleton className="h-32 w-full rounded-xl" />
-            <div className="mt-4 flex items-start justify-between gap-3">
+          <div key={i} className="rounded-2xl border-2 border-slate-200 bg-white p-3 sm:p-4">
+            <Skeleton className="h-20 w-full rounded-xl sm:h-32" />
+            <div className="mt-2.5 flex items-start justify-between gap-3 sm:mt-4">
               <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-20 sm:w-40" />
                 <Skeleton className="h-3.5 w-3/4" />
               </div>
               <Skeleton className="h-5 w-5 rounded-full" />
@@ -65,7 +69,7 @@ function ServiceStepSkeleton() {
             <Skeleton className="h-3 w-2/3" />
           </div>
         </div>
-        <Skeleton className="h-10 w-28 self-end rounded-full" />
+        <Skeleton className="h-10 w-full rounded-full sm:w-28 sm:self-end" />
       </div>
     </div>
   );

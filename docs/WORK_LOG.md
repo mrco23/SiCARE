@@ -3042,3 +3042,27 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
   - Browser lokal (Beranda di dalam `KonselorLayout` asli, auth dan data tiruan dengan nama kelompok, perwakilan, dan ruangan yang panjang): sebelum 464px > 451px; sesudah `scrollWidth` 451 = viewport, dan 360 = viewport di 360px.
   - `fe: tsc -b`, `eslint`, `npm run build` **PASS**.
   - Belum dicek di perangkat nyata.
+
+## 2026-11-28 — Permintaan Klien langkah 1: layanan berdampingan dan stepper rata
+
+- **Permintaan pengguna:** terapkan prototype `docs/prototypes/permintaan-klien-layanan-mobile.html`.
+- **`Stepper` (`BookingFormControls.tsx`):**
+  - diubah menjadi kolom sama lebar (`grid`, `repeat(n, minmax(0,1fr))`); nomor di tengah kolom dan label tepat di bawahnya;
+  - garis penghubung ditarik dari tengah nomor ke tengah nomor berikutnya;
+  - langkah aktif diberi `ring` tipis;
+  - tetap bisa diklik untuk langkah yang sudah dicapai.
+  - Penyebab sebelumnya: langkah 1–2 `flex-1` (ikut menampung garis) sedangkan langkah 3 `flex-none`, sehingga label 1–2 bergeser sekitar 59px dari nomornya.
+- **`LayananCard`:**
+  - prop baru `shortTitle`; kartu bisa dipilih seperti tombol radio (`role="radio"`);
+  - di ponsel: ilustrasi kecil, label "Konseling" plus judul ringkas, deskripsi maksimal 3 baris, chip "60 menit", penanda centang di pojok kanan atas, dan latar hijau tipis saat dipilih;
+  - mulai `sm` tampilannya seperti sebelumnya;
+  - ilustrasi `h-14 sm:h-24`.
+- **`KlienPesananPage` langkah 1:** kartu `grid-cols-2` (juga di ponsel) dengan `role="radiogroup"`; tombol Lanjut `w-full sm:w-auto`.
+- **`BookingPageSkeleton`:** stepper dan kartu layanan disesuaikan agar tidak meloncat saat data selesai dimuat.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - Browser lokal (halaman dirender dengan auth dan data tiruan):
+    - 375px: label tepat di bawah nomor (selisih 0px untuk ketiga langkah); dua kartu 166×247 berdampingan; memilih Kelompok menandainya terpilih dan menampilkan catatan kelompok; tombol Lanjut aktif dan terlihat (bawah 684px dari tinggi 812px); tanpa scroll horizontal.
+    - 1280px: judul lengkap "Konseling Individu/Kelompok" tampil, dan stepper rata tengah.
+  - Belum dicek dengan login klien asli.
+- **Belum diubah:** teks kotak "Privasi Terjaga" masih menyebut formulir awal belum tersimpan di server; perlu kalimat pengganti.

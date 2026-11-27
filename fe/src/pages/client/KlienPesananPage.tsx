@@ -517,11 +517,13 @@ export default function KlienPesananPage() {
             Pilih layanan yang paling sesuai dengan kebutuhanmu.
           </p>
 
-          <div className="mt-6 grid gap-5 md:grid-cols-2">
+          {/* Dua kartu berdampingan juga di ponsel agar pilihan dan tombol Lanjut terlihat tanpa scroll. */}
+          <div role="radiogroup" aria-label="Jenis layanan" className="mt-4 grid grid-cols-2 gap-3 sm:mt-6 sm:gap-5">
             <LayananCard
               selected={layanan === "Individu"}
               onClick={() => setLayanan("Individu")}
               title="Konseling Individu"
+              shortTitle="Individu"
               desc="Sesi pribadi bersama konselor secara rahasia."
               art={<ArtIndividu />}
             />
@@ -529,6 +531,7 @@ export default function KlienPesananPage() {
               selected={layanan === "Kelompok"}
               onClick={() => setLayanan("Kelompok")}
               title="Konseling Kelompok"
+              shortTitle="Kelompok"
               desc="Sesi bersama beberapa peserta dengan satu konselor."
               art={<ArtKelompok />}
             />
@@ -558,7 +561,7 @@ export default function KlienPesananPage() {
             <NavButton
               disabled={!layanan}
               onClick={() => goTo(2)}
-              className="sm:self-end"
+              className="w-full sm:w-auto sm:self-end"
             >
               Lanjut <ArrowRight className="h-4 w-4" strokeWidth={2} />
             </NavButton>

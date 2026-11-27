@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronLeft, Clock } from "lucide-react";
+import { Check, ChevronLeft, Clock } from "lucide-react";
 
 const PILL_BASE =
   "inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-sm font-semibold transition";
@@ -22,7 +22,12 @@ export function Stepper({
   onStepClick?: (stepNumber: number) => void;
 }) {
   return (
-    <ol className="mt-6 flex items-start overflow-x-auto pb-2">
+    // Kolom sama lebar: nomor di tengah kolom dan label tepat di bawahnya. Garis penghubung
+    // ditarik dari tengah nomor ke tengah nomor berikutnya, di belakang lingkaran.
+    <ol
+      className="mt-6 grid"
+      style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+    >
       {steps.map((label, i) => {
         const n = i + 1;
         const done = n < step;
@@ -30,33 +35,31 @@ export function Stepper({
         const last = i === steps.length - 1;
         const clickable = Boolean(onStepClick) && n !== step && n <= (maxStepReached ?? step);
         return (
-          <li
-            key={label}
-            className={`flex min-w-[88px] flex-col items-center ${i === 0 ? "items-start" : ""} ${last ? "flex-none" : "flex-1"}`}
-          >
-            <div className="flex w-full items-center">
-              <button
-                type="button"
-                disabled={!clickable}
-                onClick={() => clickable && onStepClick?.(n)}
-                aria-current={active ? "step" : undefined}
-                aria-label={`Langkah ${n}: ${label}`}
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold transition ${
-                  active || done
-                    ? "bg-primary text-white"
-                    : "bg-gray-200 text-gray-500"
-                } ${clickable ? "cursor-pointer hover:ring-2 hover:ring-primary/40" : "cursor-default"}`}
-              >
-                {done ? "✓" : n}
-              </button>
-              {!last && (
-                <span
-                  className={`mt-0 h-0.5 flex-1 ${done ? "bg-primary" : "bg-gray-200"}`}
-                />
-              )}
-            </div>
+          <li key={label} className="relative flex flex-col items-center text-center">
+            {!last && (
+              <span
+                aria-hidden="true"
+                className={`absolute left-[calc(50%+18px)] right-[calc(-50%+18px)] top-[13px] h-0.5 rounded-full ${
+                  done ? "bg-primary" : "bg-gray-200"
+                }`}
+              />
+            )}
+            <button
+              type="button"
+              disabled={!clickable}
+              onClick={() => clickable && onStepClick?.(n)}
+              aria-current={active ? "step" : undefined}
+              aria-label={`Langkah ${n}: ${label}`}
+              className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold transition ${
+                active || done
+                  ? "bg-primary text-white"
+                  : "bg-gray-200 text-gray-500"
+              } ${active ? "ring-4 ring-primary/15" : ""} ${clickable ? "cursor-pointer hover:ring-2 hover:ring-primary/40" : "cursor-default"}`}
+            >
+              {done ? "✓" : n}
+            </button>
             <span
-              className={`mt-2 text-center text-[11px] font-semibold sm:text-xs ${active ? "text-primary" : "text-gray-500"}`}
+              className={`mt-2 px-1 text-[11px] font-semibold leading-tight sm:text-xs ${active ? "text-primary" : "text-gray-500"}`}
             >
               {label}
             </span>
@@ -71,41 +74,64 @@ export function LayananCard({
   selected,
   onClick,
   title,
+  shortTitle,
   desc,
   art,
 }: {
   selected: boolean;
   onClick: () => void;
   title: string;
+  /** Judul ringkas untuk kartu berdampingan di ponsel, mis. "Individu". */
+  shortTitle: string;
   desc: string;
   art: ReactNode;
 }) {
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={selected}
       onClick={onClick}
-      className={`group flex flex-col rounded-2xl border-2 bg-white p-4 text-left transition hover:shadow-md ${
-        selected ? "border-primary" : "border-gray-200"
+      className={`group relative flex h-full flex-col rounded-2xl border-2 p-3 text-left transition hover:shadow-md sm:p-4 ${
+        selected
+          ? "border-primary bg-emerald-50/60 shadow-[0_8px_20px_rgba(6,78,59,0.12)] sm:bg-white sm:shadow-none"
+          : "border-gray-200 bg-white"
       }`}
     >
-      <div className="flex h-32 items-center justify-center rounded-xl bg-primary-tint">
+      {/* Layar kecil: penanda pilihan di pojok kanan atas. */}
+      <span
+        className={`absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full border-2 sm:hidden ${
+          selected ? "border-primary bg-primary" : "border-gray-300 bg-white"
+        }`}
+      >
+        {selected && <Check className="h-3 w-3 text-white" strokeWidth={3.5} />}
+      </span>
+      <div className="flex h-20 items-center justify-center rounded-xl bg-primary-tint sm:h-32">
         {art}
       </div>
-      <div className="mt-4 flex items-start justify-between gap-3">
+      <div className="mt-2.5 flex items-start justify-between gap-3 sm:mt-4">
         <div>
-          <p className="font-semibold text-gray-900">{title}</p>
-          <p className="mt-1 text-sm text-gray-600">{desc}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 sm:hidden">
+            Konseling
+          </p>
+          <p className="text-base font-bold leading-tight text-gray-900 sm:hidden">{shortTitle}</p>
+          <p className="hidden font-semibold text-gray-900 sm:block">{title}</p>
+          <p className="mt-1 line-clamp-3 text-xs leading-snug text-gray-600 sm:line-clamp-none sm:text-sm sm:leading-normal">
+            {desc}
+          </p>
         </div>
         <span
-          className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+          className={`mt-1 hidden h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 sm:flex ${
             selected ? "border-primary bg-primary" : "border-gray-300"
           }`}
         >
           {selected && <span className="h-2 w-2 rounded-full bg-white" />}
         </span>
       </div>
-      <span className="mt-4 inline-flex w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-        <Clock className="h-3.5 w-3.5" strokeWidth={2} /> 60 menit
+      <span className="mt-auto pt-3 sm:pt-4">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-700 sm:gap-2 sm:px-3 sm:text-xs">
+          <Clock className="h-3.5 w-3.5" strokeWidth={2} /> 60 menit
+        </span>
       </span>
     </button>
   );
@@ -115,7 +141,7 @@ export function ArtIndividu() {
   return (
     <svg
       viewBox="0 0 120 80"
-      className="h-24 w-auto"
+      className="h-14 w-auto sm:h-24"
       fill="none"
       strokeWidth={2}
     >
@@ -149,7 +175,7 @@ export function ArtKelompok() {
   return (
     <svg
       viewBox="0 0 120 80"
-      className="h-24 w-auto"
+      className="h-14 w-auto sm:h-24"
       fill="none"
       strokeWidth={2}
     >
