@@ -71,13 +71,12 @@ export const dateLabel = (key: string) => {
 
 /** Accepts HH.MM or HH:MM and returns minutes after midnight, or null for invalid input. */
 /**
- * Merapikan ketikan jam "HH.MM" untuk keyboard ponsel yang hanya berisi angka:
- * setelah dua digit jam, titik ditambahkan otomatis ("0930" -> "09.30").
+ * Merapikan ketikan jam "HH.MM" untuk keyboard yang hanya berisi angka: titik disisipkan
+ * otomatis saat angka ketiga diketik ("09" tetap "09", lalu "093" -> "09.3", "0930" -> "09.30").
  * Bila pengguna mengetik titik/titik dua sendiri ("9.30"), susunannya dipertahankan.
- * Saat menghapus, titik di ujung tidak ditambahkan lagi agar backspace tetap berjalan.
+ * Karena titik baru muncul di angka ketiga, backspace tidak tertahan oleh titik otomatis.
  */
-export function formatTimeInput(raw: string, previous = ""): string {
-  const deleting = raw.length < previous.length;
+export function formatTimeInput(raw: string): string {
   const separator = raw.search(/[.:]/);
   if (separator !== -1) {
     const hours = raw.slice(0, separator).replace(/\D/g, "").slice(0, 2);
@@ -87,7 +86,6 @@ export function formatTimeInput(raw: string, previous = ""): string {
   }
   const digits = raw.replace(/\D/g, "").slice(0, 4);
   if (digits.length > 2) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
-  if (digits.length === 2 && !deleting) return `${digits}.`;
   return digits;
 }
 

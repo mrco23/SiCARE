@@ -28,25 +28,19 @@ import {
 } from "../../features/counselor/shared/presentation";
 import {
   addDays,
-  clamp,
   dateLabel,
   END,
   fmt,
-  H,
   keyOf,
   LAST_START,
   MONTHS,
-  pad,
   parseKey,
   parseTime,
   formatTimeInput,
-  PX,
   SESSION,
-  SNAP,
   START,
   startOfDay,
   WEEKDAYS,
-  yOf,
   isWeekendKey,
   WEEKEND_MESSAGE,
 } from "../../features/counselor/schedule/scheduleUtils";
@@ -177,20 +171,6 @@ export default function KonselorJadwalPage() {
     start: number;
   } | null>(null);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
-
-  const [drag, setDrag] = useState<{
-    slotId: string;
-    fromDate: string;
-    origStart: number;
-    toDate: string;
-    start: number;
-    offsetY: number;
-  } | null>(null);
-  const dragRef = useRef(drag);
-  useEffect(() => {
-    dragRef.current = drag;
-  }, [drag]);
-  const colRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const fetchScheduleData = useCallback(async () => {
     const [availRes, bookingsRes, sessionsRes, periodsRes] = await Promise.all([
@@ -518,85 +498,6 @@ export default function KonselorJadwalPage() {
     }
   };
 
-  // Drag-and-drop support for unbooked slots
-  useEffect(() => {
-    if (!drag) return;
-
-    const onMove = (e: PointerEvent) => {
-      const cur = dragRef.current;
-      if (!cur) return;
-      let toDate = cur.toDate;
-      for (const [k, el] of Object.entries(colRefs.current)) {
-        if (!el || isPast(k) || isWeekendKey(k)) continue;
-        const r = el.getBoundingClientRect();
-        if (e.clientX >= r.left && e.clientX <= r.right) {
-          toDate = k;
-          break;
-        }
-      }
-      const col = colRefs.current[toDate];
-      if (!col) return;
-      const r = col.getBoundingClientRect();
-      const rawMins = START + (e.clientY - r.top - cur.offsetY) / PX;
-      const snapped = clamp(
-        Math.round(rawMins / SNAP) * SNAP,
-        START,
-        LAST_START,
-      );
-      setDrag((d) => (d ? { ...d, toDate, start: snapped } : null));
-    };
-
-    const onUp = () => {
-      const cur = dragRef.current;
-      setDrag(null);
-      if (!cur) return;
-      if (cur.fromDate === cur.toDate && cur.origStart === cur.start) return;
-      const pastMessage = pastSlotMessage(cur.toDate, cur.start, todayKey);
-      if (pastMessage) {
-        toast.error(pastMessage);
-        return;
-      }
-      if (isWeekendKey(cur.toDate)) {
-        toast.error(WEEKEND_MESSAGE);
-        return;
-      }
-      if (findConflict(cur.toDate, cur.start, cur.slotId)) {
-        toast.error("Tidak dapat memindahkan jadwal karena berbenturan dengan ketersediaan lain.");
-        return;
-      }
-
-      const payload = buildSlotIsoPayload(cur.toDate, cur.start, periods);
-      setMutating(true);
-      counselorApi
-        .updateAvailability(cur.slotId, payload)
-        .then((updated) => {
-          setRawSlots((prev) =>
-            prev.map((s) => (s.id === cur.slotId ? updated : s)),
-          );
-          toast.success(`Jadwal berhasil dipindahkan ke ${dateLabel(cur.toDate)} (${fmt(cur.start)} – ${fmt(cur.start + SESSION)}).`);
-        })
-        .catch((err: unknown) => {
-          toast.error(err instanceof ApiError
-                ? err.message
-                : "Gagal memindahkan jadwal ketersediaan.");
-        })
-        .finally(() => {
-          setMutating(false);
-        });
-    };
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-  }, [drag, findConflict, isPast, periods, toast, todayKey]);
-
-  const weekDays = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
-    [weekStart],
-  );
   // Layar kecil: strip Senin–Minggu dari minggu tanggal terpilih.
   const mobileWeek = useMemo(() => {
     const d = parseKey(selected);
@@ -610,15 +511,6 @@ export default function KonselorJadwalPage() {
     } while (isWeekendKey(keyOf(d)));
     pickDate(keyOf(d));
   };
-  const hours = useMemo(
-    () => Array.from({ length: (END - START) / 60 + 1 }, (_, i) => START / 60 + i),
-    [],
-  );
-  const quarterLines = useMemo(
-    () => Array.from({ length: (END - START) / SNAP + 1 }, (_, i) => START + i * SNAP),
-    [],
-  );
-
   const calCells = useMemo(() => {
     const y = calMonth.getFullYear();
     const m = calMonth.getMonth();
@@ -643,25 +535,12 @@ export default function KonselorJadwalPage() {
   return (
     <PageContainer>
       <div className="space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <PageHeader
-            title="Jadwal"
-            description="Atur jam ketersediaan konseling Anda pada kalender mingguan"
-            className="min-w-0 flex-1"
-            refresh={{ onClick: () => void handleManualRefresh(), loading: loading || mutating }}
-          />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={loading || mutating}
-              onClick={() => openNewSlotModal(selected)}
-              className="hidden items-center gap-2 rounded-xl bg-[#064E3B] px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:opacity-45 lg:inline-flex"
-            >
-              <Plus className="h-4 w-4" />
-              Tambah Jadwal
-            </button>
-          </div>
-        </div>
+        {/* Tombol tambah ada di panel tanggal terpilih, jadi header cukup judul + muat ulang. */}
+        <PageHeader
+          title="Jadwal"
+          description="Atur jam ketersediaan konseling Anda"
+          refresh={{ onClick: () => void handleManualRefresh(), loading: loading || mutating }}
+        />
 
 
         {errorMessage && (
@@ -923,471 +802,223 @@ export default function KonselorJadwalPage() {
           )}
         </div>
 
-        <div className="hidden gap-6 lg:grid lg:grid-cols-12">
-          {/* ==================== KALENDER MINGGUAN (8 col) ==================== */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xs lg:col-span-8">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-gray-900">
-                  {pad(weekDays[0].getDate())} {MONTHS[weekDays[0].getMonth()]} –{" "}
-                  {pad(weekDays[6].getDate())} {MONTHS[weekDays[6].getMonth()]}{" "}
-                  {weekDays[6].getFullYear()}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Klik ruang kosong untuk menambah ketersediaan 1 jam. Geser kartu hijau
-                  untuk memindahkan jadwal yang belum diminta klien.
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5">
+        {/* ==================== LAYAR BESAR: KALENDER BULAN + JADWAL TANGGAL TERPILIH ==================== */}
+        {/* Satu kalender (2026-11-28): kalender bulan menjadi kalender utama; titik hijau = ada jadwal
+            kosong, titik biru = ada sesi diminta/terkonfirmasi. Layar kecil tetap memakai tampilan di atas. */}
+        <div className="hidden items-start gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-gray-900">
+                {MONTHS[calMonth.getMonth()]} {calMonth.getFullYear()}
+              </h2>
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  aria-label="Minggu sebelumnya"
-                  onClick={() => setWeekStart(addDays(weekStart, -7))}
-                  className="rounded-xl border border-gray-200 p-2 hover:bg-gray-50"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWeekStart(today);
-                    pickDate(todayKey);
-                  }}
-                  className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  onClick={() => pickDate(todayKey)}
+                  className="mr-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
                   Hari ini
                 </button>
                 <button
                   type="button"
-                  aria-label="Minggu berikutnya"
-                  onClick={() => setWeekStart(addDays(weekStart, 7))}
-                  className="rounded-xl border border-gray-200 p-2 hover:bg-gray-50"
+                  aria-label="Bulan sebelumnya"
+                  onClick={() =>
+                    setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))
+                  }
+                  className="rounded-full p-2 hover:bg-gray-100"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Bulan berikutnya"
+                  onClick={() =>
+                    setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))
+                  }
+                  className="rounded-full p-2 hover:bg-gray-100"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <div className="min-w-[680px]">
-                {/* Header 7 Hari */}
-                <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-gray-200 pb-2">
-                  <div />
-                  {weekDays.map((d) => {
-                    const k = keyOf(d);
-                    const isSel = k === selected;
-                    const isTod = k === todayKey;
-                    const weekend = isWeekendKey(k);
-                    const past = isPast(k) || weekend;
-                    return (
-                      <button
-                        key={k}
-                        type="button"
-                        onClick={() => pickDate(k)}
-                        title={weekend ? "Libur — tidak melayani konseling" : undefined}
-                        className={`mx-0.5 rounded-xl py-1.5 text-center transition ${
-                          isSel
-                            ? "bg-[#064E3B] text-white"
-                            : past
-                              ? "text-gray-400 hover:bg-gray-50"
-                              : "text-gray-800 hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="text-[11px] font-medium opacity-80">
-                          {WEEKDAYS[d.getDay()].slice(0, 3)}
-                        </div>
-                        <div className="text-sm font-bold">
-                          {pad(d.getDate())}
-                          {isTod && !isSel && (
-                            <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[#064E3B] align-middle" />
-                          )}
-                        </div>
-                        {weekend && (
-                          <div className="text-[10px] font-medium opacity-80">Libur</div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Grid jam START–END (08.00–16.00 di production, 24 jam di development) */}
-                <div className="relative mt-2 grid grid-cols-[56px_repeat(7,1fr)] select-none">
-                  <div className="relative" style={{ height: H }}>
-                    {hours.map((h) => (
-                      <div
-                        key={h}
-                        style={{ top: yOf(h * 60) - 7 }}
-                        className="absolute right-2 text-[11px] font-medium tabular-nums text-gray-400"
-                      >
-                        {pad(h)}.00
-                      </div>
-                    ))}
-                  </div>
-
-                  {weekDays.map((d) => {
-                    const k = keyOf(d);
-                    const daySlots = slotsByDate[k] ?? [];
-                    const weekend = isWeekendKey(k);
-                    const past = isPast(k) || weekend;
-                    const ghost = drag && drag.toDate === k ? drag : null;
-                    const ghostConflict = ghost
-                      ? findConflict(k, ghost.start, ghost.slotId) !== null
-                      : false;
-
-                    return (
-                      <div
-                        key={k}
-                        ref={(el) => {
-                          colRefs.current[k] = el;
-                        }}
-                        style={{ height: H }}
-                        onClick={(e) => {
-                          if (drag) return;
-                          if (e.target !== e.currentTarget) return;
-                          if (past) {
-                            toast.error(weekend && !isPast(k) ? WEEKEND_MESSAGE : PAST_DATE_MESSAGE);
-                            return;
-                          }
-                          const r = e.currentTarget.getBoundingClientRect();
-                          const raw = START + (e.clientY - r.top) / PX;
-                          const snapped = clamp(
-                            Math.floor(raw / 60) * 60,
-                            START,
-                            LAST_START,
-                          );
-                          pickDate(k);
-                          if (!findConflict(k, snapped)) {
-                            openNewSlotModal(k, snapped);
-                          }
-                        }}
-                        className={`relative border-l border-gray-200 ${
-                          past
-                            ? "bg-gray-50/70"
-                            : k === selected
-                              ? "bg-emerald-50/20 cursor-pointer"
-                              : "cursor-pointer hover:bg-gray-50/50"
-                        }`}
-                      >
-                        {quarterLines.map((m) => (
-                          <div
-                            key={m}
-                            style={{ top: yOf(m) }}
-                            className={`pointer-events-none absolute inset-x-0 border-t ${
-                              m % 60 === 0
-                                ? "border-gray-200"
-                                : "border-gray-100"
-                            }`}
-                          />
-                        ))}
-
-                        {daySlots.map((s) => {
-                          const isDragging = drag?.slotId === s.id;
-                          const isBooked = s.isBooked;
-                          const locked = past || isBooked;
-
-                          return (
-                            <div
-                              key={s.id}
-                              style={{
-                                top: yOf(s.start) + 1,
-                                height: SESSION * PX - 2,
-                              }}
-                              onPointerDown={(e) => {
-                                if (locked) return;
-                                e.stopPropagation();
-                                const r =
-                                  e.currentTarget.getBoundingClientRect();
-                                const offsetY = e.clientY - r.top;
-                                const startX = e.clientX;
-                                const startY = e.clientY;
-                                const moveCheck = (me: PointerEvent) => {
-                                  if (
-                                    Math.hypot(
-                                      me.clientX - startX,
-                                      me.clientY - startY,
-                                    ) > 5
-                                  ) {
-                                    window.removeEventListener(
-                                      "pointermove",
-                                      moveCheck,
-                                    );
-                                    setDrag({
-                                      slotId: s.id,
-                                      fromDate: k,
-                                      origStart: s.start,
-                                      toDate: k,
-                                      start: s.start,
-                                      offsetY,
-                                    });
-                                  }
-                                };
-                                const upCheck = () => {
-                                  window.removeEventListener(
-                                    "pointermove",
-                                    moveCheck,
-                                  );
-                                  window.removeEventListener(
-                                    "pointerup",
-                                    upCheck,
-                                  );
-                                };
-                                window.addEventListener(
-                                  "pointermove",
-                                  moveCheck,
-                                );
-                                window.addEventListener("pointerup", upCheck);
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                pickDate(k);
-                                openEditSlotModal(s);
-                              }}
-                              className={`absolute inset-x-1 overflow-hidden rounded-lg border px-2 py-1 text-left transition ${
-                                isDragging ? "opacity-30" : ""
-                              } ${
-                                isBooked
-                                  ? "border-blue-600 bg-blue-600 text-white shadow-xs"
-                                  : past
-                                    ? "border-gray-300 bg-gray-200 text-gray-600"
-                                    : "cursor-grab border-[#064E3B] bg-[#064E3B] text-white shadow-xs active:cursor-grabbing"
-                              }`}
-                            >
-                              <div className="text-[11px] font-bold leading-tight tabular-nums">
-                                {fmt(s.start)} – {fmt(s.end)}
-                              </div>
-                              <div className="truncate text-[10px] opacity-90">
-                                {isBooked
-                                  ? `Sesi · ${s.clientLabel ?? "Klien"}`
-                                  : "Tersedia"}
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {ghost && (
-                          <div
-                            style={{
-                              top: yOf(ghost.start) + 1,
-                              height: SESSION * PX - 2,
-                            }}
-                            className={`pointer-events-none absolute inset-x-1 rounded-lg border-2 border-dashed px-2 py-1 text-[11px] font-bold ${
-                              ghostConflict
-                                ? "border-red-500 bg-red-100/80 text-red-800"
-                                : "border-[#064E3B] bg-emerald-50/90 text-[#064E3B]"
-                            }`}
-                          >
-                            {fmt(ghost.start)} – {fmt(ghost.start + SESSION)}
-                            <div className="text-[10px] font-normal">
-                              {ghostConflict
-                                ? "Bentrok jadwal"
-                                : "Lepas untuk simpan"}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Legenda */}
-                <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-gray-100 pt-3 text-xs text-gray-500">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded-sm bg-[#064E3B]" /> Tersedia
-                    (dapat diubah / dihapus)
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded-sm bg-blue-600" /> Sesi
-                    Diminta / Terkonfirmasi
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded-sm bg-gray-300" /> Sudah
-                    Lewat
-                  </span>
-                </div>
-              </div>
+            <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-gray-400">
+              {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((d) => (
+                <div key={d}>{d}</div>
+              ))}
             </div>
-          </div>
 
-          {/* ==================== PANEL KANAN (4 col) ==================== */}
-          <div className="space-y-6 lg:col-span-4">
-            {/* Kalender Bulanan Mini */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-bold text-gray-900">
-                  {MONTHS[calMonth.getMonth()]} {calMonth.getFullYear()}
-                </span>
-                <div className="flex gap-1">
+            <div className="mt-1 grid grid-cols-7 gap-1">
+              {calCells.map((d, idx) => {
+                if (!d) return <div key={`empty-${idx}`} />;
+                const k = keyOf(d);
+                const isSel = k === selected;
+                const isToday = k === todayKey;
+                const daySlots = slotsByDate[k] ?? [];
+                const hasFree = daySlots.some((s) => !s.isBooked);
+                const hasSession = daySlots.some((s) => s.isBooked);
+                const muted = isPast(k) || isWeekendKey(k);
+                return (
                   <button
+                    key={k}
                     type="button"
-                    aria-label="Bulan sebelumnya"
-                    onClick={() =>
-                      setCalMonth(
-                        new Date(
-                          calMonth.getFullYear(),
-                          calMonth.getMonth() - 1,
-                          1,
-                        ),
-                      )
-                    }
-                    className="rounded-lg p-1.5 hover:bg-gray-100"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Bulan berikutnya"
-                    onClick={() =>
-                      setCalMonth(
-                        new Date(
-                          calMonth.getFullYear(),
-                          calMonth.getMonth() + 1,
-                          1,
-                        ),
-                      )
-                    }
-                    className="rounded-lg p-1.5 hover:bg-gray-100"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-gray-400">
-                {["Sn", "Sl", "Rb", "Km", "Jm", "Sb", "Mg"].map((d) => (
-                  <div key={d} className="py-1">
-                    {d}
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-1 grid grid-cols-7 gap-1 text-center text-xs">
-                {calCells.map((d, idx) => {
-                  if (!d) return <div key={`empty-${idx}`} />;
-                  const k = keyOf(d);
-                  const isSel = k === selected;
-                  const hasSlots = (slotsByDate[k]?.length ?? 0) > 0;
-                  const past = isPast(k) || isWeekendKey(k);
-                  return (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => pickDate(k)}
-                      className={`relative rounded-lg py-2 font-semibold transition ${
-                        isSel
-                          ? "bg-[#064E3B] text-white"
-                          : past
+                    onClick={() => pickDate(k)}
+                    aria-pressed={isSel}
+                    aria-label={`${dateLabel(k)}${hasFree ? ", ada jadwal kosong" : ""}${hasSession ? ", ada sesi" : ""}`}
+                    className={`flex h-14 flex-col items-center justify-center rounded-2xl text-sm font-semibold transition ${
+                      isSel
+                        ? "bg-[#064E3B] text-white shadow-xs"
+                        : isToday
+                          ? "text-[#064E3B] ring-2 ring-[#064E3B]/40"
+                          : muted
                             ? "text-gray-300 hover:bg-gray-50"
-                            : "text-gray-800 hover:bg-gray-100"
-                      }`}
-                    >
-                      {d.getDate()}
-                      {hasSlots && (
-                        <span
-                          className={`mx-auto mt-0.5 block h-1 w-1 rounded-full ${
-                            isSel ? "bg-white" : "bg-[#064E3B]"
-                          }`}
-                        />
+                            : "text-gray-800 hover:bg-emerald-50"
+                    }`}
+                  >
+                    <span>{d.getDate()}</span>
+                    <span className="mt-1 flex h-1.5 gap-1">
+                      {hasFree && (
+                        <span className={`h-1.5 w-1.5 rounded-full ${isSel ? "bg-emerald-200" : "bg-emerald-600"}`} />
                       )}
-                    </button>
-                  );
-                })}
-              </div>
+                      {hasSession && (
+                        <span className={`h-1.5 w-1.5 rounded-full ${isSel ? "bg-blue-200" : "bg-blue-600"}`} />
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Daftar Slot pada Tanggal Terpilih */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-bold text-gray-900">
-                    {dateLabel(selected)}
-                  </h2>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    {selectedPast
-                      ? "Tanggal sudah lewat (hanya lihat)"
+            <div className="mt-4 flex flex-wrap gap-4 border-t border-gray-100 pt-3 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-600" /> Jadwal kosong
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-blue-600" /> Sesi diminta / terkonfirmasi
+              </span>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#064E3B]">
+                  {selected === todayKey
+                    ? "Hari ini"
+                    : selectedPast
+                      ? "Sudah lewat · hanya lihat"
+                      : isWeekendKey(selected)
+                        ? "Libur"
+                        : "Tanggal terpilih"}
+                </p>
+                <h2 className="text-xl font-bold text-gray-900">{dateLabel(selected)}</h2>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  {isWeekendKey(selected)
+                    ? WEEKEND_MESSAGE
+                    : selectedSlots.length > 0
+                      ? `${selectedSlots.filter((s) => !s.isBooked).length} kosong · ${
+                          selectedSlots.filter((s) => s.isBooked).length
+                        } sesi`
                       : activePeriodLabel
                         ? `Periode: ${activePeriodLabel}`
-                        : `${selectedSlots.length} ketersediaan terdaftar`}
-                  </p>
-                </div>
-                {!selectedPast && (
-                  <button
-                    type="button"
-                    disabled={loading || mutating}
-                    onClick={() => openNewSlotModal(selected)}
-                    className="inline-flex items-center gap-1 rounded-xl bg-[#064E3B] px-3 py-2 text-xs font-semibold text-white hover:bg-[#053e2f] disabled:opacity-45"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Tambah
-                  </button>
-                )}
+                        : "Belum ada jadwal."}
+                </p>
               </div>
+              {!selectedPast && !isWeekendKey(selected) && (
+                <button
+                  type="button"
+                  disabled={loading || mutating}
+                  onClick={() => openNewSlotModal(selected)}
+                  className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-[#064E3B] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#053e2f] disabled:opacity-45"
+                >
+                  <Plus className="h-4 w-4" /> Tambah jadwal
+                </button>
+              )}
+            </div>
 
-              {loading ? (
-                <SkeletonList bare rows={3} label="Memuat ketersediaan..." className="mt-4" />
-              ) : selectedSlots.length === 0 ? (
-                <div className="mt-4 rounded-xl border border-dashed border-gray-200 p-6 text-center text-xs text-gray-500">
-                  Belum ada ketersediaan pada tanggal ini.
-                </div>
-              ) : (
-                <ul className="mt-4 space-y-2.5">
-                  {selectedSlots.map((s) => (
+            {loading ? (
+              <SkeletonList bare rows={3} label="Memuat ketersediaan..." className="mt-5" />
+            ) : selectedSlots.length === 0 ? (
+              <div className="mt-5 rounded-2xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
+                {selectedPast || isWeekendKey(selected)
+                  ? "Tidak ada jadwal pada tanggal ini."
+                  : "Belum ada jadwal kosong. Tambahkan agar klien dapat memesan."}
+              </div>
+            ) : (
+              <ul className="mt-5 space-y-2.5">
+                {selectedSlots.map((s) => {
+                  const statusText =
+                    s.bookingStatus === "confirmed"
+                      ? "Terkonfirmasi"
+                      : s.bookingStatus === "reschedule_requested"
+                        ? "Menunggu jadwal pengganti"
+                        : "Diminta";
+                  const openInPermintaan = s.bookingStatus !== "confirmed";
+                  return (
                     <li
                       key={s.id}
-                      className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm"
+                      className={`flex items-center gap-4 rounded-2xl border p-4 ${
+                        s.isBooked ? "border-blue-200 bg-blue-50/60" : "border-emerald-200 bg-emerald-50/60"
+                      }`}
                     >
-                      <button
-                        type="button"
-                        onClick={() => openEditSlotModal(s)}
-                        className="flex flex-1 items-center gap-2.5 text-left"
-                      >
-                        <span
-                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                            s.isBooked ? "bg-blue-600" : "bg-[#064E3B]"
-                          }`}
-                        />
-                        <div className="min-w-0">
-                          <div className="font-bold tabular-nums text-gray-900">
-                            {fmt(s.start)} – {fmt(s.end)}
-                          </div>
-                          <div className="truncate text-xs text-gray-500">
-                            {s.isBooked
-                              ? `Diminta · ${s.clientLabel ?? "Klien"}`
-                              : "Tersedia untuk diminta klien"}
-                          </div>
-                        </div>
-                      </button>
-
-                      {!selectedPast && !s.isBooked && (
-                        <button
-                          type="button"
-                          onClick={() => openEditSlotModal(s)}
-                          className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                        >
-                          <IconLabel icon={Pencil}>Ubah</IconLabel>
-                        </button>
-                      )}
-
-                      {!selectedPast && s.isBooked && s.sessionId && (
+                      <span
+                        className={`h-10 w-1.5 shrink-0 rounded-full ${s.isBooked ? "bg-blue-600" : "bg-[#064E3B]"}`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-bold tabular-nums text-gray-900">
+                          {fmt(s.start)} – {fmt(s.end)}{" "}
+                          <span className="text-xs font-medium text-gray-500">WITA</span>
+                        </p>
+                        <p className={`truncate text-xs ${s.isBooked ? "text-blue-800" : "text-emerald-800"}`}>
+                          {s.isBooked
+                            ? `${statusText} · ${s.clientLabel ?? "Klien"}`
+                            : "Kosong · dapat dipesan klien"}
+                        </p>
+                        {!selectedPast && s.isBooked && s.sessionId && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCancelSessionTarget({
+                                sessionId: s.sessionId!,
+                                clientLabel: s.clientLabel ?? "Klien",
+                                dateKey: s.dateKey,
+                                start: s.start,
+                              })
+                            }
+                            className="mt-1 text-[11px] font-semibold text-red-600 hover:underline"
+                          >
+                            Batalkan tanpa jadwal ulang
+                          </button>
+                        )}
+                      </div>
+                      {s.isBooked ? (
                         <button
                           type="button"
                           onClick={() =>
-                            setCancelSessionTarget({
-                              sessionId: s.sessionId!,
-                              clientLabel: s.clientLabel ?? "Klien",
-                              dateKey: s.dateKey,
-                              start: s.start,
-                            })
+                            navigate(openInPermintaan ? "/konselor/permintaan" : "/konselor/aktivitas")
                           }
-                          className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                          className="shrink-0 rounded-xl border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-50"
                         >
-                          <IconLabel icon={XCircle}>Batalkan tanpa jadwal ulang</IconLabel>
+                          {openInPermintaan ? "Buka di Permintaan" : "Buka di Aktivitas"}
                         </button>
+                      ) : (
+                        !selectedPast && (
+                          <button
+                            type="button"
+                            disabled={mutating}
+                            onClick={() => openEditSlotModal(s)}
+                            className="shrink-0 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-45"
+                          >
+                            <IconLabel icon={Pencil}>Ubah / Hapus</IconLabel>
+                          </button>
+                        )
                       )}
                     </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
         </div>
       </div>
 
@@ -1542,7 +1173,7 @@ export default function KonselorJadwalPage() {
                   disabled={editor.isBooked || isPast(editor.dateKey) || isWeekendKey(editor.dateKey) || mutating}
                   value={editorText}
                   onChange={(e) => {
-                    setEditorText(formatTimeInput(e.target.value, editorText));
+                    setEditorText(formatTimeInput(e.target.value));
                     setEditorError(null);
                   }}
                   placeholder="Contoh: 09.00 atau 13.30"
