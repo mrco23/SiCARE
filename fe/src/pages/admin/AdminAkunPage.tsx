@@ -34,7 +34,6 @@ import type { Role } from "../../types/admin";
 import type { AdminAccountTab } from "../../features/admin/accounts/accountSelectors";
 import {
   Loader2,
-  RefreshCw,
   Search,
   User,
   UserCheck,
@@ -448,17 +447,7 @@ export default function AdminAkunPage() {
       <PageHeader
         title="Manajemen Akun"
         description="Kelola akun konselor, klien (mahasiswa, dosen, staff), kepala LMI, dan admin."
-        actions={
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            Muat ulang
-          </button>
-        }
+        refresh={{ onClick: () => void handleRefresh(), loading }}
       />
 
       {loadError && (

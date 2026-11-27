@@ -14,7 +14,6 @@ import {
   CalendarClock,
   ClipboardList,
   MessageSquareText,
-  RefreshCw,
   Search,
   Stethoscope,
 } from "lucide-react";
@@ -256,19 +255,7 @@ export default function AdminActivityPage() {
       <PageHeader
         title="Log Aktivitas Sistem"
         description="Pantau pembaruan terbaru pada permintaan booking, sesi konseling, dan moderasi feedback klien."
-        actions={
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-            />
-            Muat ulang
-          </button>
-        }
+        refresh={{ onClick: () => void handleRefresh(), loading }}
       />
 
       {loadError && (

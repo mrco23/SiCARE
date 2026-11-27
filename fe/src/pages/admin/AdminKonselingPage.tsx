@@ -28,7 +28,6 @@ import {
   FolderOpen,
   List,
   Lock,
-  RefreshCw,
   Star,
   User,
   UserRound,
@@ -897,21 +896,7 @@ export default function AdminKonselingPage() {
       <PageHeader
         title="Pemantauan Konseling"
         description="Pantau sesi konseling individu dan kelompok, serta pembatalan."
-        actions={
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={() => void handleRefresh()}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-              />
-              Muat ulang
-            </button>
-          </div>
-        }
+        refresh={{ onClick: () => void handleRefresh(), loading }}
       />
 
       {loadError && (

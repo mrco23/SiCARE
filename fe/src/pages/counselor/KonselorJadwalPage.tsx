@@ -9,7 +9,6 @@ import {
   Info,
   Loader2,
   Plus,
-  RefreshCw,
   Trash2,
   X,
   Pencil,
@@ -645,19 +644,10 @@ export default function KonselorJadwalPage() {
           <PageHeader
             title="Jadwal"
             description="Atur jam ketersediaan konseling Anda pada kalender mingguan"
+            className="min-w-0 flex-1"
+            refresh={{ onClick: () => void handleManualRefresh(), loading: loading || mutating }}
           />
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void handleManualRefresh()}
-              disabled={loading || mutating}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${loading || mutating ? "animate-spin" : ""}`}
-              />
-              Muat Ulang
-            </button>
             <button
               type="button"
               disabled={loading || mutating}

@@ -2993,3 +2993,24 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Snippet baru `be/scripts/seed-ongoing-session-today.sql`:** satu sesi `ongoing` Giovana dengan 24013031 mulai 15 menit lalu, durasi 60 menit, tanpa syarat hari kerja; tidak mensyaratkan bookings kosong, menolak bila bentrok; consent signed, notifikasi, tanpa WhatsApp.
 - **Pemeriksaan:** `be: node --test test/availabilityWeekday.test.js` **5/5 PASS** (2 tes baru); `be: npm test` **376/377** (gagal: `heroMotivations.test.js`, baseline); `be: check` **PASS**; `be: typecheck` **FAIL baseline** (`education.service.js`, tipe database belum diregenerasi untuk `counselor_educations`, tidak terkait); `fe: tsc`, `lint`, `build` **PASS**. Browser dev: `WEEKDAY_ONLY=false`, Sabtu/Minggu tidak diblokir (cek modul di dev server); uji UI login konselor/klien **NOT RUN** (butuh login). Snippet SQL **NOT RUN** (tidak ada Postgres lokal).
 - **Risiko:** database dipakai bersama production; slot akhir pekan hasil uji terlihat di production sampai dihapus.
+
+## 2026-11-27 — Aktivitas Konselor ringkas di layar kecil
+
+- **Permintaan pengguna:** filter di halaman Aktivitas Konselor versi mobile terlalu memakan tempat sehingga daftar sesi turun ke bawah; buat prototype lalu terapkan.
+- **Prototype:** `docs/prototypes/aktivitas-konselor-mobile.html` (sekarang vs usulan, interaktif).
+- **Perubahan `fe/src/pages/counselor/KonselorAktivitasPage.tsx` (hanya di bawah breakpoint `sm`; tampilan `sm` ke atas sama seperti sebelumnya):** judul satu baris + "Diperbarui pukul … WITA" dan tombol muat ulang berbentuk ikon; tab satu baris yang dapat digeser dengan label pendek ("Aktif"); cari + tombol "Jenis" (lembar bawah Semua/Individu/Kelompok, titik penanda filter aktif) dalam satu baris; tab dan cari menempel di bawah navbar (`sticky top-[72px]`, pola yang sama dengan Jadwal Konselor); daftar dikelompokkan per hari (Hari ini/Besok/tanggal); kartu ringkas dengan jam di kolom kiri, satu tombol utama (Mulai Sesi/Selesaikan Sesi) selebar kartu, menu ⋯ (Detail Sesi, Persetujuan, Urungkan/Hentikan Sesi) lewat lembar bawah; ketuk kartu membuka Detail Sesi. Dialog transisi, consent, rute, status, dan aturan Mulai Sesi tidak berubah.
+- **Pemeriksaan:** `fe: tsc`, `lint`, `build` **PASS**. Prototype diuji di browser (tab, filter, menu ⋯, tanpa error konsol). Halaman asli di browser **NOT RUN**: butuh login konselor.
+
+## 2026-11-27 — Standardisasi tombol muat ulang berbentuk ikon di samping judul halaman
+
+- **Konsistensi UI:** tombol muat ulang halaman distandarisasi menjadi tombol bulat berikon `RefreshCw` di samping kanan judul halaman (`PageHeader refresh={{ onClick, loading }}`) di semua ukuran layar.
+- **Komponen baru:** `RefreshButton.tsx` (`fe/src/components/shared/RefreshButton.tsx`) beranimasi spin saat memuat, dengan tooltip dan `aria-busy`.
+- **Halaman yang diselaraskan:** Beranda Admin, Aktivitas Admin, Akun Admin, Konseling Admin, Periode Admin, Beranda Kepala LMI, Moderasi Feedback (Admin & Kepala LMI), Laporan Konseling (Admin & Kepala LMI), Beranda Konselor, Permintaan Konselor, Jadwal Konselor, Feedback Konselor, dan Riwayat Klien.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**.
+
+
+## 2026-11-27 — Tombol muat ulang seragam: ikon di kanan judul halaman
+
+- **Permintaan pengguna:** semua tombol "Muat ulang" di halaman yang sudah login memakai tombol ikon berputar di samping kanan nama halaman, seperti Aktivitas Konselor, pada semua ukuran layar.
+- **Perubahan:** komponen baru `fe/src/components/shared/RefreshButton.tsx` (ikon bulat, berputar saat memuat, `aria-label`/tooltip "Muat ulang", kelas `no-print`). `PageHeader` menerima prop `refresh` dan menempatkan tombol di kanan blok judul. Dipakai di Konselor (Beranda, Aktivitas, Permintaan, Jadwal, Feedback), Klien (Riwayat), Admin (Beranda, Log Aktivitas, Akun, Pemantauan Konseling, Periode Akademik), Feedback moderasi dan Laporan (admin & Kepala LMI), serta Beranda Kepala LMI. Tombol lain di header (pilihan periode, "+ Tambah Jadwal", "Lihat laporan lengkap", label periode laporan) tetap di tempatnya. Header mobile Aktivitas kini memakai `PageHeader` dengan deskripsi responsif. Tombol "Muat ulang" berteks di kotak error (KlienKonselor, SectionErrorBoundary) tidak diubah karena berfungsi sebagai "coba lagi".
+- **Pemeriksaan:** `fe: tsc`, `lint`, `build` **PASS**. Uji browser **NOT RUN** (semua halaman butuh login).

@@ -9,7 +9,6 @@ import {
   Clock,
   FileText,
   Info,
-  RefreshCw,
   Search,
   Users,
   X,
@@ -263,21 +262,11 @@ export default function KonselorPermintaanPage() {
   return (
     <PageContainer>
       <div className="space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <PageHeader
-            title="Permintaan"
-            description="Kelola permintaan jadwal sesi konseling aktual dari klien"
-          />
-          <button
-            type="button"
-            onClick={() => void handleManualRefresh()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Muat Ulang
-          </button>
-        </div>
+        <PageHeader
+          title="Permintaan"
+          description="Kelola permintaan jadwal sesi konseling aktual dari klien"
+          refresh={{ onClick: () => void handleManualRefresh(), loading }}
+        />
 
 
         {errorMessage && (

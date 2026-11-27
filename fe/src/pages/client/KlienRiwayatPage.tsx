@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  RefreshCw,
   Search,
   Star,
   Users,
@@ -632,16 +631,7 @@ export default function KlienRiwayatPage() {
       <PageHeader
         title="Riwayat Konseling"
         description="Riwayat konseling yang telah kamu ikuti beserta statusnya."
-        actions={
-          <button
-            type="button"
-            onClick={refresh}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Muat ulang
-          </button>
-        }
+        refresh={{ onClick: refresh, loading }}
       />
 
       {/* Filter */}

@@ -1,5 +1,6 @@
 import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
+import RefreshButton from "../../components/shared/RefreshButton";
 import TypingGreeting from "../../components/mood/TypingGreeting";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +12,6 @@ import {
   Clock,
   Inbox,
   MapPin,
-  RefreshCw,
   Star,
   Check,
   XCircle,
@@ -282,8 +282,8 @@ export default function KonselorBerandaPage() {
     <PageContainer>
       <div className="space-y-6">
         {/* Header Sambutan */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-sm text-gray-500">{todayLabel}</p>
             <h1 className="mt-0.5 text-2xl font-bold text-gray-900">
               {/* Tunggu profil (nama & jenis kelamin) selesai dimuat agar sapaan diketik sekali saja. */}
@@ -293,15 +293,7 @@ export default function KonselorBerandaPage() {
               />
             </h1>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleManualRefresh()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Muat Ulang
-          </button>
+          <RefreshButton onClick={() => void handleManualRefresh()} loading={loading} />
         </div>
 
 
