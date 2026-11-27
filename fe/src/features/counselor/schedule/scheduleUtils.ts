@@ -1,10 +1,11 @@
 import { CANCEL_REASONS } from "../../../constants/counseling";
-import { isClosedWeekday } from "../../../lib/operationalRules";
+import { isClosedWeekday, SERVICE_END_MINUTES, SERVICE_START_MINUTES } from "../../../lib/operationalRules";
 
 export { CANCEL_REASONS };
 
-export const START = 8 * 60;
-export const END = 16 * 60;
+// 08.00–16.00 di production; 00.00–24.00 bila VITE_APP_ENV=development.
+export const START = SERVICE_START_MINUTES;
+export const END = SERVICE_END_MINUTES;
 export const SESSION = 60;
 export const LAST_START = END - SESSION;
 export const SNAP = 15;
@@ -58,8 +59,8 @@ export const parseKey = (key: string) => {
 };
 
 /**
- * True bila tanggal adalah akhir pekan DAN aturan hari kerja aktif (production). Saat
- * pengembangan (WEEKDAY_ONLY mati) selalu false agar jadwal akhir pekan bisa dibuat untuk uji.
+ * True bila tanggal adalah akhir pekan DAN aturan hari kerja aktif (production). Bila
+ * VITE_APP_ENV=development selalu false agar jadwal akhir pekan bisa dibuat untuk uji.
  */
 export const isWeekendKey = (key: string) => isClosedWeekday(parseKey(key).getDay());
 

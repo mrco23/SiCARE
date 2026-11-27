@@ -53,19 +53,5 @@ export const adminAccountsController = {
     const data = await adminAccountsService.deactivateAccount(req.params.id, req.auth.user.id);
     return sendData(res, data);
   },
-
-  async setCounselorPublication(req, res) {
-    if (!uuid.safeParse(req.params.counselorId).success) {
-      throw new HttpError(400, "INVALID_ID", "ID konselor tidak valid.");
-    }
-
-    const input = parseBody(z.object({ is_public: z.boolean() }).strict(), req.body);
-    const data = await adminAccountsService.setCounselorPublication(
-      req.params.counselorId,
-      input.is_public,
-      req.auth.user.id,
-    );
-    return sendData(res, data);
-  },
 };
 

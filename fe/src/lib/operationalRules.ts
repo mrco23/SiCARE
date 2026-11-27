@@ -1,29 +1,34 @@
 /**
- * Aturan operasional yang dapat dilonggarkan saat pengembangan.
+ * Aturan operasional jadwal konseling, dikendalikan satu variabel lingkungan VITE_APP_ENV.
  *
- * WEEKDAY_ONLY: konseling hanya dilayani Senin–Jumat. Aktif di build production, mati saat
- * `npm run dev` agar alur konseling bisa diuji di akhir pekan. Override dengan
- * VITE_WEEKDAY_ONLY=true|false. Backend punya sakelar serupa (WEEKDAY_ONLY / NODE_ENV); tampilan
- * ini hanya kenyamanan, validasi tetap di server.
+ * - production (default, juga bila kosong/tidak dikenal): konseling hanya Senin–Jumat dan
+ *   jam mulai 08.00–15.00 (sesi 60 menit selesai paling lambat 16.00).
+ * - development: semua hari dan 24 jam (00.00–23.00 sebagai jam mulai) agar alur konseling
+ *   bisa diuji di luar hari dan jam kerja.
+ *
+ * Backend memakai variabel APP_ENV dengan nilai yang sama. Tampilan ini hanya kenyamanan;
+ * validasi hari tetap di server.
  */
-function readBooleanFlag(value: string | undefined, fallback: boolean): boolean {
-  const normalized = value?.trim().toLowerCase();
-  if (normalized === "true") return true;
-  if (normalized === "false") return false;
-  return fallback;
-}
+export type AppEnv = "development" | "production";
 
-export const WEEKDAY_ONLY = readBooleanFlag(import.meta.env.VITE_WEEKDAY_ONLY, import.meta.env.PROD);
+export const APP_ENV: AppEnv =
+  import.meta.env.VITE_APP_ENV?.trim().toLowerCase() === "development" ? "development" : "production";
+
+export const IS_DEVELOPMENT = APP_ENV === "development";
+
+/** Batas jam layanan dalam menit sejak 00.00 waktu lokal. */
+export const SERVICE_START_MINUTES = IS_DEVELOPMENT ? 0 : 8 * 60;
+export const SERVICE_END_MINUTES = IS_DEVELOPMENT ? 24 * 60 : 16 * 60;
 
 /** True bila hari (0 = Minggu ... 6 = Sabtu) tidak melayani konseling menurut aturan aktif. */
 export function isClosedWeekday(day: number): boolean {
-  return WEEKDAY_ONLY && (day === 0 || day === 6);
+  return !IS_DEVELOPMENT && (day === 0 || day === 6);
 }
 
-/** Nama hari layanan, urut Senin lebih dulu. Sabtu & Minggu ikut hanya saat WEEKDAY_ONLY mati. */
-export const SERVICE_DAY_NAMES: readonly string[] = WEEKDAY_ONLY
-  ? ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"]
-  : ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+/** Nama hari layanan, urut Senin lebih dulu. Sabtu & Minggu ikut hanya di development. */
+export const SERVICE_DAY_NAMES: readonly string[] = IS_DEVELOPMENT
+  ? ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+  : ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
 
 const DAY_NAMES_BY_JS_DAY = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 

@@ -54,7 +54,7 @@ export const counselorProfileService = {
   async getProfile(counselorId) {
     const { data, error } = await supa()
       .from("counselor_profiles")
-      .select("profile_id,public_name,headline,bio,specialties,years_experience,photo_path,is_public,created_at,updated_at")
+      .select("profile_id,public_name,headline,bio,specialties,years_experience,photo_path,created_at,updated_at")
       .eq("profile_id", counselorId)
       .maybeSingle();
 
@@ -72,7 +72,7 @@ export const counselorProfileService = {
       .from("counselor_profiles")
       .update(input)
       .eq("profile_id", counselorId)
-      .select("profile_id,public_name,headline,bio,specialties,years_experience,photo_path,is_public,created_at,updated_at")
+      .select("profile_id,public_name,headline,bio,specialties,years_experience,photo_path,created_at,updated_at")
       .maybeSingle();
 
     if (error) supabaseError(error, "Profil konselor tidak dapat diperbarui.");

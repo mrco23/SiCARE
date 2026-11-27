@@ -3066,3 +3066,55 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
     - 1280px: judul lengkap "Konseling Individu/Kelompok" tampil, dan stepper rata tengah.
   - Belum dicek dengan login klien asli.
 - **Belum diubah:** teks kotak "Privasi Terjaga" masih menyebut formulir awal belum tersimpan di server; perlu kalimat pengganti.
+
+
+## 2026-11-28 — Satu env `APP_ENV` menggantikan `WEEKDAY_ONLY`
+
+- **Permintaan:** hapus logika `WEEKDAY_ONLY`; satukan ke satu env bernilai `development`/`production`. Di development, FE dan BE boleh membuat jadwal/konseling 24 jam dan di luar hari kerja.
+- **Backend:**
+  - `isWeekdayOnlyEnforced()` diganti `isDevelopmentAppEnv()` di `be/src/validators/counselor.validator.js`; hanya `APP_ENV=development` yang melonggarkan, `NODE_ENV` tidak lagi berpengaruh pada aturan jadwal (sengaja dipisah agar kontrol keamanan berbasis `NODE_ENV` tidak ikut longgar).
+  - `be/src/config/env.js`: `APP_ENV` enum `development|production`, default `production`; nilai lain membuat server gagal start.
+  - Backend tetap tidak membatasi jam; hanya hari (WITA) di production.
+- **Frontend:**
+  - `fe/src/lib/operationalRules.ts`: `VITE_APP_ENV` (default `production`), `SERVICE_START_MINUTES`/`SERVICE_END_MINUTES` (08.00–16.00 atau 00.00–24.00).
+  - `scheduleUtils.ts` `START`/`END` mengikuti env; `KonselorJadwalPage.tsx` label jam grid, pesan validasi, dan teks rentang jam dihitung dari konstanta.
+- **Env:** `fe/.env.example` (`VITE_APP_ENV=production`), `be/.env.example` (`APP_ENV=production`). `.env` lokal (gitignored) diganti dari `WEEKDAY_ONLY=false` menjadi `APP_ENV=development` / `VITE_APP_ENV=development`.
+- **Tes:** `be/test/availabilityWeekday.test.js` ditulis ulang untuk `APP_ENV` (7 tes, termasuk slot 22.00 WITA di development dan default production saat kosong).
+- **Verifikasi:**
+  - Backend `npm test`: 378/379 PASS; satu FAIL `heroMotivations.test.js` adalah baseline lama.
+  - Frontend `tsc -b`, eslint file terkait, `npm run build`: PASS.
+  - Browser dev (`VITE_APP_ENV=development`): rentang 00.00–24.00, jam mulai terakhir 23.00, Sabtu terbuka, 7 hari layanan.
+- **Risiko:** `vite build` membaca `fe/.env`, jadi build lokal dengan `.env` saat ini ikut mode development; environment deploy harus mengisi `VITE_APP_ENV=production` (atau kosong) dan `APP_ENV=production`. Database Supabase dipakai bersama, sehingga slot uji akhir pekan/malam ikut tampil di production.
+
+
+## 2026-11-28 — Hapus `counselor_profiles.is_public`; visibilitas konselor mengikuti `account_status`
+
+- **Laporan pengguna:** klien tidak menemukan jadwal yang sudah dibuat konselor.
+- **Penyebab (cek baca-saja di Supabase production):** kedua konselor aktif bernilai `is_public = false`. Daftar `/public/counselors` sudah memakai `account_status`, tetapi `sicare_public_availability` (serta `sicare_create_booking`, `sicare_reschedule_booking`, `is_public_counselor()` untuk RLS) masih mensyaratkan `is_public = true`, sehingga konselor terlihat tanpa jadwal. Mengaktifkan kembali akun konselor sengaja tidak memulihkan `is_public`, dan endpoint publikasi admin tidak dipakai UI mana pun.
+- **Keputusan pengguna:** hapus `is_public`; aktif/tidaknya konselor cukup dari `profiles.account_status` seperti akun lain.
+- **Migrasi baru `supabase/migrations/20261128120000_sicare_drop_counselor_is_public.sql`:** `is_public_counselor`, `sicare_public_availability`, `sicare_create_booking`, `sicare_reschedule_booking` disalin dari definisi live (`pg_get_functiondef`) dikurangi baris `cp.is_public = true`; lalu `drop column is_public`. Policy `counselor_profiles_select_public` dan `availability_slots_select_public` memanggil `is_public_counselor()` jadi ikut menyesuaikan. **Belum diterapkan ke remote.**
+- **Backend:** `accounts.service.js` tidak lagi menulis `is_public` (create, update, deactivate); `setCounselorPublication` + route `PATCH /admin/counselors/:counselorId/publication` + controller dihapus; `audit.js` hapus aksi `admin.counselor.publication` dan key `is_public`; `profile.service.js` select tanpa `is_public`; `database.types.ts`.
+- **Frontend:** `fe/src/types/api.ts` hapus `is_public`.
+- **Tes:** `finalIntegration`, `ownershipGuards` (definisi reschedule terbaru kini di migrasi baru) disesuaikan; tes baru di `readinessFixes.test.js`.
+- **Permintaan lain — hapus `phone` di tabel auth:** tidak dikerjakan. `auth.users` dikelola Supabase Auth; menghapus kolomnya akan merusak layanan Auth. Kolom itu kosong untuk 20/20 user dan kode SiCARE tidak pernah menulisnya (nomor WA disimpan di `profiles.phone_e164`).
+- **Verifikasi:** backend `npm test` 379/380 PASS (FAIL baseline `heroMotivations.test.js`); eslint backend: tidak ada error baru (12 error/6 warning baseline di file lain); frontend `tsc -b` dan `npm run build` PASS. Migrasi belum dijalankan terhadap database mana pun.
+- **Urutan deploy:** jalankan migrasi bersamaan/lebih dulu dari backend baru. Backend lama menulis `is_public` dan akan gagal saat membuat/mengubah/menonaktifkan akun konselor setelah kolom hilang. Setelah migrasi, kedua konselor aktif langsung tampil beserta jadwalnya.
+
+- **Lanjutan 2026-11-28 — migrasi diterapkan:** pengguna menjalankan `npx supabase db push --remote` (perintah dari agen diblokir pemeriksa izin). Verifikasi baca-saja: versi `20261128120000` tercatat di `schema_migrations`, kolom `is_public` tidak ada, 0 fungsi masih memakai `cp.is_public`, 2 konselor aktif memenuhi syarat publik. API lokal `GET /api/v1/public/availability` (backend baru, database production) mengembalikan 3 slot (30 Nov 09.00, 2 Des 11.00, 4 Des 14.00 WITA); 2 slot lain dari 5 slot mendatang bertabrakan dengan booking aktif. Backend production belum di-deploy ulang.
+
+## 2026-11-28 — Seed Dummy 20 sesi + 2 jadwal; snippet sesi mulai 2 menit lagi
+
+- **Permintaan pengguna:** (1) bersihkan data tanpa akun; (2.1) 20 sesi lewat di periode aktif: individu 2 selesai belum feedback, 1 selesai belum feedback milik 24013037, 3 dibatalkan, 4 selesai + feedback; kelompok 5 selesai + feedback, 3 dibatalkan, 2 selesai belum feedback; (2.2) 2 sesi terjadwal beberapa hari lagi (hari berbeda) Giovana dengan 24013037; (3) 1 sesi yang mulai 2 menit lagi saat query dijalankan, Giovana dengan 24013037.
+- **Reset:** `reset-transactional-data.sql` tidak berubah (masih sesuai skema terbaru).
+- **Seed (`seed-dummy-current-period.sql`) ditulis ulang:** semua sesi milik Giovana; klien uji kini 24013037; 20 sesi lewat tersebar merata dari awal periode sampai kemarin (hari kerja, jenis diselang-seling); pembatalan 4 oleh konselor dan 2 oleh klien dengan alasan berbeda, tanpa consent; J1 (+2 hari kerja, consent lengkap) dan J2 (2 hari kerja setelah J1, consent pending). Cek konselor publik kini lewat `public.is_public_counselor()` karena `counselor_profiles.is_public` dihapus (`20261128120000`).
+- **Snippet baru `seed-session-starting-soon.sql`:** sesi `scheduled` mulai 2 menit setelah dijalankan (60 menit), consent lengkap secara default (`c_consent_signed`), notifikasi booking, tanpa WhatsApp; tidak mensyaratkan bookings kosong; menolak bila bentrok.
+- **Catatan:** 24013037 memiliki 3 booking aktif setelah seed + snippet (batas aplikasi 2).
+- **Pemeriksaan:** **NOT RUN** di database (tidak ada Postgres lokal); keseimbangan blok/kurung dan jumlah skenario per jenis diperiksa.
+
+## 2026-11-28 — Folder `be/test/` dirapikan per domain
+
+- **Permintaan:** rapikan isi `be/test/` ke subfolder per fitur.
+- **Perubahan:** 43 file `*.test.js` dipindah (isi tidak berubah selain path relatif) ke `auth/` (3), `admin/` (4), `booking/` (4), `counseling/` (2), `counselor/` (5), `consent/` (8), `whatsapp/` (10), `notification/` (1), `reporting/` (1), `platform/` (5). Setiap string path relatif `../` di file yang dipindah ditambah satu tingkat (`../src` → `../../src`, `../../supabase` → `../../../supabase`, `../../fe` → `../../../fe`). Tidak ada file tes yang saling import.
+- **Tidak perlu diubah:** `package.json` (`node --test` mencari rekursif) dan `be/eslint.config.js` (`test/**/*.js`). Dokumen audit/sesi lama yang menyebut `be/test/<nama>.test.js` dibiarkan sebagai catatan historis. `be/README.md` ditambah bagian Tests berisi peta folder.
+- **Verifikasi:** `npm test` menemukan 380 tes (sama dengan sebelum dipindah): 379 PASS, 1 FAIL baseline `heroMotivations.test.js` (sekarang `test/admin/heroMotivations.test.js`).
+- **Revisi (2026-11-28):** atas permintaan pengguna, `seed-session-starting-soon.sql` tidak lagi mengisi consent otomatis: default `c_consent_signed = false` (consent dibuat `pending`, ditandatangani klien di aplikasi).

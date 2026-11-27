@@ -18,7 +18,6 @@ router.patch("/accounts/:id", authenticate, allowRoles("admin"), asyncHandler(ad
 router.delete("/accounts/:id", authenticate, allowRoles("admin"), asyncHandler(adminAccountsController.deactivateAccount));
 
 // Counselor Publication
-router.patch("/counselors/:counselorId/publication", authenticate, allowRoles("admin"), asyncHandler(adminAccountsController.setCounselorPublication));
 
 // Academic Periods
 router.get("/periods", authenticate, allowRoles("admin"), asyncHandler(adminPeriodsController.listPeriods));

@@ -13,7 +13,6 @@ export const SAFE_ACTIONS = new Set([
   "notification.read",
   "admin.account.create",
   "admin.account.update",
-  "admin.counselor.publication",
   "admin.period.create",
   "admin.period.update",
   "admin.period.delete",
@@ -42,7 +41,6 @@ const SAFE_METADATA_KEYS = new Set([
   "role",
   "field",
   "count",
-  "is_public",
 ]);
 
 /**

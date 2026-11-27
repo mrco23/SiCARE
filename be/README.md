@@ -13,6 +13,25 @@ npm run check
 npm test
 ```
 
+## Tests
+
+`npm test` runs `node --test`, which picks up every `*.test.js` under `test/` recursively. Tests are grouped by domain:
+
+| Folder | Covers |
+|---|---|
+| `test/auth/` | Account input rules, email verification, login attempt lockout |
+| `test/admin/` | Admin routes, single active Kepala LMI, hero motivations, homepage logo |
+| `test/booking/` | Booking expiry, intake, booking/availability migrations, domain RPC error mapping |
+| `test/counseling/` | Session flow guards, missed sessions |
+| `test/counselor/` | Availability rules, educations, history password, license numbers |
+| `test/consent/` | Informed consent (individual and group) |
+| `test/whatsapp/` | Fonnte client, outbox, scheduler, worker, templates, webhook |
+| `test/notification/` | Notification pagination |
+| `test/reporting/` | Counseling report PDF |
+| `test/platform/` | Health/CORS, audit, ownership guards, end-to-end integration, readiness fixes |
+
+Paths inside tests are relative to the test file, so a file in `test/<folder>/` reaches the source with `../../src/...` and the repository root with `../../../`.
+
 Configure `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and exactly one server-side key (`SUPABASE_SECRET_KEY` or legacy `SUPABASE_SERVICE_ROLE_KEY`). `SUPABASE_ANON_KEY` is supported as a legacy public Auth key fallback. Do not put server-side keys in any `VITE_*` variable.
 
 ## Current API scope

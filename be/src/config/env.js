@@ -17,6 +17,8 @@ const booleanFromEnv = (defaultValue) =>
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    // Aturan operasional jadwal (hari kerja). development = semua hari & 24 jam untuk uji.
+    APP_ENV: z.preprocess(emptyToUndefined, z.enum(["development", "production"]).default("production")),
     HOST: z.string().trim().min(1).default("127.0.0.1"),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     FRONTEND_ORIGINS: z.string().trim().min(1).default("http://localhost:5173,http://127.0.0.1:5173"),

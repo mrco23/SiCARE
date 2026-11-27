@@ -419,7 +419,7 @@ export default function KonselorJadwalPage() {
     }
     if (parsed < START || parsed > LAST_START) {
       setEditorError(
-        "Jam mulai harus antara 08.00 dan 15.00 agar sesi 1 jam selesai sebelum 16.00.",
+        `Jam mulai harus antara ${fmt(START)} dan ${fmt(LAST_START)} agar sesi 1 jam selesai sebelum ${fmt(END)}.`,
       );
       return;
     }
@@ -610,7 +610,10 @@ export default function KonselorJadwalPage() {
     } while (isWeekendKey(keyOf(d)));
     pickDate(keyOf(d));
   };
-  const hours = useMemo(() => Array.from({ length: 9 }, (_, i) => 8 + i), []);
+  const hours = useMemo(
+    () => Array.from({ length: (END - START) / 60 + 1 }, (_, i) => START / 60 + i),
+    [],
+  );
   const quarterLines = useMemo(
     () => Array.from({ length: (END - START) / SNAP + 1 }, (_, i) => START + i * SNAP),
     [],
@@ -1007,7 +1010,7 @@ export default function KonselorJadwalPage() {
                   })}
                 </div>
 
-                {/* Grid Jam 08.00 - 16.00 */}
+                {/* Grid jam START–END (08.00–16.00 di production, 24 jam di development) */}
                 <div className="relative mt-2 grid grid-cols-[56px_repeat(7,1fr)] select-none">
                   <div className="relative" style={{ height: H }}>
                     {hours.map((h) => (
@@ -1546,7 +1549,7 @@ export default function KonselorJadwalPage() {
                   className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-base font-semibold tabular-nums text-gray-900 outline-none focus:border-[#064E3B] focus:ring-4 focus:ring-[#064E3B]/15 disabled:bg-gray-100 disabled:text-gray-500"
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Rentang jam operasional: 08.00 – 15.00 (durasi otomatis 60 menit).
+                  Rentang jam operasional: {fmt(START)} – {fmt(LAST_START)} (durasi otomatis 60 menit).
                 </p>
               </div>
 

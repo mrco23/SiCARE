@@ -58,15 +58,13 @@ export const sessionNotesSchema = z.object({
 // akhir pekan yang dimasukkan langsung ke database oleh pengelola tidak terpengaruh.
 const OPERATIONAL_TIME_ZONE = "Asia/Makassar";
 
-// Sakelar aturan hari kerja (2026-11-27, untuk uji alur konseling di akhir pekan):
-// WEEKDAY_ONLY=true|false memaksa; tanpa itu aturan aktif kecuali NODE_ENV development/test.
-// Sengaja aktif bila NODE_ENV kosong, agar deployment tanpa NODE_ENV tetap menolak akhir pekan.
+// Satu sakelar lingkungan APP_ENV=development|production (2026-11-28, menggantikan WEEKDAY_ONLY).
+// production (juga bila kosong) menegakkan aturan hari kerja; development mengizinkan jadwal di
+// semua hari dan jam agar alur konseling dapat diuji di luar hari/jam kerja. Sengaja terpisah
+// dari NODE_ENV supaya melonggarkan jadwal tidak ikut melonggarkan kontrol keamanan lain.
 // Dibaca setiap validasi agar mengikuti environment proses saat itu.
-export function isWeekdayOnlyEnforced(env = process.env) {
-  const override = env.WEEKDAY_ONLY?.trim().toLowerCase();
-  if (override === "true" || override === "1") return true;
-  if (override === "false" || override === "0") return false;
-  return env.NODE_ENV !== "development" && env.NODE_ENV !== "test";
+export function isDevelopmentAppEnv(env = process.env) {
+  return env.APP_ENV?.trim().toLowerCase() === "development";
 }
 export function isWeekendInOperationalZone(isoString) {
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone: OPERATIONAL_TIME_ZONE, weekday: "short" })
@@ -85,7 +83,7 @@ export const slotSchema = z.object({
   if (Date.parse(v.starts_at) <= Date.now()) {
     c.addIssue({ code: "custom", message: "Jadwal harus berada di masa depan.", path: ["starts_at"] });
   }
-  if (isWeekdayOnlyEnforced()
+  if (!isDevelopmentAppEnv()
       && (isWeekendInOperationalZone(v.starts_at) || isWeekendInOperationalZone(v.ends_at))) {
     c.addIssue({
       code: "custom",

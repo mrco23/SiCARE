@@ -104,7 +104,10 @@ function mapBookingCounselors(
         const date = localDateISO(slot.starts_at);
         const time = localTime(slot.starts_at);
         availabilityByDate[date] = [...(availabilityByDate[date] ?? []), time];
-        availabilityEndByDate[date] = { ...availabilityEndByDate[date], [time]: localTime(slot.ends_at) };
+        availabilityEndByDate[date] = {
+          ...availabilityEndByDate[date],
+          [time]: localTime(slot.ends_at),
+        };
       });
     const specialties = profile.specialties ?? [];
     return {
@@ -214,8 +217,7 @@ export default function KlienPesananPage() {
   const filteredCounselors = useMemo(() => {
     const term = q.trim().toLowerCase();
     return COUNSELORS.filter(
-      (c) =>
-        !term || c.name.toLowerCase().includes(term),
+      (c) => !term || c.name.toLowerCase().includes(term),
     );
   }, [COUNSELORS, q]);
 
@@ -234,7 +236,11 @@ export default function KlienPesananPage() {
     setKonselorId(id);
     // Panel jadwal muncul di bawah daftar konselor; arahkan pengguna ke sana.
     window.setTimeout(
-      () => schedulePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+      () =>
+        schedulePanelRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        }),
       150,
     );
   };
@@ -402,13 +408,25 @@ export default function KlienPesananPage() {
       }
 
       // Anggota ganda (nama atau nomor sama, termasuk nama perwakilan) ditolak server; cek lebih awal.
-      const seenNames = new Set([(profile?.full_name ?? "").trim().toLowerCase().replace(/\s+/g, " ")]);
+      const seenNames = new Set([
+        (profile?.full_name ?? "").trim().toLowerCase().replace(/\s+/g, " "),
+      ]);
       const seenPhones = new Set<string>(
-        profile?.phone_e164 ? [normalizePhoneToE164(profile.phone_e164)].filter(Boolean) as string[] : [],
+        profile?.phone_e164
+          ? ([normalizePhoneToE164(profile.phone_e164)].filter(
+              Boolean,
+            ) as string[])
+          : [],
       );
       for (const member of parsedGroupParticipants) {
-        const nameKey = member.display_name.trim().toLowerCase().replace(/\s+/g, " ");
-        if (seenNames.has(nameKey) || (member.phone_e164 && seenPhones.has(member.phone_e164))) {
+        const nameKey = member.display_name
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+        if (
+          seenNames.has(nameKey) ||
+          (member.phone_e164 && seenPhones.has(member.phone_e164))
+        ) {
           setMissing((previous) => [...new Set([...previous, "groupMembers"])]);
           setRequestError(
             `Anggota "${member.display_name}" tercantum lebih dari sekali (nama atau nomor WhatsApp sama). Setiap anggota hanya ditulis satu kali.`,
@@ -456,7 +474,7 @@ export default function KlienPesananPage() {
       setRequestError(
         cause instanceof ApiError || cause instanceof Error
           ? cause.message
-          : "Permintaan booking tidak dapat dikirim.",
+          : "Permintaan konseling tidak dapat dikirim.",
       );
     } finally {
       setIsSubmitting(false);
@@ -485,7 +503,7 @@ export default function KlienPesananPage() {
   return (
     <div>
       <PageHeader
-        title="Booking Jadwal Konseling"
+        title="Permintaan Konseling"
         description="Langkah mudah untuk mendapatkan dukungan yang kamu butuhkan."
       />
       {requestError && (
@@ -496,7 +514,9 @@ export default function KlienPesananPage() {
           {requestError}
         </p>
       )}
-      {directoryLoading && step <= 3 && <BookingPageSkeleton step={step} stepCount={STEPS.length} />}
+      {directoryLoading && step <= 3 && (
+        <BookingPageSkeleton step={step} stepCount={STEPS.length} />
+      )}
 
       {!directoryLoading && step <= 3 && (
         <Stepper
@@ -518,7 +538,11 @@ export default function KlienPesananPage() {
           </p>
 
           {/* Dua kartu berdampingan juga di ponsel agar pilihan dan tombol Lanjut terlihat tanpa scroll. */}
-          <div role="radiogroup" aria-label="Jenis layanan" className="mt-4 grid grid-cols-2 gap-3 sm:mt-6 sm:gap-5">
+          <div
+            role="radiogroup"
+            aria-label="Jenis layanan"
+            className="mt-4 grid grid-cols-2 gap-3 sm:mt-6 sm:gap-5"
+          >
             <LayananCard
               selected={layanan === "Individu"}
               onClick={() => setLayanan("Individu")}
@@ -655,7 +679,9 @@ export default function KlienPesananPage() {
             ref={schedulePanelRef}
             inert={!counselor}
             className={`grid transition-all duration-400 ease-out motion-reduce:transition-none ${
-              counselor ? "mt-5 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              counselor
+                ? "mt-5 grid-rows-[1fr] opacity-100"
+                : "grid-rows-[0fr] opacity-0"
             }`}
           >
             <div className="min-h-0 overflow-hidden">
@@ -673,8 +699,8 @@ export default function KlienPesananPage() {
                       Pilih Tanggal &amp; Jam
                     </p>
                     <p className="mt-1 text-xs text-gray-500">
-                      Tanggal berwarna hijau tersedia. Janji dapat dibuat mulai hari
-                      ini sampai {MAX_AHEAD_DAYS} hari ke depan.
+                      Tanggal berwarna hijau tersedia. Janji dapat dibuat mulai
+                      hari ini sampai {MAX_AHEAD_DAYS} hari ke depan.
                     </p>
                     <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,26rem)_1fr]">
                       <CalendarPicker
@@ -706,9 +732,15 @@ export default function KlienPesananPage() {
             <BackButton onClick={() => goTo(1)} />
             <div className="flex flex-col items-end gap-2">
               <p className="text-xs text-gray-500">
-                {slot ? `Dipilih: ${fmtSlot(slot)}` : "Belum ada jadwal dipilih."}
+                {slot
+                  ? `Dipilih: ${fmtSlot(slot)}`
+                  : "Belum ada jadwal dipilih."}
               </p>
-              <NavButton disabled={!slot} onClick={() => goTo(3)} variant="solid">
+              <NavButton
+                disabled={!slot}
+                onClick={() => goTo(3)}
+                variant="solid"
+              >
                 Lanjut ke Form Awal{" "}
                 <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
               </NavButton>
@@ -836,26 +868,24 @@ export default function KlienPesananPage() {
                   <div key={key} className="py-4">
                     <p className="text-sm text-gray-700">{label}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {(choices as readonly IntakeAnswer[]).map(
-                        (v) => (
-                          <Pill
-                            key={v}
-                            selected={form[key] === v}
-                            onClick={() => setField(key, v)}
-                          >
-                            {v}
-                          </Pill>
-                        ),
-                      )}
+                      {(choices as readonly IntakeAnswer[]).map((v) => (
+                        <Pill
+                          key={v}
+                          selected={form[key] === v}
+                          onClick={() => setField(key, v)}
+                        >
+                          {v}
+                        </Pill>
+                      ))}
                     </div>
                     {key === "selfHarm" && form.selfHarm === "Ya" && (
-                        <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                          Terima kasih sudah jujur. Konselor akan melihat
-                          jawabanmu sebelum sesi. Jika kamu merasa tidak aman
-                          saat ini, segera hubungi layanan darurat 112 atau
-                          minta orang terdekat untuk menemanimu.
-                        </div>
-                      )}
+                      <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                        Terima kasih sudah jujur. Konselor akan melihat
+                        jawabanmu sebelum sesi. Jika kamu merasa tidak aman saat
+                        ini, segera hubungi layanan darurat 112 atau minta orang
+                        terdekat untuk menemanimu.
+                      </div>
+                    )}
                     {missing.includes(key) && (
                       <ErrorText>Wajib diisi.</ErrorText>
                     )}
@@ -898,16 +928,25 @@ export default function KlienPesananPage() {
               </h3>
               <p className="mt-1 text-xs text-gray-500">Pilih satu.</p>
               <div className="mt-3">
-                <div role="radiogroup" aria-label="Masalah yang ingin dibahas" className="grid gap-2 sm:grid-cols-2">
+                <div
+                  role="radiogroup"
+                  aria-label="Masalah yang ingin dibahas"
+                  className="grid gap-2 sm:grid-cols-2"
+                >
                   {[...TOPICS, null].map((t) => {
-                    const selected = t === null ? form.otherOn : form.topics[0] === t && !form.otherOn;
+                    const selected =
+                      t === null
+                        ? form.otherOn
+                        : form.topics[0] === t && !form.otherOn;
                     return (
                       <button
                         key={t ?? "other"}
                         type="button"
                         role="radio"
                         aria-checked={selected}
-                        onClick={() => (t === null ? chooseOtherTopic() : chooseTopic(t))}
+                        onClick={() =>
+                          t === null ? chooseOtherTopic() : chooseTopic(t)
+                        }
                         className={`flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left text-sm transition ${
                           selected
                             ? "border-primary bg-primary-soft font-semibold text-primary"
@@ -919,7 +958,9 @@ export default function KlienPesananPage() {
                             selected ? "border-primary" : "border-gray-300"
                           }`}
                         >
-                          {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
+                          {selected && (
+                            <span className="h-2 w-2 rounded-full bg-primary" />
+                          )}
                         </span>
                         {t ?? "Yang lain…"}
                       </button>
@@ -937,7 +978,9 @@ export default function KlienPesananPage() {
                   />
                 )}
                 {missing.includes("topics") && (
-                  <ErrorText>Pilih satu masalah, atau isi "Yang lain".</ErrorText>
+                  <ErrorText>
+                    Pilih satu masalah, atau isi "Yang lain".
+                  </ErrorText>
                 )}
               </div>
             </section>
@@ -970,7 +1013,8 @@ export default function KlienPesananPage() {
           <div className="mt-6 flex justify-between gap-3">
             <BackButton onClick={() => goTo(2)} />
             <NavButton onClick={handleNextFromForm} variant="solid">
-              Kirim Permintaan <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
+              Kirim Permintaan{" "}
+              <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
             </NavButton>
           </div>
         </section>
@@ -981,7 +1025,8 @@ export default function KlienPesananPage() {
         <div
           className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !isSubmitting) setConfirmOpen(false);
+            if (event.target === event.currentTarget && !isSubmitting)
+              setConfirmOpen(false);
           }}
         >
           <div
@@ -992,11 +1037,15 @@ export default function KlienPesananPage() {
           >
             <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4 sm:px-6">
               <div>
-                <h2 id="booking-confirm-title" className="font-display text-lg font-bold sm:text-xl">
+                <h2
+                  id="booking-confirm-title"
+                  className="font-display text-lg font-bold sm:text-xl"
+                >
                   Konfirmasi Janji Temu
                 </h2>
                 <p className="text-xs text-gray-500">
-                  Periksa kembali ringkasan di bawah sebelum mengirim permintaan.
+                  Periksa kembali ringkasan di bawah sebelum mengirim
+                  permintaan.
                 </p>
               </div>
               <button
@@ -1011,130 +1060,131 @@ export default function KlienPesananPage() {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
-                <div className="space-y-4">
-                  <section className={CARD}>
-                    <h3 className="text-base font-bold">Detail Janji Temu</h3>
-                    <dl className="mt-4 grid gap-4 sm:grid-cols-3">
-                      <Kv label="Jenis layanan" value={`Konseling ${layanan}`} />
-                      <Kv
-                        label="Konselor"
-                        value={counselor.short.replace(/\n/g, " ")}
-                      />
-                      <Kv label="Jadwal" value={fmtSlot(slot)} />
-                      <Kv label="Ruangan" value="Ditentukan saat konfirmasi" />
-                      <Kv label="Durasi" value="60 menit" />
-                    </dl>
-                  </section>
+              <div className="space-y-4">
+                <section className={CARD}>
+                  <h3 className="text-base font-bold">Detail Janji Temu</h3>
+                  <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+                    <Kv label="Jenis layanan" value={`Konseling ${layanan}`} />
+                    <Kv
+                      label="Konselor"
+                      value={counselor.short.replace(/\n/g, " ")}
+                    />
+                    <Kv label="Jadwal" value={fmtSlot(slot)} />
+                    <Kv label="Ruangan" value="Ditentukan saat konfirmasi" />
+                    <Kv label="Durasi" value="60 menit" />
+                  </dl>
+                </section>
 
-                  {layanan === "Kelompok" && (
-                    <section className={CARD}>
-                      <h3 className="text-base font-bold">Informasi Kelompok</h3>
-                      <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                        <Kv label="Nama kelompok" value={form.groupName} />
-                        <Kv label="Jumlah peserta" value={form.groupSize} />
-                      </dl>
-                      <p className="mt-4 text-xs text-gray-500">Anggota</p>
-                      <p className="mt-0.5 whitespace-pre-line text-sm text-gray-800">
-                        {form.groupMembers}
-                      </p>
-                    </section>
-                  )}
-
+                {layanan === "Kelompok" && (
                   <section className={CARD}>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold">Ringkasan Form Awal</h3>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmOpen(false)}
-                        className="text-sm font-semibold text-primary hover:underline"
-                      >
-                        <IconLabel icon={Pencil}>Ubah</IconLabel>
-                      </button>
-                    </div>
-                    <div className="mt-3 divide-y divide-gray-100">
-                      {YESNO.map(({ key, label }) => {
-                        const v = form[key];
-                        return (
-                          <div
-                            key={key}
-                            className="flex flex-wrap items-start justify-between gap-3 py-3"
-                          >
-                            <p className="text-sm text-gray-700">{label}</p>
-                            {v && (
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-semibold ${ANSWER_STYLE[v]}`}
-                              >
-                                {v}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <h3 className="text-base font-bold">Informasi Kelompok</h3>
                     <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <Kv
-                        label="Kualitas tidur"
-                        value={`${form.sleep ?? "-"} dari 5`}
-                      />
-                      <Kv
-                        label="Keadaan finansial"
-                        value={`${form.finance ?? "-"} dari 5`}
-                      />
+                      <Kv label="Nama kelompok" value={form.groupName} />
+                      <Kv label="Jumlah peserta" value={form.groupSize} />
                     </dl>
-                    <p className="mt-5 text-xs text-gray-500">
-                      Masalah yang ingin dibahas
+                    <p className="mt-4 text-xs text-gray-500">Anggota</p>
+                    <p className="mt-0.5 whitespace-pre-line text-sm text-gray-800">
+                      {form.groupMembers}
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {[
-                        ...form.topics,
-                        ...(form.otherOn && form.other.trim()
-                          ? [`Yang lain: ${form.other.trim()}`]
-                          : []),
-                      ].map((t) => (
-                        <span
-                          key={t}
-                          className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800"
+                  </section>
+                )}
+
+                <section className={CARD}>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold">Ringkasan Form Awal</h3>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmOpen(false)}
+                      className="text-sm font-semibold text-primary hover:underline"
+                    >
+                      <IconLabel icon={Pencil}>Ubah</IconLabel>
+                    </button>
+                  </div>
+                  <div className="mt-3 divide-y divide-gray-100">
+                    {YESNO.map(({ key, label }) => {
+                      const v = form[key];
+                      return (
+                        <div
+                          key={key}
+                          className="flex flex-wrap items-start justify-between gap-3 py-3"
                         >
-                          {t}
-                        </span>
+                          <p className="text-sm text-gray-700">{label}</p>
+                          {v && (
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${ANSWER_STYLE[v]}`}
+                            >
+                              {v}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <Kv
+                      label="Kualitas tidur"
+                      value={`${form.sleep ?? "-"} dari 5`}
+                    />
+                    <Kv
+                      label="Keadaan finansial"
+                      value={`${form.finance ?? "-"} dari 5`}
+                    />
+                  </dl>
+                  <p className="mt-5 text-xs text-gray-500">
+                    Masalah yang ingin dibahas
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[
+                      ...form.topics,
+                      ...(form.otherOn && form.other.trim()
+                        ? [`Yang lain: ${form.other.trim()}`]
+                        : []),
+                    ].map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+
+                  <details className="mt-5 rounded-xl border border-gray-200 p-4">
+                    <summary className="cursor-pointer text-sm font-semibold text-gray-800">
+                      Lihat jawaban uraian
+                    </summary>
+                    <div className="mt-3 space-y-4">
+                      {ESSAYS.map(({ key, label }) => (
+                        <div key={key}>
+                          <p className="text-xs font-semibold text-gray-500">
+                            {label}
+                          </p>
+                          <p className="mt-1 whitespace-pre-line text-sm text-gray-800">
+                            {form[key]}
+                          </p>
+                        </div>
                       ))}
                     </div>
+                  </details>
+                </section>
+              </div>
 
-                    <details className="mt-5 rounded-xl border border-gray-200 p-4">
-                      <summary className="cursor-pointer text-sm font-semibold text-gray-800">
-                        Lihat jawaban uraian
-                      </summary>
-                      <div className="mt-3 space-y-4">
-                        {ESSAYS.map(({ key, label }) => (
-                          <div key={key}>
-                            <p className="text-xs font-semibold text-gray-500">
-                              {label}
-                            </p>
-                            <p className="mt-1 whitespace-pre-line text-sm text-gray-800">
-                              {form[key]}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  </section>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-                  <p className="text-sm text-gray-600">
-                    Pengisi formulir menyatakan bahwa isian dalam formulir ini benar.
-                  </p>
-                  <CheckRow
-                    checked={form.declared}
-                    onChange={(v) => setField("declared", v)}
-                    label="Ya, saya telah mengisi data sebenar-benarnya."
-                  />
-                  <CheckRow
-                    checked={form.consent}
-                    onChange={(v) => setField("consent", v)}
-                    label="Saya memahami jawaban formulir awal belum disimpan atau dikirim kepada konselor melalui sistem ini."
-                  />
-                </div>
+              <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                <p className="text-sm text-gray-600">
+                  Pengisi formulir menyatakan bahwa isian dalam formulir ini
+                  benar.
+                </p>
+                <CheckRow
+                  checked={form.declared}
+                  onChange={(v) => setField("declared", v)}
+                  label="Ya, saya telah mengisi data sebenar-benarnya."
+                />
+                <CheckRow
+                  checked={form.consent}
+                  onChange={(v) => setField("consent", v)}
+                  label="Saya memahami jawaban formulir awal belum disimpan atau dikirim kepada konselor melalui sistem ini."
+                />
+              </div>
               {requestError && (
                 <p
                   role="alert"
@@ -1197,10 +1247,10 @@ export default function KlienPesananPage() {
                 role="alert"
                 className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs leading-relaxed text-amber-900"
               >
-                Catatan: booking berhasil dikirim, tetapi jawaban formulir awal
-                gagal tersimpan sehingga tidak tersedia bagi konselor. Sampaikan
-                informasi yang diperlukan secara langsung kepada konselor saat
-                sesi.
+                Catatan: permintaan berhasil dikirim, tetapi jawaban formulir
+                awal gagal tersimpan sehingga tidak tersedia bagi konselor.
+                Sampaikan informasi yang diperlukan secara langsung kepada
+                konselor saat sesi.
               </p>
             )}
             <button

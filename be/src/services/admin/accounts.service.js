@@ -222,15 +222,14 @@ export const adminAccountsService = {
       supabaseError(error, "Profil akun tidak dapat dibuat.");
     }
 
+    // Tampil/tidaknya konselor di publik mengikuti profiles.account_status (is_public dihapus 2026-11-28).
     if (input.app_role === "counselor") {
-      const isCounselorActive = (input.account_status ?? "active") === "active";
       const { error: counselorError } = await supa()
         .from("counselor_profiles")
         .upsert(
           {
             profile_id: data.id,
             public_name: input.full_name,
-            is_public: isCounselorActive,
           },
           { onConflict: "profile_id" },
         );
@@ -346,37 +345,19 @@ export const adminAccountsService = {
     if (error) supabaseError(error, "Akun tidak dapat diperbarui.");
     if (!data) throw new HttpError(404, "ACCOUNT_NOT_FOUND", "Akun tidak ditemukan.");
 
-    if (input.app_role === "counselor" || current.app_role === "counselor") {
-      if (data.app_role === "counselor") {
-        const isCounselorActive = data.account_status === "active";
-        const { error: counselorError } = await supa()
-          .from("counselor_profiles")
-          .upsert(
-            {
-              profile_id: data.id,
-              public_name: data.full_name,
-              is_public: isCounselorActive,
-            },
-            { onConflict: "profile_id", ignoreDuplicates: true },
-          );
-        if (counselorError) supabaseError(counselorError, "Profil konselor tidak dapat disiapkan.");
-        // Mengaktifkan kembali akun yang dinonaktifkan tidak otomatis menampilkan profil di
-        // halaman publik (admin mungkin sengaja menyembunyikannya); gunakan pengaturan publikasi.
-        const reactivated = current.app_role === "counselor" && current.account_status === "disabled";
-        if (!isCounselorActive || !reactivated) {
-          const { error: hideError } = await supa()
-            .from("counselor_profiles")
-            .update({ is_public: isCounselorActive })
-            .eq("profile_id", data.id);
-          if (hideError) supabaseError(hideError, "Status profil konselor tidak dapat diperbarui.");
-        }
-      } else {
-        const { error: hideError } = await supa()
-          .from("counselor_profiles")
-          .update({ is_public: false })
-          .eq("profile_id", data.id);
-        if (hideError) supabaseError(hideError, "Publikasi profil konselor tidak dapat dihentikan.");
-      }
+    // Akun yang menjadi konselor disiapkan profil publiknya. Tampil/tidaknya di publik cukup
+    // mengikuti profiles.account_status dan app_role, tanpa kolom terpisah.
+    if (data.app_role === "counselor") {
+      const { error: counselorError } = await supa()
+        .from("counselor_profiles")
+        .upsert(
+          {
+            profile_id: data.id,
+            public_name: data.full_name,
+          },
+          { onConflict: "profile_id", ignoreDuplicates: true },
+        );
+      if (counselorError) supabaseError(counselorError, "Profil konselor tidak dapat disiapkan.");
     }
 
     await writeAudit({
@@ -440,19 +421,6 @@ export const adminAccountsService = {
 
     if (error) supabaseError(error, "Akun tidak dapat dinonaktifkan.");
 
-    if (data.app_role === "counselor") {
-      const { error: hideError } = await supa()
-        .from("counselor_profiles")
-        .update({ is_public: false })
-        .eq("profile_id", data.id);
-      if (hideError) {
-        supabaseError(
-          hideError,
-          "Akun dinonaktifkan tetapi publikasi konselor gagal dihentikan.",
-        );
-      }
-    }
-
     await writeAudit({
       actorUserId,
       action: "admin.account.update",
@@ -463,28 +431,6 @@ export const adminAccountsService = {
 
     const closed = await closeBookingsAfterAccountChange(current, data, actorUserId);
     return { ...data, cancelled_bookings: closed.cancelled, ongoing_bookings_kept: closed.skipped, booking_cleanup_failed: closed.failed };
-  },
-
-  async setCounselorPublication(counselorId, isPublic, actorUserId) {
-    const { data, error } = await supa()
-      .from("counselor_profiles")
-      .update({ is_public: isPublic })
-      .eq("profile_id", counselorId)
-      .select("profile_id,public_name,is_public")
-      .maybeSingle();
-
-    if (error) supabaseError(error, "Publikasi profil konselor tidak dapat diperbarui.");
-    if (!data) throw new HttpError(404, "COUNSELOR_NOT_FOUND", "Profil konselor tidak ditemukan.");
-
-    await writeAudit({
-      actorUserId,
-      action: "admin.counselor.publication",
-      entityType: "counselor_profile",
-      entityId: counselorId,
-      metadata: { is_public: isPublic },
-    });
-
-    return data;
   },
 };
 

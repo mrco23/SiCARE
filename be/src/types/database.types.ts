@@ -572,7 +572,6 @@ export type Database = {
           headline: string | null
           history_password_hash: string | null
           history_password_updated_at: string | null
-          is_public: boolean
           photo_path: string | null
           profile_id: string
           public_name: string | null
@@ -586,7 +585,6 @@ export type Database = {
           headline?: string | null
           history_password_hash?: string | null
           history_password_updated_at?: string | null
-          is_public?: boolean
           photo_path?: string | null
           profile_id: string
           public_name?: string | null
@@ -600,7 +598,6 @@ export type Database = {
           headline?: string | null
           history_password_hash?: string | null
           history_password_updated_at?: string | null
-          is_public?: boolean
           photo_path?: string | null
           profile_id?: string
           public_name?: string | null
