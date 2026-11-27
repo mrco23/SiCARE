@@ -3001,16 +3001,30 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Perubahan `fe/src/pages/counselor/KonselorAktivitasPage.tsx` (hanya di bawah breakpoint `sm`; tampilan `sm` ke atas sama seperti sebelumnya):** judul satu baris + "Diperbarui pukul … WITA" dan tombol muat ulang berbentuk ikon; tab satu baris yang dapat digeser dengan label pendek ("Aktif"); cari + tombol "Jenis" (lembar bawah Semua/Individu/Kelompok, titik penanda filter aktif) dalam satu baris; tab dan cari menempel di bawah navbar (`sticky top-[72px]`, pola yang sama dengan Jadwal Konselor); daftar dikelompokkan per hari (Hari ini/Besok/tanggal); kartu ringkas dengan jam di kolom kiri, satu tombol utama (Mulai Sesi/Selesaikan Sesi) selebar kartu, menu ⋯ (Detail Sesi, Persetujuan, Urungkan/Hentikan Sesi) lewat lembar bawah; ketuk kartu membuka Detail Sesi. Dialog transisi, consent, rute, status, dan aturan Mulai Sesi tidak berubah.
 - **Pemeriksaan:** `fe: tsc`, `lint`, `build` **PASS**. Prototype diuji di browser (tab, filter, menu ⋯, tanpa error konsol). Halaman asli di browser **NOT RUN**: butuh login konselor.
 
-## 2026-11-27 — Standardisasi tombol muat ulang berbentuk ikon di samping judul halaman
-
-- **Konsistensi UI:** tombol muat ulang halaman distandarisasi menjadi tombol bulat berikon `RefreshCw` di samping kanan judul halaman (`PageHeader refresh={{ onClick, loading }}`) di semua ukuran layar.
-- **Komponen baru:** `RefreshButton.tsx` (`fe/src/components/shared/RefreshButton.tsx`) beranimasi spin saat memuat, dengan tooltip dan `aria-busy`.
-- **Halaman yang diselaraskan:** Beranda Admin, Aktivitas Admin, Akun Admin, Konseling Admin, Periode Admin, Beranda Kepala LMI, Moderasi Feedback (Admin & Kepala LMI), Laporan Konseling (Admin & Kepala LMI), Beranda Konselor, Permintaan Konselor, Jadwal Konselor, Feedback Konselor, dan Riwayat Klien.
-- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**.
-
-
 ## 2026-11-27 — Tombol muat ulang seragam: ikon di kanan judul halaman
 
 - **Permintaan pengguna:** semua tombol "Muat ulang" di halaman yang sudah login memakai tombol ikon berputar di samping kanan nama halaman, seperti Aktivitas Konselor, pada semua ukuran layar.
 - **Perubahan:** komponen baru `fe/src/components/shared/RefreshButton.tsx` (ikon bulat, berputar saat memuat, `aria-label`/tooltip "Muat ulang", kelas `no-print`). `PageHeader` menerima prop `refresh` dan menempatkan tombol di kanan blok judul. Dipakai di Konselor (Beranda, Aktivitas, Permintaan, Jadwal, Feedback), Klien (Riwayat), Admin (Beranda, Log Aktivitas, Akun, Pemantauan Konseling, Periode Akademik), Feedback moderasi dan Laporan (admin & Kepala LMI), serta Beranda Kepala LMI. Tombol lain di header (pilihan periode, "+ Tambah Jadwal", "Lihat laporan lengkap", label periode laporan) tetap di tempatnya. Header mobile Aktivitas kini memakai `PageHeader` dengan deskripsi responsif. Tombol "Muat ulang" berteks di kotak error (KlienKonselor, SectionErrorBoundary) tidak diubah karena berfungsi sebagai "coba lagi".
 - **Pemeriksaan:** `fe: tsc`, `lint`, `build` **PASS**. Uji browser **NOT RUN** (semua halaman butuh login).
+
+## 2026-11-27 — Permintaan Konselor ramah ponsel (pola Aktivitas)
+
+- **Permintaan pengguna:** terapkan prototype `docs/prototypes/permintaan-konselor-mobile.html`.
+- **`KonselorPermintaanPage`, di bawah `sm`, mengikuti pola `KonselorAktivitasPage`:**
+  - header ringkas (`max-sm:text-xl`); deskripsi diganti "Diperbarui pukul … WITA" (`lastSyncedAt` baru, diisi saat muat dan muat ulang);
+  - tab status jadi chip satu baris yang bisa digeser dengan label pendek (Menunggu, Jadwal Ulang, Dikonfirmasi, Ditolak/Batal, Semua) dan `role="tablist"`/`tab`;
+  - tab dan cari menempel di bawah navbar (`sticky top-[72px]`);
+  - Jenis dan Urutan dipindah ke lembar bawah "Filter" (titik penanda bila bukan bawaan, tombol Atur ulang/Terapkan), dengan ringkasan filter di bawah bar;
+  - kartu ringkas: kolom hari/tanggal/bulan WITA, nama dan jam mulai, lencana status/jenis/Mendesak, rentang jam, waktu pengajuan, perwakilan, dan alasan yang dipotong 2 baris;
+  - ketuk kartu membuka detail yang sama;
+  - aksi selebar kartu ("Tidak Dapat Menerima" + "Terima", atau "Minta Jadwal Ulang") membuka `BookingDecisionModal` yang sama.
+- **Tablet/desktop (`sm` ke atas):** kartu, tab, dan filter seperti sebelumnya.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - Browser lokal (halaman dirender dengan data tiruan, navbar 72px, dan bar bawah tiruan), 375px:
+    - chip menampilkan jumlah benar; kartu pertama di y≈220px; tanpa scroll horizontal;
+    - filter Kelompok hanya menampilkan kartu kelompok, dengan titik penanda dan ringkasan; Atur ulang mengembalikan 5 permintaan di tab Semua;
+    - dua alasan dipotong; tombol Minta Jadwal Ulang ada pada yang dikonfirmasi;
+    - Terima membuka modal "Terima Permintaan Konseling"; ketuk kartu membuka detail.
+  - 1280px: label tab panjang, select urutan, dan kartu desktop tampil; elemen mobile tersembunyi.
+  - Belum dicek dengan login konselor asli.

@@ -1,15 +1,17 @@
 import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
+  CheckCircle2,
   Calendar,
   CalendarClock,
   Clock,
   FileText,
   Info,
   Search,
+  SlidersHorizontal,
   Users,
   X,
   Check,
@@ -42,7 +44,20 @@ import type {
   BookingStatusApi,
 } from "../../types/api";
 import { EXPIRED_BOOKING_LABEL } from "../../lib/sessionStatus";
+import { formatWitaTime } from "../../lib/witaTime";
 import { hasUrgentIntake, URGENT_INTAKE_LABEL, urgentIntakeMessage } from "../../lib/intakeRisk";
+
+/** Kolom tanggal kartu ringkas di layar kecil: hari, tanggal, bulan (WITA). */
+function witaDateParts(iso: string) {
+  const date = new Date(iso);
+  const part = (options: Intl.DateTimeFormatOptions) =>
+    date.toLocaleDateString("id-ID", { timeZone: "Asia/Makassar", ...options });
+  return {
+    weekday: part({ weekday: "short" }),
+    day: part({ day: "numeric" }),
+    month: part({ month: "short" }),
+  };
+}
 
 type StatusTab = "waiting_confirmation" | "reschedule_requested" | "confirmed" | "closed" | "all";
 type TypeFilter = "Semua" | "Individu" | "Kelompok";
@@ -97,6 +112,9 @@ export default function KonselorPermintaanPage() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("Semua");
   const [sortOrder, setSortOrder] = useState<SortOrder>("terlama");
   const [searchQuery, setSearchQuery] = useState("");
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  // Layar kecil: jenis dan urutan dipilih lewat lembar bawah.
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
 
   const [decisionModal, setDecisionModal] = useState<{
@@ -116,6 +134,7 @@ export default function KonselorPermintaanPage() {
       .then((rows) => {
         if (!active) return;
         setBookings(rows);
+        setLastSyncedAt(Date.now());
         setErrorMessage(null);
       })
       .catch((err: unknown) => {
@@ -141,6 +160,7 @@ export default function KonselorPermintaanPage() {
     try {
       const rows = await fetchBookingsData();
       setBookings(rows);
+      setLastSyncedAt(Date.now());
     } catch (err: unknown) {
       setErrorMessage(
         err instanceof ApiError
@@ -261,10 +281,24 @@ export default function KonselorPermintaanPage() {
 
   return (
     <PageContainer>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
+        {/* Layar kecil: judul lebih kecil dan deskripsi diganti waktu pembaruan agar daftar naik. */}
         <PageHeader
           title="Permintaan"
-          description="Kelola permintaan jadwal sesi konseling aktual dari klien"
+          titleClassName="max-sm:text-xl"
+          descriptionClassName="max-sm:mt-0 max-sm:text-[11px] max-sm:text-gray-500"
+          description={
+            <>
+              <span className="hidden sm:inline">
+                Kelola permintaan jadwal sesi konseling aktual dari klien
+              </span>
+              <span className="sm:hidden">
+                {lastSyncedAt
+                  ? `Diperbarui pukul ${formatWitaTime(new Date(lastSyncedAt))} WITA`
+                  : "Permintaan jadwal konseling dari klien"}
+              </span>
+            </>
+          }
           refresh={{ onClick: () => void handleManualRefresh(), loading }}
         />
 
@@ -495,30 +529,39 @@ export default function KonselorPermintaanPage() {
         ) : (
           /* ========================= DAFTAR PERMINTAAN ========================= */
           <>
+            {/* Layar kecil: tab + cari menempel di bawah navbar saat daftar digulir (pola Aktivitas). */}
+            <div className="sticky top-[72px] z-10 -mx-4 space-y-2 border-b border-gray-200 bg-white/95 px-4 pb-2 pt-2 backdrop-blur sm:static sm:mx-0 sm:space-y-6 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
             {/* Tab Status */}
-            <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
+            <div
+              role="tablist"
+              aria-label="Status permintaan"
+              className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:border-b sm:border-gray-200 sm:px-0 sm:pb-3"
+            >
               {(
                 [
-                  ["waiting_confirmation", "Menunggu Konfirmasi", counts.waiting_confirmation],
-                  ["reschedule_requested", "Jadwal Ulang Diminta", counts.reschedule_requested],
-                  ["confirmed", "Dikonfirmasi", counts.confirmed],
-                  ["closed", "Tidak Diterima / Batal", counts.closed],
-                  ["all", "Semua Status", counts.all],
+                  ["waiting_confirmation", "Menunggu Konfirmasi", "Menunggu", counts.waiting_confirmation],
+                  ["reschedule_requested", "Jadwal Ulang Diminta", "Jadwal Ulang", counts.reschedule_requested],
+                  ["confirmed", "Dikonfirmasi", "Dikonfirmasi", counts.confirmed],
+                  ["closed", "Tidak Diterima / Batal", "Ditolak/Batal", counts.closed],
+                  ["all", "Semua Status", "Semua", counts.all],
                 ] as const
-              ).map(([key, label, count]) => {
+              ).map(([key, label, shortLabel, count]) => {
                 const active = statusTab === key;
                 return (
                   <button
                     key={key}
                     type="button"
+                    role="tab"
+                    aria-selected={active}
                     onClick={() => setStatusTab(key)}
-                    className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition sm:text-sm ${
+                    className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition sm:h-auto sm:gap-2 sm:rounded-xl sm:py-2 sm:text-sm ${
                       active
                         ? "bg-[#064E3B] text-white shadow-xs"
                         : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
                     }`}
                   >
-                    <span>{label}</span>
+                    <span className="sm:hidden">{shortLabel}</span>
+                    <span className="hidden sm:inline">{label}</span>
                     <Badge className={active ? "bg-white/20 text-white" : "bg-gray-100 text-gray-700"}>
                       {count}
                     </Badge>
@@ -528,7 +571,7 @@ export default function KonselorPermintaanPage() {
             </div>
 
             {/* Filter Bar */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2 sm:flex-col sm:items-stretch sm:gap-3 sm:rounded-2xl sm:border sm:border-gray-200 sm:bg-white sm:p-4 sm:shadow-xs lg:flex-row lg:items-center lg:justify-between">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
@@ -550,7 +593,21 @@ export default function KonselorPermintaanPage() {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Layar kecil: jenis dan urutan dipilih lewat lembar bawah agar bar tetap satu baris. */}
+              <button
+                type="button"
+                onClick={() => setFilterSheetOpen(true)}
+                aria-haspopup="dialog"
+                className="relative inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 sm:hidden"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                Filter
+                {(typeFilter !== "Semua" || sortOrder !== "terlama") && (
+                  <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#064E3B] ring-2 ring-white" />
+                )}
+              </button>
+
+              <div className="hidden flex-wrap items-center gap-2 sm:flex">
                 <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
                   {(["Semua", "Individu", "Kelompok"] as const).map((item) => (
                     <button
@@ -580,6 +637,12 @@ export default function KonselorPermintaanPage() {
               </div>
             </div>
 
+            <p className="text-[11px] text-gray-500 sm:hidden">
+              {typeFilter === "Semua" ? "Semua jenis" : typeFilter} ·{" "}
+              {sortOrder === "terlama" ? "Terlama dulu (prioritas antrean)" : "Terbaru diajukan dulu"}
+            </p>
+            </div>
+
             {/* Content List */}
             {loading ? (
               <SkeletonList rows={5} label="Memuat daftar permintaan booking dari server..." />
@@ -596,16 +659,128 @@ export default function KonselorPermintaanPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {filteredBookings.map((booking) => {
                   const title = formatBookingClientTitle(booking);
                   const repName = formatBookingRepresentative(booking);
                   const badge = getStatusBadge(booking.status);
+                  const urgent = hasUrgentIntake(booking.intake_answers);
+                  const dateParts = witaDateParts(booking.starts_at);
 
                   return (
+                    <Fragment key={booking.id}>
+                    {/* ===== Layar kecil: kartu ringkas (ketuk kartu = Lihat Detail) ===== */}
                     <div
-                      key={booking.id}
-                      className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs transition hover:border-gray-300"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedBookingId(booking.id)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedBookingId(booking.id);
+                        }
+                      }}
+                      aria-label={`Detail permintaan ${title}`}
+                      className={`rounded-2xl border bg-white p-3 shadow-xs sm:hidden ${
+                        urgent ? "border-red-200" : "border-gray-200"
+                      }`}
+                    >
+                      <div className="flex gap-3">
+                        <div className="w-12 shrink-0 text-center">
+                          <p className="text-[11px] font-semibold uppercase text-gray-500">
+                            {dateParts.weekday}
+                          </p>
+                          <p className="text-lg font-bold leading-tight text-gray-900">{dateParts.day}</p>
+                          <p className="text-[11px] text-gray-500">{dateParts.month}</p>
+                        </div>
+                        <div className="min-w-0 flex-1 border-l border-gray-100 pl-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="truncate text-sm font-bold text-gray-900">{title}</p>
+                            <span className="shrink-0 text-sm font-bold tabular-nums text-[#064E3B]">
+                              {formatWitaTime(new Date(booking.starts_at))}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <Badge weight="semibold" bordered className={badge.className}>
+                              {badge.label}
+                            </Badge>
+                            <Badge
+                              weight="semibold"
+                              className={booking.service_type === "group" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}
+                            >
+                              {booking.service_type === "group"
+                                ? `Kelompok · ${booking.participant_count} orang`
+                                : "Individu"}
+                            </Badge>
+                            {urgent && (
+                              <Badge weight="semibold" bordered className="border-red-300 bg-red-50 text-red-700">
+                                <AlertCircle className="h-3 w-3" />
+                                {URGENT_INTAKE_LABEL}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-1 text-[11px] text-gray-500">
+                            {formatIsoTimeRangeWita(booking.starts_at, booking.ends_at)} · Diajukan{" "}
+                            {formatIsoShortDateId(booking.created_at)}
+                            {repName ? ` · Perwakilan ${repName}` : ""}
+                          </p>
+                          {booking.reschedule_reason && (
+                            <p className="mt-1.5 line-clamp-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
+                              <span className="font-semibold">Alasan jadwal ulang:</span>{" "}
+                              {booking.reschedule_reason}
+                            </p>
+                          )}
+                          {booking.cancellation_reason && (
+                            <p className="mt-1.5 line-clamp-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700">
+                              <span className="font-semibold">Alasan tidak diterima/batal:</span>{" "}
+                              {booking.cancellation_reason}
+                            </p>
+                          )}
+                          {booking.status === "waiting_confirmation" && (
+                            <div className="mt-2.5 grid grid-cols-[3fr_2fr] gap-2">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setDecisionModal({ booking, action: "reject" });
+                                }}
+                                className="h-9 whitespace-nowrap rounded-xl border border-red-200 bg-white px-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                              >
+                                Tidak Dapat Menerima
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setDecisionModal({ booking, action: "approve" });
+                                }}
+                                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#064E3B] text-xs font-semibold text-white transition hover:bg-[#053e2f]"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                                Terima
+                              </button>
+                            </div>
+                          )}
+                          {booking.status === "confirmed" && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDecisionModal({ booking, action: "reschedule" });
+                              }}
+                              className="mt-2.5 h-9 w-full rounded-xl border border-amber-300 bg-amber-50/70 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+                            >
+                              Minta Jadwal Ulang
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ===== Tablet & desktop: kartu seperti sebelumnya ===== */}
+                    <div
+                      className="hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-xs transition hover:border-gray-300 sm:block"
                     >
                       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
                         <div className="flex items-start gap-4">
@@ -705,6 +880,7 @@ export default function KonselorPermintaanPage() {
                         </div>
                       </div>
                     </div>
+                    </Fragment>
                   );
                 })}
               </div>
@@ -712,6 +888,102 @@ export default function KonselorPermintaanPage() {
           </>
         )}
       </div>
+
+      {/* ==================== LAYAR KECIL: LEMBAR FILTER (JENIS & URUTAN) ==================== */}
+      {filterSheetOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-[#0c2619]/45 sm:hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setFilterSheetOpen(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setFilterSheetOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filter permintaan"
+            className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl"
+          >
+            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-gray-300" />
+            <p className="text-base font-bold text-gray-900">Filter permintaan</p>
+
+            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Jenis konseling
+            </p>
+            <div className="mt-2 space-y-2">
+              {(["Semua", "Individu", "Kelompok"] as const).map((item) => {
+                const selected = typeFilter === item;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setTypeFilter(item)}
+                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold ${
+                      selected
+                        ? "border-[#064E3B] bg-emerald-50 text-[#064E3B]"
+                        : "border-gray-200 text-gray-700"
+                    }`}
+                  >
+                    {item}
+                    {selected && <CheckCircle2 className="h-4 w-4" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500">Urutan</p>
+            <div className="mt-2 space-y-2">
+              {(
+                [
+                  ["terlama", "Terlama (Prioritas Antrean)"],
+                  ["terbaru", "Terbaru Diajukan"],
+                ] as const
+              ).map(([value, label]) => {
+                const selected = sortOrder === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setSortOrder(value)}
+                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold ${
+                      selected
+                        ? "border-[#064E3B] bg-emerald-50 text-[#064E3B]"
+                        : "border-gray-200 text-gray-700"
+                    }`}
+                  >
+                    {label}
+                    {selected && <CheckCircle2 className="h-4 w-4" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setTypeFilter("Semua");
+                  setSortOrder("terlama");
+                }}
+                className="rounded-xl border border-gray-300 py-3 text-sm font-semibold text-gray-700"
+              >
+                Atur ulang
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterSheetOpen(false)}
+                className="rounded-xl bg-[#064E3B] py-3 text-sm font-semibold text-white"
+              >
+                Terapkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {decisionModal && (
         <BookingDecisionModal
