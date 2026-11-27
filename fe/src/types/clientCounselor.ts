@@ -28,6 +28,8 @@ export interface BookingCounselor extends ClientCounselorIdentity {
   profileId?: string;
   photoUrl?: string | null;
   availabilityByDate?: Record<string, string[]>;
+  /** Jam selesai tiap ketersediaan: tanggal -> jam mulai -> jam selesai (WITA, "HH.MM"). */
+  availabilityEndByDate?: Record<string, Record<string, string>>;
   short: string;
   gender: "Perempuan" | "Laki-laki" | "Tidak dicantumkan";
   degree: string;

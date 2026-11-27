@@ -22,6 +22,9 @@ export const SAFE_ACTIONS = new Set([
   "admin.hero_motivation.delete",
   "admin.homepage_logo.update",
   "counselor.profile.update",
+  "counselor.education.create",
+  "counselor.education.update",
+  "counselor.education.delete",
   "counselor.availability.create",
   "counselor.availability.update",
   "counselor.availability.cancel",
@@ -40,7 +43,6 @@ const SAFE_METADATA_KEYS = new Set([
   "field",
   "count",
   "is_public",
-  "sipp_silp_valid_until",
 ]);
 
 /**

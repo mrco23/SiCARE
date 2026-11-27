@@ -152,7 +152,7 @@ export const bookingService = {
 
   async transitionBooking({ authUser, authProfile, bookingId, input }) {
     if (authProfile.app_role === "client" && input.status !== "cancelled") {
-      throw new HttpError(403, "BOOKING_FORBIDDEN", "Klien hanya dapat membatalkan booking miliknya.");
+      throw new HttpError(403, "BOOKING_FORBIDDEN", "Klien hanya dapat membatalkan penjadwalan miliknya.");
     }
     if (authProfile.app_role === "counselor" && input.status === "cancelled") {
       throw new HttpError(403, "BOOKING_FORBIDDEN", "Gunakan alur status konselor untuk menolak atau meminta penjadwalan ulang.");

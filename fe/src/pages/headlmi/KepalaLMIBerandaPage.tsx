@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowRight, CalendarCheck, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarCheck } from "lucide-react";
 import { PageContainer, PageHeader } from "../../components/shared";
 import { ActivitySummary, CounselorSummary, MetricCards } from "../../components/headlmi/dashboard/DashboardSections";
 import { reportingApi } from "../../lib/reportingApi";
@@ -100,17 +100,9 @@ export default function KepalaLMIBerandaPage() {
         eyebrow="Beranda Kepala LMI"
         title="Ringkasan Konseling"
         description="Pantau kondisi layanan dan tindak lanjut utama."
+        refresh={{ onClick: refreshAll, loading: refreshing }}
         actions={
           <div className="flex flex-col gap-2 self-start sm:flex-row sm:self-auto">
-            <button
-              type="button"
-              onClick={refreshAll}
-              disabled={refreshing}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Muat ulang
-            </button>
             <button
               type="button"
               onClick={() => navigate("/kepala-lmi/laporan")}

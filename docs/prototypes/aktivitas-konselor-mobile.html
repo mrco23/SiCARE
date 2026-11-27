@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Aktivitas Konselor Mobile – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: "#064E3B", "primary-soft": "#e8f9f0" },
+          fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+        },
+      },
+    };
+  </script>
+  <style>
+    .phone { width: 375px; height: 780px; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+    @keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+    .sheet { animation: sheet-in .22s ease-out; }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    .backdrop { animation: fade-in .2s ease-out; }
+    @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+    .ping { animation: ping 1.2s cubic-bezier(0, 0, .2, 1) infinite; }
+    .fold-line { position: absolute; left: 0; right: 0; border-top: 2px dashed #f43f5e; }
+    @media (prefers-reduced-motion: reduce) { .sheet, .backdrop, .ping { animation: none; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-gray-900 antialiased">
+  <header class="mx-auto max-w-[1100px] px-4 pt-8 sm:px-6">
+    <p class="text-xs font-semibold uppercase tracking-wider text-primary">Prototype · Aktivitas Konselor (mobile 375px)</p>
+    <h1 class="mt-1 font-display text-2xl font-extrabold">Filter ringkas, sesi langsung terlihat</h1>
+    <p class="mt-2 max-w-3xl text-sm text-gray-600">
+      Kiri: tampilan sekarang. Kanan: usulan. Garis merah putus-putus menandai batas layar pertama
+      (tanpa menggulir). Semua kontrol usulan bisa diklik: tab, cari, filter jenis, menu ⋯ pada kartu.
+      Desktop (layar besar) tetap memakai tata letak yang sekarang.
+    </p>
+  </header>
+
+  <main class="mx-auto flex max-w-[1100px] flex-wrap justify-center gap-10 px-4 py-8 sm:px-6">
+    <!-- ================= SEKARANG ================= -->
+    <section>
+      <p class="font-display text-base font-bold">Sekarang</p>
+      <p class="mb-3 w-[375px] text-xs text-gray-600">Judul, tombol Muat Ulang, 4 tab yang terbungkus 3 baris, lalu kotak cari + jenis. Kartu sesi pertama baru mulai di bawah layar pertama.</p>
+      <div class="phone relative overflow-hidden rounded-[2.2rem] border-[10px] border-gray-900 bg-[#f7fbf9] shadow-2xl">
+        <div class="h-full overflow-y-auto no-scrollbar pb-24">
+          <div class="flex h-14 items-center justify-between border-b border-gray-100 bg-white px-4">
+            <span class="font-display text-lg font-extrabold text-primary">SiCARE</span>
+            <span class="h-8 w-8 rounded-full bg-gray-200"></span>
+          </div>
+          <div class="relative px-4 pt-4">
+            <h2 class="font-display text-2xl font-extrabold">Aktivitas</h2>
+            <p class="mt-1 text-sm text-gray-500">Kelola jalannya sesi konseling yang terjadwal dan sedang berlangsung</p>
+            <span class="mt-3 inline-flex rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold">⟳ Muat Ulang</span>
+            <div class="mt-5 flex flex-wrap gap-2 border-b border-gray-200 pb-3">
+              <span class="rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-white">Aktif (Berlangsung &amp; Terjadwal) <b class="ml-1 rounded bg-white/20 px-1.5">3</b></span>
+              <span class="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-600">Hari Ini <b class="ml-1 rounded bg-gray-100 px-1.5">1</b></span>
+              <span class="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-600">Mendatang <b class="ml-1 rounded bg-gray-100 px-1.5">2</b></span>
+              <span class="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-600">Selesai / Batal <b class="ml-1 rounded bg-gray-100 px-1.5">12</b></span>
+            </div>
+            <div class="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
+              <div class="rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-400">🔍 Cari ID sesi, klien, kelompok…</div>
+              <div class="mt-3 inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1 text-xs font-semibold">
+                <span class="rounded-lg bg-white px-3 py-1.5 text-primary">Semua</span>
+                <span class="px-3 py-1.5 text-gray-600">Individu</span>
+                <span class="px-3 py-1.5 text-gray-600">Kelompok</span>
+              </div>
+            </div>
+            <div class="mt-6 rounded-2xl border-2 border-primary bg-white p-5">
+              <div class="flex gap-4">
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-bold text-primary">KI</span>
+                <div>
+                  <p class="font-bold">Klien Individu · #6892472E</p>
+                  <div class="mt-1 flex flex-wrap gap-1.5">
+                    <span class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Berlangsung</span>
+                    <span class="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">Individu</span>
+                  </div>
+                  <p class="mt-2 text-xs text-gray-600">Jumat, 27 Nov 2026 · 10.45–11.45 WITA · Ruang Konseling LMI</p>
+                </div>
+              </div>
+              <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+                <span class="rounded-xl border border-gray-200 px-3.5 py-2">Detail Sesi</span>
+                <span class="rounded-xl border border-red-200 px-3.5 py-2 text-red-600">✕ Hentikan</span>
+                <span class="rounded-xl bg-primary px-4 py-2 text-white">Selesaikan Sesi</span>
+              </div>
+            </div>
+            <div class="fold-line" style="top: 696px"></div>
+          </div>
+        </div>
+        <nav class="absolute inset-x-0 bottom-0 flex h-16 items-center justify-around border-t border-gray-200 bg-white text-[10px] font-semibold text-gray-500">
+          <span>Beranda</span><span class="text-primary">Aktivitas</span><span>Permintaan</span><span>Jadwal</span><span>Lainnya</span>
+        </nav>
+      </div>
+    </section>
+
+    <!-- ================= USULAN ================= -->
+    <section>
+      <p class="font-display text-base font-bold">Usulan</p>
+      <p class="mb-3 w-[375px] text-xs text-gray-600">Kontrol filter menjadi 2 baris tipis yang menempel saat menggulir. Sesi berlangsung tampil paling atas, dan beberapa kartu sudah terlihat di layar pertama.</p>
+      <div class="phone relative overflow-hidden rounded-[2.2rem] border-[10px] border-gray-900 bg-[#f7fbf9] shadow-2xl">
+        <div id="scroll" class="h-full overflow-y-auto no-scrollbar pb-24">
+          <div class="flex h-14 items-center justify-between border-b border-gray-100 bg-white px-4">
+            <span class="font-display text-lg font-extrabold text-primary">SiCARE</span>
+            <span class="h-8 w-8 rounded-full bg-gray-200"></span>
+          </div>
+
+          <!-- 1. Judul satu baris; Muat Ulang jadi ikon -->
+          <div class="relative flex items-center justify-between px-4 pb-1 pt-3">
+            <div>
+              <h2 class="font-display text-xl font-extrabold leading-tight">Aktivitas</h2>
+              <p id="lastSync" class="text-[11px] text-gray-500">Diperbarui pukul 10.58 WITA</p>
+            </div>
+            <button id="refresh" type="button" aria-label="Muat ulang" class="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 active:bg-gray-50">
+              <svg id="refreshIcon" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+            </button>
+          </div>
+
+          <!-- 2. Bar filter menempel: tab gulir horizontal + cari & jenis dalam satu baris -->
+          <div class="sticky top-0 z-10 bg-[#f7fbf9]/95 px-4 pb-2 pt-2 backdrop-blur">
+            <div id="tabs" role="tablist" class="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4"></div>
+            <div class="mt-2 flex items-center gap-2">
+              <label class="relative flex-1">
+                <span class="sr-only">Cari sesi</span>
+                <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <input id="search" type="search" placeholder="Cari klien, ID, ruangan" class="h-10 w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" />
+              </label>
+              <button id="openFilter" type="button" class="relative flex h-10 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+                <span id="filterLabel">Jenis</span>
+                <span id="filterDot" class="absolute -right-1 -top-1 hidden h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-white"></span>
+              </button>
+            </div>
+            <p id="tabHint" class="mt-1.5 text-[11px] text-gray-500"></p>
+          </div>
+
+          <!-- 3. Daftar sesi, dikelompokkan per hari -->
+          <div id="list" class="space-y-2 px-4 pt-1"></div>
+          <div class="fold-line" style="top: 696px"></div>
+        </div>
+
+        <nav class="absolute inset-x-0 bottom-0 z-20 flex h-16 items-center justify-around border-t border-gray-200 bg-white text-[10px] font-semibold text-gray-500">
+          <span>Beranda</span><span class="text-primary">Aktivitas</span><span>Permintaan</span><span>Jadwal</span><span>Lainnya</span>
+        </nav>
+
+        <!-- Lembar bawah: filter jenis -->
+        <div id="filterSheet" class="absolute inset-0 z-30 hidden">
+          <div data-close class="backdrop absolute inset-0 bg-black/40"></div>
+          <div class="sheet absolute inset-x-0 bottom-0 rounded-t-3xl bg-white p-5 pb-6">
+            <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-gray-200"></div>
+            <p class="font-display text-base font-bold">Jenis konseling</p>
+            <div id="typeOptions" class="mt-3 space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- Lembar bawah: aksi lain pada kartu -->
+        <div id="moreSheet" class="absolute inset-0 z-30 hidden">
+          <div data-close class="backdrop absolute inset-0 bg-black/40"></div>
+          <div class="sheet absolute inset-x-0 bottom-0 rounded-t-3xl bg-white p-5 pb-6">
+            <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-gray-200"></div>
+            <p id="moreTitle" class="font-display text-base font-bold"></p>
+            <div id="moreActions" class="mt-3 divide-y divide-gray-100"></div>
+          </div>
+        </div>
+
+        <div id="toast" class="pointer-events-none absolute inset-x-4 bottom-20 z-40 hidden rounded-xl bg-gray-900 px-4 py-3 text-center text-xs font-semibold text-white"></div>
+      </div>
+    </section>
+  </main>
+
+  <section class="mx-auto max-w-[1100px] px-4 pb-12 sm:px-6">
+    <div class="rounded-2xl border border-gray-200 bg-white p-6">
+      <h2 class="font-display text-lg font-extrabold">Apa yang berubah (hanya di layar kecil)</h2>
+      <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700">
+        <li><b>Judul ringkas.</b> Deskripsi panjang diganti keterangan "Diperbarui pukul …", dan "Muat Ulang" menjadi tombol ikon bulat di samping judul.</li>
+        <li><b>Tab satu baris yang bisa digeser.</b> Label dipendekkan (Aktif · Hari Ini · Mendatang · Selesai/Batal) tanpa mengubah isi tiap tab. Arti lengkap tab aktif ditulis kecil di bawah bar.</li>
+        <li><b>Cari dan jenis dalam satu baris.</b> Pilihan Semua/Individu/Kelompok pindah ke lembar bawah lewat tombol "Jenis". Titik hijau menandai filter yang aktif, dan label tombol berubah menjadi jenis yang dipilih.</li>
+        <li><b>Bar filter menempel</b> di atas saat daftar digulir, jadi tidak perlu kembali ke atas untuk ganti tab.</li>
+        <li><b>Daftar dikelompokkan per hari</b> (Hari ini, Besok, …). Tanggal tidak diulang di tiap kartu, sehingga kartu lebih pendek.</li>
+        <li><b>Kartu ringkas dengan satu tombol utama.</b> Jam ditampilkan di kolom kiri. Tombol utama (Selesaikan / Mulai Sesi) tetap terlihat. Detail, Persetujuan, Hentikan/Urungkan pindah ke menu ⋯. Ketuk kartu = Detail Sesi.</li>
+        <li><b>Sesi berlangsung selalu paling atas</b> dengan bingkai hijau dan indikator berdenyut.</li>
+      </ol>
+      <p class="mt-3 text-xs text-gray-500">Desktop tidak berubah. Rute, status, dan aksi tetap sama; yang berubah hanya susunan tampilan di bawah breakpoint <code>sm</code>.</p>
+    </div>
+  </section>
+
+  <script>
+    const TABS = [
+      { key: "active", label: "Aktif", hint: "Sesi yang sedang berlangsung dan terjadwal." },
+      { key: "today", label: "Hari Ini", hint: "Semua sesi pada hari ini." },
+      { key: "upcoming", label: "Mendatang", hint: "Sesi terjadwal setelah hari ini." },
+      { key: "finished", label: "Selesai / Batal", hint: "Sesi selesai, dibatalkan, atau terlewat." },
+    ];
+    const TODAY = "2026-11-27";
+    const SESSIONS = [
+      { id: "6892472E", title: "Klien Individu", type: "Individu", status: "ongoing", date: "2026-11-27", time: "10.45–11.45", room: "Ruang Konseling LMI" },
+      { id: "A13F09C2", title: "Klien Individu", type: "Individu", status: "scheduled", date: "2026-11-30", time: "10.00–11.00", room: "Ruang Konseling LMI", note: "Consent belum lengkap · Mulai Sesi terkunci" },
+      { id: "7C2D11B8", title: "Kelompok Dummy B2", type: "Kelompok", people: 3, status: "scheduled", date: "2026-12-02", time: "13.00–14.00", room: "Ruang Konseling LMI" },
+      { id: "55E0A9D1", title: "Klien Individu", type: "Individu", status: "completed", date: "2026-11-25", time: "14.00–15.00", room: "Ruang Konseling LMI" },
+      { id: "0B77C3E4", title: "Klien Individu", type: "Individu", status: "cancelled", date: "2026-11-24", time: "10.00–11.00", room: "Ruang Konseling LMI" },
+      { id: "9D41F6A0", title: "Kelompok Dummy A4", type: "Kelompok", people: 3, status: "completed", date: "2026-10-19", time: "14.00–15.00", room: "Ruang Konseling LMI" },
+    ];
+    const STATUS = {
+      ongoing: { label: "Berlangsung", cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+      scheduled: { label: "Terjadwal", cls: "border-sky-200 bg-sky-50 text-sky-700" },
+      completed: { label: "Selesai", cls: "border-gray-200 bg-gray-50 text-gray-600" },
+      cancelled: { label: "Dibatalkan", cls: "border-red-200 bg-red-50 text-red-600" },
+    };
+    const state = { tab: "active", type: "Semua", q: "" };
+
+    const inTab = (s, tab) => {
+      if (tab === "active") return s.status === "ongoing" || s.status === "scheduled";
+      if (tab === "today") return s.date === TODAY;
+      if (tab === "upcoming") return s.status === "scheduled" && s.date > TODAY;
+      return s.status === "completed" || s.status === "cancelled";
+    };
+    const dayLabel = (iso) => {
+      const d = new Date(iso + "T00:00:00");
+      const diff = Math.round((d - new Date(TODAY + "T00:00:00")) / 86400000);
+      const nice = d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "short" });
+      if (diff === 0) return "Hari ini · " + nice;
+      if (diff === 1) return "Besok · " + nice;
+      return nice;
+    };
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    function renderTabs() {
+      const el = document.getElementById("tabs");
+      el.innerHTML = TABS.map((t) => {
+        const n = SESSIONS.filter((s) => inTab(s, t.key)).length;
+        const on = state.tab === t.key;
+        return `<button role="tab" aria-selected="${on}" data-tab="${t.key}" class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition ${on ? "bg-primary text-white" : "border border-gray-200 bg-white text-gray-600"}">${t.label}<span class="rounded-full px-1.5 text-[11px] ${on ? "bg-white/20" : "bg-gray-100 text-gray-700"}">${n}</span></button>`;
+      }).join("");
+      document.getElementById("tabHint").textContent = TABS.find((t) => t.key === state.tab).hint;
+    }
+
+    function actionsFor(s) {
+      if (s.status === "ongoing") return { primary: "Selesaikan Sesi", more: ["Detail Sesi", "Persetujuan", "Hentikan Sesi"] };
+      if (s.status === "scheduled") return { primary: "Mulai Sesi", disabled: Boolean(s.note), more: ["Detail Sesi", "Persetujuan", "Urungkan"] };
+      return { primary: null, more: ["Detail Sesi"] };
+    }
+
+    function card(s) {
+      const st = STATUS[s.status];
+      const a = actionsFor(s);
+      const [start, end] = s.time.split("–");
+      const ongoing = s.status === "ongoing";
+      return `
+        <article data-detail="${s.id}" class="rounded-2xl border bg-white p-3 ${ongoing ? "border-primary ring-2 ring-primary/10" : "border-gray-200"}">
+          <div class="flex gap-3">
+            <div class="w-12 shrink-0 text-center">
+              <p class="text-sm font-bold text-gray-900">${start}</p>
+              <p class="text-[11px] text-gray-500">${end}</p>
+            </div>
+            <div class="min-w-0 flex-1 border-l border-gray-100 pl-3">
+              <div class="flex items-start justify-between gap-2">
+                <p class="truncate text-sm font-bold">${esc(s.title)} <span class="font-medium text-gray-400">#${s.id}</span></p>
+                <button data-more="${s.id}" aria-label="Aksi lain" class="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 active:bg-gray-100">⋯</button>
+              </div>
+              <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                <span class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${st.cls}">
+                  ${ongoing ? '<span class="relative flex h-1.5 w-1.5"><span class="ping absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span><span class="relative h-1.5 w-1.5 rounded-full bg-emerald-500"></span></span>' : ""}${st.label}
+                </span>
+                <span class="rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${s.type === "Kelompok" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-700"}">${s.type}${s.people ? " · " + s.people + " org" : ""}</span>
+                <span class="truncate text-[11px] text-gray-500">${esc(s.room)}</span>
+              </div>
+              ${s.note ? `<p class="mt-1.5 text-[11px] font-medium text-amber-700">${esc(s.note)}</p>` : ""}
+              ${a.primary ? `<button data-primary="${s.id}" ${a.disabled ? "disabled" : ""} class="mt-2.5 h-9 w-full rounded-xl text-xs font-semibold ${a.disabled ? "bg-gray-200 text-gray-500" : "bg-primary text-white active:bg-[#053e2f]"}">${a.primary}</button>` : ""}
+            </div>
+          </div>
+        </article>`;
+    }
+
+    function renderList() {
+      const q = state.q.trim().toLowerCase();
+      const items = SESSIONS
+        .filter((s) => inTab(s, state.tab))
+        .filter((s) => state.type === "Semua" || s.type === state.type)
+        .filter((s) => !q || `${s.title} ${s.id} ${s.room}`.toLowerCase().includes(q))
+        .sort((a, b) => (a.status === "ongoing" ? -1 : b.status === "ongoing" ? 1 : 0)
+          || (state.tab === "finished" ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date)));
+      const el = document.getElementById("list");
+      if (!items.length) {
+        el.innerHTML = `<div class="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center"><p class="text-sm font-bold">Tidak ada sesi</p><p class="mt-1 text-xs text-gray-500">Ubah tab, jenis, atau kata pencarian.</p></div>`;
+        return;
+      }
+      let html = "", lastDay = null;
+      for (const s of items) {
+        if (s.date !== lastDay) {
+          html += `<p class="pt-2 text-[11px] font-bold uppercase tracking-wide text-gray-500">${dayLabel(s.date)}</p>`;
+          lastDay = s.date;
+        }
+        html += card(s);
+      }
+      el.innerHTML = html;
+    }
+
+    function renderTypeOptions() {
+      document.getElementById("typeOptions").innerHTML = ["Semua", "Individu", "Kelompok"].map((t) =>
+        `<button data-type="${t}" class="flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold ${state.type === t ? "border-primary bg-primary-soft text-primary" : "border-gray-200"}">${t}<span>${state.type === t ? "✓" : ""}</span></button>`).join("");
+      document.getElementById("filterLabel").textContent = state.type === "Semua" ? "Jenis" : state.type;
+      document.getElementById("filterDot").classList.toggle("hidden", state.type === "Semua");
+    }
+
+    const toast = (msg) => {
+      const t = document.getElementById("toast");
+      t.textContent = msg; t.classList.remove("hidden");
+      clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.add("hidden"), 1600);
+    };
+    const open = (id) => document.getElementById(id).classList.remove("hidden");
+    const close = (id) => document.getElementById(id).classList.add("hidden");
+
+    document.getElementById("tabs").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-tab]"); if (!b) return;
+      state.tab = b.dataset.tab; renderTabs(); renderList();
+      b.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+    });
+    document.getElementById("search").addEventListener("input", (e) => { state.q = e.target.value; renderList(); });
+    document.getElementById("openFilter").addEventListener("click", () => open("filterSheet"));
+    document.getElementById("typeOptions").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-type]"); if (!b) return;
+      state.type = b.dataset.type; renderTypeOptions(); renderList(); close("filterSheet");
+    });
+    document.getElementById("list").addEventListener("click", (e) => {
+      const more = e.target.closest("[data-more]");
+      const primary = e.target.closest("[data-primary]");
+      const s = SESSIONS.find((x) => x.id === (more?.dataset.more || primary?.dataset.primary || e.target.closest("[data-detail]")?.dataset.detail));
+      if (!s) return;
+      if (more) {
+        document.getElementById("moreTitle").textContent = `${s.title} #${s.id}`;
+        document.getElementById("moreActions").innerHTML = actionsFor(s).more.map((m) =>
+          `<button data-action="${m}" class="block w-full py-3 text-left text-sm font-semibold ${/Hentikan|Urungkan/.test(m) ? "text-red-600" : "text-gray-800"}">${m}</button>`).join("");
+        open("moreSheet");
+      } else if (primary) {
+        toast(`${primary.textContent.trim()} → dialog konfirmasi yang sama seperti sekarang`);
+      } else {
+        toast("Ketuk kartu → Detail Sesi");
+      }
+    });
+    document.getElementById("moreActions").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-action]"); if (!b) return;
+      close("moreSheet"); toast(`${b.dataset.action} → dialog yang sama seperti sekarang`);
+    });
+    document.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", () => { close("filterSheet"); close("moreSheet"); }));
+    document.getElementById("refresh").addEventListener("click", () => {
+      const icon = document.getElementById("refreshIcon");
+      icon.animate([{ transform: "rotate(0)" }, { transform: "rotate(360deg)" }], { duration: 600 });
+      document.getElementById("lastSync").textContent = "Diperbarui pukul " + new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".") + " WITA";
+    });
+
+    renderTabs(); renderTypeOptions(); renderList();
+  </script>
+</body>
+</html>

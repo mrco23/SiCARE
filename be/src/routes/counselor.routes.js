@@ -5,6 +5,7 @@ import { counselorProfileController } from "../controllers/counselor/profile.con
 import { counselorAvailabilityController } from "../controllers/counselor/availability.controller.js";
 import { counselorHistoryCredentialController } from "../controllers/counselor/historyCredential.controller.js";
 import { counselorSessionReportController } from "../controllers/counselor/sessionReport.controller.js";
+import { counselorEducationController } from "../controllers/counselor/education.controller.js";
 
 const router = Router();
 
@@ -14,6 +15,11 @@ const router = Router();
 
 router.get("/profile", authenticate, allowRoles("counselor"), asyncHandler(counselorProfileController.getProfile));
 router.patch("/profile", authenticate, allowRoles("counselor"), asyncHandler(counselorProfileController.updateProfile));
+
+router.get("/educations", authenticate, allowRoles("counselor"), asyncHandler(counselorEducationController.list));
+router.post("/educations", authenticate, allowRoles("counselor"), asyncHandler(counselorEducationController.create));
+router.patch("/educations/:id", authenticate, allowRoles("counselor"), asyncHandler(counselorEducationController.update));
+router.delete("/educations/:id", authenticate, allowRoles("counselor"), asyncHandler(counselorEducationController.remove));
 
 router.get("/license", authenticate, allowRoles("counselor"), asyncHandler(counselorProfileController.getLicense));
 router.patch("/license", authenticate, allowRoles("counselor"), asyncHandler(counselorProfileController.updateLicense));

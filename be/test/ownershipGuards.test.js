@@ -91,7 +91,7 @@ test("booking creation and rescheduling validate the canonical client identity",
   assert.match(create.body, /p\.id = p_client_id and p\.app_role = 'client' and p\.account_status = 'active'/);
 
   const reschedule = latestFunctionDefinition("sicare_reschedule_booking");
-  assert.equal(reschedule.filename, "20261117120000_sicare_wita_dates_booking_limits.sql");
+  assert.equal(reschedule.filename, "20261126140000_sicare_drop_period_publication.sql");
   assert.match(reschedule.body, /v_booking\.client_id <> p_client_id/);
   assert.match(reschedule.body, /p\.id = p_client_id[\s\S]*p\.app_role = 'client'[\s\S]*p\.account_status = 'active'/);
   assert.match(reschedule.body, /v_slot\.counselor_id <> v_booking\.counselor_id/);

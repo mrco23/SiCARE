@@ -28,8 +28,6 @@ export interface AcademicPeriodLike {
   starts_on?: string;
   end?: string;
   ends_on?: string;
-  isPublished?: boolean;
-  is_published?: boolean;
   is_active?: boolean;
 }
 

@@ -7,7 +7,6 @@ import {
   SkeletonTable,
   useToast,
 } from "../../components/shared";
-import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import { useAuth } from "../../features/auth/useAuth";
 import { adminApi } from "../../lib/adminApi";
 import {
@@ -35,7 +34,6 @@ import type { Role } from "../../types/admin";
 import type { AdminAccountTab } from "../../features/admin/accounts/accountSelectors";
 import {
   Loader2,
-  RefreshCw,
   Search,
   User,
   UserCheck,
@@ -67,7 +65,6 @@ type ManagedAccount = {
   gender: GenderApi | "";
   siapNumber: string;
   sippSilpNumber: string;
-  sippSilpValidUntil: string;
   sippSilpUpdatedAt: string | null;
 };
 
@@ -80,12 +77,7 @@ type FormState = {
   role: Role;
   status: AccountStatusApi;
   gender: GenderApi | "";
-  siapNumber: string;
-  sippSilpNumber: string;
-  sippSilpValidUntil: string;
 };
-
-const LICENSE_NUMBER_RE = /^[A-Za-z0-9./_\- ]+$/;
 
 const ROLES: Role[] = ["Konselor", "Kepala LMI"];
 // Akun admin sengaja tidak ditampilkan di halaman ini (tanpa tab maupun baris).
@@ -153,7 +145,6 @@ function mapAccountDto(
     gender: dto.gender ?? "",
     siapNumber: dto.siap_number ?? "",
     sippSilpNumber: dto.sipp_silp_number ?? "",
-    sippSilpValidUntil: dto.sipp_silp_valid_until ?? "",
     sippSilpUpdatedAt: dto.sipp_silp_updated_at ?? null,
   };
 }
@@ -200,23 +191,19 @@ const emptyForm = (currentTab: Tab): FormState => ({
   role: defaultAccountRoleForCreation(currentTab),
   status: "active",
   gender: "",
-  siapNumber: "",
-  sippSilpNumber: "",
-  sippSilpValidUntil: "",
 });
-
-function LicenseBadge({ validUntil }: { validUntil: string }) {
-  const expiry = getLicenseExpiry(validUntil);
-  if (!expiry || expiry.state === "valid") return null;
-  return (
-    <Badge bordered className={expiry.state === "expired" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-800"}>
-      {expiry.label}
-    </Badge>
-  );
-}
 
 const inputClass =
   "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-accent/30";
+
+/** Cerminan aturan server: hanya satu Kepala LMI aktif. */
+function disableOtherHeadLmi(list: ManagedAccount[], activeId: string): ManagedAccount[] {
+  return list.map((a) =>
+    a.appRole === "head_lmi" && a.active && a.id !== activeId
+      ? { ...a, status: "disabled", active: false }
+      : a,
+  );
+}
 
 /* ========================= HALAMAN ========================= */
 export default function AdminAkunPage() {
@@ -237,6 +224,9 @@ export default function AdminAkunPage() {
 
   // Per-row action state
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Hanya satu Kepala LMI aktif: mengaktifkan Kepala LMI lain perlu konfirmasi admin.
+  const [headLmiSwapTarget, setHeadLmiSwapTarget] = useState<ManagedAccount | null>(null);
+  const activeHeadLmi = accounts.find((a) => a.appRole === "head_lmi" && a.active) ?? null;
 
   const toast = useToast();
 
@@ -316,9 +306,6 @@ export default function AdminAkunPage() {
     const email = form.email.trim();
     const password = form.password;
     const phone = toIndonesianE164(form.phone);
-    const siapNumber = form.siapNumber.trim();
-    const sippSilpNumber = form.sippSilpNumber.trim();
-    const isCounselorForm = form.role === "Konselor";
 
     if (!name || !email) {
       setFormError("Nama lengkap dan email wajib diisi.");
@@ -353,32 +340,8 @@ export default function AdminAkunPage() {
       return;
     }
 
-    if (isCounselorForm && (!siapNumber || !sippSilpNumber)) {
-      setFormError("No. SIAP dan No. SIPP/SILP wajib diisi untuk akun konselor.");
-      return;
-    }
-
-    if (
-      isCounselorForm &&
-      (!LICENSE_NUMBER_RE.test(siapNumber) ||
-        !LICENSE_NUMBER_RE.test(sippSilpNumber))
-    ) {
-      setFormError(
-        "No. SIAP dan No. SIPP/SILP hanya boleh berisi huruf, angka, spasi, titik, garis miring, dan tanda hubung.",
-      );
-      return;
-    }
-
-    const personalData = {
-      gender: form.gender || null,
-      ...(isCounselorForm
-        ? {
-            siap_number: siapNumber,
-            sipp_silp_number: sippSilpNumber,
-            sipp_silp_valid_until: form.sippSilpValidUntil || null,
-          }
-        : {}),
-    };
+    // No. SIAP dan No. SIPP/SILP diisi sendiri oleh konselor di Pengaturan, bukan oleh admin.
+    const personalData = { gender: form.gender || null };
 
     setSubmitting(true);
     setFormError("");
@@ -395,9 +358,16 @@ export default function AdminAkunPage() {
         ...personalData,
       });
       const mapped = mapAccountDto(created, email);
-      setAccounts((prev) => [...prev, mapped]);
+      setAccounts((prev) => [
+        ...(created.deactivated_head_lmi ? disableOtherHeadLmi(prev, mapped.id) : prev),
+        mapped,
+      ]);
       setModalOpen(false);
-      toast.success(`Akun ${mapped.name} berhasil dibuat.`);
+      toast.success(
+        created.deactivated_head_lmi
+          ? `Akun ${mapped.name} berhasil dibuat dan menjadi Kepala LMI aktif. Akun Kepala LMI sebelumnya dinonaktifkan.`
+          : `Akun ${mapped.name} berhasil dibuat.`,
+      );
     } catch (err) {
       setFormError(
         err instanceof Error ? err.message : "Akun tidak dapat dibuat.",
@@ -416,11 +386,22 @@ export default function AdminAkunPage() {
     return parts.length ? ` ${parts.join("; ")}.` : "";
   };
 
-  const toggleActive = async (account: ManagedAccount) => {
+  const toggleActive = async (account: ManagedAccount, confirmedSwap = false) => {
     if (account.id === currentUser?.id && account.active) {
       toast.error("Akun admin yang sedang digunakan tidak dapat dinonaktifkan.");
       return;
     }
+    if (
+      !confirmedSwap &&
+      !account.active &&
+      account.appRole === "head_lmi" &&
+      activeHeadLmi &&
+      activeHeadLmi.id !== account.id
+    ) {
+      setHeadLmiSwapTarget(account);
+      return;
+    }
+    setHeadLmiSwapTarget(null);
 
     setBusyId(account.id);
     try {
@@ -440,12 +421,16 @@ export default function AdminAkunPage() {
         });
         const mapped = mapAccountDto(updated, account.email);
         setAccounts((prev) =>
-          prev.map((a) => (a.id === account.id ? mapped : a)),
+          (updated.deactivated_head_lmi ? disableOtherHeadLmi(prev, account.id) : prev).map((a) =>
+            a.id === account.id ? mapped : a,
+          ),
         );
         toast.success(
           updated.app_role === "counselor"
             ? `Akun ${mapped.name} diaktifkan. Profil publiknya tidak otomatis ditampilkan; atur publikasi bila perlu.`
-            : `Akun ${mapped.name} diaktifkan.`,
+            : updated.deactivated_head_lmi
+              ? `Akun ${mapped.name} kini Kepala LMI aktif. Akun Kepala LMI sebelumnya dinonaktifkan.`
+              : `Akun ${mapped.name} diaktifkan.`,
         );
       }
     } catch (err) {
@@ -462,17 +447,7 @@ export default function AdminAkunPage() {
       <PageHeader
         title="Manajemen Akun"
         description="Kelola akun konselor, klien (mahasiswa, dosen, staff), kepala LMI, dan admin."
-        actions={
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            Muat ulang
-          </button>
-        }
+        refresh={{ onClick: () => void handleRefresh(), loading }}
       />
 
       {loadError && (
@@ -605,9 +580,6 @@ export default function AdminAkunPage() {
                           <Badge bordered tone={ROLE_TONE[a.role]}>
                             {a.role}
                           </Badge>
-                          {a.appRole === "counselor" && (
-                            <LicenseBadge validUntil={a.sippSilpValidUntil} />
-                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -812,50 +784,18 @@ export default function AdminAkunPage() {
                 </select>
               </div>
               {form.role === "Konselor" && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600">
-                      No. SIAP
-                    </label>
-                    <input
-                      value={form.siapNumber}
-                      disabled={submitting}
-                      maxLength={80}
-                      onChange={(e) =>
-                        setForm({ ...form, siapNumber: e.target.value })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600">
-                      No. SIPP/SILP
-                    </label>
-                    <input
-                      value={form.sippSilpNumber}
-                      disabled={submitting}
-                      maxLength={80}
-                      onChange={(e) =>
-                        setForm({ ...form, sippSilpNumber: e.target.value })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-semibold text-slate-600">
-                      SIPP/SILP berlaku sampai (opsional)
-                    </label>
-                    <input
-                      type="date"
-                      value={form.sippSilpValidUntil}
-                      disabled={submitting}
-                      onChange={(e) =>
-                        setForm({ ...form, sippSilpValidUntil: e.target.value })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  No. SIAP dan No. SIPP/SILP diisi sendiri oleh konselor melalui menu Pengaturan setelah akun dibuat.
+                </p>
+              )}
+              {form.role === "Kepala LMI" && form.status === "active" && activeHeadLmi && (
+                <p
+                  role="status"
+                  className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                >
+                  Hanya satu Kepala LMI yang dapat aktif. Akun baru ini akan menjadi Kepala LMI aktif
+                  dan akun <strong>{activeHeadLmi.name}</strong> akan dinonaktifkan.
+                </p>
               )}
               {formError && (
                 <p
@@ -894,6 +834,43 @@ export default function AdminAkunPage() {
         </div>
       )}
 
+      {headLmiSwapTarget && activeHeadLmi && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="head-lmi-swap-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 id="head-lmi-swap-title" className="text-base font-bold text-slate-900">
+              Ganti Kepala LMI aktif?
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Hanya satu Kepala LMI yang dapat aktif. Mengaktifkan{" "}
+              <strong>{headLmiSwapTarget.name}</strong> akan menonaktifkan{" "}
+              <strong>{activeHeadLmi.name}</strong>.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setHeadLmiSwapTarget(null)}
+                disabled={busyId === headLmiSwapTarget.id}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void toggleActive(headLmiSwapTarget, true)}
+                disabled={busyId === headLmiSwapTarget.id}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
+              >
+                {busyId === headLmiSwapTarget.id ? "Memproses..." : "Ya, aktifkan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageContainer>
   );
 }

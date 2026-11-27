@@ -2,6 +2,8 @@ export { default as PageContainer } from "./PageContainer";
 export { default as PageHeader } from "./PageHeader";
 export type { PageContainerProps, PageRole } from "./PageContainer";
 export type { PageHeaderProps } from "./PageHeader";
+export { default as RefreshButton } from "./RefreshButton";
+export type { RefreshButtonProps } from "./RefreshButton";
 export { SettingsField, SettingsPanel } from "./SettingsPrimitives";
 export { default as NavbarProfileDropdown } from "./NavbarProfileDropdown";
 export type { NavbarProfileDropdownProps } from "./NavbarProfileDropdown";

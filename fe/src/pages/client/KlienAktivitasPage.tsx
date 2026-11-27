@@ -971,7 +971,7 @@ export default function KlienAktivitasPage() {
                 onClick={() => openCancel(session)}
                 className="rounded-xl px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
               >
-                Batalkan booking
+                Batalkan penjadwalan
               </button>
             )}
           </div>
@@ -1349,6 +1349,7 @@ export default function KlienAktivitasPage() {
         <InformedConsentModal
           key={consentSession.id}
           bookingId={consentSession.bookingId}
+          sessionStartsAt={consentSession.start}
           isOpen
           onClose={() => setConsentSessionId(null)}
           onSuccess={handleConsentSigned}
@@ -1365,11 +1366,11 @@ export default function KlienAktivitasPage() {
         >
           <div role="dialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h2 id="cancel-booking-title" className="text-lg font-bold text-gray-900">
-              Batalkan booking?
+              Batalkan penjadwalan?
             </h2>
             <p className="mt-1 text-sm text-gray-600">
               {cancelTarget.counselor} · {dayLabel(cancelTarget.start, now)}, {formatTime(cancelTarget.start)} WITA.
-              Konselor akan diberi tahu dan slot dibuka kembali.
+              Konselor akan diberi tahu dan ketersediaan dibuka kembali.
             </p>
             <label className="mt-4 block text-sm font-semibold text-gray-900">
               Alasan pembatalan <span className="text-red-600">*</span>

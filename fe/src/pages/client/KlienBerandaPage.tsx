@@ -1,4 +1,5 @@
 import { SkeletonBlock } from "../../components/shared";
+import AnimatedMascot from "../../components/mood/AnimatedMascot";
 import TypingGreeting from "../../components/mood/TypingGreeting";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -270,27 +271,35 @@ export default function BerandaKlienPage() {
   const showTomorrowBanner = !!upcoming && sameDay(upcoming.date, tomorrow);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <section>
-        <h1 className="font-display text-2xl font-extrabold leading-tight text-gray-900 sm:text-3xl">
-          <TypingGreeting
-            ready={Boolean(profile) || !authLoading}
-            segments={[
-              { text: "Selamat datang kembali, " },
-              { text: `${userName}!`, className: "text-[#1e5b3a]" },
-            ]}
-          />
-        </h1>
-        <p className="mt-3 text-sm leading-relaxed text-gray-600 sm:text-base">
+        {/* Satu baris dua kolom: sapaan di kiri, maskot melambai di kanan. */}
+        <div className="flex items-center justify-between gap-3 sm:justify-start sm:gap-4">
+          <h1 className="min-w-0 font-display text-[26px] font-extrabold leading-tight text-gray-900 sm:text-3xl">
+            <TypingGreeting
+              mascot={false}
+              ready={Boolean(profile) || !authLoading}
+              segments={[
+                { text: "Selamat datang kembali, " },
+                { text: `${userName}!`, className: "block break-words text-[#1e5b3a] sm:inline" },
+              ]}
+            />
+          </h1>
+          <div aria-hidden="true" className="w-[72px] shrink-0 sm:w-[96px]">
+            <AnimatedMascot pose="wave" />
+          </div>
+        </div>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600 sm:mt-3 sm:text-base">
           Jaga kesehatan mentalmu, karena kamu juga penting.
         </p>
-        <p className="text-sm leading-relaxed text-gray-600 sm:text-base">
+        {/* Kalimat kedua hanya mulai tablet agar hero di ponsel tidak terlalu tinggi. */}
+        <p className="hidden text-sm leading-relaxed text-gray-600 sm:block sm:text-base">
           Disini tempat kamu bisa berbagi, bercerita, didengar, dan mendapatkan
           dukungan.
         </p>
         <Link
           to="/klien/permintaan"
-          className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#1e5b3a]/40 bg-white px-5 py-2.5 text-sm font-semibold text-[#1e5b3a] shadow-sm transition hover:bg-[#e8f9f0] sm:text-[15px]"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-[#1e5b3a]/40 bg-white px-5 py-2.5 text-sm font-semibold text-[#1e5b3a] shadow-sm transition hover:bg-[#e8f9f0] sm:mt-5 sm:inline-flex sm:w-auto sm:text-[15px]"
         >
           Buat janji konseling
           <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
@@ -298,8 +307,8 @@ export default function BerandaKlienPage() {
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-[0_20px_50px_rgba(0,0,0,0.06)] sm:p-6">
-          <div className="flex items-center gap-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-[0_20px_50px_rgba(0,0,0,0.06)] sm:p-6">
+          <div className="flex items-center gap-3 sm:gap-4">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f9f0] text-[#1e5b3a]">
               <CalendarDays className="h-5 w-5" strokeWidth={1.8} />
             </span>
@@ -311,7 +320,7 @@ export default function BerandaKlienPage() {
           {loading ? (
             <SkeletonBlock bare lines={4} label="Memuat jadwal konseling..." className="mt-5" />
           ) : !upcoming ? (
-            <div className="mt-5 rounded-2xl border border-dashed border-gray-300 p-6 text-center">
+            <div className="mt-4 rounded-2xl border border-dashed border-gray-300 p-4 text-center sm:mt-5 sm:p-6">
               <p className="text-sm font-semibold text-gray-700">
                 Belum ada jadwal konseling
               </p>

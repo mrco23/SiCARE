@@ -65,12 +65,58 @@ const supa = () => {
   return getSupabaseAdminClient();
 };
 
+/**
+ * Hanya satu Kepala LMI aktif. Mengaktifkan `profileId` sekaligus menonaktifkan Kepala LMI
+ * aktif lainnya secara atomik lewat RPC sicare_activate_head_lmi. Bila migrasinya belum
+ * diterapkan, langkah yang sama dijalankan berurutan (nonaktifkan dulu, lalu aktifkan).
+ * @param {string} profileId
+ * @param {string} actorUserId
+ * @returns {Promise<string[]>} ID Kepala LMI yang dinonaktifkan
+ */
+export async function activateHeadLmi(profileId, actorUserId, client = supa()) {
+  let deactivated = [];
+  const { data, error } = await client.rpc("sicare_activate_head_lmi", { p_profile_id: profileId });
+  if (!error) {
+    const row = Array.isArray(data) ? data[0] : data;
+    deactivated = row?.deactivated_ids ?? [];
+  } else if (error.code === "PGRST202" || error.code === "42883") {
+    const { data: disabled, error: disableError } = await client
+      .from("profiles")
+      .update({ account_status: "disabled" })
+      .eq("app_role", "head_lmi")
+      .eq("account_status", "active")
+      .neq("id", profileId)
+      .select("id");
+    if (disableError) supabaseError(disableError, "Kepala LMI aktif tidak dapat dinonaktifkan.");
+    const { error: activateError } = await client
+      .from("profiles")
+      .update({ account_status: "active" })
+      .eq("id", profileId)
+      .eq("app_role", "head_lmi");
+    if (activateError) supabaseError(activateError, "Akun Kepala LMI tidak dapat diaktifkan.");
+    deactivated = (disabled ?? []).map((row) => row.id);
+  } else {
+    supabaseError(error, "Akun Kepala LMI tidak dapat diaktifkan.");
+  }
+
+  for (const id of deactivated) {
+    await writeAudit({
+      actorUserId,
+      action: "admin.account.update",
+      entityType: "profile",
+      entityId: id,
+      metadata: { role: "head_lmi", status: "disabled" },
+    });
+  }
+  return deactivated;
+}
+
 export const adminAccountsService = {
   async listAccounts(filters) {
     let query = supa()
       .from("profiles")
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_updated_at,created_at,updated_at",
       )
       .order("created_at", { ascending: false })
       .limit(filters.limit);
@@ -116,7 +162,7 @@ export const adminAccountsService = {
     const { data, error } = await supa()
       .from("profiles")
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_updated_at,created_at,updated_at",
       )
       .eq("id", id)
       .maybeSingle();
@@ -151,17 +197,15 @@ export const adminAccountsService = {
       );
     }
 
+    // Kepala LMI baru yang aktif diaktifkan lewat activateHeadLmi agar Kepala LMI lama nonaktif.
+    const activatesHeadLmi = input.app_role === "head_lmi" && input.account_status === "active";
     const profilePatch = {
       full_name: input.full_name,
       identity_code: input.identity_code ?? null,
       member_category: input.member_category ?? null,
       app_role: input.app_role,
-      account_status: input.account_status,
+      account_status: activatesHeadLmi ? "disabled" : input.account_status,
       gender: input.gender ?? null,
-      siap_number: input.app_role === "counselor" ? input.siap_number : null,
-      sipp_silp_number: input.app_role === "counselor" ? input.sipp_silp_number : null,
-      sipp_silp_valid_until:
-        input.app_role === "counselor" ? (input.sipp_silp_valid_until ?? null) : null,
     };
 
     const { data, error } = await supa()
@@ -169,7 +213,7 @@ export const adminAccountsService = {
       .update(profilePatch)
       .eq("id", created.user.id)
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_updated_at,created_at,updated_at",
       )
       .single();
 
@@ -196,6 +240,17 @@ export const adminAccountsService = {
       }
     }
 
+    let deactivatedHeadLmi = [];
+    if (activatesHeadLmi) {
+      try {
+        deactivatedHeadLmi = await activateHeadLmi(data.id, actorUserId);
+        data.account_status = "active";
+      } catch (activationError) {
+        await supa().auth.admin.deleteUser(created.user.id);
+        throw activationError;
+      }
+    }
+
     await writeAudit({
       actorUserId,
       action: "admin.account.create",
@@ -204,7 +259,7 @@ export const adminAccountsService = {
       metadata: { role: input.app_role, status: input.account_status },
     });
 
-    return { ...data, email: created.user.email ?? input.email };
+    return { ...data, email: created.user.email ?? input.email, deactivated_head_lmi: deactivatedHeadLmi.length };
   },
 
   async updateAccount(id, input, actorUserId) {
@@ -243,21 +298,10 @@ export const adminAccountsService = {
       );
     }
 
-    // Akun konselor lama boleh belum lengkap (mis. saat hanya mengubah status), tetapi
-    // menjadi konselor atau mengubah data ini harus menghasilkan data yang lengkap.
+    // No. SIAP dan No. SIPP/SILP tidak lagi diwajibkan di sini: konselor mengisinya sendiri.
     const finalRole = input.app_role ?? current.app_role;
-    const touchesCounselorData = ["gender", "siap_number", "sipp_silp_number"].some(
-      (field) => input[field] !== undefined,
-    );
-    if (finalRole === "counselor" && (current.app_role !== "counselor" || touchesCounselorData)) {
-      const merged = { ...current, ...input };
-      if (!merged.gender || !merged.siap_number || !merged.sipp_silp_number) {
-        throw new HttpError(
-          400,
-          "COUNSELOR_DATA_REQUIRED",
-          "Jenis kelamin, No. SIAP, dan No. SIPP/SILP wajib diisi untuk akun konselor.",
-        );
-      }
+    if (finalRole === "counselor" && current.app_role !== "counselor" && !(input.gender ?? current.gender)) {
+      throw new HttpError(400, "COUNSELOR_DATA_REQUIRED", "Jenis kelamin wajib diisi untuk akun konselor.");
     }
 
     const losingAdmin =
@@ -282,12 +326,20 @@ export const adminAccountsService = {
       }
     }
 
+    // Mengaktifkan Kepala LMI menonaktifkan Kepala LMI yang sedang aktif.
+    let deactivatedHeadLmi = [];
+    const activatesHeadLmi =
+      finalRole === "head_lmi" && input.account_status === "active" && current.account_status !== "active";
+    if (activatesHeadLmi) {
+      deactivatedHeadLmi = await activateHeadLmi(id, actorUserId);
+    }
+
     const { data, error } = await supa()
       .from("profiles")
       .update(input)
       .eq("id", id)
       .select(
-        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_valid_until,sipp_silp_updated_at,created_at,updated_at",
+        "id,identity_code,full_name,app_role,member_category,account_status,phone_e164,gender,siap_number,sipp_silp_number,sipp_silp_updated_at,created_at,updated_at",
       )
       .maybeSingle();
 
@@ -336,7 +388,13 @@ export const adminAccountsService = {
     });
 
     const closed = await closeBookingsAfterAccountChange(current, data, actorUserId);
-    return { ...data, cancelled_bookings: closed.cancelled, ongoing_bookings_kept: closed.skipped, booking_cleanup_failed: closed.failed };
+    return {
+      ...data,
+      cancelled_bookings: closed.cancelled,
+      ongoing_bookings_kept: closed.skipped,
+      booking_cleanup_failed: closed.failed,
+      deactivated_head_lmi: deactivatedHeadLmi.length,
+    };
   },
 
   async deactivateAccount(id, actorUserId) {

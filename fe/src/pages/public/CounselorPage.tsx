@@ -1,14 +1,12 @@
-import { useEffect, useId, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, CalendarDays, ChevronDown } from "lucide-react";
 import Badge from "../../components/shared/Badge";
 import { Skeleton } from "../../components/shared";
 import {
-  getPublicAcademicPeriods,
   getAllPublicAvailability,
   getPublicCounselors,
   getPublicPhotoUrl,
-  type PublicAcademicPeriod,
   type PublicAvailabilitySlot,
   type PublicCounselor,
 } from "../../lib/publicApi";
@@ -91,7 +89,7 @@ function ScheduleSummary({ days, total }: { days: SlotDay[]; total: number }) {
       <p className="text-sm font-semibold text-gray-900">
         {longDateFmt.format(new Date(first.starts_at))} · {formatTime(first.starts_at)} WITA
       </p>
-      <p className="mt-0.5 text-xs font-semibold text-primary">{total} slot tersedia</p>
+      <p className="mt-0.5 text-xs font-semibold text-primary">{total} ketersediaan</p>
     </>
   );
 }
@@ -129,7 +127,7 @@ function ScheduleSection({ counselor, days }: { counselor: PublicCounselor; days
                 >
                   <span className="text-[11px] font-semibold uppercase">{weekdayFmt.format(day.date)}</span>
                   <span className="text-sm font-bold">{dayMonthFmt.format(day.date)}</span>
-                  <span className="mt-0.5 text-[10px] opacity-80">{day.slots.length} slot</span>
+                  <span className="mt-0.5 text-[10px] opacity-80">{day.slots.length} ketersediaan</span>
                 </button>
               );
             })}
@@ -168,8 +166,26 @@ function ScheduleSection({ counselor, days }: { counselor: PublicCounselor; days
   );
 }
 
-function CounselorCard({ counselor, slots }: { counselor: PublicCounselor; slots: PublicAvailabilitySlot[] }) {
-  const [open, setOpen] = useState(false);
+function CounselorCard({
+  counselor,
+  slots,
+  initiallyOpen = false,
+}: {
+  counselor: PublicCounselor;
+  slots: PublicAvailabilitySlot[];
+  /** Dibuka otomatis bila pengunjung datang dari "Kenali Lebih Lanjut" konselor ini. */
+  initiallyOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const cardRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!initiallyOpen) return;
+    const frame = window.requestAnimationFrame(() =>
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [initiallyOpen]);
   const contentId = useId();
   const days = useMemo(() => groupSlotsByDay(slots), [slots]);
   const topics = counselor.specialties ?? [];
@@ -182,7 +198,8 @@ function CounselorCard({ counselor, slots }: { counselor: PublicCounselor; slots
 
   return (
     <article
-      className={`overflow-hidden rounded-2xl bg-white ring-1 ring-gray-100 transition-shadow duration-300 ${
+      ref={cardRef}
+      className={`scroll-mt-28 overflow-hidden rounded-2xl bg-white ring-1 ring-gray-100 transition-shadow duration-300 ${
         open ? "shadow-[0_18px_40px_rgba(6,78,59,0.12)]" : "shadow-[0_12px_32px_rgba(0,0,0,0.06)]"
       }`}
     >
@@ -297,9 +314,10 @@ function CounselorListSkeleton() {
 }
 
 export default function CounselorPage() {
+  const [searchParams] = useSearchParams();
+  const focusedCounselorId = searchParams.get("konselor");
   const [counselors, setCounselors] = useState<PublicCounselor[]>([]);
   const [slots, setSlots] = useState<PublicAvailabilitySlot[]>([]);
-  const [periods, setPeriods] = useState<PublicAcademicPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -309,13 +327,11 @@ export default function CounselorPage() {
     Promise.all([
       getPublicCounselors(controller.signal),
       getAllPublicAvailability({ signal: controller.signal }),
-      getPublicAcademicPeriods(controller.signal),
     ])
-      .then(([nextCounselors, nextSlots, nextPeriods]) => {
+      .then(([nextCounselors, nextSlots]) => {
         if (!active) return;
         setCounselors(nextCounselors);
         setSlots(nextSlots);
-        setPeriods(nextPeriods);
         setError(null);
       })
       .catch(() => {
@@ -349,14 +365,6 @@ export default function CounselorPage() {
         <p className="mt-2 text-sm text-gray-600 sm:text-base">
           Kenali konselor dan lihat jadwal yang benar-benar tersedia.
         </p>
-        {periods.length > 0 && (
-          <p className="mt-3 text-sm text-gray-600">
-            Periode akademik dipublikasikan:{" "}
-            {periods
-              .map((period) => `${period.academic_year} · ${period.semester}`)
-              .join(", ")}
-          </p>
-        )}
         <div className="mt-4 h-1 w-24 rounded-full bg-primary" />
         {!loading && !error && counselors.length > 0 && (
           <p className="mt-5 inline-flex items-start gap-2 rounded-2xl bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary">
@@ -386,6 +394,7 @@ export default function CounselorPage() {
               key={counselor.profile_id}
               counselor={counselor}
               slots={slotsByCounselor.get(counselor.profile_id) ?? []}
+              initiallyOpen={counselor.profile_id === focusedCounselorId}
             />
           ))}
       </main>

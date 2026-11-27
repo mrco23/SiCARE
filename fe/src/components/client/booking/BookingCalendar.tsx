@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import type { BookingCounselor } from "../../../types/clientCounselor";
 import { toISODate } from "../../../lib/dateUtils";
 import {
@@ -136,6 +136,14 @@ export function CalendarPicker({
   );
 }
 
+/** Cadangan bila jam selesai tidak ada di data: sesi berdurasi 60 menit. */
+function addOneHour(time: string): string {
+  const [h, m] = time.split(/[.:]/).map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+  const total = (h * 60 + m + 60) % (24 * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}.${String(total % 60).padStart(2, "0")}`;
+}
+
 export function TimePanel({
   counselor,
   selDate,
@@ -164,26 +172,43 @@ export function TimePanel({
         {formatBookingDate(selDate)}
       </p>
       <p className="mt-1 text-xs text-gray-500">
-        Pilih salah satu jam yang tersedia.
+        Pilih salah satu jam yang tersedia. Durasi sesi 60 menit (WITA).
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div
+        role="radiogroup"
+        aria-label="Pilih jam konseling"
+        className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3"
+      >
         {slots.length === 0 && (
-          <p className="text-sm text-gray-500">Tidak ada jam tersedia.</p>
+          <p className="col-span-full text-sm text-gray-500">Tidak ada jam tersedia.</p>
         )}
         {slots.map((time) => {
           const selected = slot?.date === selDate && slot?.time === time;
+          const end = counselor.availabilityEndByDate?.[selDate]?.[time] ?? addOneHour(time);
           return (
             <button
               key={time}
               type="button"
+              role="radio"
+              aria-checked={selected}
               onClick={() => onSelectSlot(time)}
-              className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
+              className={`flex min-h-[64px] w-full flex-col items-center justify-center rounded-2xl border-2 px-2 py-2.5 text-center transition focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/25 sm:px-3 ${
                 selected
-                  ? "border-primary bg-primary text-white"
-                  : "border-primary/40 bg-primary-soft text-primary hover:border-primary"
+                  ? "border-primary bg-primary text-white shadow-[0_10px_24px_rgba(6,78,59,0.25)]"
+                  : "border-emerald-200 bg-emerald-50/60 text-gray-900 hover:border-emerald-400 hover:bg-emerald-50"
               }`}
             >
-              {time}
+              <span className="whitespace-nowrap text-[15px] font-bold tabular-nums tracking-tight sm:text-[17px]">
+                {time} – {end}
+              </span>
+              {selected ? (
+                <span className="mt-0.5 inline-flex items-center gap-1 text-[13px] font-medium text-emerald-100">
+                  <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+                  Dipilih
+                </span>
+              ) : (
+                <span className="mt-0.5 text-[13px] font-medium text-emerald-700">Tersedia</span>
+              )}
             </button>
           );
         })}

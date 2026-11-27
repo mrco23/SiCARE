@@ -122,7 +122,7 @@ export const counselorSessionReportService = {
 
     const { data: counselor, error: counselorError } = await client
       .from("profiles")
-      .select("full_name,sipp_silp_number,sipp_silp_valid_until")
+      .select("full_name,sipp_silp_number")
       .eq("id", counselorId)
       .maybeSingle();
 
@@ -160,7 +160,6 @@ export const counselorSessionReportService = {
       counselor: {
         full_name: counselor?.full_name ?? null,
         sipp_silp_number: counselor?.sipp_silp_number ?? null,
-        sipp_silp_valid_until: counselor?.sipp_silp_valid_until ?? null,
       },
     };
   },

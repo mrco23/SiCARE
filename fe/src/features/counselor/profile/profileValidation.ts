@@ -4,7 +4,6 @@ import type {
   CounselorProfileErrors,
 } from "../../../types/counselorProfile";
 
-export const MAX_COUNSELOR_TOPICS = 6;
 export const MAX_COUNSELOR_TOPIC_LENGTH = 40;
 export const MAX_COUNSELOR_BIO_LENGTH = 500;
 export const MIN_ACCOUNT_PASSWORD_LENGTH = 8;

@@ -4,12 +4,45 @@ import { callDomainRpc } from "../lib/domainRpc.js";
 import { writeAudit } from "../lib/audit.js";
 import { sessionRepository } from "../repositories/session.repository.js";
 import { applyBookingClosureSideEffects } from "./bookingClosure.service.js";
+import { enqueueOutboxMessage } from "./whatsappOutbox.service.js";
 
 function getClient() {
   if (!isSupabaseConfigured()) {
     throw new HttpError(503, "SUPABASE_NOT_CONFIGURED", "Supabase belum dikonfigurasi pada server.");
   }
   return getSupabaseAdminClient();
+}
+
+/**
+ * WhatsApp ke klien setelah sesi selesai: ajakan mengisi feedback. Gagal antre tidak
+ * membatalkan penyelesaian sesi (hanya dicatat); notifikasi in-app tetap dibuat RPC.
+ */
+export async function enqueueFeedbackRequest(client, session) {
+  try {
+    const clientId = session.booking.client_id;
+    const [{ data: clientProfile }, { data: counselorProfile }] = await Promise.all([
+      client.from("profiles").select("full_name,phone_e164").eq("id", clientId).maybeSingle(),
+      client.from("counselor_profiles").select("public_name").eq("profile_id", session.counselor_id).maybeSingle(),
+    ]);
+    const result = await enqueueOutboxMessage({
+      supabaseClient: client,
+      bookingId: session.booking.id,
+      recipientUserId: clientId,
+      messageType: "feedback_request",
+      phoneE164: clientProfile?.phone_e164 ?? null,
+      qualifier: session.id,
+      payload: {
+        booking_id: session.booking.id,
+        starts_at: session.starts_at,
+        ends_at: session.ends_at,
+        recipient_name: clientProfile?.full_name || "Klien",
+        counselor_name: counselorProfile?.public_name || "Konselor",
+      },
+    });
+    if (!result.success) console.warn("[Session] WhatsApp ajakan feedback gagal diantrekan:", result.error?.code ?? "unknown");
+  } catch (error) {
+    console.warn("[Session] WhatsApp ajakan feedback gagal diantrekan:", error?.code ?? "unknown");
+  }
 }
 
 export const sessionService = {
@@ -88,6 +121,10 @@ export const sessionService = {
     });
 
     const session = await sessionRepository.findForParty(client, sessionId, authProfile);
+
+    if (targetStatus === "completed" && session?.booking?.client_id) {
+      await enqueueFeedbackRequest(client, session);
+    }
 
     if (targetStatus === "cancelled" && session?.booking) {
       // The RPC already cancelled the session and booking. Store the counselor's reason and

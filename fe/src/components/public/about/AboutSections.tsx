@@ -13,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { useState, type CSSProperties, type ElementType } from "react";
+import { Link } from "react-router-dom";
 
 // Lebar konten: sama dengan homepage
 const container = "mx-auto w-[88%] sm:w-[82%] md:w-[78%] lg:w-[72%] xl:w-[78%]";
@@ -520,10 +521,14 @@ export function CtaSection() {
         </svg>
 
         <div className="relative z-10 flex h-full items-center justify-center">
-          <button className="flex items-center gap-2 rounded-md bg-[#2e9a5f] px-5 py-2.5 text-xs font-semibold text-white shadow-lg transition hover:bg-[#268050] sm:text-sm">
+          {/* Rute klien dilindungi: pengguna yang belum login diarahkan ke /login lalu kembali ke sini. */}
+          <Link
+            to="/klien/permintaan"
+            className="flex items-center gap-2 rounded-md bg-[#2e9a5f] px-5 py-2.5 text-xs font-semibold text-white shadow-lg transition hover:bg-[#268050] sm:text-sm"
+          >
             <CalendarDays className="h-3.5 w-3.5" />
             Mulai Konseling
-          </button>
+          </Link>
         </div>
       </div>
     </section>

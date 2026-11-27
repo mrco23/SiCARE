@@ -1,8 +1,9 @@
--- SiCARE: bersihkan seluruh data transaksi TANPA menghapus akun.
+-- SiCARE: RESET DUMMY. Bersihkan seluruh data transaksi TANPA menghapus akun.
 --
--- Jalankan di Supabase Dashboard -> SQL Editor pada project NON-PRODUKSI.
--- Skrip ini manual/sekali pakai, bukan migrasi. Jalankan sebelum
--- be/scripts/seed-dummy-current-period.sql (seed menolak berjalan bila bookings belum kosong).
+-- Simpan sebagai snippet di Supabase Dashboard -> SQL Editor (project NON-PRODUKSI).
+-- Skrip manual, bukan migrasi. Jalankan sebelum snippet Seed Dummy
+-- (be/scripts/seed-dummy-current-period.sql; seed menolak berjalan bila bookings belum kosong).
+-- Aman dijalankan berulang kali.
 --
 -- DIHAPUS (TRUNCATE):
 --   jadwal (availability_slots), booking + peserta + intake, sesi + catatan sesi, feedback,
@@ -10,9 +11,10 @@
 --   outbox WhatsApp, dan audit_events.
 --
 -- DIPERTAHANKAN:
---   auth.users, auth.identities, profiles, counselor_profiles (termasuk sandi riwayat konselor)
---   (semua akun: klien dummy, klien asli, konselor, admin, Kepala LMI), consent_templates
---   (bila masih ada), academic_periods, hero_motivations, homepage_logo.
+--   Semua akun dan datanya: auth.users, auth.identities, profiles, counselor_profiles
+--   (termasuk sandi riwayat konselor), counselor_educations, login_attempts.
+--   Konten & konfigurasi: academic_periods, consent_templates (bila masih ada),
+--   hero_motivations, homepage_logo.
 --
 -- Catatan:
 -- - Tahan terhadap database yang migrasinya belum lengkap: tabel yang belum ada (mis.
@@ -70,10 +72,5 @@ $$;
 -- Opsional: reset juga periode akademik (lepas komentar bila diinginkan; seed dummy akan
 -- membuat periode berjalan bila belum ada).
 -- truncate table public.academic_periods;
-
--- Opsional: hapus akun klien @sicare-dummy.test buatan versi seed lama (seed terbaru tidak lagi
--- membuat akun; ia memakai akun yang sudah ada di website). Lepas komentar bila diinginkan.
--- Aman dijalankan di sini karena booking yang mereferensikan profil sudah dikosongkan di atas.
--- delete from auth.users where email like '%@sicare-dummy.test';
 
 commit;

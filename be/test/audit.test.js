@@ -106,7 +106,7 @@ test("counselor license and session note changes are written to the audit trail"
   );
 
   assert.equal(inserted.length, 2);
-  assert.deepEqual(inserted[0].metadata, { role: "counselor", sipp_silp_valid_until: "2027-12-31" });
+  assert.deepEqual(inserted[0].metadata, { role: "counselor" });
 });
 
 test("every audit action used in the backend is on the allow-list", () => {

@@ -13,7 +13,9 @@ import {
   PageContainer,
   PageHeader,
 } from "../shared";
-import CounselingReportPrint from "./CounselingReportPrint";
+import CounselingReportPrint, { type ReportPrintData } from "./CounselingReportPrint";
+import { reportingApi } from "../../features/reporting/api/reportingApi";
+import { useToast } from "../shared/useToast";
 import { useAuth } from "../../features/auth/useAuth";
 import { toISO, type AcademicPeriod } from "../../lib/academicPeriods";
 import type {
@@ -23,8 +25,7 @@ import type {
 } from "../../types/api";
 import {
   CalendarDays,
-  Printer,
-  RefreshCw,
+  Download,
   Star,
   TriangleAlert,
 } from "lucide-react";
@@ -61,7 +62,7 @@ export interface ReportSource {
   role: "admin" | "headlmi";
   eyebrow?: string;
   description: string;
-  /** Periode non-publikasi tidak terbaca Kepala LMI, jadi peringatan ini khusus Admin. */
+  /** Peringatan sesi di luar periode terdaftar khusus Admin. */
   showOrphanWarning: boolean;
   load: () => Promise<{
     report: AdminReportDto;
@@ -387,6 +388,8 @@ export default function CounselingReportView({
   const { profile } = useAuth();
   const [report, setReport] = useState<AdminReportDto | null>(null);
   const [conclusion, setConclusion] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const toast = useToast();
   const [counselingCount, setCounselingCount] = useState(0);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [allSessions, setAllSessions] = useState<ReportSessionRow[]>([]);
@@ -726,56 +729,92 @@ export default function CounselingReportView({
     ? "Seluruh data tercatat"
     : `${new Date(`${selectedSemester.start}T00:00:00`).toLocaleDateString("id-ID", { dateStyle: "long" })} – ${new Date(`${selectedSemester.end}T00:00:00`).toLocaleDateString("id-ID", { dateStyle: "long" })}`;
 
+  const printData: ReportPrintData = {
+    role: source.role,
+    periodLabel,
+    periodRange,
+    dataLimited:
+      Boolean(report?.truncated) ||
+      counselingCount >= REPORT_ROW_LIMIT ||
+      feedbackList.length >= REPORT_ROW_LIMIT,
+    totals: {
+      sessions: totalSessionsDisplay,
+      done: doneDisplay,
+      cancelled: cancelledDisplay,
+    },
+    individual: {
+      done: doneIndividual.length,
+      cancelled: cancelledIndividual.length,
+    },
+    group: { done: doneGroup.length, cancelled: cancelledGroup.length },
+    months: monthly.map((month) => ({
+      label: `${MONTH_NAMES[Number(month.key.slice(5, 7)) - 1] ?? month.key} ${month.key.slice(0, 4)}`,
+      done: month.done,
+      cancelled: month.cancelled,
+    })),
+    counselors: counselorRows.map((row) => ({
+      counselor: row.counselor,
+      individualDone: row.individualDone,
+      groupDone: row.groupDone,
+      totalCancelled: row.totalCancelled,
+      totalSessions: row.totalSessions,
+    })),
+    cancellations: categoryCount,
+    rating: {
+      average: ratingSummary.avg,
+      total: ratingSummary.total,
+      distribution: [5, 4, 3, 2, 1].map((star) => ({
+        star,
+        count: periodFeedback.filter((f) => f.rating === star).length,
+      })),
+    },
+    sessions: rows,
+    conclusion,
+    signer: {
+      name: profile?.full_name?.trim() || SIGN_PLACEHOLDER,
+      identityCode: profile?.identity_code?.trim() || null,
+    },
+  };
+
+  async function handleDownloadPdf() {
+    setDownloading(true);
+    try {
+      // Hanya data agregat yang dikirim; alasan pembatalan bebas dan ID konselor tidak ikut.
+      const blob = await reportingApi.downloadReportPdf(printData.role, {
+        periodLabel: printData.periodLabel,
+        periodRange: printData.periodRange,
+        dataLimited: printData.dataLimited,
+        totals: printData.totals,
+        individual: printData.individual,
+        group: printData.group,
+        months: printData.months,
+        counselors: printData.counselors,
+        cancellations: printData.cancellations,
+        rating: printData.rating,
+        conclusion: printData.conclusion,
+        sessions: printData.sessions.map(({ id, shortId, date, format, counselor, outcome }) => ({
+          id, shortId, date, format, counselor, outcome,
+        })),
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Laporan-Bimbingan-Konseling-${periodLabel.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success("Laporan PDF berhasil diunduh.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Laporan PDF tidak dapat diunduh.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <PageContainer role={source.role} className="report-print-page" spacing="none">
-      <CounselingReportPrint
-        data={{
-          role: source.role,
-          periodLabel,
-          periodRange,
-          dataLimited:
-            Boolean(report?.truncated) ||
-            counselingCount >= REPORT_ROW_LIMIT ||
-            feedbackList.length >= REPORT_ROW_LIMIT,
-          totals: {
-            sessions: totalSessionsDisplay,
-            done: doneDisplay,
-            cancelled: cancelledDisplay,
-          },
-          individual: {
-            done: doneIndividual.length,
-            cancelled: cancelledIndividual.length,
-          },
-          group: { done: doneGroup.length, cancelled: cancelledGroup.length },
-          months: monthly.map((month) => ({
-            label: `${MONTH_NAMES[Number(month.key.slice(5, 7)) - 1] ?? month.key} ${month.key.slice(0, 4)}`,
-            done: month.done,
-            cancelled: month.cancelled,
-          })),
-          counselors: counselorRows.map((row) => ({
-            counselor: row.counselor,
-            individualDone: row.individualDone,
-            groupDone: row.groupDone,
-            totalCancelled: row.totalCancelled,
-            totalSessions: row.totalSessions,
-          })),
-          cancellations: categoryCount,
-          rating: {
-            average: ratingSummary.avg,
-            total: ratingSummary.total,
-            distribution: [5, 4, 3, 2, 1].map((star) => ({
-              star,
-              count: periodFeedback.filter((f) => f.rating === star).length,
-            })),
-          },
-          sessions: rows,
-          conclusion,
-          signer: {
-            name: profile?.full_name?.trim() || SIGN_PLACEHOLDER,
-            identityCode: profile?.identity_code?.trim() || null,
-          },
-        }}
-      />
+      <CounselingReportPrint data={printData} />
 
       <div className="no-print space-y-6">
       {/* 1. Identitas halaman */}
@@ -783,23 +822,13 @@ export default function CounselingReportView({
         eyebrow={source.eyebrow}
         title="Laporan Konseling"
         description={source.description}
+        refresh={{ onClick: () => void handleRefresh(), loading }}
         actions={
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1.5">
               <CalendarDays className="h-4 w-4" />
               Periode: {periodLabel}
             </span>
-            <button
-              type="button"
-              onClick={() => void handleRefresh()}
-              disabled={loading}
-              className="no-print inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-              />
-              Muat ulang
-            </button>
           </div>
         }
       />
@@ -849,11 +878,12 @@ export default function CounselingReportView({
         <div className="flex flex-col items-stretch gap-2 lg:items-end">
           <button
             type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
+            onClick={() => void handleDownloadPdf()}
+            disabled={downloading || loading}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark disabled:opacity-60"
           >
-            <Printer className="h-4 w-4" />
-            Unduh Laporan PDF
+            <Download className={`h-4 w-4 ${downloading ? "animate-pulse" : ""}`} />
+            {downloading ? "Menyiapkan PDF..." : "Unduh Laporan PDF"}
           </button>
           <span className="text-center text-xs text-slate-500 lg:text-right">
             Laporan sesuai periode: {periodLabel}

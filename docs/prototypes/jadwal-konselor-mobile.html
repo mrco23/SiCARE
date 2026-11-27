@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype Jadwal Konselor Mobile – SiCARE</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: "#064E3B", "primary-soft": "#e8f9f0" },
+          fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] },
+        },
+      },
+    };
+  </script>
+  <style>
+    .phone { width: 375px; height: 780px; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+    @keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+    .sheet { animation: sheet-in .22s ease-out; }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    .backdrop { animation: fade-in .2s ease-out; }
+    @keyframes slide-l { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+    @keyframes slide-r { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+    .enter-l { animation: slide-l .2s ease-out; }
+    .enter-r { animation: slide-r .2s ease-out; }
+    @media (prefers-reduced-motion: reduce) { .sheet, .backdrop, .enter-l, .enter-r { animation: none; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-gray-900 antialiased">
+  <header class="mx-auto max-w-[1100px] px-4 pt-8 sm:px-6">
+    <p class="text-xs font-semibold uppercase tracking-wider text-primary">Prototype · Jadwal Konselor (mobile 375px)</p>
+    <h1 class="mt-1 font-display text-2xl font-extrabold">Agenda harian + strip minggu, tanpa gulir panjang</h1>
+    <p class="mt-2 max-w-3xl text-sm text-gray-600">
+      Kiri: tampilan sekarang di ponsel (kalender mingguan 680px digeser ke samping, lalu kalender bulan,
+      lalu daftar). Kanan: usulan. Semua bisa diklik: ganti hari, geser minggu, buka kalender bulan,
+      tambah/ubah jadwal. Desktop (layar besar) tetap memakai kalender mingguan yang sekarang.
+    </p>
+  </header>
+
+  <main class="mx-auto flex max-w-[1100px] flex-wrap justify-center gap-10 px-4 py-8 sm:px-6">
+    <!-- ================= SEKARANG ================= -->
+    <section>
+      <p class="font-display text-base font-bold">Sekarang</p>
+      <p class="mb-3 w-[375px] text-xs text-gray-600">Isi hari terpilih baru terlihat setelah melewati kalender mingguan dan kalender bulan.</p>
+      <div class="phone relative overflow-hidden rounded-[2.2rem] border-[10px] border-gray-900 bg-[#f7fbf9] shadow-2xl">
+        <div id="nowScroll" class="h-full overflow-y-auto px-4 pb-24 pt-6">
+          <h2 class="font-display text-2xl font-extrabold">Jadwal</h2>
+          <p class="text-xs text-gray-500">Atur jam ketersediaan konseling Anda pada kalender mingguan</p>
+          <div class="mt-3 flex gap-2">
+            <span class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold">Muat Ulang</span>
+            <span class="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white">+ Tambah Jadwal</span>
+          </div>
+          <div class="mt-4 rounded-2xl border border-gray-200 bg-white p-3">
+            <p class="text-sm font-bold">23 Nov – 29 Nov 2026</p>
+            <p class="text-[11px] text-gray-500">Klik ruang kosong untuk menambah ketersediaan 1 jam…</p>
+            <div class="mt-2 overflow-x-auto">
+              <div id="nowWeek" class="min-w-[680px]"></div>
+            </div>
+          </div>
+          <div class="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+            <p class="text-sm font-bold">November 2026</p>
+            <div id="nowMonth" class="mt-2 grid grid-cols-7 gap-1 text-center text-xs"></div>
+          </div>
+          <div id="nowList" class="mt-4 rounded-2xl border border-gray-200 bg-white p-4"></div>
+        </div>
+        <div class="pointer-events-none absolute inset-x-0 bottom-[58px] bg-gradient-to-t from-black/60 to-transparent px-4 pb-4 pt-10 text-center text-xs font-semibold text-white">
+          ↓ gulir ±<span id="nowDepth"></span>px untuk melihat jadwal hari terpilih
+        </div>
+        <!-- Bar navigasi bawah KonselorLayout (fixed bottom-0, lg:hidden) -->
+        <nav class="absolute inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-[#d9d9d9] bg-white/95 px-1 backdrop-blur">
+          <span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-gray-500"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg>Beranda</span><span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-gray-500"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Aktivitas</span><span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-gray-500"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H5.2L4 17.2z"/></svg>Permintaan</span><span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-primary"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jadwal</span><span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-gray-500"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Lainnya</span>
+        </nav>
+      </div>
+    </section>
+
+    <!-- ================= USULAN ================= -->
+    <section>
+      <p class="font-display text-base font-bold">Usulan</p>
+      <p class="mb-3 w-[375px] text-xs text-gray-600">Strip minggu di atas, daftar jadwal hari terpilih langsung di bawahnya, tombol tambah melayang.</p>
+      <div id="phone" class="phone relative overflow-hidden rounded-[2.2rem] border-[10px] border-gray-900 bg-[#f7fbf9] shadow-2xl">
+        <!-- Header tetap -->
+        <div class="absolute inset-x-0 top-0 z-20 border-b border-gray-200 bg-white/95 px-4 pb-3 pt-4 backdrop-blur">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="font-display text-xl font-extrabold leading-none">Jadwal</h2>
+              <p id="weekLabel" class="mt-1 text-xs font-semibold text-gray-500"></p>
+            </div>
+            <div class="flex items-center gap-1">
+              <button id="openMonth" aria-label="Pilih tanggal dari kalender bulan" class="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-700">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              </button>
+              <button id="todayBtn" class="h-9 rounded-xl border border-gray-200 px-3 text-xs font-semibold text-gray-700">Hari ini</button>
+            </div>
+          </div>
+          <!-- Strip minggu -->
+          <div class="mt-3 flex items-center gap-1">
+            <button id="prevWeek" aria-label="Minggu sebelumnya" class="flex h-14 w-6 shrink-0 items-center justify-center text-gray-400">‹</button>
+            <div id="strip" class="grid flex-1 grid-cols-7 gap-1"></div>
+            <button id="nextWeek" aria-label="Minggu berikutnya" class="flex h-14 w-6 shrink-0 items-center justify-center text-gray-400">›</button>
+          </div>
+        </div>
+
+        <!-- Agenda hari terpilih -->
+        <div id="agendaScroll" class="no-scrollbar h-full overflow-y-auto px-4 pb-[150px] pt-[156px]">
+          <div id="agenda"></div>
+        </div>
+
+        <!-- Tombol tambah melayang -->
+        <button id="fab" class="absolute bottom-[74px] right-4 z-20 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(6,78,59,0.35)]">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Tambah
+        </button>
+
+        <div id="sheetHost"></div>
+        <!-- Bar navigasi bawah KonselorLayout (fixed bottom-0, lg:hidden) -->
+        <nav class="absolute inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-[#d9d9d9] bg-white/95 px-1 backdrop-blur">
+          <span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-gray-500"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg>Beranda</span><span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-gray-500"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Aktivitas</span><span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-gray-500"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H5.2L4 17.2z"/></svg>Permintaan</span><span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-primary"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jadwal</span><span class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-gray-500"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Lainnya</span>
+        </nav>
+        <div id="toast" class="pointer-events-none absolute inset-x-4 top-[150px] z-[60] hidden rounded-xl bg-gray-900 px-4 py-2.5 text-center text-xs font-semibold text-white shadow-lg"></div>
+      </div>
+    </section>
+  </main>
+
+  <section class="mx-auto max-w-[1100px] px-4 pb-12 sm:px-6">
+    <div class="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-700 shadow-sm">
+      <h2 class="font-display text-base font-bold text-gray-900">Isi usulan (hanya layar kecil, di bawah lg)</h2>
+      <ol class="mt-3 list-decimal space-y-1.5 pl-5">
+        <li><strong>Header tetap</strong> berisi judul, rentang minggu, tombol kalender bulan, dan "Hari ini". Tidak ikut tergulir.</li>
+        <li><strong>Strip 7 hari</strong> (Sen–Min) dengan titik jumlah jadwal: hijau = tersedia, biru = diminta. Panah ‹ › atau geser strip untuk pindah minggu. Sabtu/Minggu dan tanggal lewat diredupkan.</li>
+        <li><strong>Agenda hari terpilih</strong> langsung di bawah strip: hanya jadwal yang sudah dibuat, urut jam, sebagai kartu (hijau tersedia, biru diminta, abu-abu lewat). Hari tanpa jadwal menampilkan keterangan kosong; jadwal baru ditambah lewat tombol "Tambah".</li>
+        <li><strong>Geser kiri/kanan</strong> pada agenda untuk pindah ke hari kerja sebelumnya/berikutnya.</li>
+        <li><strong>Kalender bulan</strong> dipindah ke lembar bawah (bottom sheet) yang dibuka dari ikon kalender, bukan selalu tampil.</li>
+        <li><strong>Tombol "Tambah" melayang</strong> di kanan bawah, tepat <em>di atas</em> bar navigasi bawah (jarak 16px, ikut <code>safe-area</code> iPhone), tidak menimpa menu. Daftar diberi ruang bawah agar kartu terakhir tidak tertutup tombol maupun bar. Lembar bawah (form, kalender bulan) muncul di atas bar navigasi.</li>
+        <li><strong>Form tambah/ubah</strong> sebagai lembar bawah, input jam dengan titik otomatis seperti sekarang. Aturan yang ada tetap: hari kerja, 08.00–15.00, durasi 60 menit, jadwal yang sudah diminta klien tidak bisa diubah/dihapus.</li>
+        <li>Jam tidak bulat (mis. 10.30) tetap didukung dan tampil sesuai jam aslinya.</li>
+        <li>Desktop/laptop tetap kalender mingguan + panel kanan seperti sekarang.</li>
+      </ol>
+    </div>
+  </section>
+
+  <script>
+    // ===== Data tiruan =====
+    const TODAY = "2026-11-26"; // Kamis
+    const START = 8 * 60, LAST_START = 15 * 60; // menit; 08.00 – 15.00 (mulai terakhir 15.00), durasi 60 menit
+    const DUR = 60;
+    let slots = [
+      { id: 1, date: "2026-11-24", start: 540, booked: false },
+      { id: 2, date: "2026-11-24", start: 780, booked: true, client: "Klien · 24013031" },
+      { id: 3, date: "2026-11-25", start: 630, booked: false },
+      { id: 4, date: "2026-11-26", start: 480, booked: false },
+      { id: 5, date: "2026-11-26", start: 600, booked: true, client: "Klien · Yusli" },
+      { id: 6, date: "2026-11-26", start: 780, booked: false },
+      { id: 7, date: "2026-11-27", start: 540, booked: false },
+      { id: 8, date: "2026-11-27", start: 690, booked: false },
+      { id: 9, date: "2026-11-27", start: 840, booked: true, client: "Kelompok · 3 orang" },
+      { id: 10, date: "2026-12-01", start: 600, booked: false },
+      { id: 11, date: "2026-12-02", start: 540, booked: false },
+      { id: 12, date: "2026-12-02", start: 780, booked: false },
+    ];
+    let nextId = 100;
+
+    const DAYS_SHORT = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+    const DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const MON3 = MONTHS.map((m) => m.slice(0, 3));
+
+    const parse = (iso) => new Date(`${iso}T00:00:00`);
+    const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const addDays = (isoStr, n) => { const d = parse(isoStr); d.setDate(d.getDate() + n); return iso(d); };
+    const mondayOf = (isoStr) => { const d = parse(isoStr); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); return iso(d); };
+    const isWeekend = (isoStr) => [0, 6].includes(parse(isoStr).getDay());
+    const isPast = (isoStr) => isoStr < TODAY;
+    const hh = (t) => `${String(Math.floor(t / 60)).padStart(2, "0")}.${String(t % 60).padStart(2, "0")}`;
+    const slotsOn = (isoStr) => slots.filter((s) => s.date === isoStr).sort((a, b) => a.start - b.start);
+
+    const state = { selected: TODAY, weekStart: mondayOf(TODAY), monthCursor: TODAY.slice(0, 7), dir: "" };
+
+    // ===== USULAN =====
+    function renderStrip() {
+      const ws = state.weekStart;
+      const we = addDays(ws, 6);
+      const a = parse(ws), b = parse(we);
+      document.getElementById("weekLabel").textContent =
+        `${a.getDate()} ${MON3[a.getMonth()]} – ${b.getDate()} ${MON3[b.getMonth()]} ${b.getFullYear()}`;
+      const strip = document.getElementById("strip");
+      strip.innerHTML = Array.from({ length: 7 }, (_, i) => {
+        const d = addDays(ws, i);
+        const dt = parse(d);
+        const sel = d === state.selected;
+        const dim = isWeekend(d) || isPast(d);
+        const list = slotsOn(d);
+        const free = list.filter((s) => !s.booked).length;
+        const req = list.filter((s) => s.booked).length;
+        const dots = [
+          ...Array(Math.min(free, 3)).fill(sel ? "bg-white" : "bg-emerald-600"),
+          ...Array(Math.min(req, 2)).fill(sel ? "bg-blue-200" : "bg-blue-600"),
+        ].map((c) => `<span class="h-1.5 w-1.5 rounded-full ${c}"></span>`).join("");
+        const isToday = d === TODAY;
+        return `<button data-day="${d}" class="flex h-14 flex-col items-center justify-center rounded-xl transition ${
+          sel ? "bg-primary text-white shadow-md" : dim ? "text-gray-300" : "text-gray-800 hover:bg-gray-100"
+        }">
+            <span class="text-[10px] font-semibold uppercase ${sel ? "text-emerald-100" : dim ? "" : "text-gray-500"}">${DAYS_SHORT[dt.getDay()]}</span>
+            <span class="text-base font-bold leading-tight ${isToday && !sel ? "text-primary underline decoration-2 underline-offset-4" : ""}">${dt.getDate()}</span>
+            <span class="mt-0.5 flex h-1.5 gap-0.5">${dots}</span>
+          </button>`;
+      }).join("");
+      strip.querySelectorAll("[data-day]").forEach((b) => b.addEventListener("click", () => select(b.dataset.day)));
+    }
+
+    function renderAgenda() {
+      const d = state.selected;
+      const dt = parse(d);
+      const list = slotsOn(d);
+      const past = isPast(d);
+      const weekend = isWeekend(d);
+      const free = list.filter((s) => !s.booked).length;
+      const req = list.filter((s) => s.booked).length;
+      const head = `
+        <div class="flex items-end justify-between">
+          <div>
+            <p class="font-display text-lg font-bold">${DAYS[dt.getDay()]}, ${dt.getDate()} ${MONTHS[dt.getMonth()]}</p>
+            <p class="text-xs text-gray-500">${
+              weekend ? "Akhir pekan · konseling hanya Senin–Jumat"
+              : past ? "Sudah lewat · hanya lihat"
+              : `${free} tersedia · ${req} diminta · Periode 2026/2027 Ganjil`}</p>
+          </div>
+        </div>`;
+
+      let rows = "";
+      if (weekend) {
+        rows = `<div class="mt-4 rounded-2xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">Tidak ada jadwal pada akhir pekan.</div>`;
+      } else {
+        if (list.length === 0) {
+          rows = `<div class="mt-4 rounded-2xl border border-dashed border-gray-300 p-6 text-center">
+              <p class="text-sm font-semibold text-gray-700">Belum ada jadwal pada hari ini.</p>
+              ${past ? "" : '<p class="mt-1 text-xs text-gray-500">Ketuk "Tambah" untuk membuka jam ketersediaan.</p>'}
+            </div>`;
+        } else {
+          // Hanya jadwal yang sudah dibuat yang ditampilkan, urut jam mulai.
+          rows = '<ol class="mt-3 space-y-2.5">';
+          for (const s of list) {
+            const tone = past
+              ? "border-gray-200 bg-gray-100 text-gray-500"
+              : s.booked ? "border-blue-200 bg-blue-50 text-blue-900" : "border-emerald-200 bg-emerald-50 text-emerald-900";
+            const bar = past ? "bg-gray-300" : s.booked ? "bg-blue-600" : "bg-primary";
+            rows += `<li>
+              <button data-slot="${s.id}" class="relative flex min-h-[60px] w-full items-center justify-between gap-2 overflow-hidden rounded-xl border pl-4 pr-3 text-left ${tone}">
+                <span class="absolute inset-y-0 left-0 w-1.5 ${bar}"></span>
+                <span>
+                  <span class="block text-base font-bold tabular-nums">${hh(s.start)} – ${hh(s.start + DUR)}</span>
+                  <span class="block text-xs opacity-80">${past ? "Sudah lewat" : s.booked ? `Diminta · ${s.client}` : "Tersedia untuk diminta klien"}</span>
+                </span>
+                <span class="text-lg opacity-50">›</span>
+              </button></li>`;
+          }
+          rows += "</ol>";
+        }
+      }
+
+      const legend = `
+        <div class="mt-5 flex flex-wrap gap-3 text-[11px] text-gray-500">
+          <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-primary"></span>Tersedia</span>
+          <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-blue-600"></span>Diminta / terkonfirmasi</span>
+          <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-300"></span>Lewat</span>
+        </div>
+        <p class="mt-2 text-[11px] text-gray-400">Geser agenda ke kiri/kanan untuk pindah hari.</p>`;
+
+      const host = document.getElementById("agenda");
+      host.className = state.dir === "next" ? "enter-l" : state.dir === "prev" ? "enter-r" : "";
+      host.innerHTML = head + rows + legend;
+      host.querySelectorAll("[data-slot]").forEach((b) => b.addEventListener("click", () => {
+        const s = slots.find((x) => x.id === Number(b.dataset.slot));
+        openForm(s);
+      }));
+      document.getElementById("fab").style.display = past || weekend ? "none" : "";
+    }
+
+    function select(d, dir = "") {
+      state.dir = dir || (d > state.selected ? "next" : d < state.selected ? "prev" : "");
+      state.selected = d;
+      if (d < state.weekStart || d > addDays(state.weekStart, 6)) state.weekStart = mondayOf(d);
+      renderStrip();
+      renderAgenda();
+      document.getElementById("agendaScroll").scrollTop = 0;
+      renderNow();
+    }
+
+    function stepWeekday(delta) {
+      let d = state.selected;
+      do { d = addDays(d, delta); } while (isWeekend(d));
+      select(d, delta > 0 ? "next" : "prev");
+    }
+
+    function toast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg; t.classList.remove("hidden");
+      clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.add("hidden"), 1800);
+    }
+
+    function closeSheet() { document.getElementById("sheetHost").innerHTML = ""; }
+
+    function sheet(inner) {
+      const host = document.getElementById("sheetHost");
+      host.innerHTML = `
+        <div class="backdrop absolute inset-0 z-40 bg-black/40" data-close></div>
+        <div class="sheet absolute inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white px-5 pb-6 pt-3 shadow-2xl">
+          <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-gray-300"></div>
+          ${inner}
+        </div>`;
+      host.querySelector("[data-close]").addEventListener("click", closeSheet);
+      return host;
+    }
+
+    function formatTimeInput(raw, previous = "") {
+      const deleting = raw.length < previous.length;
+      const sep = raw.search(/[.:]/);
+      if (sep !== -1) {
+        const h = raw.slice(0, sep).replace(/\D/g, "").slice(0, 2);
+        const m = raw.slice(sep + 1).replace(/\D/g, "").slice(0, 2);
+        return h ? `${h}.${m}` : m;
+      }
+      const digits = raw.replace(/\D/g, "").slice(0, 4);
+      if (digits.length > 2) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+      if (digits.length === 2 && !deleting) return `${digits}.`;
+      return digits;
+    }
+
+    function openForm(slot = {}) {
+      const d = state.selected;
+      const dt = parse(d);
+      const editing = Boolean(slot.id);
+      const locked = editing && slot.booked;
+      const host = sheet(`
+        <p class="font-display text-lg font-bold">${editing ? (locked ? "Detail Jadwal" : "Ubah Ketersediaan") : "Tambah Ketersediaan"}</p>
+        <p class="text-xs text-gray-500">${DAYS[dt.getDay()]}, ${dt.getDate()} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()}</p>
+        ${locked ? `<div class="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900"><strong>${slot.client}</strong> sudah meminta jadwal ini. Jadwal yang sudah diminta tidak dapat diubah atau dihapus.</div>` : ""}
+        <label class="mt-4 block text-sm font-semibold" for="timeIn">Jam Mulai (WITA)</label>
+        <input id="timeIn" inputmode="numeric" maxlength="5" ${locked ? "disabled" : ""} value="${slot.start != null ? hh(slot.start) : ""}" placeholder="Contoh: 09.00 atau 13.30"
+          class="mt-1.5 w-full rounded-xl border border-gray-300 px-3.5 py-3 text-lg font-semibold tabular-nums outline-none focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:bg-gray-100" />
+        <p class="mt-1 text-xs text-gray-500">Rentang 08.00 – 15.00, durasi otomatis 60 menit.</p>
+        <p id="formErr" class="mt-2 hidden text-xs font-semibold text-red-600"></p>
+        <div class="mt-5 flex gap-2">
+          ${editing && !locked ? `<button data-del class="rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600">Hapus</button>` : ""}
+          <button data-close2 class="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">${locked ? "Tutup" : "Batal"}</button>
+          ${locked ? "" : `<button data-save class="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white">Simpan</button>`}
+        </div>`);
+      const input = host.querySelector("#timeIn");
+      let prev = input.value;
+      input.addEventListener("input", () => { input.value = formatTimeInput(input.value, prev); prev = input.value; });
+      host.querySelector("[data-close2]").addEventListener("click", closeSheet);
+      host.querySelector("[data-del]")?.addEventListener("click", () => {
+        slots = slots.filter((s) => s.id !== slot.id); closeSheet(); select(state.selected); toast("Ketersediaan dihapus.");
+      });
+      host.querySelector("[data-save]")?.addEventListener("click", () => {
+        const m = /^(\d{1,2})\.(\d{2})$/.exec(input.value);
+        const err = host.querySelector("#formErr");
+        const fail = (msg) => { err.textContent = msg; err.classList.remove("hidden"); };
+        if (!m) return fail("Format jam tidak valid. Contoh: 09.00");
+        const h = Number(m[1]), min = Number(m[2]);
+        if (h > 23 || min > 59) return fail("Format jam tidak valid. Contoh: 09.00");
+        const t = h * 60 + min;
+        if (t < START || t > LAST_START) return fail("Di luar jam operasional 08.00 – 15.00.");
+        if (slots.some((s) => s.date === d && s.id !== slot.id && s.start < t + DUR && s.start + DUR > t)) return fail("Jadwal bertabrakan dengan jadwal lain.");
+        if (editing) slot.start = t; else slots.push({ id: nextId++, date: d, start: t, booked: false });
+        closeSheet(); select(state.selected); toast(editing ? "Ketersediaan diperbarui." : `Ketersediaan ${hh(t)} – ${hh(t + DUR)} ditambahkan.`);
+      });
+      if (!locked) setTimeout(() => input.focus(), 50);
+    }
+
+    function openMonth() {
+      const [y, m] = state.monthCursor.split("-").map(Number);
+      const first = new Date(y, m - 1, 1);
+      const offset = (first.getDay() + 6) % 7;
+      const days = new Date(y, m, 0).getDate();
+      let cells = "";
+      for (let i = 0; i < offset; i++) cells += "<span></span>";
+      for (let d = 1; d <= days; d++) {
+        const key = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        const has = slotsOn(key).length > 0;
+        const sel = key === state.selected;
+        const dim = isWeekend(key) || isPast(key);
+        cells += `<button data-m="${key}" class="relative h-10 rounded-lg text-sm font-semibold ${sel ? "bg-primary text-white" : dim ? "text-gray-300" : "text-gray-800 hover:bg-gray-100"}">${d}${has ? `<span class="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${sel ? "bg-white" : "bg-primary"}"></span>` : ""}</button>`;
+      }
+      const host = sheet(`
+        <div class="flex items-center justify-between">
+          <button data-mp class="rounded-lg px-3 py-1.5 text-gray-500">‹</button>
+          <p class="font-display text-base font-bold">${MONTHS[m - 1]} ${y}</p>
+          <button data-mn class="rounded-lg px-3 py-1.5 text-gray-500">›</button>
+        </div>
+        <div class="mt-2 grid grid-cols-7 text-center text-[11px] font-semibold text-gray-400">${["Sn","Sl","Rb","Km","Jm","Sb","Mg"].map((x) => `<span class="py-1">${x}</span>`).join("")}</div>
+        <div class="grid grid-cols-7 gap-1 text-center">${cells}</div>
+        <p class="mt-3 text-center text-[11px] text-gray-400">Titik hijau: ada jadwal pada tanggal itu.</p>`);
+      const shift = (n) => { const dt = new Date(y, m - 1 + n, 1); state.monthCursor = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`; openMonth(); };
+      host.querySelector("[data-mp]").addEventListener("click", () => shift(-1));
+      host.querySelector("[data-mn]").addEventListener("click", () => shift(1));
+      host.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => { closeSheet(); select(b.dataset.m); }));
+    }
+
+    document.getElementById("prevWeek").addEventListener("click", () => { state.weekStart = addDays(state.weekStart, -7); select(state.weekStart, "prev"); });
+    document.getElementById("nextWeek").addEventListener("click", () => { state.weekStart = addDays(state.weekStart, 7); select(state.weekStart, "next"); });
+    document.getElementById("todayBtn").addEventListener("click", () => select(TODAY));
+    document.getElementById("openMonth").addEventListener("click", () => { state.monthCursor = state.selected.slice(0, 7); openMonth(); });
+    document.getElementById("fab").addEventListener("click", () => openForm({}));
+
+    // Geser agenda kiri/kanan untuk pindah hari kerja.
+    (() => {
+      const el = document.getElementById("agendaScroll");
+      let x0 = null, y0 = null;
+      const start = (x, y) => { x0 = x; y0 = y; };
+      const end = (x, y) => {
+        if (x0 == null) return;
+        const dx = x - x0, dy = y - y0; x0 = null;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) stepWeekday(dx < 0 ? 1 : -1);
+      };
+      el.addEventListener("touchstart", (e) => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+      el.addEventListener("touchend", (e) => end(e.changedTouches[0].clientX, e.changedTouches[0].clientY));
+      el.addEventListener("mousedown", (e) => start(e.clientX, e.clientY));
+      el.addEventListener("mouseup", (e) => end(e.clientX, e.clientY));
+    })();
+
+    // ===== SEKARANG (tiruan tata letak saat ini) =====
+    function renderNow() {
+      const ws = state.weekStart;
+      let html = '<div class="grid grid-cols-[56px_repeat(7,1fr)] border-b border-gray-200 pb-2 text-center text-[11px]"><div></div>';
+      for (let i = 0; i < 7; i++) { const d = parse(addDays(ws, i)); html += `<div><div class="font-semibold text-gray-500">${DAYS_SHORT[d.getDay()]}</div><div class="font-bold">${d.getDate()}</div></div>`; }
+      html += "</div>";
+      for (let h = START; h <= LAST_START; h += 60) {
+        html += `<div class="grid h-14 grid-cols-[56px_repeat(7,1fr)] border-b border-gray-100 text-[11px]"><div class="pt-1 text-gray-400">${hh(h)}</div>`;
+        for (let i = 0; i < 7; i++) {
+          const d = addDays(ws, i);
+          const s = slotsOn(d).find((x) => x.start >= h && x.start < h + 60);
+          html += `<div class="border-l border-gray-100 p-0.5">${s ? `<div class="h-full rounded-md ${s.booked ? "bg-blue-600" : "bg-primary"} p-1 text-[10px] font-semibold text-white">${hh(s.start)}</div>` : ""}</div>`;
+        }
+        html += "</div>";
+      }
+      document.getElementById("nowWeek").innerHTML = html;
+
+      const [y, m] = [2026, 11];
+      const first = new Date(y, m - 1, 1);
+      let cells = "";
+      for (let i = 0; i < (first.getDay() + 6) % 7; i++) cells += "<span></span>";
+      for (let d = 1; d <= 30; d++) {
+        const key = `2026-11-${String(d).padStart(2, "0")}`;
+        cells += `<span class="rounded-lg py-2 font-semibold ${key === state.selected ? "bg-primary text-white" : "text-gray-700"}">${d}</span>`;
+      }
+      document.getElementById("nowMonth").innerHTML = cells;
+
+      const list = slotsOn(state.selected);
+      const dt = parse(state.selected);
+      document.getElementById("nowList").innerHTML = `
+        <p class="text-sm font-bold">${DAYS[dt.getDay()]}, ${dt.getDate()} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()}</p>
+        <ul class="mt-3 space-y-2">${list.map((s) => `<li class="rounded-xl border border-gray-200 px-3 py-2 text-sm"><b>${hh(s.start)} – ${hh(s.start + DUR)}</b><div class="text-xs text-gray-500">${s.booked ? `Diminta · ${s.client}` : "Tersedia untuk diminta klien"}</div></li>`).join("") || '<li class="text-xs text-gray-500">Belum ada ketersediaan.</li>'}</ul>`;
+      const scroller = document.getElementById("nowScroll");
+      document.getElementById("nowDepth").textContent = Math.max(0, document.getElementById("nowList").offsetTop - 40);
+      scroller.scrollTop = 0;
+    }
+
+    select(TODAY);
+  </script>
+</body>
+</html>

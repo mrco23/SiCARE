@@ -6,21 +6,6 @@ export const roles = ["client", "counselor", "admin", "head_lmi"];
 export const adminManageableRoles = ["counselor", "head_lmi"];
 
 const genderField = z.enum(["male", "female"]).nullable().optional();
-const licenseNumberField = z
-  .string()
-  .trim()
-  .min(1)
-  .max(80)
-  .regex(/^[A-Za-z0-9./_\- ]+$/)
-  .nullable()
-  .optional();
-
-const validUntilField = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
-  .nullable()
-  .optional();
 
 export const accountQuerySchema = z
   .object({
@@ -50,20 +35,12 @@ export const createAccountSchema = z
     app_role: z.enum(adminManageableRoles),
     account_status: z.enum(["pending", "active", "disabled"]).default("active"),
     gender: genderField,
-    siap_number: licenseNumberField,
-    sipp_silp_number: licenseNumberField,
-    sipp_silp_valid_until: validUntilField,
+    // No. SIAP dan No. SIPP/SILP diisi sendiri oleh konselor (PATCH /counselor/license), bukan admin.
   })
   .strict()
   .superRefine((input, ctx) => {
     if (!input.gender) {
       ctx.addIssue({ code: "custom", path: ["gender"], message: "Jenis kelamin wajib diisi." });
-    }
-    if (input.app_role !== "counselor") return;
-    for (const field of ["siap_number", "sipp_silp_number"]) {
-      if (!input[field]) {
-        ctx.addIssue({ code: "custom", path: [field], message: "Wajib diisi untuk akun konselor." });
-      }
     }
   });
 
@@ -93,9 +70,7 @@ export const createPeriodSchema = z
       .string()
       .trim()
       .regex(/^\d{4}-\d{2}-\d{2}$/),
-    // Tabel academic_periods tidak punya kolom is_active; dulu nilai bawaannya ikut di-insert
-    // sehingga pembuatan periode selalu gagal (500). Status hanya diwakili is_published.
-    is_published: z.boolean().default(false),
+    // Periode tidak punya status (is_active/is_published dihapus): setiap periode langsung berlaku.
   })
   .strict()
   .superRefine((v, c) => {
@@ -125,7 +100,6 @@ export const patchPeriodSchema = z
       .trim()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
-    is_published: z.boolean().optional(),
   })
   .strict()
   .refine(
@@ -133,8 +107,7 @@ export const patchPeriodSchema = z
       input.academic_year !== undefined ||
       input.semester !== undefined ||
       input.starts_on !== undefined ||
-      input.ends_on !== undefined ||
-      input.is_published !== undefined,
+      input.ends_on !== undefined,
     { message: "Setidaknya satu field harus diisi." },
   );
 

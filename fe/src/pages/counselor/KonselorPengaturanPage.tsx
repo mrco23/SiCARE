@@ -6,7 +6,6 @@ import {
   useToast,
 } from "../../components/shared";
 import { SettingsField as Field, SettingsPanel as Panel } from "../../components/counselor/settings/SettingsPrimitives";
-import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import { useAuth } from "../../features/auth/useAuth";
 import { counselorApi } from "../../lib/counselorApi";
 import { sicareApi } from "../../lib/sicareApi";
@@ -24,7 +23,6 @@ import {
   cloneCounselorProfile as clone,
   MAX_COUNSELOR_BIO_LENGTH as MAX_BIO,
   MAX_COUNSELOR_TOPIC_LENGTH as MAX_TOPIC_LEN,
-  MAX_COUNSELOR_TOPICS as MAX_TOPICS,
   MIN_ACCOUNT_PASSWORD_LENGTH as PASSWORD_MIN,
   validateCounselorProfile,
 } from "../../features/counselor/profile/profileValidation";
@@ -33,8 +31,10 @@ import type {
   CounselorProfile as Profile,
   CounselorProfileErrors as Errors,
 } from "../../types/counselorProfile";
+import type { CounselorEducationDto } from "../../types/api";
 import {
   type ChangeEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -54,6 +54,18 @@ import {
   KeyRound,
 } from "lucide-react";
 
+function toEducation(dto: CounselorEducationDto): Education {
+  return {
+    id: dto.id,
+    school: dto.institution,
+    major: dto.degree,
+    year: String(dto.graduation_year),
+  };
+}
+
+const sortEducations = (list: Education[]) =>
+  [...list].sort((a, b) => Number(b.year) - Number(a.year));
+
 const EMPTY_COUNSELOR_PROFILE: Profile = {
   photo: null,
   displayName: "",
@@ -62,7 +74,6 @@ const EMPTY_COUNSELOR_PROFILE: Profile = {
   topics: [],
   experienceStartYear: String(new Date().getFullYear()),
   phone: "",
-  educations: [],
 };
 
 export default function KonselorPengaturanPage() {
@@ -107,6 +118,12 @@ export default function KonselorPengaturanPage() {
   const [topicInput, setTopicInput] = useState("");
   const [eduDraft, setEduDraft] = useState<Education | undefined>(undefined);
   const [eduError, setEduError] = useState("");
+  // Riwayat pendidikan tersimpan langsung ke server per entri (tabel counselor_educations).
+  const [educations, setEducations] = useState<Education[]>([]);
+  const [educationsLoaded, setEducationsLoaded] = useState(false);
+  const [savingEdu, setSavingEdu] = useState(false);
+  const [confirmDeleteEduId, setConfirmDeleteEduId] = useState<string | null>(null);
+  const [deletingEduId, setDeletingEduId] = useState<string | null>(null);
 
   // Password tab state
   const [passwordKind, setPasswordKind] = useState<"akun" | "riwayat">("akun");
@@ -121,11 +138,37 @@ export default function KonselorPengaturanPage() {
   const [license, setLicense] = useState({
     siap: "",
     sippSilp: "",
-    validUntil: "",
   });
   const [savedLicense, setSavedLicense] = useState(license);
   const [savingLicense, setSavingLicense] = useState(false);
   const [licenseError, setLicenseError] = useState("");
+
+  const loadEducations = useCallback(async () => {
+    try {
+      const list = await counselorApi.listEducations();
+      setEducations(sortEducations(list.map(toEducation)));
+      setEducationsLoaded(true);
+    } catch {
+      setEducationsLoaded(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    counselorApi
+      .listEducations()
+      .then((list) => {
+        if (!active) return;
+        setEducations(sortEducations(list.map(toEducation)));
+        setEducationsLoaded(true);
+      })
+      .catch(() => {
+        if (active) setEducationsLoaded(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Load from backend on mount
   useEffect(() => {
@@ -140,7 +183,6 @@ export default function KonselorPengaturanPage() {
       const loadedLicense = {
         siap: licenseData?.siap_number ?? me?.siap_number ?? "",
         sippSilp: licenseData?.sipp_silp_number ?? me?.sipp_silp_number ?? "",
-        validUntil: licenseData?.sipp_silp_valid_until ?? "",
       };
       setLicense(loadedLicense);
       setSavedLicense(loadedLicense);
@@ -172,10 +214,9 @@ export default function KonselorPengaturanPage() {
     };
   }, [currentYear]);
 
-  const licenseExpiry = getLicenseExpiry(savedLicense.validUntil);
   const licenseDirty =
-    license.sippSilp !== savedLicense.sippSilp ||
-    license.validUntil !== savedLicense.validUntil;
+    license.siap !== savedLicense.siap || license.sippSilp !== savedLicense.sippSilp;
+  const licenseIncomplete = !savedLicense.siap.trim() || !savedLicense.sippSilp.trim();
 
   const errors = useMemo<Errors>(
     () => validateCounselorProfile(profile, currentYear),
@@ -301,10 +342,6 @@ export default function KonselorPengaturanPage() {
   function addTopic() {
     const raw = topicInput.trim();
     if (!raw) return;
-    if (profile.topics.length >= MAX_TOPICS) {
-      toast.error(`Maksimal ${MAX_TOPICS} topik keahlian.`);
-      return;
-    }
     if (profile.topics.some((t) => t.toLowerCase() === raw.toLowerCase())) {
       toast.error("Topik tersebut sudah ada.");
       return;
@@ -323,7 +360,7 @@ export default function KonselorPengaturanPage() {
   function openEduDraft(draft?: Education) {
     setEduDraft(
       draft ?? {
-        id: Date.now(),
+        id: "",
         school: "",
         major: "",
         year: String(currentYear),
@@ -332,10 +369,10 @@ export default function KonselorPengaturanPage() {
     setEduError("");
   }
 
-  function saveEdu() {
+  async function saveEdu() {
     if (!eduDraft) return;
     if (!eduDraft.major.trim()) {
-      setEduError("Program studi wajib diisi.");
+      setEduError("Gelar wajib diisi.");
       return;
     }
     if (!eduDraft.school.trim()) {
@@ -347,30 +384,58 @@ export default function KonselorPengaturanPage() {
       setEduError(`Tahun kelulusan tidak valid (1950–${currentYear + 10}).`);
       return;
     }
-    const exists = profile.educations.some((e) => e.id === eduDraft.id);
-    const updated = exists
-      ? profile.educations.map((e) => (e.id === eduDraft.id ? eduDraft : e))
-      : [...profile.educations, eduDraft];
-    update("educations", updated);
-    setEduDraft(undefined);
+    const input = {
+      institution: eduDraft.school.trim(),
+      degree: eduDraft.major.trim(),
+      graduation_year: y,
+    };
+    setSavingEdu(true);
+    setEduError("");
+    try {
+      const saved = eduDraft.id
+        ? await counselorApi.updateEducation(eduDraft.id, input)
+        : await counselorApi.createEducation(input);
+      const next = toEducation(saved);
+      setEducations((list) =>
+        sortEducations(
+          list.some((e) => e.id === next.id)
+            ? list.map((e) => (e.id === next.id ? next : e))
+            : [...list, next],
+        ),
+      );
+      setEduDraft(undefined);
+      toast.success(eduDraft.id ? "Riwayat pendidikan diperbarui." : "Riwayat pendidikan ditambahkan.");
+    } catch (err) {
+      setEduError(err instanceof Error ? err.message : "Riwayat pendidikan tidak dapat disimpan.");
+    } finally {
+      setSavingEdu(false);
+    }
   }
 
-  function removeEdu(id: number) {
-    update(
-      "educations",
-      profile.educations.filter((e) => e.id !== id),
-    );
+  async function removeEdu(id: string) {
+    setDeletingEduId(id);
+    try {
+      await counselorApi.deleteEducation(id);
+      setEducations((list) => list.filter((e) => e.id !== id));
+      setConfirmDeleteEduId(null);
+      toast.success("Riwayat pendidikan dihapus.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Riwayat pendidikan tidak dapat dihapus.");
+    } finally {
+      setDeletingEduId(null);
+    }
   }
 
   async function saveLicense() {
+    const siap = license.siap.trim();
     const number = license.sippSilp.trim();
-    if (!number || !license.validUntil) {
-      setLicenseError("No. SIPP/SILP dan tanggal berlaku wajib diisi.");
+    if (!siap || !number) {
+      setLicenseError("No. SIAP dan No. SIPP/SILP wajib diisi.");
       return;
     }
-    if (!/^[A-Za-z0-9./_\- ]+$/.test(number)) {
+    if (![siap, number].every((value) => /^[A-Za-z0-9./_\- ]+$/.test(value))) {
       setLicenseError(
-        "No. SIPP/SILP hanya boleh berisi huruf, angka, spasi, titik, garis miring, dan tanda hubung.",
+        "No. SIAP dan No. SIPP/SILP hanya boleh berisi huruf, angka, spasi, titik, garis miring, garis bawah, dan tanda hubung.",
       );
       return;
     }
@@ -379,13 +444,12 @@ export default function KonselorPengaturanPage() {
     setLicenseError("");
     try {
       const updated = await counselorApi.updateLicense({
+        siap_number: siap,
         sipp_silp_number: number,
-        sipp_silp_valid_until: license.validUntil,
       });
       const next = {
         siap: updated.siap_number ?? "",
         sippSilp: updated.sipp_silp_number ?? "",
-        validUntil: updated.sipp_silp_valid_until ?? "",
       };
       setLicense(next);
       setSavedLicense(next);
@@ -779,30 +843,28 @@ export default function KonselorPengaturanPage() {
                         </span>
                       ))}
                     </div>
-                    {profile.topics.length < MAX_TOPICS && (
-                      <div className="flex gap-2">
-                        <input
-                          value={topicInput}
-                          maxLength={MAX_TOPIC_LEN}
-                          onChange={(e) => setTopicInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              addTopic();
-                            }
-                          }}
-                          placeholder="Tambah topik (mis. Manajemen Stres)"
-                          className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/15"
-                        />
-                        <button
-                          type="button"
-                          onClick={addTopic}
-                          className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                        >
-                          <IconLabel icon={Plus}>Tambah</IconLabel>
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex gap-2">
+                      <input
+                        value={topicInput}
+                        maxLength={MAX_TOPIC_LEN}
+                        onChange={(e) => setTopicInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addTopic();
+                          }
+                        }}
+                        placeholder="Tambah topik (mis. Manajemen Stres)"
+                        className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/15"
+                      />
+                      <button
+                        type="button"
+                        onClick={addTopic}
+                        className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        <IconLabel icon={Plus}>Tambah</IconLabel>
+                      </button>
+                    </div>
                   </div>
                 </Field>
 
@@ -846,7 +908,7 @@ export default function KonselorPengaturanPage() {
           }
         >
           <div className="space-y-3">
-            {profile.educations.map((item) => (
+            {educations.map((item) => (
               <div
                 key={item.id}
                 className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs"
@@ -859,29 +921,65 @@ export default function KonselorPengaturanPage() {
                     {item.school} ({item.year})
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => openEduDraft(item)}
-                    className="rounded-lg p-1 text-gray-400 hover:text-gray-700"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeEdu(item.id)}
-                    className="rounded-lg p-1 text-gray-400 hover:text-red-600"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                {confirmDeleteEduId === item.id ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-600">Hapus?</span>
+                    <button
+                      type="button"
+                      disabled={deletingEduId === item.id}
+                      onClick={() => void removeEdu(item.id)}
+                      className="rounded-lg bg-red-600 px-2 py-1 font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {deletingEduId === item.id ? "Menghapus..." : "Ya"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingEduId === item.id}
+                      onClick={() => setConfirmDeleteEduId(null)}
+                      className="rounded-lg border border-gray-300 px-2 py-1 font-semibold text-gray-700 hover:bg-white disabled:opacity-50"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label="Ubah riwayat pendidikan"
+                      onClick={() => openEduDraft(item)}
+                      className="rounded-lg p-1 text-gray-400 hover:text-gray-700"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Hapus riwayat pendidikan"
+                      onClick={() => setConfirmDeleteEduId(item.id)}
+                      className="rounded-lg p-1 text-gray-400 hover:text-red-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
 
-            {profile.educations.length === 0 && (
+            {educationsLoaded && educations.length === 0 && (
               <p className="text-xs text-gray-400">
                 Belum ada riwayat pendidikan yang ditambahkan.
               </p>
+            )}
+            {!educationsLoaded && !loading && (
+              <div role="alert" className="flex items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                <span>Riwayat pendidikan tidak dapat dimuat.</span>
+                <button
+                  type="button"
+                  onClick={() => void loadEducations()}
+                  className="font-semibold underline"
+                >
+                  Coba lagi
+                </button>
+              </div>
             )}
           </div>
         </Panel>
@@ -990,32 +1088,34 @@ export default function KonselorPengaturanPage() {
           </div>
         </Panel>
 
-        {/* Panel Izin Praktik: hanya baca, dikelola Admin */}
+        {/* Panel Izin Praktik: No. SIAP dan No. SIPP/SILP diisi sendiri oleh konselor */}
         <Panel
           icon={<BadgeCheck className="h-5 w-5" />}
           title="Izin Praktik"
-          description="Perbarui No. SIPP/SILP dan masa berlakunya setiap izin diperpanjang. No. SIAP dikelola Admin."
+          description="Isi No. SIAP dan No. SIPP/SILP Anda, lalu perbarui setiap izin diperpanjang."
         >
           <div className="space-y-4">
-            {licenseExpiry && licenseExpiry.state !== "valid" && (
+            {!loading && licenseIncomplete && (
               <p
                 role="status"
-                className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
-                  licenseExpiry.state === "expired"
-                    ? "border-red-200 bg-red-50 text-red-800"
-                    : "border-amber-200 bg-amber-50 text-amber-900"
-                }`}
+                className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900"
               >
-                {licenseExpiry.label}
+                Lengkapi No. SIAP dan No. SIPP/SILP Anda.
               </p>
             )}
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <p className="text-xs font-semibold text-gray-500">No. SIAP</p>
-              <p className="mt-1 break-words text-sm font-bold text-gray-900">
-                {license.siap || "Belum diisi Admin"}
-              </p>
-            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="No. SIAP">
+                <input
+                  value={license.siap}
+                  maxLength={80}
+                  disabled={savingLicense}
+                  onChange={(event) => {
+                    setLicense({ ...license, siap: event.target.value });
+                    setLicenseError("");
+                  }}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                />
+              </Field>
               <Field label="No. SIPP/SILP">
                 <input
                   value={license.sippSilp}
@@ -1023,18 +1123,6 @@ export default function KonselorPengaturanPage() {
                   disabled={savingLicense}
                   onChange={(event) => {
                     setLicense({ ...license, sippSilp: event.target.value });
-                    setLicenseError("");
-                  }}
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-                />
-              </Field>
-              <Field label="Berlaku sampai">
-                <input
-                  type="date"
-                  value={license.validUntil}
-                  disabled={savingLicense}
-                  onChange={(event) => {
-                    setLicense({ ...license, validUntil: event.target.value });
                     setLicenseError("");
                   }}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
@@ -1069,7 +1157,7 @@ export default function KonselorPengaturanPage() {
               Riwayat Pendidikan
             </h3>
             <div className="mt-4 space-y-3">
-              <Field label="Program Studi / Gelar" required>
+              <Field label="Gelar" required>
                 <input
                   value={eduDraft.major}
                   onChange={(e) =>
@@ -1111,16 +1199,18 @@ export default function KonselorPengaturanPage() {
               <button
                 type="button"
                 onClick={() => setEduDraft(undefined)}
-                className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                disabled={savingEdu}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 <IconLabel icon={X}>Batal</IconLabel>
               </button>
               <button
                 type="button"
-                onClick={saveEdu}
-                className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-dark"
+                onClick={() => void saveEdu()}
+                disabled={savingEdu}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
               >
-                <IconLabel icon={Save}>Simpan</IconLabel>
+                <IconLabel icon={Save}>{savingEdu ? "Menyimpan..." : "Simpan"}</IconLabel>
               </button>
             </div>
           </div>

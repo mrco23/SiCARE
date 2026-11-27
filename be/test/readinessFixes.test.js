@@ -4,7 +4,10 @@ import { test } from "node:test";
 import { classifySignInError } from "../src/services/auth.service.js";
 import { bookingRepository } from "../src/repositories/booking.repository.js";
 import { sessionRepository } from "../src/repositories/session.repository.js";
-import { bookingListQuerySchema, bookingTransitionSchema } from "../src/validators/booking.validator.js";
+import {
+  bookingListQuerySchema,
+  bookingTransitionSchema,
+} from "../src/validators/booking.validator.js";
 import { sessionListQuerySchema } from "../src/validators/session.validator.js";
 
 /** Chainable fake of a PostgREST query that records every call and resolves to `result`. */
@@ -20,17 +23,34 @@ function fakeClient(result) {
           return query;
         };
       },
-    },
+    }
   );
   return { calls, client: { from: (table) => (calls.push(["from", table]), query) } };
 }
 
 test("classifySignInError separates wrong password, throttling, and outages", () => {
-  assert.equal(classifySignInError({ status: 400, code: "invalid_credentials", message: "Invalid login credentials" }), "invalid");
-  assert.equal(classifySignInError({ status: 429, code: "over_request_rate_limit", message: "Request rate limit reached" }), "rate_limited");
+  assert.equal(
+    classifySignInError({
+      status: 400,
+      code: "invalid_credentials",
+      message: "Invalid login credentials",
+    }),
+    "invalid"
+  );
+  assert.equal(
+    classifySignInError({
+      status: 429,
+      code: "over_request_rate_limit",
+      message: "Request rate limit reached",
+    }),
+    "rate_limited"
+  );
   assert.equal(classifySignInError({ status: 400, message: "Too many requests" }), "rate_limited");
   assert.equal(classifySignInError({ status: 503, message: "Service Unavailable" }), "unavailable");
-  assert.equal(classifySignInError({ name: "AuthRetryableFetchError", status: 0, message: "fetch failed" }), "unavailable");
+  assert.equal(
+    classifySignInError({ name: "AuthRetryableFetchError", status: 0, message: "fetch failed" }),
+    "unavailable"
+  );
   assert.equal(classifySignInError(null), "invalid");
 });
 
@@ -44,32 +64,72 @@ test("booking and session list queries accept an offset that defaults to 0", () 
 test("bookingRepository.list pages with range(offset, offset + limit - 1)", async () => {
   const { calls, client } = fakeClient({ data: [], error: null });
   await bookingRepository.list(client, { userId: "u1", role: "client", limit: 100, offset: 200 });
-  assert.deepEqual(calls.find(([name]) => name === "range"), ["range", 200, 299]);
-  assert.deepEqual(calls.find(([name]) => name === "eq"), ["eq", "client_id", "u1"]);
+  assert.deepEqual(
+    calls.find(([name]) => name === "range"),
+    ["range", 200, 299]
+  );
+  assert.deepEqual(
+    calls.find(([name]) => name === "eq"),
+    ["eq", "client_id", "u1"]
+  );
 });
 
 test("sessionRepository.list filters a counselor by counselor_id without a booking id list", async () => {
   const { calls, client } = fakeClient({ data: [{ id: "s1" }], error: null });
-  const rows = await sessionRepository.list(client, { userId: "c1", role: "counselor", limit: 50, offset: 0 });
+  const rows = await sessionRepository.list(client, {
+    userId: "c1",
+    role: "counselor",
+    limit: 50,
+    offset: 0,
+  });
   assert.deepEqual(rows, [{ id: "s1" }]);
-  assert.deepEqual(calls.filter(([name]) => name === "from"), [["from", "counseling_sessions"]]);
-  assert.equal(calls.some(([name]) => name === "in"), false);
-  assert.deepEqual(calls.find(([name]) => name === "eq"), ["eq", "counselor_id", "c1"]);
-  assert.deepEqual(calls.find(([name]) => name === "range"), ["range", 0, 49]);
+  assert.deepEqual(
+    calls.filter(([name]) => name === "from"),
+    [["from", "counseling_sessions"]]
+  );
+  assert.equal(
+    calls.some(([name]) => name === "in"),
+    false
+  );
+  assert.deepEqual(
+    calls.find(([name]) => name === "eq"),
+    ["eq", "counselor_id", "c1"]
+  );
+  assert.deepEqual(
+    calls.find(([name]) => name === "range"),
+    ["range", 0, 49]
+  );
 });
 
 test("sessionRepository.list filters a client through the booking join and strips the join column", async () => {
-  const { calls, client } = fakeClient({ data: [{ id: "s1", status: "scheduled", bookings: { client_id: "u1" } }], error: null });
-  const rows = await sessionRepository.list(client, { userId: "u1", role: "client", limit: 100, offset: 100 });
+  const { calls, client } = fakeClient({
+    data: [{ id: "s1", status: "scheduled", bookings: { client_id: "u1" } }],
+    error: null,
+  });
+  const rows = await sessionRepository.list(client, {
+    userId: "u1",
+    role: "client",
+    limit: 100,
+    offset: 100,
+  });
   assert.deepEqual(rows, [{ id: "s1", status: "scheduled" }]);
   const select = calls.find(([name]) => name === "select");
   assert.match(select[1], /bookings!inner\(client_id\)$/);
-  assert.deepEqual(calls.find(([name]) => name === "eq"), ["eq", "bookings.client_id", "u1"]);
-  assert.deepEqual(calls.find(([name]) => name === "range"), ["range", 100, 199]);
+  assert.deepEqual(
+    calls.find(([name]) => name === "eq"),
+    ["eq", "bookings.client_id", "u1"]
+  );
+  assert.deepEqual(
+    calls.find(([name]) => name === "range"),
+    ["range", 100, 199]
+  );
 });
 
 test("createBooking reports intake_saved so the client is told when the form was not stored", () => {
-  const source = readFileSync(new URL("../src/services/booking.service.js", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("../src/services/booking.service.js", import.meta.url),
+    "utf8"
+  );
   assert.match(source, /intakeSaved = false;/);
   assert.match(source, /intake_saved: intakeSaved/);
 });
@@ -90,7 +150,10 @@ test("consent invitation link uses the guest invite route with an encoded token"
 });
 
 test("resending an invitation requires a confirmed booking and returns the link to the authorized party", () => {
-  const source = readFileSync(new URL("../src/services/consent.service.js", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("../src/services/consent.service.js", import.meta.url),
+    "utf8"
+  );
   const fn = source.slice(source.indexOf("export async function resendConsentInvitation"));
   assert.match(fn, /booking\.status !== "confirmed"[\s\S]*BOOKING_NOT_CONFIRMED/);
   assert.match(fn, /SESSION_WINDOW_PASSED/);
@@ -99,7 +162,10 @@ test("resending an invitation requires a confirmed booking and returns the link 
 });
 
 test("counselor availability list pages with range instead of a fixed oldest-200 limit", () => {
-  const source = readFileSync(new URL("../src/services/counselor/availability.service.js", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("../src/services/counselor/availability.service.js", import.meta.url),
+    "utf8"
+  );
   assert.match(source, /\.range\(offset, offset \+ limit - 1\)/);
   assert.doesNotMatch(source, /\.limit\(200\)/);
 });
@@ -121,8 +187,12 @@ function memoryDb(tables) {
     const rows = () =>
       (tables[table] ?? []).filter((row) =>
         filters.every(([kind, col, val]) =>
-          kind === "eq" ? row[col] === val : kind === "neq" ? row[col] !== val : val.includes(row[col]),
-        ),
+          kind === "eq"
+            ? row[col] === val
+            : kind === "neq"
+              ? row[col] !== val
+              : val.includes(row[col])
+        )
       );
     const run = () => {
       if (insertRow) {
@@ -138,14 +208,36 @@ function memoryDb(tables) {
       return { data: matched.map((row) => ({ ...row })), error: null };
     };
     const q = {
-      select() { return q; },
-      eq(col, val) { filters.push(["eq", col, val]); return q; },
-      neq(col, val) { filters.push(["neq", col, val]); return q; },
-      in(col, vals) { filters.push(["in", col, vals]); return q; },
-      update(p) { patch = p; return q; },
-      insert(r) { insertRow = r; return q; },
-      async maybeSingle() { const r = run(); return { data: r.data[0] ?? null, error: null }; },
-      then(resolve, reject) { return Promise.resolve(run()).then(resolve, reject); },
+      select() {
+        return q;
+      },
+      eq(col, val) {
+        filters.push(["eq", col, val]);
+        return q;
+      },
+      neq(col, val) {
+        filters.push(["neq", col, val]);
+        return q;
+      },
+      in(col, vals) {
+        filters.push(["in", col, vals]);
+        return q;
+      },
+      update(p) {
+        patch = p;
+        return q;
+      },
+      insert(r) {
+        insertRow = r;
+        return q;
+      },
+      async maybeSingle() {
+        const r = run();
+        return { data: r.data[0] ?? null, error: null };
+      },
+      then(resolve, reject) {
+        return Promise.resolve(run()).then(resolve, reject);
+      },
     };
     return q;
   }
@@ -155,17 +247,45 @@ function memoryDb(tables) {
 test("cancelling a session requires a reason", async () => {
   const { sessionStatusSchema } = await import("../src/validators/session.validator.js");
   assert.equal(sessionStatusSchema.safeParse({ status: "cancelled" }).success, false);
-  assert.equal(sessionStatusSchema.safeParse({ status: "cancelled", reason: "Konselor sakit" }).success, true);
+  assert.equal(
+    sessionStatusSchema.safeParse({ status: "cancelled", reason: "Konselor sakit" }).success,
+    true
+  );
   assert.equal(sessionStatusSchema.safeParse({ status: "ongoing" }).success, true);
 });
 
 test("closing bookings of a deactivated counselor cancels upcoming ones and keeps ongoing sessions", async () => {
-  const { cancelActiveBookingsForProfile } = await import("../src/services/bookingClosure.service.js");
+  const { cancelActiveBookingsForProfile } =
+    await import("../src/services/bookingClosure.service.js");
   const db = memoryDb({
     bookings: [
-      { id: "b1", client_id: "c1", counselor_id: "k1", status: "confirmed", starts_at: "2026-12-01T01:00:00Z", ends_at: "2026-12-01T02:00:00Z", service_type: "individual" },
-      { id: "b2", client_id: "c2", counselor_id: "k1", status: "confirmed", starts_at: "2026-12-01T03:00:00Z", ends_at: "2026-12-01T04:00:00Z", service_type: "individual" },
-      { id: "b3", client_id: "c3", counselor_id: "k1", status: "waiting_confirmation", starts_at: "2026-12-02T01:00:00Z", ends_at: "2026-12-02T02:00:00Z", service_type: "individual" },
+      {
+        id: "b1",
+        client_id: "c1",
+        counselor_id: "k1",
+        status: "confirmed",
+        starts_at: "2026-12-01T01:00:00Z",
+        ends_at: "2026-12-01T02:00:00Z",
+        service_type: "individual",
+      },
+      {
+        id: "b2",
+        client_id: "c2",
+        counselor_id: "k1",
+        status: "confirmed",
+        starts_at: "2026-12-01T03:00:00Z",
+        ends_at: "2026-12-01T04:00:00Z",
+        service_type: "individual",
+      },
+      {
+        id: "b3",
+        client_id: "c3",
+        counselor_id: "k1",
+        status: "waiting_confirmation",
+        starts_at: "2026-12-02T01:00:00Z",
+        ends_at: "2026-12-02T02:00:00Z",
+        service_type: "individual",
+      },
     ],
     counseling_sessions: [
       { booking_id: "b1", status: "scheduled" },
@@ -177,32 +297,80 @@ test("closing bookings of a deactivated counselor cancels upcoming ones and keep
     whatsapp_outbox: [],
     consent_invitations: [],
   });
-  const result = await cancelActiveBookingsForProfile({ supabaseClient: db, profileId: "k1", side: "counselor", reason: "Konselor tidak tersedia" });
+  const result = await cancelActiveBookingsForProfile({
+    supabaseClient: db,
+    profileId: "k1",
+    side: "counselor",
+    reason: "Konselor tidak tersedia",
+  });
   assert.equal(result.cancelled, 2);
   assert.equal(result.skipped, 1);
   assert.equal(db.tables.bookings.find((b) => b.id === "b1").status, "cancelled");
   assert.equal(db.tables.bookings.find((b) => b.id === "b2").status, "confirmed");
-  assert.equal(db.tables.counseling_sessions.find((s) => s.booking_id === "b1").status, "cancelled");
+  assert.equal(
+    db.tables.counseling_sessions.find((s) => s.booking_id === "b1").status,
+    "cancelled"
+  );
   assert.equal(db.tables.notifications.length, 2);
   assert.deepEqual(db.tables.notifications.map((n) => n.recipient_user_id).sort(), ["c1", "c3"]);
-  assert.ok(db.tables.whatsapp_outbox.some((m) => m.message_type === "booking_cancelled" && m.recipient_user_id === "c1"));
+  assert.ok(
+    db.tables.whatsapp_outbox.some(
+      (m) => m.message_type === "booking_cancelled" && m.recipient_user_id === "c1"
+    )
+  );
 });
 
 test("removing a group member: only unsigned non-representatives, keeping at least 2 active", async () => {
   const { removeGroupParticipant } = await import("../src/services/consent.service.js");
-  const fresh = () => memoryDb({
-    bookings: [{ id: "b1", client_id: "rep", counselor_id: "k1", status: "confirmed", service_type: "group" }],
-    counseling_sessions: [{ booking_id: "b1", status: "scheduled" }],
-    booking_participants: [
-      { id: "p-rep", booking_id: "b1", is_primary: true, is_representative: true, participant_status: "registered", informed_consents: [] },
-      { id: "p-signed", booking_id: "b1", is_primary: false, is_representative: false, participant_status: "registered", informed_consents: [{ status: "signed" }] },
-      { id: "p-open", booking_id: "b1", is_primary: false, is_representative: false, participant_status: "registered", informed_consents: [{ status: "pending" }] },
-    ],
-    consent_invitations: [{ booking_participant_id: "p-open", status: "sent" }],
-    whatsapp_outbox: [],
-  });
+  const fresh = () =>
+    memoryDb({
+      bookings: [
+        {
+          id: "b1",
+          client_id: "rep",
+          counselor_id: "k1",
+          status: "confirmed",
+          service_type: "group",
+        },
+      ],
+      counseling_sessions: [{ booking_id: "b1", status: "scheduled" }],
+      booking_participants: [
+        {
+          id: "p-rep",
+          booking_id: "b1",
+          is_primary: true,
+          is_representative: true,
+          participant_status: "registered",
+          informed_consents: [],
+        },
+        {
+          id: "p-signed",
+          booking_id: "b1",
+          is_primary: false,
+          is_representative: false,
+          participant_status: "registered",
+          informed_consents: [{ status: "signed" }],
+        },
+        {
+          id: "p-open",
+          booking_id: "b1",
+          is_primary: false,
+          is_representative: false,
+          participant_status: "registered",
+          informed_consents: [{ status: "pending" }],
+        },
+      ],
+      consent_invitations: [{ booking_participant_id: "p-open", status: "sent" }],
+      whatsapp_outbox: [],
+    });
   const call = (db, participantId, authUser = { id: "rep" }, authRole = "client") =>
-    removeGroupParticipant({ supabaseClient: db, bookingId: "b1", participantId, authUser, authRole });
+    removeGroupParticipant({
+      supabaseClient: db,
+      bookingId: "b1",
+      participantId,
+      authUser,
+      authRole,
+    });
 
   await assert.rejects(call(fresh(), "p-rep"), { code: "PARTICIPANT_IS_REPRESENTATIVE" });
   await assert.rejects(call(fresh(), "p-signed"), { code: "CONSENT_ALREADY_SIGNED" });
@@ -211,7 +379,10 @@ test("removing a group member: only unsigned non-representatives, keeping at lea
   const db = fresh();
   const result = await call(db, "p-open");
   assert.equal(result.active_participants, 2);
-  assert.equal(db.tables.booking_participants.find((p) => p.id === "p-open").participant_status, "removed");
+  assert.equal(
+    db.tables.booking_participants.find((p) => p.id === "p-open").participant_status,
+    "removed"
+  );
   assert.equal(db.tables.consent_invitations[0].status, "revoked");
 
   db.tables.booking_participants.find((p) => p.id === "p-signed").informed_consents = [];
@@ -219,20 +390,30 @@ test("removing a group member: only unsigned non-representatives, keeping at lea
 });
 
 test("password reset only accepts a recent recovery session", async () => {
-  const { recoverySignInTime, resetPasswordWithRecovery } = await import("../src/services/auth.service.js");
+  const { recoverySignInTime, resetPasswordWithRecovery } =
+    await import("../src/services/auth.service.js");
   const token = (amr) => `x.${Buffer.from(JSON.stringify({ amr })).toString("base64url")}.y`;
   const nowSec = Math.floor(Date.now() / 1000);
   assert.equal(recoverySignInTime(token([{ method: "password", timestamp: nowSec }])), null);
-  assert.equal(recoverySignInTime(token([{ method: "recovery", timestamp: nowSec }])), nowSec * 1000);
+  assert.equal(
+    recoverySignInTime(token([{ method: "recovery", timestamp: nowSec }])),
+    nowSec * 1000
+  );
   assert.equal(recoverySignInTime("not-a-jwt"), null);
 
   await assert.rejects(
-    resetPasswordWithRecovery({ user: { id: "u1" }, token: token([{ method: "password", timestamp: nowSec }]) }, { new_password: "Aa1!aaaa" }),
-    { code: "RECOVERY_SESSION_REQUIRED" },
+    resetPasswordWithRecovery(
+      { user: { id: "u1" }, token: token([{ method: "password", timestamp: nowSec }]) },
+      { new_password: "Aa1!aaaa" }
+    ),
+    { code: "RECOVERY_SESSION_REQUIRED" }
   );
   await assert.rejects(
-    resetPasswordWithRecovery({ user: { id: "u1" }, token: token([{ method: "recovery", timestamp: nowSec - 7200 }]) }, { new_password: "Aa1!aaaa" }),
-    { code: "RECOVERY_SESSION_REQUIRED" },
+    resetPasswordWithRecovery(
+      { user: { id: "u1" }, token: token([{ method: "recovery", timestamp: nowSec - 7200 }]) },
+      { new_password: "Aa1!aaaa" }
+    ),
+    { code: "RECOVERY_SESSION_REQUIRED" }
   );
 });
 
@@ -246,25 +427,36 @@ test("forgot-password and reset-password routes are registered", () => {
 
 test("consent cannot be signed for inactive bookings or closed sessions", async () => {
   const { assertBookingAcceptsConsent } = await import("../src/services/consent.service.js");
-  const db = (bookingStatus, sessionStatus) => memoryDb({
-    bookings: [{ id: "b1", status: bookingStatus }],
-    counseling_sessions: sessionStatus ? [{ booking_id: "b1", status: sessionStatus }] : [],
+  const db = (bookingStatus, sessionStatus) =>
+    memoryDb({
+      bookings: [{ id: "b1", status: bookingStatus }],
+      counseling_sessions: sessionStatus ? [{ booking_id: "b1", status: sessionStatus }] : [],
+    });
+  await assert.rejects(assertBookingAcceptsConsent(db("cancelled"), "b1"), {
+    code: "BOOKING_NOT_ACTIVE",
   });
-  await assert.rejects(assertBookingAcceptsConsent(db("cancelled"), "b1"), { code: "BOOKING_NOT_ACTIVE" });
-  await assert.rejects(assertBookingAcceptsConsent(db("expired"), "b1"), { code: "BOOKING_NOT_ACTIVE" });
-  await assert.rejects(assertBookingAcceptsConsent(db("confirmed", "missed"), "b1"), { code: "SESSION_CLOSED" });
+  await assert.rejects(assertBookingAcceptsConsent(db("expired"), "b1"), {
+    code: "BOOKING_NOT_ACTIVE",
+  });
+  await assert.rejects(assertBookingAcceptsConsent(db("confirmed", "missed"), "b1"), {
+    code: "SESSION_CLOSED",
+  });
   await assertBookingAcceptsConsent(db("confirmed", "scheduled"), "b1");
   await assertBookingAcceptsConsent(db("waiting_confirmation"), "b1");
 });
 
 test("guest signing compares the registered member phone, and resend audit uses an allowed event", () => {
-  const source = readFileSync(new URL("../src/services/consent.service.js", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("../src/services/consent.service.js", import.meta.url),
+    "utf8"
+  );
   assert.match(source, /authRole === "guest" && registeredPhone[\s\S]*CONSENT_PHONE_MISMATCH/);
   assert.doesNotMatch(source, /eventType: "invitation_resent"/);
 });
 
 test("group members need a valid, unique WhatsApp number (normalized to +62)", async () => {
-  const { createBookingSchema, normalizeParticipantPhone } = await import("../src/validators/booking.validator.js");
+  const { createBookingSchema, normalizeParticipantPhone } =
+    await import("../src/validators/booking.validator.js");
   assert.equal(normalizeParticipantPhone("0812-3456-7890"), "+6281234567890");
   assert.equal(normalizeParticipantPhone("6281234567890"), "+6281234567890");
   const base = {
@@ -274,33 +466,66 @@ test("group members need a valid, unique WhatsApp number (normalized to +62)", a
     group_name: "Kelompok A",
   };
   const rep = { display_name: "Perwakilan", is_representative: true };
-  const ok = createBookingSchema.safeParse({ ...base, participants: [rep, { display_name: "Budi", phone_e164: "081234567890" }] });
+  const ok = createBookingSchema.safeParse({
+    ...base,
+    participants: [rep, { display_name: "Budi", phone_e164: "081234567890" }],
+  });
   assert.equal(ok.success, true);
   assert.equal(ok.data.participants[1].phone_e164, "+6281234567890");
-  assert.equal(createBookingSchema.safeParse({ ...base, participants: [rep, { display_name: "Budi" }] }).success, false);
-  assert.equal(createBookingSchema.safeParse({ ...base, participants: [rep, { display_name: "Budi", phone_e164: "12345" }] }).success, false);
   assert.equal(
-    createBookingSchema.safeParse({
-      ...base,
-      participants: [rep, { display_name: "Budi", phone_e164: "081234567890" }, { display_name: "Ani", phone_e164: "+6281234567890" }],
-    }).success,
-    false,
+    createBookingSchema.safeParse({ ...base, participants: [rep, { display_name: "Budi" }] })
+      .success,
+    false
   );
   assert.equal(
     createBookingSchema.safeParse({
       ...base,
-      participants: [rep, { display_name: "Budi", phone_e164: "081234567890" }, { display_name: " budi ", phone_e164: "081234567891" }],
+      participants: [rep, { display_name: "Budi", phone_e164: "12345" }],
     }).success,
-    false,
+    false
+  );
+  assert.equal(
+    createBookingSchema.safeParse({
+      ...base,
+      participants: [
+        rep,
+        { display_name: "Budi", phone_e164: "081234567890" },
+        { display_name: "Ani", phone_e164: "+6281234567890" },
+      ],
+    }).success,
+    false
+  );
+  assert.equal(
+    createBookingSchema.safeParse({
+      ...base,
+      participants: [
+        rep,
+        { display_name: "Budi", phone_e164: "081234567890" },
+        { display_name: " budi ", phone_e164: "081234567891" },
+      ],
+    }).success,
+    false
   );
 });
 
 test("clients cannot cancel a confirmed booking less than 2 hours before it starts", async () => {
   const { isPastClientCancelCutoff } = await import("../src/services/booking.service.js");
   const now = Date.parse("2026-11-20T00:00:00Z");
-  assert.equal(isPastClientCancelCutoff({ status: "confirmed", starts_at: "2026-11-20T01:00:00Z" }, now), true);
-  assert.equal(isPastClientCancelCutoff({ status: "confirmed", starts_at: "2026-11-20T03:00:00Z" }, now), false);
-  assert.equal(isPastClientCancelCutoff({ status: "waiting_confirmation", starts_at: "2026-11-20T00:30:00Z" }, now), false);
+  assert.equal(
+    isPastClientCancelCutoff({ status: "confirmed", starts_at: "2026-11-20T01:00:00Z" }, now),
+    true
+  );
+  assert.equal(
+    isPastClientCancelCutoff({ status: "confirmed", starts_at: "2026-11-20T03:00:00Z" }, now),
+    false
+  );
+  assert.equal(
+    isPastClientCancelCutoff(
+      { status: "waiting_confirmation", starts_at: "2026-11-20T00:30:00Z" },
+      now
+    ),
+    false
+  );
 });
 
 test("reports bucket months in WITA and start 11 WITA months back", async () => {
@@ -308,17 +533,29 @@ test("reports bucket months in WITA and start 11 WITA months back", async () => 
   assert.equal(witaMonthKey("2026-10-31T17:00:00Z"), "2026-11");
   assert.equal(witaMonthKey("2026-10-31T15:59:00Z"), "2026-10");
   assert.equal(reportWindowStart(Date.parse("2026-11-17T00:00:00Z")), "2025-11-30T16:00:00.000Z");
-  const source = readFileSync(new URL("../src/services/reporting.service.js", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("../src/services/reporting.service.js", import.meta.url),
+    "utf8"
+  );
   assert.match(source, /\.range\(offset, offset \+ REPORT_PAGE_SIZE - 1\)/);
   assert.doesNotMatch(source, /\.limit\(1000\)/);
 });
 
 test("migration 20261117120000 uses WITA dates, client limits, and template-independent readiness", () => {
-  const sql = readFileSync(new URL("../../supabase/migrations/20261117120000_sicare_wita_dates_booking_limits.sql", import.meta.url), "utf8");
+  const sql = readFileSync(
+    new URL(
+      "../../supabase/migrations/20261117120000_sicare_wita_dates_booking_limits.sql",
+      import.meta.url
+    ),
+    "utf8"
+  );
   assert.doesNotMatch(sql, /starts_at::date|ends_at::date/);
   assert.equal((sql.match(/at time zone 'Asia\/Makassar'\)::date/g) ?? []).length, 5);
   assert.match(sql, /BOOKING_CLIENT_OVERLAP/);
-  assert.match(sql, /\) >= 2 then\s+raise exception using errcode = 'P0001', message = 'BOOKING_CLIENT_LIMIT_REACHED'/);
+  assert.match(
+    sql,
+    /\) >= 2 then\s+raise exception using errcode = 'P0001', message = 'BOOKING_CLIENT_LIMIT_REACHED'/
+  );
   assert.doesNotMatch(sql, /ic\.consent_template_id = v_active_template\.id;/);
 });
 
@@ -333,11 +570,42 @@ test("sign-up errors map to specific causes instead of one generic 400", async (
   const original = console.error;
   console.error = () => {};
   try {
-    assert.equal(signUpErrorToHttp({ status: 429, code: "over_email_send_rate_limit", message: "email rate limit exceeded" }).code, "RATE_LIMITED");
-    assert.equal(signUpErrorToHttp({ status: 500, code: "unexpected_failure", message: "Error sending confirmation email" }).code, "EMAIL_SEND_FAILED");
-    assert.equal(signUpErrorToHttp({ status: 422, code: "weak_password", message: "Password should be" }).code, "PASSWORD_REJECTED");
-    assert.equal(signUpErrorToHttp({ status: 400, code: "email_address_invalid", message: "Email address is invalid" }).code, "EMAIL_REJECTED");
-    assert.equal(signUpErrorToHttp({ status: 422, code: "user_already_exists", message: "User already registered" }).code, "ACCOUNT_EXISTS");
+    assert.equal(
+      signUpErrorToHttp({
+        status: 429,
+        code: "over_email_send_rate_limit",
+        message: "email rate limit exceeded",
+      }).code,
+      "RATE_LIMITED"
+    );
+    assert.equal(
+      signUpErrorToHttp({
+        status: 500,
+        code: "unexpected_failure",
+        message: "Error sending confirmation email",
+      }).code,
+      "EMAIL_SEND_FAILED"
+    );
+    assert.equal(
+      signUpErrorToHttp({ status: 422, code: "weak_password", message: "Password should be" }).code,
+      "PASSWORD_REJECTED"
+    );
+    assert.equal(
+      signUpErrorToHttp({
+        status: 400,
+        code: "email_address_invalid",
+        message: "Email address is invalid",
+      }).code,
+      "EMAIL_REJECTED"
+    );
+    assert.equal(
+      signUpErrorToHttp({
+        status: 422,
+        code: "user_already_exists",
+        message: "User already registered",
+      }).code,
+      "ACCOUNT_EXISTS"
+    );
   } finally {
     console.error = original;
   }
@@ -345,26 +613,48 @@ test("sign-up errors map to specific causes instead of one generic 400", async (
 
 test("session format is no longer stored or sent (face-to-face only service)", () => {
   assert.equal(bookingTransitionSchema.safeParse({ status: "confirmed" }).success, true);
-  assert.equal(bookingTransitionSchema.safeParse({ status: "confirmed", session_format: "offline" }).success, false);
-  const service = readFileSync(new URL("../src/services/booking.service.js", import.meta.url), "utf8");
+  assert.equal(
+    bookingTransitionSchema.safeParse({ status: "confirmed", session_format: "offline" }).success,
+    false
+  );
+  const service = readFileSync(
+    new URL("../src/services/booking.service.js", import.meta.url),
+    "utf8"
+  );
   assert.doesNotMatch(service, /p_session_format/);
-  const migration = readFileSync(new URL("../../supabase/migrations/20261125120000_sicare_drop_session_format.sql", import.meta.url), "utf8");
+  const migration = readFileSync(
+    new URL(
+      "../../supabase/migrations/20261125120000_sicare_drop_session_format.sql",
+      import.meta.url
+    ),
+    "utf8"
+  );
   assert.match(migration, /alter table public\.counseling_sessions drop column if exists format;/);
-  assert.match(migration, /drop function if exists public\.sicare_transition_booking\(uuid, uuid, text, text, text, text\);/);
+  assert.match(
+    migration,
+    /drop function if exists public\.sicare_transition_booking\(uuid, uuid, text, text, text, text\);/
+  );
 });
 
-test("academic period schemas only use columns that exist (no is_active)", async () => {
-  const { createPeriodSchema, patchPeriodSchema } = await import("../src/validators/admin.validator.js");
+test("academic period schemas only use columns that exist (no is_active, no is_published)", async () => {
+  const { createPeriodSchema, patchPeriodSchema } =
+    await import("../src/validators/admin.validator.js");
   const created = createPeriodSchema.parse({
     academic_year: "2026/2027",
     semester: "Genap",
     starts_on: "2027-02-01",
     ends_on: "2027-07-31",
   });
-  assert.deepEqual(Object.keys(created).sort(), ["academic_year", "ends_on", "is_published", "semester", "starts_on"]);
+  assert.deepEqual(Object.keys(created).sort(), [
+    "academic_year",
+    "ends_on",
+    "semester",
+    "starts_on",
+  ]);
   assert.equal(createPeriodSchema.safeParse({ ...created, is_active: true }).success, false);
   assert.equal(patchPeriodSchema.safeParse({ is_active: true }).success, false);
-  assert.equal(patchPeriodSchema.safeParse({ is_published: true }).success, true);
+  assert.equal(createPeriodSchema.safeParse({ ...created, is_published: true }).success, false);
+  assert.equal(patchPeriodSchema.safeParse({ is_published: true }).success, false);
 });
 
 test("consent readiness endpoint returns the snake_case contract the counselor page reads", async () => {
@@ -389,18 +679,33 @@ test("consent readiness endpoint returns the snake_case contract the counselor p
 test("consent readiness endpoint enforces booking ownership", async () => {
   const { assertBookingReadinessAccess } = await import("../src/services/consent.service.js");
   const booking = { id: "b-1", client_id: "client-1", counselor_id: "couns-1" };
-  const participants = [{ id: "p-2", user_id: "member-1", participant_status: "registered", booking_id: "b-1" }];
+  const participants = [
+    { id: "p-2", user_id: "member-1", participant_status: "registered", booking_id: "b-1" },
+  ];
   const fake = {
     from(table) {
       const filters = {};
       const q = {
-        select() { return q; },
-        eq(col, val) { filters[col] = val; return q; },
-        neq(col, val) { filters["!" + col] = val; return q; },
+        select() {
+          return q;
+        },
+        eq(col, val) {
+          filters[col] = val;
+          return q;
+        },
+        neq(col, val) {
+          filters["!" + col] = val;
+          return q;
+        },
         async maybeSingle() {
-          if (table === "bookings") return { data: filters.id === booking.id ? booking : null, error: null };
-          const row = participants.find((r) => r.booking_id === filters.booking_id && r.user_id === filters.user_id
-            && r.participant_status !== filters["!participant_status"]);
+          if (table === "bookings")
+            return { data: filters.id === booking.id ? booking : null, error: null };
+          const row = participants.find(
+            (r) =>
+              r.booking_id === filters.booking_id &&
+              r.user_id === filters.user_id &&
+              r.participant_status !== filters["!participant_status"]
+          );
           return { data: row ? { id: row.id } : null, error: null };
         },
       };
@@ -408,8 +713,15 @@ test("consent readiness endpoint enforces booking ownership", async () => {
     },
   };
   const check = (authRole, id, bookingId = "b-1") =>
-    assertBookingReadinessAccess({ supabaseClient: fake, bookingId, authUser: { id }, authRole })
-      .then(() => 200, (e) => e.status);
+    assertBookingReadinessAccess({
+      supabaseClient: fake,
+      bookingId,
+      authUser: { id },
+      authRole,
+    }).then(
+      () => 200,
+      (e) => e.status
+    );
   assert.equal(await check("counselor", "couns-1"), 200);
   assert.equal(await check("counselor", "couns-2"), 403);
   assert.equal(await check("client", "client-1"), 200);
@@ -423,10 +735,29 @@ test("consent readiness endpoint enforces booking ownership", async () => {
 test("completing a session requires counselor and client notes", async () => {
   const { sessionStatusSchema } = await import("../src/validators/session.validator.js");
   assert.equal(sessionStatusSchema.safeParse({ status: "completed" }).success, false);
-  assert.equal(sessionStatusSchema.safeParse({ status: "completed", counselor_note: "A" }).success, false);
-  assert.equal(sessionStatusSchema.safeParse({ status: "completed", counselor_note: "A", client_note: "B" }).success, true);
-  assert.equal(sessionStatusSchema.safeParse({ status: "completed", counselor_note: "A", client_note: "B", follow_up: "C" }).success, true);
-  assert.equal(sessionStatusSchema.safeParse({ status: "ongoing", counselor_note: "A" }).success, false, "catatan hanya saat menyelesaikan");
+  assert.equal(
+    sessionStatusSchema.safeParse({ status: "completed", counselor_note: "A" }).success,
+    false
+  );
+  assert.equal(
+    sessionStatusSchema.safeParse({ status: "completed", counselor_note: "A", client_note: "B" })
+      .success,
+    true
+  );
+  assert.equal(
+    sessionStatusSchema.safeParse({
+      status: "completed",
+      counselor_note: "A",
+      client_note: "B",
+      follow_up: "C",
+    }).success,
+    true
+  );
+  assert.equal(
+    sessionStatusSchema.safeParse({ status: "ongoing", counselor_note: "A" }).success,
+    false,
+    "catatan hanya saat menyelesaikan"
+  );
   assert.equal(sessionStatusSchema.safeParse({ status: "ongoing" }).success, true);
 });
 
@@ -437,44 +768,167 @@ test("completing a session saves notes before the completion RPC and only for ow
   const makeClient = (session) => ({
     from(table) {
       const q = {
-        select() { return q; },
-        eq() { return q; },
-        in() { return q; },
-        async maybeSingle() { return { data: table === "counseling_sessions" ? session : null, error: null }; },
-        async upsert(row) { calls.push(["upsert", table, row]); return { error: null }; },
-        update() { return q; },
-        then(resolve) { resolve({ data: [], error: null }); },
+        select() {
+          return q;
+        },
+        eq() {
+          return q;
+        },
+        in() {
+          return q;
+        },
+        async maybeSingle() {
+          return { data: table === "counseling_sessions" ? session : null, error: null };
+        },
+        async upsert(row) {
+          calls.push(["upsert", table, row]);
+          return { error: null };
+        },
+        update() {
+          return q;
+        },
+        then(resolve) {
+          resolve({ data: [], error: null });
+        },
       };
       return q;
     },
-    async rpc(name) { calls.push(["rpc", name]); return { data: null, error: null }; },
+    async rpc(name) {
+      calls.push(["rpc", name]);
+      return { data: null, error: null };
+    },
   });
-  const notes = { counselor_note: "Catatan konselor", client_note: "Catatan klien", follow_up: null };
+  const notes = {
+    counselor_note: "Catatan konselor",
+    client_note: "Catatan klien",
+    follow_up: null,
+  };
 
   setSupabaseAdminClientForTests(makeClient({ id: "s-1", counselor_id: "c-1", status: "ongoing" }));
   try {
-    await sessionService.transitionSession({
-      authUser: { id: "c-1" }, authProfile: { id: "c-1", app_role: "counselor" },
-      sessionId: "s-1", targetStatus: "completed", notes,
-    }).catch(() => {}); // pembacaan detail sesi setelah RPC tidak relevan untuk tes ini
+    await sessionService
+      .transitionSession({
+        authUser: { id: "c-1" },
+        authProfile: { id: "c-1", app_role: "counselor" },
+        sessionId: "s-1",
+        targetStatus: "completed",
+        notes,
+      })
+      .catch(() => {}); // pembacaan detail sesi setelah RPC tidak relevan untuk tes ini
     const upsertIdx = calls.findIndex((c) => c[0] === "upsert" && c[1] === "session_notes");
     const rpcIdx = calls.findIndex((c) => c[0] === "rpc" && c[1] === "sicare_transition_session");
     assert.ok(upsertIdx >= 0 && rpcIdx > upsertIdx, "catatan disimpan sebelum sesi diselesaikan");
     assert.equal(calls[upsertIdx][2].client_note, "Catatan klien");
 
     calls.length = 0;
-    setSupabaseAdminClientForTests(makeClient({ id: "s-2", counselor_id: "c-1", status: "scheduled" }));
-    await assert.rejects(
-      sessionService.transitionSession({ authUser: { id: "c-1" }, authProfile: {}, sessionId: "s-2", targetStatus: "completed", notes }),
-      (e) => e.status === 409,
+    setSupabaseAdminClientForTests(
+      makeClient({ id: "s-2", counselor_id: "c-1", status: "scheduled" })
     );
-    setSupabaseAdminClientForTests(makeClient({ id: "s-3", counselor_id: "other", status: "ongoing" }));
     await assert.rejects(
-      sessionService.transitionSession({ authUser: { id: "c-1" }, authProfile: {}, sessionId: "s-3", targetStatus: "completed", notes }),
-      (e) => e.status === 404,
+      sessionService.transitionSession({
+        authUser: { id: "c-1" },
+        authProfile: {},
+        sessionId: "s-2",
+        targetStatus: "completed",
+        notes,
+      }),
+      (e) => e.status === 409
     );
-    assert.equal(calls.some((c) => c[0] === "upsert"), false, "tidak menyimpan catatan untuk sesi yang tidak sah");
+    setSupabaseAdminClientForTests(
+      makeClient({ id: "s-3", counselor_id: "other", status: "ongoing" })
+    );
+    await assert.rejects(
+      sessionService.transitionSession({
+        authUser: { id: "c-1" },
+        authProfile: {},
+        sessionId: "s-3",
+        targetStatus: "completed",
+        notes,
+      }),
+      (e) => e.status === 404
+    );
+    assert.equal(
+      calls.some((c) => c[0] === "upsert"),
+      false,
+      "tidak menyimpan catatan untuk sesi yang tidak sah"
+    );
   } finally {
     setSupabaseAdminClientForTests(null);
   }
+});
+
+test("completed session queues a WhatsApp feedback request to the client", async () => {
+  const { enqueueFeedbackRequest } = await import("../src/services/session.service.js");
+  const { renderWhatsAppTemplate } = await import("../src/templates/whatsapp/index.js");
+  const inserted = [];
+  const fake = {
+    from(table) {
+      const q = {
+        select() {
+          return q;
+        },
+        eq() {
+          return q;
+        },
+        async maybeSingle() {
+          if (table === "profiles")
+            return { data: { full_name: "Andi", phone_e164: "+6281234567890" }, error: null };
+          if (table === "counselor_profiles")
+            return { data: { public_name: "Dr. Rina" }, error: null };
+          return { data: { id: "o-1" }, error: null };
+        },
+        insert(row) {
+          inserted.push([table, row]);
+          return q;
+        },
+      };
+      return q;
+    },
+  };
+  await enqueueFeedbackRequest(fake, {
+    id: "s-1",
+    counselor_id: "c-1",
+    starts_at: "2026-11-25T03:00:00Z",
+    ends_at: "2026-11-25T04:00:00Z",
+    booking: { id: "b-1", client_id: "k-1" },
+  });
+  assert.equal(inserted.length, 1);
+  const [table, row] = inserted[0];
+  assert.equal(table, "whatsapp_outbox");
+  assert.equal(row.message_type, "feedback_request");
+  assert.equal(row.recipient_user_id, "k-1");
+  const text = renderWhatsAppTemplate(row.message_type, row.payload);
+  assert.match(text, /Halo Andi/);
+  assert.match(text, /feedback/);
+  assert.match(text, /Dr\. Rina/);
+  const migration = readFileSync(
+    new URL(
+      "../../supabase/migrations/20261125130000_sicare_whatsapp_feedback_request.sql",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  assert.match(migration, /'feedback_request'/);
+});
+
+test("period publication migration removes is_published everywhere it was enforced", () => {
+  const sql = readFileSync(
+    new URL(
+      "../../supabase/migrations/20261126140000_sicare_drop_period_publication.sql",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  for (const fn of [
+    "sicare_create_booking",
+    "sicare_reschedule_booking",
+    "sicare_public_availability",
+  ]) {
+    assert.match(sql, new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}\\(`));
+  }
+  assert.doesNotMatch(sql, /ap\.is_published/);
+  assert.match(sql, /drop policy if exists academic_periods_select_published/);
+  assert.match(sql, /alter table public\.academic_periods drop column if exists is_published/);
+  // Aturan lain tetap: jadwal harus berada di dalam periodenya.
+  assert.match(sql, /BOOKING_PERIOD_UNAVAILABLE/);
 });

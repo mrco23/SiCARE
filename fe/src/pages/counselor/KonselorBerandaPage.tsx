@@ -1,7 +1,7 @@
 import Badge from "../../components/shared/Badge";
 import IconLabel from "../../components/shared/IconLabel";
+import RefreshButton from "../../components/shared/RefreshButton";
 import TypingGreeting from "../../components/mood/TypingGreeting";
-import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -12,7 +12,6 @@ import {
   Clock,
   Inbox,
   MapPin,
-  RefreshCw,
   Star,
   Check,
   XCircle,
@@ -35,7 +34,6 @@ import {
   getCounselorInitials,
   toLocalDateKey,
 } from "../../features/counselor/shared/presentation";
-import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import { useAuth } from "../../features/auth/useAuth";
 import { ApiError } from "../../lib/api";
 import { counselorApi } from "../../lib/counselorApi";
@@ -68,7 +66,6 @@ export default function KonselorBerandaPage() {
   const { profile: authProfile } = useAuth();
 
   const [profile, setProfile] = useState<ProfileDto | null>(null);
-  const [licenseValidUntil, setLicenseValidUntil] = useState<string | null>(null);
   const [counselorProfile, setCounselorProfile] = useState<CounselorProfileDto | null>(null);
   const [bookings, setBookings] = useState<BookingRecordBaseDto[]>([]);
   const [sessions, setSessions] = useState<SessionListItemDto[]>([]);
@@ -99,21 +96,6 @@ export default function KonselorBerandaPage() {
       bookings: bookingsRes,
       sessions: sessionsRes,
       feedback: feedbackRes,
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    void counselorApi
-      .getLicense()
-      .then((license) => {
-        if (active) setLicenseValidUntil(license.sipp_silp_valid_until);
-      })
-      .catch(() => {
-        // Pengingat izin tidak boleh mengganggu beranda.
-      });
-    return () => {
-      active = false;
     };
   }, []);
 
@@ -172,10 +154,6 @@ export default function KonselorBerandaPage() {
     profile?.full_name?.trim() ||
     authProfile?.full_name?.trim() ||
     "Konselor";
-
-  const licenseExpiry = getLicenseExpiry(licenseValidUntil);
-  const showLicenseReminder =
-    licenseExpiry?.state === "expiring" || licenseExpiry?.state === "expired";
 
   // Akun lama bisa belum punya jenis kelamin; gunakan sapaan netral.
   const greeting =
@@ -304,8 +282,8 @@ export default function KonselorBerandaPage() {
     <PageContainer>
       <div className="space-y-6">
         {/* Header Sambutan */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-sm text-gray-500">{todayLabel}</p>
             <h1 className="mt-0.5 text-2xl font-bold text-gray-900">
               {/* Tunggu profil (nama & jenis kelamin) selesai dimuat agar sapaan diketik sekali saja. */}
@@ -315,32 +293,9 @@ export default function KonselorBerandaPage() {
               />
             </h1>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleManualRefresh()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Muat Ulang
-          </button>
+          <RefreshButton onClick={() => void handleManualRefresh()} loading={loading} />
         </div>
 
-        {showLicenseReminder && licenseExpiry && (
-          <div
-            role="status"
-            className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${
-              licenseExpiry.state === "expired"
-                ? "border-red-200 bg-red-50 text-red-800"
-                : "border-amber-200 bg-amber-50 text-amber-900"
-            }`}
-          >
-            <p className="font-semibold">{licenseExpiry.label}</p>
-            <Link to="/konselor/pengaturan" className="font-semibold underline">
-              Perbarui di Pengaturan
-            </Link>
-          </div>
-        )}
 
 
         {errorMessage && (
@@ -490,9 +445,9 @@ export default function KonselorBerandaPage() {
         </div>
 
         {/* Konten Utama: Permintaan Terlama + Ringkasan Hari Ini */}
-        <div className="grid gap-6 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Kolom Kiri (7 col): Permintaan Menunggu Konfirmasi */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs lg:col-span-7">
+          <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs sm:p-6 lg:col-span-7">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-base font-bold text-gray-900">
@@ -592,7 +547,7 @@ export default function KonselorBerandaPage() {
           </div>
 
           {/* Kolom Kanan (5 col): Jadwal Sesi Hari Ini + Rating */}
-          <div className="space-y-6 lg:col-span-5">
+          <div className="min-w-0 space-y-6 lg:col-span-5">
             {/* Jadwal Hari Ini */}
             <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
               <div className="flex items-center justify-between">

@@ -27,21 +27,21 @@ test("migration stores gender and license numbers on private profiles, not the p
   assert.doesNotMatch(migrationSql, /alter table public\.counselor_profiles/);
 });
 
-test("counselor account creation requires gender, SIAP, and SIPP/SILP", () => {
+test("counselor account creation needs gender only; admin cannot set SIAP or SIPP/SILP", () => {
   const missing = createAccountSchema.safeParse(baseAccount);
   assert.equal(missing.success, false);
-  assert.deepEqual(
-    missing.error.issues.map((issue) => issue.path[0]).sort(),
-    ["gender", "siap_number", "sipp_silp_number"],
-  );
+  assert.deepEqual(missing.error.issues.map((issue) => issue.path[0]), ["gender"]);
 
-  const complete = createAccountSchema.safeParse({
-    ...baseAccount,
-    gender: "female",
-    siap_number: "SIAP/123-45",
-    sipp_silp_number: "SIPP 678.90",
-  });
-  assert.equal(complete.success, true);
+  assert.equal(createAccountSchema.safeParse({ ...baseAccount, gender: "female" }).success, true);
+  // Nomor izin praktik diisi sendiri oleh konselor, bukan oleh admin.
+  assert.equal(
+    createAccountSchema.safeParse({ ...baseAccount, gender: "female", siap_number: "SIAP/123-45" }).success,
+    false,
+  );
+  assert.equal(
+    createAccountSchema.safeParse({ ...baseAccount, gender: "female", sipp_silp_number: "SIPP 678.90" }).success,
+    false,
+  );
 });
 
 test("head LMI account creation requires gender but not license numbers", () => {
@@ -82,18 +82,22 @@ test("redactClientIdentity removes client identity but keeps reporting fields", 
   assert.equal(redacted.counseling_sessions.length, 1);
 });
 
-test("counselor license patch cannot touch SIAP and needs a valid future date", () => {
-  const body = { sipp_silp_number: "SIPP-002", sipp_silp_valid_until: "2999-12-31" };
+test("counselor fills in both SIAP and SIPP/SILP through the license patch", () => {
+  const body = { siap_number: "SIAP/123-45", sipp_silp_number: "SIPP-002" };
   assert.equal(licensePatchSchema.safeParse(body).success, true);
-  assert.equal(licensePatchSchema.safeParse({ ...body, siap_number: "X" }).success, false);
   assert.equal(licensePatchSchema.safeParse({ sipp_silp_number: "SIPP-002" }).success, false);
+  assert.equal(licensePatchSchema.safeParse({ siap_number: "SIAP-1" }).success, false);
+  assert.equal(licensePatchSchema.safeParse({ ...body, siap_number: "<script>" }).success, false);
+  assert.equal(licensePatchSchema.safeParse({ ...body, sipp_silp_valid_until: "2999-12-31" }).success, false);
+});
 
-  const past = licensePatchSchema.safeParse({ ...body, sipp_silp_valid_until: "2000-01-01" });
-  assert.equal(past.success, false);
-  assert.equal(past.error.issues[0].message, "Tanggal berlaku sudah lewat.");
-
-  const invalid = licensePatchSchema.safeParse({ ...body, sipp_silp_valid_until: "2999-13-45" });
-  assert.equal(invalid.success, false);
+test("SIPP/SILP validity column is dropped from profiles", () => {
+  const sql = readFileSync(
+    new URL("../../supabase/migrations/20261125150000_sicare_drop_license_validity.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(sql, /drop column if exists sipp_silp_valid_until/);
+  assert.doesNotMatch(sql, /sipp_silp_number/);
 });
 
 test("license validity migration stays on the private profiles table", () => {

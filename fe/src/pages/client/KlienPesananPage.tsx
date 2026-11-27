@@ -97,12 +97,14 @@ function mapBookingCounselors(
 ): BookingCounselor[] {
   return profiles.map((profile, index) => {
     const availabilityByDate: Record<string, string[]> = {};
+    const availabilityEndByDate: Record<string, Record<string, string>> = {};
     slots
       .filter((slot) => slot.counselor_id === profile.profile_id)
       .forEach((slot) => {
         const date = localDateISO(slot.starts_at);
         const time = localTime(slot.starts_at);
         availabilityByDate[date] = [...(availabilityByDate[date] ?? []), time];
+        availabilityEndByDate[date] = { ...availabilityEndByDate[date], [time]: localTime(slot.ends_at) };
       });
     const specialties = profile.specialties ?? [];
     return {
@@ -121,6 +123,7 @@ function mapBookingCounselors(
       profileId: profile.profile_id,
       photoUrl: getPublicPhotoUrl(profile.photo_path),
       availabilityByDate,
+      availabilityEndByDate,
       short: profile.public_name,
       gender: "Tidak dicantumkan",
       degree: profile.headline ?? "Belum dicantumkan",

@@ -38,6 +38,22 @@ export type CounselorAvailabilityStatusApi =
   | "cancelled";
 
 // Public directory DTOs
+/** Riwayat pendidikan konselor (tabel counselor_educations). */
+export interface CounselorEducationDto {
+  id: string;
+  institution: string;
+  degree: string;
+  graduation_year: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CounselorEducationInputApi {
+  institution: string;
+  degree: string;
+  graduation_year: number;
+}
+
 export interface PublicCounselorDto {
   profile_id: string;
   public_name: string;
@@ -46,6 +62,8 @@ export interface PublicCounselorDto {
   specialties: string[] | null;
   years_experience: number | null;
   photo_path: string | null;
+  /** Ada setelah migrasi counselor_educations; kosong bila belum diisi. */
+  educations?: CounselorEducationDto[];
 }
 
 export interface PublicAcademicPeriodDto {
@@ -388,7 +406,6 @@ export interface AdminAccountRecordDto {
   gender?: GenderApi | null;
   siap_number?: string | null;
   sipp_silp_number?: string | null;
-  sipp_silp_valid_until?: string | null;
   sipp_silp_updated_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -407,6 +424,8 @@ export interface AccountBookingCleanupDto {
   cancelled_bookings?: number;
   ongoing_bookings_kept?: number;
   booking_cleanup_failed?: boolean;
+  /** Jumlah Kepala LMI yang dinonaktifkan karena Kepala LMI lain diaktifkan (hanya satu yang aktif). */
+  deactivated_head_lmi?: number;
 }
 
 export type UpdatedAdminAccountDto = AdminAccountRecordDto & AccountBookingCleanupDto;
@@ -432,7 +451,6 @@ export interface CreateAdminAccountApi {
   gender?: GenderApi | null;
   siap_number?: string | null;
   sipp_silp_number?: string | null;
-  sipp_silp_valid_until?: string | null;
 }
 
 /** Admin hanya boleh mengubah status akun (mis. mengaktifkan kembali); data akun lain ditolak server. */
@@ -478,7 +496,6 @@ export interface CounselorSessionReportDto {
   counselor: {
     full_name: string | null;
     sipp_silp_number: string | null;
-    sipp_silp_valid_until: string | null;
   };
 }
 
@@ -486,13 +503,13 @@ export interface CounselorSessionReportDto {
 export interface CounselorLicenseDto {
   siap_number: string | null;
   sipp_silp_number: string | null;
-  sipp_silp_valid_until: string | null;
   sipp_silp_updated_at: string | null;
 }
 
+/** Konselor mengisi sendiri No. SIAP dan No. SIPP/SILP. */
 export interface CounselorLicensePatchApi {
+  siap_number: string;
   sipp_silp_number: string;
-  sipp_silp_valid_until: string;
 }
 
 export interface AdminAccountQueryApi {
@@ -508,7 +525,6 @@ export interface AcademicPeriodRecordDto {
   semester: AcademicSemesterApi;
   starts_on: string;
   ends_on: string;
-  is_published: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -518,7 +534,6 @@ export interface CreateAcademicPeriodApi {
   semester: AcademicSemesterApi;
   starts_on: string;
   ends_on: string;
-  is_published?: boolean;
 }
 
 export type UpdateAcademicPeriodApi = Partial<CreateAcademicPeriodApi>;

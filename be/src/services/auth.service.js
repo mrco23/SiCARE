@@ -4,6 +4,12 @@ import { env } from "../config/env.js";
 import { getSupabaseAdminClient } from "../config/supabase.js";
 import { HttpError } from "../lib/http.js";
 import { writeAudit } from "../lib/audit.js";
+import {
+  assertLoginNotLocked,
+  clearLoginFailures,
+  loginAttemptKey,
+  recordLoginFailure,
+} from "./loginAttempts.service.js";
 
 let testPublicAuthClient = null;
 
@@ -258,8 +264,27 @@ export function classifySignInError(error) {
   return "invalid";
 }
 
+/**
+ * Login dengan pembatasan percobaan: 3 kali kata sandi/identitas salah -> dikunci 30 menit
+ * (429 LOGIN_LOCKED "Coba lagi kembali nanti"). Login berhasil menghapus hitungan kegagalan.
+ */
 export async function loginUser(input) {
   const identifier = (input.identifier ?? input.email ?? "").trim();
+  const attemptKey = loginAttemptKey(identifier);
+  await assertLoginNotLocked(attemptKey);
+  try {
+    const result = await loginUserCore(input, identifier);
+    await clearLoginFailures(attemptKey);
+    return result;
+  } catch (error) {
+    if (error instanceof HttpError && error.code === "INVALID_CREDENTIALS") {
+      await recordLoginFailure(attemptKey); // melempar LOGIN_LOCKED pada kegagalan ke-3
+    }
+    throw error;
+  }
+}
+
+async function loginUserCore(input, identifier) {
   const admin = getSupabaseAdminClient();
   let email = identifier;
 

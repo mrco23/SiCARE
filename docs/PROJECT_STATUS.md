@@ -125,6 +125,8 @@
 
 ## 3. Risiko dan gap yang masih terbuka
 
+0. **Aturan Senin–Jumat dapat dimatikan untuk uji (2026-11-27).** Frontend: `WEEKDAY_ONLY` (`fe/src/lib/operationalRules.ts`) aktif di build production, mati saat `npm run dev` (override `VITE_WEEKDAY_ONLY`). Backend: `isWeekdayOnlyEnforced()` di `counselor.validator.js` aktif kecuali `NODE_ENV` development/test (override `WEEKDAY_ONLY`); `NODE_ENV` kosong tetap menolak akhir pekan. Database tidak memeriksa hari. Risiko: backend lokal memakai database Supabase yang sama dengan production, sehingga slot akhir pekan yang dibuat saat uji ikut tampil dan dapat dipesan di website production; hapus setelah uji (Reset Dummy). Jangan set `WEEKDAY_ONLY=false`/`VITE_WEEKDAY_ONLY=false` di Vercel.
+
 1. **Cakupan live verification terbatas pada smoke test.** Endpoint publik, autentikasi token wajib, dan matriks otorisasi empat role sudah lulus. Tes ini belum mencakup seluruh CRUD, ownership lintas-user untuk semua resource, maupun E2E browser.
 2. **Tidak ada mutasi remote dalam pemeriksaan terakhir.** Query yang dijalankan hanya membaca metadata. Tidak ada migrasi baru yang didorong atau data yang dibuat/diubah.
 3. **Frontend bundle cukup besar.** Build berhasil, tetapi bundle JS utama sekitar 1,30 MB sebelum gzip. Catat sebagai optimasi terpisah; jangan menunda integrasi API hanya karena warning ini.

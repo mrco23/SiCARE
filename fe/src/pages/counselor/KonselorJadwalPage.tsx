@@ -3,12 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Info,
   Loader2,
   Plus,
-  RefreshCw,
   Trash2,
   X,
   Pencil,
@@ -39,6 +39,7 @@ import {
   pad,
   parseKey,
   parseTime,
+  formatTimeInput,
   PX,
   SESSION,
   SNAP,
@@ -156,6 +157,9 @@ export default function KonselorJadwalPage() {
   const toast = useToast();
 
   const [selected, setSelected] = useState(todayKey);
+  // Layar kecil: kalender bulan dibuka sebagai lembar bawah, bukan selalu tampil.
+  const [monthSheetOpen, setMonthSheetOpen] = useState(false);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const [weekStart, setWeekStart] = useState(today);
   const [calMonth, setCalMonth] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -440,13 +444,13 @@ export default function KonselorJadwalPage() {
       if (editor.mode === "new") {
         const created = await counselorApi.createAvailability(payload);
         setRawSlots((prev) => [...prev, created]);
-        toast.success(`Slot ketersediaan ${dateLabel(editor.dateKey)} (${fmt(parsed)} – ${fmt(parsed + SESSION)}) berhasil ditambahkan.`);
+        toast.success(`Ketersediaan ${dateLabel(editor.dateKey)} (${fmt(parsed)} – ${fmt(parsed + SESSION)}) berhasil ditambahkan.`);
       } else if (editor.slotId) {
         const updated = await counselorApi.updateAvailability(editor.slotId, payload);
         setRawSlots((prev) =>
           prev.map((s) => (s.id === editor.slotId ? updated : s)),
         );
-        toast.success(`Slot ketersediaan berhasil diperbarui ke ${fmt(parsed)} – ${fmt(parsed + SESSION)}.`);
+        toast.success(`Ketersediaan berhasil diperbarui ke ${fmt(parsed)} – ${fmt(parsed + SESSION)}.`);
       }
       setEditor(null);
     } catch (err: unknown) {
@@ -472,13 +476,13 @@ export default function KonselorJadwalPage() {
           s.id === cancelled.id ? { ...s, status: "cancelled" } : s,
         ),
       );
-      toast.success("Slot ketersediaan berhasil dibatalkan/dihapus.");
+      toast.success("Ketersediaan berhasil dibatalkan/dihapus.");
       setEditor(null);
     } catch (err: unknown) {
       setEditorError(
         err instanceof ApiError
           ? err.message
-          : "Gagal menghapus slot ketersediaan.",
+          : "Gagal menghapus ketersediaan.",
       );
     } finally {
       setMutating(false);
@@ -500,7 +504,7 @@ export default function KonselorJadwalPage() {
       });
       setCancelSessionTarget(null);
       setCancelSessionReason("");
-      toast.success(`Sesi dengan ${cancelSessionTarget.clientLabel} berhasil dibatalkan dan slot telah dibuka kembali.`);
+      toast.success(`Sesi dengan ${cancelSessionTarget.clientLabel} berhasil dibatalkan dan ketersediaan telah dibuka kembali.`);
       const fresh = await fetchScheduleData();
       setRawSlots(fresh.slots);
       setBookings(fresh.bookings);
@@ -557,7 +561,7 @@ export default function KonselorJadwalPage() {
         return;
       }
       if (findConflict(cur.toDate, cur.start, cur.slotId)) {
-        toast.error("Tidak dapat memindahkan jadwal karena berbenturan dengan slot lain.");
+        toast.error("Tidak dapat memindahkan jadwal karena berbenturan dengan ketersediaan lain.");
         return;
       }
 
@@ -593,6 +597,19 @@ export default function KonselorJadwalPage() {
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [weekStart],
   );
+  // Layar kecil: strip Senin–Minggu dari minggu tanggal terpilih.
+  const mobileWeek = useMemo(() => {
+    const d = parseKey(selected);
+    const monday = addDays(d, -((d.getDay() + 6) % 7));
+    return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  }, [selected]);
+  const stepWeekday = (delta: 1 | -1) => {
+    let d = parseKey(selected);
+    do {
+      d = addDays(d, delta);
+    } while (isWeekendKey(keyOf(d)));
+    pickDate(keyOf(d));
+  };
   const hours = useMemo(() => Array.from({ length: 9 }, (_, i) => 8 + i), []);
   const quarterLines = useMemo(
     () => Array.from({ length: (END - START) / SNAP + 1 }, (_, i) => START + i * SNAP),
@@ -627,24 +644,15 @@ export default function KonselorJadwalPage() {
           <PageHeader
             title="Jadwal"
             description="Atur jam ketersediaan konseling Anda pada kalender mingguan"
+            className="min-w-0 flex-1"
+            refresh={{ onClick: () => void handleManualRefresh(), loading: loading || mutating }}
           />
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => void handleManualRefresh()}
-              disabled={loading || mutating}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${loading || mutating ? "animate-spin" : ""}`}
-              />
-              Muat Ulang
-            </button>
-            <button
-              type="button"
               disabled={loading || mutating}
               onClick={() => openNewSlotModal(selected)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#064E3B] px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:opacity-45"
+              className="hidden items-center gap-2 rounded-xl bg-[#064E3B] px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#053e2f] disabled:cursor-not-allowed disabled:opacity-45 lg:inline-flex"
             >
               <Plus className="h-4 w-4" />
               Tambah Jadwal
@@ -675,7 +683,244 @@ export default function KonselorJadwalPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* ==================== LAYAR KECIL: STRIP MINGGU + DAFTAR JADWAL ==================== */}
+        <div className="lg:hidden">
+          <div className="sticky top-[72px] z-10 -mx-4 border-b border-gray-200 bg-white/95 px-4 pb-3 pt-2 backdrop-blur sm:-mx-6 sm:px-6">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-gray-900">
+                {mobileWeek[0].getDate()} {MONTHS[mobileWeek[0].getMonth()].slice(0, 3)} –{" "}
+                {mobileWeek[6].getDate()} {MONTHS[mobileWeek[6].getMonth()].slice(0, 3)}{" "}
+                {mobileWeek[6].getFullYear()}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-label="Pilih tanggal dari kalender bulan"
+                  onClick={() => setMonthSheetOpen(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-700"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWeekStart(today);
+                    pickDate(todayKey);
+                  }}
+                  className="h-9 rounded-xl border border-gray-200 px-3 text-xs font-semibold text-gray-700"
+                >
+                  Hari ini
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Minggu sebelumnya"
+                onClick={() => pickDate(keyOf(addDays(mobileWeek[0], -7)))}
+                className="flex h-14 w-6 shrink-0 items-center justify-center text-gray-400"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="grid flex-1 grid-cols-7 gap-1">
+                {mobileWeek.map((d) => {
+                  const k = keyOf(d);
+                  const sel = k === selected;
+                  const dim = isPast(k) || isWeekendKey(k);
+                  const list = slotsByDate[k] ?? [];
+                  const free = list.filter((x) => !x.isBooked).length;
+                  const req = list.length - free;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      aria-pressed={sel}
+                      aria-label={`${dateLabel(k)}, ${list.length} jadwal`}
+                      onClick={() => pickDate(k)}
+                      className={`flex h-14 flex-col items-center justify-center rounded-xl transition ${
+                        sel
+                          ? "bg-[#064E3B] text-white shadow-md"
+                          : dim
+                            ? "text-gray-300"
+                            : "text-gray-800 hover:bg-gray-100"
+                      }`}
+                    >
+                      <span
+                        className={`text-[10px] font-semibold uppercase ${
+                          sel ? "text-emerald-100" : dim ? "" : "text-gray-500"
+                        }`}
+                      >
+                        {WEEKDAYS[d.getDay()].slice(0, 3)}
+                      </span>
+                      <span
+                        className={`text-base font-bold leading-tight ${
+                          k === todayKey && !sel
+                            ? "text-[#064E3B] underline decoration-2 underline-offset-4"
+                            : ""
+                        }`}
+                      >
+                        {d.getDate()}
+                      </span>
+                      <span className="mt-0.5 flex h-1.5 gap-0.5">
+                        {Array.from({ length: Math.min(free, 3) }, (_, i) => (
+                          <span
+                            key={`f${i}`}
+                            className={`h-1.5 w-1.5 rounded-full ${sel ? "bg-white" : "bg-emerald-600"}`}
+                          />
+                        ))}
+                        {Array.from({ length: Math.min(req, 2) }, (_, i) => (
+                          <span
+                            key={`r${i}`}
+                            className={`h-1.5 w-1.5 rounded-full ${sel ? "bg-blue-200" : "bg-blue-600"}`}
+                          />
+                        ))}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                aria-label="Minggu berikutnya"
+                onClick={() => pickDate(keyOf(addDays(mobileWeek[0], 7)))}
+                className="flex h-14 w-6 shrink-0 items-center justify-center text-gray-400"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="pb-24 pt-4"
+            onTouchStart={(e) => {
+              swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }}
+            onTouchEnd={(e) => {
+              const start = swipeStart.current;
+              swipeStart.current = null;
+              if (!start) return;
+              const dx = e.changedTouches[0].clientX - start.x;
+              const dy = e.changedTouches[0].clientY - start.y;
+              if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                stepWeekday(dx < 0 ? 1 : -1);
+              }
+            }}
+          >
+            <h2 className="text-lg font-bold text-gray-900">{dateLabel(selected)}</h2>
+            <p className="text-xs text-gray-500">
+              {isWeekendKey(selected)
+                ? "Akhir pekan · konseling hanya Senin–Jumat"
+                : selectedPast
+                  ? "Sudah lewat · hanya lihat"
+                  : `${selectedSlots.filter((x) => !x.isBooked).length} tersedia · ${
+                      selectedSlots.filter((x) => x.isBooked).length
+                    } diminta${activePeriodLabel ? ` · ${activePeriodLabel}` : ""}`}
+            </p>
+
+            {loading ? (
+              <SkeletonList bare rows={3} label="Memuat ketersediaan..." className="mt-4" />
+            ) : selectedSlots.length === 0 ? (
+              <div className="mt-4 rounded-2xl border border-dashed border-gray-300 p-6 text-center">
+                <p className="text-sm font-semibold text-gray-700">Belum ada jadwal pada hari ini.</p>
+                {!selectedPast && !isWeekendKey(selected) && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Ketuk &quot;Tambah&quot; untuk membuka jam ketersediaan.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <ul className="mt-3 space-y-2.5">
+                {selectedSlots.map((s) => {
+                  const tone = selectedPast
+                    ? "border-gray-200 bg-gray-100 text-gray-500"
+                    : s.isBooked
+                      ? "border-blue-200 bg-blue-50 text-blue-900"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-900";
+                  const bar = selectedPast
+                    ? "bg-gray-300"
+                    : s.isBooked
+                      ? "bg-blue-600"
+                      : "bg-[#064E3B]";
+                  return (
+                    <li key={s.id} className={`relative overflow-hidden rounded-xl border ${tone}`}>
+                      <span className={`absolute inset-y-0 left-0 w-1.5 ${bar}`} aria-hidden="true" />
+                      <button
+                        type="button"
+                        onClick={() => openEditSlotModal(s)}
+                        className="flex min-h-[60px] w-full items-center justify-between gap-2 pl-4 pr-3 text-left"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-base font-bold tabular-nums">
+                            {fmt(s.start)} – {fmt(s.end)}
+                          </span>
+                          <span className="block truncate text-xs opacity-80">
+                            {selectedPast
+                              ? "Sudah lewat"
+                              : s.isBooked
+                                ? `Diminta · ${s.clientLabel ?? "Klien"}`
+                                : "Tersedia untuk diminta klien"}
+                          </span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />
+                      </button>
+                      {!selectedPast && s.isBooked && s.sessionId && (
+                        <div className="border-t border-blue-100 px-4 py-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCancelSessionTarget({
+                                sessionId: s.sessionId!,
+                                clientLabel: s.clientLabel ?? "Klien",
+                                dateKey: s.dateKey,
+                                start: s.start,
+                              })
+                            }
+                            className="text-xs font-semibold text-red-600"
+                          >
+                            <IconLabel icon={XCircle}>Urungkan Sesi</IconLabel>
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <div className="mt-5 flex flex-wrap gap-3 text-[11px] text-gray-500">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#064E3B]" />
+                Tersedia
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-blue-600" />
+                Diminta / terkonfirmasi
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-gray-300" />
+                Lewat
+              </span>
+            </div>
+            <p className="mt-2 text-[11px] text-gray-400">
+              Geser daftar ke kiri/kanan untuk pindah hari kerja.
+            </p>
+          </div>
+
+          {/* Tombol tambah melayang, tepat di atas bar navigasi bawah KonselorLayout. */}
+          {!selectedPast && !isWeekendKey(selected) && (
+            <button
+              type="button"
+              disabled={loading || mutating}
+              onClick={() => openNewSlotModal(selected)}
+              className="fixed right-4 bottom-[calc(74px+env(safe-area-inset-bottom))] z-20 inline-flex items-center gap-2 rounded-full bg-[#064E3B] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(6,78,59,0.35)] disabled:opacity-45"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.6} />
+              Tambah
+            </button>
+          )}
+        </div>
+
+        <div className="hidden gap-6 lg:grid lg:grid-cols-12">
           {/* ==================== KALENDER MINGGUAN (8 col) ==================== */}
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xs lg:col-span-8">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -686,7 +931,7 @@ export default function KonselorJadwalPage() {
                   {weekDays[6].getFullYear()}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Klik ruang kosong untuk menambah slot 1 jam. Geser kartu hijau
+                  Klik ruang kosong untuk menambah ketersediaan 1 jam. Geser kartu hijau
                   untuk memindahkan jadwal yang belum diminta klien.
                 </p>
               </div>
@@ -1058,7 +1303,7 @@ export default function KonselorJadwalPage() {
                       ? "Tanggal sudah lewat (hanya lihat)"
                       : activePeriodLabel
                         ? `Periode: ${activePeriodLabel}`
-                        : `${selectedSlots.length} slot terdaftar`}
+                        : `${selectedSlots.length} ketersediaan terdaftar`}
                   </p>
                 </div>
                 {!selectedPast && (
@@ -1074,10 +1319,10 @@ export default function KonselorJadwalPage() {
               </div>
 
               {loading ? (
-                <SkeletonList bare rows={3} label="Memuat slot ketersediaan..." className="mt-4" />
+                <SkeletonList bare rows={3} label="Memuat ketersediaan..." className="mt-4" />
               ) : selectedSlots.length === 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-gray-200 p-6 text-center text-xs text-gray-500">
-                  Belum ada slot ketersediaan pada tanggal ini.
+                  Belum ada ketersediaan pada tanggal ini.
                 </div>
               ) : (
                 <ul className="mt-4 space-y-2.5">
@@ -1143,25 +1388,114 @@ export default function KonselorJadwalPage() {
         </div>
       </div>
 
+      {/* ==================== LAYAR KECIL: LEMBAR KALENDER BULAN ==================== */}
+      {monthSheetOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-[#0c2619]/45 lg:hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMonthSheetOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Pilih tanggal"
+            className="w-full rounded-t-3xl bg-white px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl"
+          >
+            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-gray-300" />
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                aria-label="Bulan sebelumnya"
+                onClick={() =>
+                  setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))
+                }
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <p className="text-base font-bold text-gray-900">
+                {MONTHS[calMonth.getMonth()]} {calMonth.getFullYear()}
+              </p>
+              <button
+                type="button"
+                aria-label="Bulan berikutnya"
+                onClick={() =>
+                  setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))
+                }
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-2 grid grid-cols-7 text-center text-[11px] font-semibold text-gray-400">
+              {["Sn", "Sl", "Rb", "Km", "Jm", "Sb", "Mg"].map((d) => (
+                <div key={d} className="py-1">
+                  {d}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {calCells.map((d, idx) => {
+                if (!d) return <div key={`m-empty-${idx}`} />;
+                const k = keyOf(d);
+                const isSel = k === selected;
+                const hasSlots = (slotsByDate[k]?.length ?? 0) > 0;
+                const dim = isPast(k) || isWeekendKey(k);
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => {
+                      pickDate(k);
+                      setMonthSheetOpen(false);
+                    }}
+                    className={`relative h-10 rounded-lg text-sm font-semibold ${
+                      isSel
+                        ? "bg-[#064E3B] text-white"
+                        : dim
+                          ? "text-gray-300"
+                          : "text-gray-800 hover:bg-gray-100"
+                    }`}
+                  >
+                    {d.getDate()}
+                    {hasSlots && (
+                      <span
+                        className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${
+                          isSel ? "bg-white" : "bg-[#064E3B]"
+                        }`}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-center text-[11px] text-gray-400">
+              Titik hijau: ada jadwal pada tanggal itu.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ==================== MODAL TAMBAH / UBAH SLOT ==================== */}
       {editor && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/45 p-4 backdrop-blur-[2px]"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[#0c2619]/45 backdrop-blur-[2px] sm:items-center sm:p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget && !mutating) {
               setEditor(null);
             }
           }}
         >
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-2xl sm:pb-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">
                   {editor.mode === "new"
-                    ? "Tambah Slot Ketersediaan"
+                    ? "Tambah Ketersediaan"
                     : editor.isBooked
-                      ? "Detail Slot Diminta"
-                      : "Ubah Slot Ketersediaan"}
+                      ? "Detail Ketersediaan Diminta"
+                      : "Ubah Ketersediaan"}
                 </h2>
                 <p className="mt-1 text-xs text-gray-500">
                   {dateLabel(editor.dateKey)}
@@ -1180,10 +1514,10 @@ export default function KonselorJadwalPage() {
 
             {editor.isBooked && (
               <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3.5 text-xs text-blue-900">
-                <p className="font-bold">Slot Terhubung dengan Booking Aktif</p>
+                <p className="font-bold">Ketersediaan Terhubung dengan Booking Aktif</p>
                 <p className="mt-1 leading-relaxed text-blue-800">
                   Pemohon: <strong>{editor.clientLabel ?? "Klien"}</strong> (Status:{" "}
-                  <code>{editor.bookingStatus ?? "booked"}</code>). Slot yang sudah
+                  <code>{editor.bookingStatus ?? "booked"}</code>). Ketersediaan yang sudah
                   diminta tidak dapat dihapus langsung (`AVAILABILITY_BOOKED`).
                 </p>
               </div>
@@ -1205,7 +1539,7 @@ export default function KonselorJadwalPage() {
                   disabled={editor.isBooked || isPast(editor.dateKey) || isWeekendKey(editor.dateKey) || mutating}
                   value={editorText}
                   onChange={(e) => {
-                    setEditorText(e.target.value);
+                    setEditorText(formatTimeInput(e.target.value, editorText));
                     setEditorError(null);
                   }}
                   placeholder="Contoh: 09.00 atau 13.30"
@@ -1251,7 +1585,7 @@ export default function KonselorJadwalPage() {
                       className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      Hapus Slot
+                      Hapus Ketersediaan
                     </button>
                   )}
 
@@ -1325,14 +1659,14 @@ export default function KonselorJadwalPage() {
       {/* ==================== MODAL KONFIRMASI BATALKAN SESI ==================== */}
       {cancelSessionTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2619]/45 p-4 backdrop-blur-[2px]"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[#0c2619]/45 backdrop-blur-[2px] sm:items-center sm:p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget && !cancelSubmitting) {
               setCancelSessionTarget(null);
             }
           }}
         >
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-w-md sm:rounded-2xl sm:pb-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">
@@ -1360,7 +1694,7 @@ export default function KonselorJadwalPage() {
               <div className="flex items-start gap-2">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
                 <span>
-                  Sesi dan booking akan ditandai <strong>dibatalkan</strong> dan slot
+                  Sesi dan booking akan ditandai <strong>dibatalkan</strong> dan ketersediaan
                   ini dibuka kembali. Klien menerima notifikasi beserta alasan di
                   bawah, dan pengingat yang belum terkirim dibatalkan.
                 </span>

@@ -47,7 +47,7 @@ export const steps: GuideStep[] = [
     title: "Booking Sesi Konseling",
     side: "right",
     numClass: "text-[72px] right-0 -top-[76px] md:top-auto md:-bottom-14 md:-right-6",
-    desc: "Tentukan konselor yang sesuai, pilih slot waktu yang tersedia, dan ajukan permohonan sesi individu maupun kelompok.",
+    desc: "Tentukan konselor yang sesuai, pilih ketersediaan waktu konselor, dan ajukan permohonan sesi individu maupun kelompok.",
   },
   {
     no: "04",

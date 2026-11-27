@@ -63,7 +63,6 @@ import {
 } from "../../features/counselor/history/historySelectors";
 import { counselorApi } from "../../lib/counselorApi";
 import CounselorSessionReportPrint from "../../components/reports/CounselorSessionReportPrint";
-import { getLicenseExpiry } from "../../features/counselor/profile/licenseStatus";
 import type {
   BookingRecordBaseDto,
   CounselorHistoryResponseDto,
@@ -550,7 +549,6 @@ export default function KonselorRiwayatPage() {
             mapAcademicPeriodDto({
               ...item,
               semester: item.semester as AcademicSemesterApi,
-              is_published: true,
               created_at: "",
               updated_at: "",
             }),
@@ -752,8 +750,6 @@ export default function KonselorRiwayatPage() {
         participantId,
         grantToken,
       );
-      const expiry = getLicenseExpiry(data.counselor.sipp_silp_valid_until);
-      if (expiry?.state === "expired") toast.error(expiry.label);
       setReport(data);
     } catch (err) {
       toast.error(

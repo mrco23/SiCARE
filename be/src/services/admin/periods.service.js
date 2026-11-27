@@ -45,7 +45,7 @@ export const adminPeriodsService = {
     const { data, error } = await supa()
       .from("academic_periods")
       .select(
-        "id,academic_year,semester,starts_on,ends_on,is_published,created_at,updated_at",
+        "id,academic_year,semester,starts_on,ends_on,created_at,updated_at",
       )
       .order("starts_on", { ascending: false });
 
@@ -60,7 +60,7 @@ export const adminPeriodsService = {
       .from("academic_periods")
       .insert(input)
       .select(
-        "id,academic_year,semester,starts_on,ends_on,is_published,created_at,updated_at",
+        "id,academic_year,semester,starts_on,ends_on,created_at,updated_at",
       )
       .single();
 
@@ -71,10 +71,7 @@ export const adminPeriodsService = {
       action: "admin.period.create",
       entityType: "academic_period",
       entityId: data.id,
-      metadata: {
-        status: input.is_published ? "published" : "draft",
-        role: "admin",
-      },
+      metadata: { role: "admin" },
     });
 
     return data;
@@ -111,7 +108,7 @@ export const adminPeriodsService = {
       .update(input)
       .eq("id", id)
       .select(
-        "id,academic_year,semester,starts_on,ends_on,is_published,created_at,updated_at",
+        "id,academic_year,semester,starts_on,ends_on,created_at,updated_at",
       )
       .maybeSingle();
 
@@ -123,10 +120,7 @@ export const adminPeriodsService = {
       action: "admin.period.update",
       entityType: "academic_period",
       entityId: data.id,
-      metadata: {
-        status: data.is_published ? "published" : "draft",
-        role: "admin",
-      },
+      metadata: { role: "admin" },
     });
 
     return data;

@@ -910,10 +910,18 @@ const CONSENT_SIGNABLE_BOOKING_STATUSES = ["waiting_confirmation", "confirmed", 
  * @param {any} supa
  * @param {string} bookingId
  */
-export async function assertBookingAcceptsConsent(supa, bookingId) {
+/** Consent baru dapat ditandatangani mulai 15 menit sebelum jadwal sesi (aturan 2026-11-25). */
+export const CONSENT_SIGN_LEAD_MINUTES = 15;
+
+/** Waktu (ms) mulai consent boleh ditandatangani untuk jadwal `startsAt`. */
+export function consentSignOpensAt(startsAt) {
+  return new Date(startsAt).getTime() - CONSENT_SIGN_LEAD_MINUTES * 60 * 1000;
+}
+
+export async function assertBookingAcceptsConsent(supa, bookingId, nowMs = Date.now()) {
   const { data: booking } = await supa
     .from("bookings")
-    .select("id,status")
+    .select("id,status,starts_at")
     .eq("id", bookingId)
     .maybeSingle();
   if (!booking || !CONSENT_SIGNABLE_BOOKING_STATUSES.includes(booking.status)) {
@@ -931,6 +939,22 @@ export async function assertBookingAcceptsConsent(supa, bookingId) {
     const err = new Error("Sesi ini sudah ditutup, sehingga consent tidak dapat ditandatangani.");
     err.status = 409;
     err.code = "SESSION_CLOSED";
+    throw err;
+  }
+  if (booking.starts_at && nowMs < consentSignOpensAt(booking.starts_at)) {
+    const opens = new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Makassar",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(consentSignOpensAt(booking.starts_at)));
+    const err = new Error(
+      `Informed consent baru dapat ditandatangani mulai ${opens} WITA (${CONSENT_SIGN_LEAD_MINUTES} menit sebelum sesi).`,
+    );
+    err.status = 409;
+    err.code = "CONSENT_SIGN_TOO_EARLY";
     throw err;
   }
 }
@@ -2205,7 +2229,7 @@ export async function removeGroupParticipant({
     throw participantError(
       409,
       "GROUP_TOO_SMALL",
-      `Kelompok harus tetap memiliki minimal ${MIN_ACTIVE_GROUP_PARTICIPANTS} anggota aktif. Batalkan booking bila anggota tidak cukup.`,
+      `Kelompok harus tetap memiliki minimal ${MIN_ACTIVE_GROUP_PARTICIPANTS} anggota aktif. Batalkan penjadwalan bila anggota tidak cukup.`,
     );
   }
 

@@ -2660,3 +2660,385 @@ Menyusun Architectural Decision Record (ADR) dan dokumen evaluasi mendalam (*Spi
 - **Pemeriksaan:** `be: npm test` **354/355** (gagal: `heroMotivations.test.js`, baseline; tes baru: validator catatan, urutan simpan catatan sebelum RPC, tolak sesi bukan `ongoing`/bukan milik konselor); `be: typecheck`, `fe: tsc -b`, `lint`, `build` **PASS**.
   - Dialog asli diuji di dev server dengan API tiruan: catatan kosong ditolak; setelah diisi, permintaan berisi `status`, `counselor_note`, `client_note`, lalu dialog tertutup.
   - Penyimpanan ke database sungguhan **NOT RUN** (perlu deploy backend).
+- **Tambahan:** sesi siap dimulai baru untuk giovana dengan klien 24013031 (`004a3f87-…`, 25 Nov 11:09–12:09 WITA, consent signed) via `seed-startable-session.sql`; terverifikasi dapat dimulai.
+- **Revisi:** sesi `004a3f87-…` dipindah ke 25 Nov 11:00–12:00 WITA (sesi, booking, dan slot) atas permintaan pengguna; terverifikasi dapat dimulai.
+- **Tambahan:** sesi baru `1df1a95f-…` untuk giovana dengan klien 24013031, 25 Nov 11:00–12:00 WITA, consent signed; terverifikasi dapat dimulai.
+
+## 2026-11-25 — Judul sampul laporan
+
+- `CounselingReportPrint.tsx`: judul sampul "LAPORAN BIMBINGAN & KONSELING" menjadi "LAPORAN BIMBINGAN KONSELING". Teks "Div. Bimbingan & Konseling" di sampul dan footer halaman "Laporan Bimbingan & Konseling | n" (`index.css`) tidak diubah. `fe: tsc -b` **PASS**.
+
+## 2026-11-25 — WhatsApp ajakan feedback setelah sesi selesai
+
+- **Migrasi baru `20261125130000_sicare_whatsapp_feedback_request.sql`** (belum diterapkan): `whatsapp_outbox_message_type_check` ditambah `feedback_request`.
+- **Template `feedback-request`** (`be/src/templates/whatsapp/index.js`): sapaan, judul tebal "Bagaimana Sesi Konselingmu?", nomor booking, konselor, tanggal, dan ajakan mengisi feedback lewat menu Riwayat.
+- **`session.service.js`:** setelah RPC `completed` berhasil, `enqueueFeedbackRequest` mengantrekan pesan ke klien pemesan. Idempotency per sesi; payload berisi nama klien dan konselor. Kegagalan antre hanya dicatat dan tidak membatalkan penyelesaian.
+- **Tes baru:** antrean berisi `feedback_request` untuk klien, template ter-render dengan nama klien dan konselor, dan migrasi memuat tipe baru.
+- **Pemeriksaan:** `be: npm test` **355/356** (gagal: `heroMotivations.test.js`, baseline); `be: typecheck` **PASS**.
+- **Urutan penerapan:** `npx supabase db push --remote` dulu, lalu deploy backend. Bila backend dideploy lebih dulu, insert outbox ditolak constraint, tetapi sesi tetap selesai (hanya dicatat di log).
+
+## 2026-11-25 — Tombol "Mulai Konseling" di Tentang Kami
+
+- **Masalah:** `AboutSections.tsx` memakai `<button>` tanpa aksi, sehingga tombol tidak merespons.
+- **Perbaikan:** tombol diganti `<Link to="/klien/permintaan">` dengan gaya yang sama. Rute klien dilindungi `ProtectedRoute`, jadi pengunjung yang belum login diarahkan ke `/login` dan kembali ke halaman permintaan setelah login.
+- **Pemeriksaan:** `fe: tsc -b`, `lint` **PASS**. Browser lokal tanpa login: klik tombol menuju `/login` dengan tujuan `/klien/permintaan`.
+
+## 2026-11-25 — Kata "slot" di UI menjadi "ketersediaan"
+
+- **Frontend:**
+  - Jadwal Konselor (judul modal "Tambah/Ubah Ketersediaan", "Detail Ketersediaan Diminta", "Hapus Ketersediaan", toast, teks bantuan, hitungan);
+  - Aktivitas Konselor dan Aktivitas Klien (teks pembatalan);
+  - modal keputusan permintaan (contoh alasan);
+  - Admin Periode;
+  - panduan;
+  - Profil Konselor publik ("N ketersediaan").
+  - "slot ketersediaan" diringkas menjadi "ketersediaan".
+- **Pesan server yang tampil di UI:** `SLOT_UNAVAILABLE`, `PERIOD_UNAVAILABLE`, dan pesan duplikat (`domainRpc.js`, `http.js`). Kode galat (`SLOT_UNAVAILABLE`, `AVAILABILITY_BOOKED`), nama variabel, dan kolom database tidak diubah.
+- **Pemeriksaan:** `fe: tsc -b`, `lint`, `build` **PASS**; `be: npm test` **355/356** (gagal: `heroMotivations.test.js`, baseline). Pencarian ulang tidak menemukan teks "slot" yang tersisa di UI.
+
+## 2026-11-25 — Informed consent baru dapat ditandatangani 15 menit sebelum sesi
+
+- **Server (`consent.service.js`):** `assertBookingAcceptsConsent` menolak tanda tangan sebelum `starts_at − 15 menit` dengan `409 CONSENT_SIGN_TOO_EARLY` dan pesan jam buka (WITA). Ditambahkan juga `CONSENT_SIGN_LEAD_MINUTES` dan `consentSignOpensAt`. Berlaku untuk klien terdaftar dan tamu kelompok (keduanya lewat `signInformedConsent`).
+- **Frontend:** `InformedConsentModal` menerima `sessionStartsAt`. Sebelum waktunya, kotak informasi menampilkan jam buka dan tombol "Lanjutkan Konfirmasi" terkunci (dokumen tetap bisa dibaca). `KlienAktivitasPage` meneruskan jadwal sesi.
+- **Belum dikerjakan:** halaman tamu (`GuestConsentPage`) belum mengunci tombol lebih awal; tamu baru melihat pesan penolakan server saat mengirim. Tes khusus untuk aturan ini belum ditambahkan.
+- **Pemeriksaan:** `be: npm test` **355/356** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `lint` **PASS**. Perlu deploy frontend dan backend.
+
+## 2026-11-25 — Batas percobaan login (temuan A dikerjakan atas permintaan pengguna)
+
+- **Aturan:** 3 kali kata sandi atau identitas salah untuk identitas yang sama (email/NIM/NIP, dinormalisasi huruf kecil) dalam 30 menit mengunci login identitas itu selama 30 menit.
+  - Kegagalan ke-3 dan semua percobaan selama terkunci mendapat `429 LOGIN_LOCKED` dengan pesan "Terlalu banyak percobaan masuk yang gagal. Coba lagi kembali nanti.".
+  - Login berhasil menghapus hitungan.
+  - Setelah kunci berakhir, hitungan mulai dari nol.
+- **Database:** migrasi baru `20261125140000_sicare_login_attempts.sql` membuat tabel `public.login_attempts` (`identifier_hash` SHA-256, `failed_count`, `last_failed_at`, `locked_until`), RLS aktif tanpa policy, dan hak akses hanya untuk `service_role`. **Belum diterapkan.**
+- **Backend:**
+  - `loginAttempts.service.js` baru;
+  - `auth.service.js` membungkus `loginUser` (cek kunci → login → hapus atau catat kegagalan).
+  - Bila tabel belum ada atau database gagal, login tidak diblokir (fail-open) dan kejadian dicatat di log.
+- **Frontend:** tidak diubah; halaman login sudah menampilkan pesan server untuk kode lain.
+- **Tes baru `be/test/loginAttempts.test.js`:** kunci pada kegagalan ke-3, masih terkunci 29 menit, terbuka setelah 30 menit, reset setelah sukses, kegagalan lama kedaluwarsa, fail-open.
+- **Pemeriksaan:** `be: npm test` **358/359** (gagal: `heroMotivations.test.js`, baseline); `be: typecheck` **PASS**. Perlu `db push` lalu deploy backend.
+
+## 2026-11-25 — "Batalkan booking" menjadi "Batalkan penjadwalan"
+
+- `KlienAktivitasPage.tsx`: tombol "Batalkan penjadwalan" dan judul jendela "Batalkan penjadwalan?".
+- Pesan server: `consent.service.js` ("Batalkan penjadwalan bila anggota tidak cukup.") dan `booking.service.js` ("Klien hanya dapat membatalkan penjadwalan miliknya.").
+- **Pemeriksaan:** `fe: tsc -b` **PASS**; `be: npm test` **358/359** (gagal: `heroMotivations.test.js`, baseline).
+- **Tertunda:** unduh laporan PDF langsung (admin/Kepala LMI). Instalasi `html2pdf.js@0.14.0` ditolak pengaman otomatis sehingga belum dikerjakan; tombol masih memakai `window.print()`.
+
+## 2026-11-25 — Masa berlaku SIPP/SILP dihapus
+
+- **Permintaan pengguna:** website tidak lagi menyimpan "SIPP/SILP berlaku sampai". No. SIPP/SILP dan `sipp_silp_updated_at` tetap ada.
+- **Database:** migrasi baru `20261125150000_sicare_drop_license_validity.sql` (`alter table profiles drop column if exists sipp_silp_valid_until`). **Belum diterapkan.** Backend baru tidak membaca kolom ini lagi, jadi aman dideploy sebelum atau sesudah migrasi; backend lama akan gagal membaca akun konselor setelah kolom dihapus, jadi deploy backend dulu baru `db push`.
+- **Backend:**
+  - `licensePatchSchema` hanya menerima `sipp_silp_number`;
+  - `createAccountSchema` tidak menerima `sipp_silp_valid_until`;
+  - select di `accounts.service.js`, `profile.service.js`, dan `sessionReport.service.js` tidak lagi membaca kolom ini;
+  - metadata audit `counselor.license.update` hanya `role`.
+- **Frontend:**
+  - form Tambah Akun di `AdminAkunPage` tanpa input tanggal berlaku, dan tanpa badge kedaluwarsa;
+  - `KonselorPengaturanPage` tanpa input "Berlaku sampai" dan tanpa peringatan;
+  - `KonselorBerandaPage` tanpa pengingat izin;
+  - `KonselorRiwayatPage` tanpa toast kedaluwarsa saat mencetak;
+  - `licenseStatus.ts` dihapus karena tidak terpakai lagi.
+- **Label:** Riwayat Pendidikan konselor: "Program Studi / Gelar" menjadi "Gelar".
+
+## 2026-11-25 — Unduh Laporan PDF langsung (Admin dan Kepala LMI)
+
+- **Permintaan pengguna:** tombol "Unduh Laporan PDF" harus mengunduh berkas, bukan membuka dialog cetak.
+- **Backend:**
+  - `POST /admin/reports/pdf` (admin) dan `POST /head-lmi/reports/pdf` (head_lmi);
+  - `reportPdf.service.js` menyusun A4 dengan pdf-lib yang sudah ada (tanpa dependency baru), mengikuti `CounselingReportPrint.tsx`:
+    - sampul dengan logo `be/assets/kampus.png`;
+    - stempel CONFIDENTIAL;
+    - footer "Laporan Bimbingan & Konseling | n" mulai halaman 2;
+    - bagian A–H, grafik batang bulanan, tabel dengan judul kolom yang diulang di halaman baru;
+    - Kesimpulan dan tanda tangan dalam satu blok.
+  - Body divalidasi `reportPdfSchema` (strict, data agregat saja). Peran diambil dari rute dan penanda tangan dari profil Kepala LMI yang masuk, bukan dari body.
+  - Teks di luar Latin-1 (misalnya emoji) dibuang karena font Helvetica.
+- **Frontend:**
+  - `apiRequest` mendapat opsi `responseType: "blob"`;
+  - `reportingApi.downloadReportPdf`;
+  - tombol di `CounselingReportView` mengunduh berkas `Laporan-Bimbingan-Konseling-<periode>.pdf`, dengan status "Menyiapkan PDF...", toast sukses atau gagal, dan ikon Download. Sesi dikirim tanpa alasan pembatalan dan tanpa ID konselor.
+  - Tampilan cetak lama (Ctrl+P) tetap ada.
+- **Tes baru `be/test/reportPdf.test.js`:** schema menolak `role`/`signer`; PDF admin paginasi; PDF Kepala LMI; pembersihan teks dan nama berkas; controller mengirim attachment dan menolak field tambahan.
+- **Pemeriksaan:**
+  - `be: npm test` **364/365** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**;
+  - contoh PDF admin dan Kepala LMI dibuat lalu diperiksa visual.
+  - **Belum diuji:** unduhan lewat browser dengan login asli.
+- **Perlu deploy:** backend dan frontend. Logo harus ikut terbundel di fungsi Vercel, dengan pola yang sama seperti `informed-consent.pdf`.
+
+## 2026-11-26 — Riwayat pendidikan konselor disimpan di database (one-to-many)
+
+- **Temuan sebelumnya:** riwayat pendidikan di Pengaturan Konselor hanya tersimpan di state halaman dan hilang saat dimuat ulang, padahal tombol Simpan menampilkan "berhasil disimpan". Halaman klien menampilkan `headline` sebagai pendidikan.
+- **Database:** migrasi baru `20261126120000_sicare_counselor_educations.sql` membuat tabel `public.counselor_educations`, berelasi one-to-many dari `counselor_profiles`:
+  - kolom `counselor_profile_id` (FK, cascade), `institution`, `degree` (Gelar), `graduation_year`, `created_at`, `updated_at`;
+  - trigger `set_updated_at`;
+  - RLS aktif tanpa policy, akses hanya `service_role`.
+  - **Belum diterapkan.**
+- **Backend:**
+  - `GET`, `POST /counselor/educations` dan `PATCH`, `DELETE /counselor/educations/:id` (`education.service.js`, `education.controller.js`);
+  - kepemilikan dicek lewat `counselor_profile_id`;
+  - maksimal 20 entri;
+  - audit `counselor.education.create|update|delete` dengan metadata hanya `role`;
+  - `GET /public/counselors` membawa `educations[]`; bila tabel belum ada, daftar konselor tetap tampil tanpa pendidikan.
+- **Frontend:**
+  - `KonselorPengaturanPage` memuat pendidikan dari server;
+  - Simpan di modal langsung `POST`/`PATCH` dengan status "Menyimpan..." dan pesan galat di modal;
+  - hapus memakai konfirmasi "Hapus? Ya/Batal";
+  - pesan "Coba lagi" bila gagal dimuat;
+  - pendidikan tidak lagi bagian dari draf profil.
+  - `KlienKonselorPage` menampilkan pendidikan asli (perguruan tinggi, tahun, gelar), bukan `headline`.
+- **Tes baru `be/test/counselorEducation.test.js`:** validasi schema, CRUD milik sendiri, tolak milik konselor lain, batas 20, isi migrasi.
+- **Pemeriksaan:**
+  - `be: npm test` **368/369** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - **Belum diuji di browser.**
+- **Urutan deploy:** `npx supabase db push --remote` lalu deploy backend dan frontend. Sebelum migrasi diterapkan, endpoint `/counselor/educations` akan gagal, tetapi halaman publik tetap berjalan.
+
+## 2026-11-26 — Topik keahlian konselor tanpa batas jumlah
+
+- **Permintaan pengguna:** jumlah topik keahlian konselor tidak dibatasi. Sebelumnya UI membatasi 6 topik dan server 20 topik.
+- **Frontend:**
+  - `MAX_COUNSELOR_TOPICS` dihapus dari `profileValidation.ts`;
+  - input "Tambah topik" di `KonselorPengaturanPage` selalu tampil;
+  - topik ganda (tanpa membedakan huruf besar/kecil) dan panjang 40 karakter per topik tetap dicegah.
+- **Backend:** `profilePatchSchema.specialties` tanpa `.max(20)`; panjang per topik tetap 1–100 karakter, dan topik ganda (tanpa membedakan huruf besar/kecil) ditolak. Database tidak berubah (`text[]` tanpa batas).
+- **Tes:** tes baru di `be/test/counselorEducation.test.js` (50 topik diterima, ganda ditolak, lebih dari 100 karakter ditolak).
+- **Pemeriksaan:** `be: npm test` **369/370** (gagal: `heroMotivations.test.js`, baseline); `fe: tsc -b`, `eslint src` **PASS**.
+
+## 2026-11-26 — Hanya satu Kepala LMI aktif
+
+- **Aturan (permintaan pengguna):** admin hanya dapat memiliki satu akun Kepala LMI aktif.
+  - Membuat akun Kepala LMI baru (status Aktif) membuat akun baru aktif dan Kepala LMI yang sedang aktif otomatis dinonaktifkan.
+  - Mengaktifkan Kepala LMI yang nonaktif juga menonaktifkan Kepala LMI yang sedang aktif.
+  - Menonaktifkan Kepala LMI tetap boleh tanpa pengganti.
+- **Database:** migrasi baru `20261126130000_sicare_single_active_head_lmi.sql`. **Belum diterapkan.**
+  - RPC `sicare_activate_head_lmi(p_profile_id)`: atomik dengan advisory lock, hanya untuk akun ber-role `head_lmi`, hanya `service_role`.
+  - Indeks unik parsial `profiles_single_active_head_lmi` sebagai pengaman terakhir.
+  - Dicek baca-saja di remote 2026-11-26: tepat satu Kepala LMI aktif, jadi indeks dapat dibuat.
+- **Backend:**
+  - `activateHeadLmi` di `accounts.service.js` dipakai `createAccount` dan `updateAccount`.
+  - Akun Kepala LMI baru disimpan nonaktif dulu, lalu diaktifkan lewat RPC; bila gagal, akun auth dihapus.
+  - Bila RPC belum ada (migrasi belum diterapkan), langkah yang sama dijalankan berurutan.
+  - Akun yang dinonaktifkan otomatis dicatat audit `admin.account.update`.
+  - Respons membawa `deactivated_head_lmi`.
+- **Frontend (`AdminAkunPage`):**
+  - form Tambah Akun memperingatkan nama Kepala LMI aktif yang akan dinonaktifkan;
+  - mengaktifkan Kepala LMI nonaktif membuka dialog "Ganti Kepala LMI aktif?";
+  - daftar dan toast diperbarui sesuai hasil server.
+- **Tes:**
+  - baru `be/test/singleHeadLmi.test.js` (pergantian lewat RPC dan fallback, tolak role lain, isi migrasi);
+  - `adminRoutesLoad.test.js`: mock Supabase mendapat `rpc` dan memeriksa hanya satu Kepala LMI aktif.
+- **Pemeriksaan:**
+  - `be: npm test` **373/374** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - **Belum diuji di browser.**
+- **Urutan deploy:** bebas, karena backend punya fallback. Disarankan `npx supabase db push --remote` dulu agar pergantian atomik.
+
+## 2026-11-26 — Publikasi periode akademik dihapus
+
+- **Permintaan pengguna:** hapus field Publikasi di Admin Periode. Semua periode akademik langsung berlaku untuk konselor dan klien; tidak ada lagi status Draft.
+- **Database:** migrasi baru `20261126140000_sicare_drop_period_publication.sql`. **Belum diterapkan.**
+  - `sicare_create_booking`, `sicare_reschedule_booking`, dan `sicare_public_availability` didefinisikan ulang dari definisi yang berlaku di remote (`pg_get_functiondef`, dibaca 2026-11-26). Satu-satunya perubahan: baris `and ap.is_published = true` dihapus. Aturan "jadwal harus berada di dalam periodenya" (`BOOKING_PERIOD_UNAVAILABLE`) tetap ada.
+  - Policy `academic_periods_select_published` diganti `academic_periods_select_all` (anon/authenticated, `using (true)`).
+  - Kolom `academic_periods.is_published` dihapus.
+  - Dicek baca-saja: kedua periode di remote sudah terpublikasi, jadi tidak ada periode Draft yang tiba-tiba aktif.
+- **Backend:**
+  - schema periode tidak menerima `is_published`;
+  - `periods.service.js` tidak membacanya, dan metadata audit periode hanya `role`;
+  - `GET /public/periods` mengembalikan semua periode;
+  - pesan `PERIOD_UNAVAILABLE` menjadi "Jadwal ketersediaan ini berada di luar periode akademiknya.".
+- **Frontend:**
+  - `AdminPeriodePage` tanpa kolom Publikasi, tombol toggle, dan checkbox "Publikasikan periode ini";
+  - `is_published`/`isPublished` dihapus dari tipe, mapper, `AcademicPeriodFilter`, dan `KonselorRiwayatPage`.
+- **Tes:**
+  - `readinessFixes.test.js`: schema menolak `is_published`, plus isi migrasi baru;
+  - `ownershipGuards.test.js` kini memeriksa definisi `sicare_reschedule_booking` terbaru di migrasi baru.
+- **Pemeriksaan:**
+  - `be: npm test` **374/375** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - Migrasi belum dijalankan di database mana pun, jadi sintaks SQL belum diuji di Postgres.
+- **Urutan deploy:** deploy backend dan frontend dulu, lalu segera `npx supabase db push --remote`. Backend lama membaca `is_published` dan akan gagal setelah kolom dihapus. Periode yang dibuat lewat backend baru sebelum migrasi masih tersimpan sebagai Draft sampai migrasi berjalan.
+
+## 2026-11-26 — Periode akademik tidak ditampilkan di halaman publik
+
+- **Permintaan pengguna:** halaman publik tidak menampilkan periode akademik.
+- `HomePage` (bagian "Ayo Bertemu dengan Konselor Anda!") dan `CounselorPage` (`/profil-konselor`) tidak lagi memanggil `getPublicAcademicPeriods` dan tidak menampilkan baris "Periode akademik: …".
+- Endpoint `GET /public/periods` tetap ada karena dipakai halaman klien, konselor, dan Kepala LMI untuk filter periode.
+- Kalimat langkah booking di beranda ("…jadwal yang telah dibuka konselor pada periode akademik aktif.") tidak diubah karena bukan daftar periode.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src/pages/public` **PASS**;
+  - browser lokal `/profil-konselor`: tidak ada teks "Periode akademik" (backend lokal tidak berjalan, data konselor tidak termuat).
+
+## 2026-11-26 — "Kenali Lebih Lanjut" membuka kartu konselor yang dipilih
+
+- **Permintaan pengguna:** klik "Kenali Lebih Lanjut" pada kartu konselor di beranda membuka halaman Profil Konselor dengan dropdown konselor tersebut langsung terbuka.
+- **`HomePage`:** tautan menjadi `/profil-konselor?konselor=<profile_id>`. Route tidak berubah; ID backend dipakai sebagai identitas.
+- **`CounselorPage`:**
+  - membaca `?konselor=` dengan `useSearchParams`;
+  - `CounselorCard` menerima `initiallyOpen`; kartu yang cocok terbuka dan digulir ke tampilan (`scrollIntoView` halus, `scroll-mt-28` agar tidak tertutup navbar);
+  - tanpa parameter (mis. tombol "Lihat Konselor"), semua kartu tertutup seperti sebelumnya.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src/pages/public` **PASS**.
+  - Browser lokal dengan data konselor tiruan (fetch dibelokkan di halaman karena backend di port 3000 menolak CORS dari port uji 5174): klik "Kenali Lebih Lanjut" Konselor B/C membuka hanya kartu itu, dan halaman menggulir ke kartu tepat di bawah navbar.
+
+## 2026-11-26 — Input jam ketersediaan otomatis memberi titik
+
+- **Permintaan pengguna:** keyboard angka di ponsel sering tidak punya tanda titik, jadi input "Jam Mulai (WITA)" di modal tambah/ubah ketersediaan (`KonselorJadwalPage`) menambahkan titik otomatis setelah dua digit jam.
+- `formatTimeInput` baru di `features/counselor/schedule/scheduleUtils.ts`:
+  - "0930" menjadi "09.30" dan "13" menjadi "13.";
+  - karakter selain angka dibuang, maksimal 4 digit;
+  - bila pengguna mengetik titik atau titik dua sendiri ("9.30", "9:30"), susunannya dipertahankan;
+  - saat menghapus, titik di ujung tidak ditambahkan lagi sehingga backspace berjalan normal.
+  - Validasi `parseTime` dan rentang 08.00–15.00 tidak berubah.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint` **PASS**;
+  - simulasi urutan ketikan (angka, titik manual, titik dua, backspace, huruf, digit kelima) lewat Node: semua sesuai.
+  - Modal belum dicoba di browser karena butuh login konselor.
+
+## 2026-11-26 — SIAP dan SIPP/SILP diisi sendiri oleh konselor
+
+- **Permintaan pengguna:** admin tidak lagi mengisi No. SIAP dan No. SIPP/SILP saat membuat akun konselor; konselor mengisinya sendiri.
+- **Backend:**
+  - `createAccountSchema` tidak menerima `siap_number`/`sipp_silp_number` (strict); akun konselor cukup wajib jenis kelamin.
+  - `accounts.service.js` tidak menulis kedua kolom saat membuat akun, dan syarat "SIAP/SIPP wajib" di `updateAccount` dihapus (tinggal jenis kelamin).
+  - `licensePatchSchema` (`PATCH /counselor/license`) kini wajib `{ siap_number, sipp_silp_number }`, karena SIAP tidak lagi dikelola admin.
+- **Frontend:**
+  - `AdminAkunPage`: input No. SIAP/SIPP/SILP dan validasinya dihapus, diganti keterangan bahwa konselor mengisinya di Pengaturan.
+  - `KonselorPengaturanPage` panel Izin Praktik: No. SIAP kini bisa diisi, disimpan bersama No. SIPP/SILP, dengan pengingat "Lengkapi No. SIAP dan No. SIPP/SILP Anda." bila salah satu kosong.
+- **Dampak:**
+  - konselor baru belum punya nomor sampai mengisinya; laporan sesi menampilkan "-" untuk No. SIPP yang kosong (perilaku yang sudah ada).
+  - Tidak ada migrasi.
+- **Tes:** `counselorLicense.test.js` dan `adminRoutesLoad.test.js` disesuaikan.
+- **Pemeriksaan:**
+  - `be: npm test` **374/375** (gagal: `heroMotivations.test.js`, baseline);
+  - `be: npm run check` **PASS**;
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - **Belum diuji di browser.**
+- Dokumen `SPESIFIKASI_MODUL.md` dan matriks endpoint diperbarui.
+
+## 2026-11-26 — Hero Beranda Klien lebih ringkas di mobile
+
+- **Permintaan pengguna:** terapkan usulan dari prototype `docs/prototypes/beranda-klien-mobile.html` (frame "Usulan").
+- **`TypingGreeting`:** prop baru `mascot` (default `true`); `false` bila halaman menampilkan maskot sendiri. Beranda Konselor tidak berubah.
+- **`KlienBerandaPage`:**
+  - satu baris dua kolom, sapaan di kiri dan maskot melambai (`AnimatedMascot pose="wave"`) di kanan, 72px di mobile dan 96px mulai `sm`;
+  - di mobile nama turun ke baris kedua; mulai `sm` sapaan satu baris dan maskot tepat di sampingnya;
+  - kalimat kedua deskripsi disembunyikan di mobile (`hidden sm:block`);
+  - tombol "Buat janji konseling" lebar penuh di mobile;
+  - jarak antarbagian `space-y-4` (mobile) / `space-y-6`;
+  - padding kartu jadwal dan kotak kosongnya dirapatkan di mobile.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - Browser lokal (halaman dirender dengan data dan auth tiruan): pada 375px kartu "Jadwal konseling berikutnya" berakhir di 485px, tanpa scroll horizontal; desktop 1280px tampil satu baris dengan maskot di samping sapaan.
+  - Belum dicek dengan login asli.
+
+## 2026-11-26 — Pilihan jam Permintaan Konseling berbentuk kartu
+
+- **Permintaan pengguna:** terapkan prototype `docs/prototypes/pilih-jam-permintaan.html` dengan format jam `13.00`.
+- **`TimePanel` (`components/client/booking/BookingCalendar.tsx`):**
+  - pil jam mulai diganti kartu berisi rentang sesi ("13.00 – 14.00") dan status "Tersedia" atau "✓ Dipilih";
+  - grid 2 kolom di ponsel, 3 kolom mulai `sm`, tinggi minimal 64px;
+  - `role="radiogroup"`/`radio` dengan `aria-checked`;
+  - teks bantuan menyebut durasi 60 menit (WITA).
+- **Data:** `BookingCounselor.availabilityEndByDate` baru (tanggal → jam mulai → jam selesai), diisi dari `ends_at` ketersediaan publik di `KlienPesananPage`. Bila jam selesai tidak ada, kartu menghitung mulai + 60 menit.
+- Tidak ada perubahan backend atau kontrak API.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint`, `npm run build` **PASS**.
+  - Browser lokal (`TimePanel` dirender dengan data tiruan, 375px): lima kartu tampil benar, termasuk jam selesai dari data dan cadangan +60 menit; memilih 13.00 menandainya "Dipilih" (`aria-checked=true`); tanpa scroll horizontal.
+  - Belum dicek dengan login klien asli.
+
+## 2026-11-26 — Jadwal Konselor ramah ponsel
+
+- **Permintaan pengguna:** terapkan prototype `docs/prototypes/jadwal-konselor-mobile.html` (versi terakhir: hanya jadwal yang sudah dibuat, tombol Tambah di atas bar navigasi).
+- **`KonselorJadwalPage`, di bawah `lg`:**
+  - kalender mingguan 680px, kalender bulan, dan daftar slot diganti blok baru:
+    - strip minggu Senin–Minggu menempel di bawah navbar (`sticky top-[72px]`), dengan titik hijau untuk tersedia dan biru untuk diminta; akhir pekan dan tanggal lewat diredupkan; ada panah minggu, tombol "Hari ini", dan ikon kalender bulan;
+    - daftar jadwal hari terpilih: hanya jadwal yang ada, sebagai kartu (hijau/biru/abu) yang membuka modal ubah/detail; "Urungkan Sesi" tetap tersedia untuk sesi yang diminta; ada keterangan saat kosong dan saat akhir pekan;
+    - geser kiri/kanan pada daftar untuk pindah hari kerja;
+  - tombol "Tambah" melayang `fixed bottom-[calc(74px+env(safe-area-inset-bottom))]`, di atas bar navigasi `KonselorLayout`; tidak tampil pada tanggal lewat atau akhir pekan;
+  - kalender bulan sebagai lembar bawah;
+  - modal tambah/ubah dan modal urungkan sesi menjadi lembar bawah di layar kecil (di atas bar navigasi), dan tetap modal tengah mulai `sm`;
+  - tombol "Tambah Jadwal" di header disembunyikan di bawah `lg`.
+- **Desktop (`lg` ke atas):** tidak berubah; kalender mingguan dan panel kanan memakai `hidden lg:grid`.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - Browser lokal (halaman dirender dengan data tiruan, navbar 72px, dan bar bawah tiruan), 375px:
+    - 4 kartu tampil (termasuk 11.30 dan satu yang diminta), tanpa scroll horizontal;
+    - tombol Tambah berhenti di atas bar navigasi;
+    - di hari kerja berikutnya, Tambah membuka lembar bawah yang menutup bar navigasi, dengan jam 08.00 terisi;
+    - kalender bulan memilih tanggal 27 dan menampilkan keterangan kosong;
+    - Sabtu menampilkan keterangan akhir pekan tanpa tombol Tambah;
+    - panah minggu berikutnya pindah ke Senin, 30 November.
+  - 1280px: blok mobile tersembunyi, kalender mingguan tampil.
+  - Belum dicek dengan login konselor asli dan perangkat sentuh nyata (gestur geser).
+
+## 2026-11-26 — Snippet Seed Dummy & Reset Dummy untuk konselor Giovana
+
+- **Permintaan pengguna:** query untuk disimpan di SQL Editor Supabase: (a) 9 sesi selesai dengan `giovana@unikadelasalle.ac.id` oleh klien berbeda, 3 tanpa feedback dan 6 dengan feedback; (b) 2 jadwal mendatang untuk 2 klien; (c) sesi berlangsung Giovana dengan 24013031; (d) 3 sesi tidak terjadi karena dibatalkan konselor dengan alasan berbeda; (e) sesi selesai tersebar di bulan-bulan sebelumnya dalam periode berjalan; serta reset tanpa menghapus akun.
+- **Seed (`be/scripts/seed-dummy-current-period.sql`) ditulis ulang:** hanya untuk konselor Giovana. Klien lain dipakai lebih dulu (urut dibuat), 24013031 paling akhir; NOTICE bila klien < 9. Sesi selesai dibagi rata ke bulan-bulan sebelumnya (Agu–Okt untuk Ganjil 2026/2027), satu sesi tanpa feedback per bulan; satu sesi selesai berbentuk kelompok. B1 consent lengkap, B2 consent pending. D1–D3 `cancelled` dengan `cancellation_reason` berbeda, tanpa consent. Opsional: 3 slot kosong Giovana (aktif), uji Mulai Sesi (mati). Kompatibel dengan penghapusan `academic_periods.is_published` (`20261126140000`), `counseling_sessions.format`, dan `consent_templates`.
+- **Reset:** judul "Reset Dummy", daftar yang dipertahankan ditambah `counselor_educations` dan `login_attempts`; opsi hapus akun dummy lama dihapus agar skrip tidak pernah menghapus akun.
+- **Pemeriksaan:** **NOT RUN** di database (tidak ada Postgres lokal); pemeriksaan keseimbangan blok/kurung, jumlah kolom skenario, dan tinjauan manual.
+
+## 2026-11-27 — Aturan Senin–Jumat mati saat pengembangan; snippet sesi berlangsung hari ini
+
+- **Permintaan pengguna:** saat development, alur konseling dapat diuji di hari libur (aturan hari kerja dimatikan), sedangkan di production aturan tetap ada; serta query terpisah untuk membuat sesi berlangsung hari ini (hari libur).
+- **Frontend:** `fe/src/lib/operationalRules.ts` baru (`WEEKDAY_ONLY` = `import.meta.env.PROD`, override `VITE_WEEKDAY_ONLY`; `isClosedWeekday`, `SERVICE_DAY_NAMES`, `serviceDayName`). `isWeekendKey` (kalender Jadwal Konselor), kartu jadwal mingguan konselor (`CounselorCard`, `KlienKonselorPage`), dan fallback `clientBookingCalendar` mengikuti sakelar; di dev Sabtu/Minggu bisa dibuatkan jadwal dan tampil. Bundle production tidak memuat daftar 7 hari (aturan aktif).
+- **Backend:** `isWeekdayOnlyEnforced()` di `counselor.validator.js`: override `WEEKDAY_ONLY`, selain itu aktif kecuali `NODE_ENV` development/test (NODE_ENV kosong tetap aktif). `.env.example` fe/be ditambah variabel opsional.
+- **Snippet baru `be/scripts/seed-ongoing-session-today.sql`:** satu sesi `ongoing` Giovana dengan 24013031 mulai 15 menit lalu, durasi 60 menit, tanpa syarat hari kerja; tidak mensyaratkan bookings kosong, menolak bila bentrok; consent signed, notifikasi, tanpa WhatsApp.
+- **Pemeriksaan:** `be: node --test test/availabilityWeekday.test.js` **5/5 PASS** (2 tes baru); `be: npm test` **376/377** (gagal: `heroMotivations.test.js`, baseline); `be: check` **PASS**; `be: typecheck` **FAIL baseline** (`education.service.js`, tipe database belum diregenerasi untuk `counselor_educations`, tidak terkait); `fe: tsc`, `lint`, `build` **PASS**. Browser dev: `WEEKDAY_ONLY=false`, Sabtu/Minggu tidak diblokir (cek modul di dev server); uji UI login konselor/klien **NOT RUN** (butuh login). Snippet SQL **NOT RUN** (tidak ada Postgres lokal).
+- **Risiko:** database dipakai bersama production; slot akhir pekan hasil uji terlihat di production sampai dihapus.
+
+## 2026-11-27 — Aktivitas Konselor ringkas di layar kecil
+
+- **Permintaan pengguna:** filter di halaman Aktivitas Konselor versi mobile terlalu memakan tempat sehingga daftar sesi turun ke bawah; buat prototype lalu terapkan.
+- **Prototype:** `docs/prototypes/aktivitas-konselor-mobile.html` (sekarang vs usulan, interaktif).
+- **Perubahan `fe/src/pages/counselor/KonselorAktivitasPage.tsx` (hanya di bawah breakpoint `sm`; tampilan `sm` ke atas sama seperti sebelumnya):** judul satu baris + "Diperbarui pukul … WITA" dan tombol muat ulang berbentuk ikon; tab satu baris yang dapat digeser dengan label pendek ("Aktif"); cari + tombol "Jenis" (lembar bawah Semua/Individu/Kelompok, titik penanda filter aktif) dalam satu baris; tab dan cari menempel di bawah navbar (`sticky top-[72px]`, pola yang sama dengan Jadwal Konselor); daftar dikelompokkan per hari (Hari ini/Besok/tanggal); kartu ringkas dengan jam di kolom kiri, satu tombol utama (Mulai Sesi/Selesaikan Sesi) selebar kartu, menu ⋯ (Detail Sesi, Persetujuan, Urungkan/Hentikan Sesi) lewat lembar bawah; ketuk kartu membuka Detail Sesi. Dialog transisi, consent, rute, status, dan aturan Mulai Sesi tidak berubah.
+- **Pemeriksaan:** `fe: tsc`, `lint`, `build` **PASS**. Prototype diuji di browser (tab, filter, menu ⋯, tanpa error konsol). Halaman asli di browser **NOT RUN**: butuh login konselor.
+
+## 2026-11-27 — Tombol muat ulang seragam: ikon di kanan judul halaman
+
+- **Permintaan pengguna:** semua tombol "Muat ulang" di halaman yang sudah login memakai tombol ikon berputar di samping kanan nama halaman, seperti Aktivitas Konselor, pada semua ukuran layar.
+- **Perubahan:** komponen baru `fe/src/components/shared/RefreshButton.tsx` (ikon bulat, berputar saat memuat, `aria-label`/tooltip "Muat ulang", kelas `no-print`). `PageHeader` menerima prop `refresh` dan menempatkan tombol di kanan blok judul. Dipakai di Konselor (Beranda, Aktivitas, Permintaan, Jadwal, Feedback), Klien (Riwayat), Admin (Beranda, Log Aktivitas, Akun, Pemantauan Konseling, Periode Akademik), Feedback moderasi dan Laporan (admin & Kepala LMI), serta Beranda Kepala LMI. Tombol lain di header (pilihan periode, "+ Tambah Jadwal", "Lihat laporan lengkap", label periode laporan) tetap di tempatnya. Header mobile Aktivitas kini memakai `PageHeader` dengan deskripsi responsif. Tombol "Muat ulang" berteks di kotak error (KlienKonselor, SectionErrorBoundary) tidak diubah karena berfungsi sebagai "coba lagi".
+- **Pemeriksaan:** `fe: tsc`, `lint`, `build` **PASS**. Uji browser **NOT RUN** (semua halaman butuh login).
+
+## 2026-11-27 — Permintaan Konselor ramah ponsel (pola Aktivitas)
+
+- **Permintaan pengguna:** terapkan prototype `docs/prototypes/permintaan-konselor-mobile.html`.
+- **`KonselorPermintaanPage`, di bawah `sm`, mengikuti pola `KonselorAktivitasPage`:**
+  - header ringkas (`max-sm:text-xl`); deskripsi diganti "Diperbarui pukul … WITA" (`lastSyncedAt` baru, diisi saat muat dan muat ulang);
+  - tab status jadi chip satu baris yang bisa digeser dengan label pendek (Menunggu, Jadwal Ulang, Dikonfirmasi, Ditolak/Batal, Semua) dan `role="tablist"`/`tab`;
+  - tab dan cari menempel di bawah navbar (`sticky top-[72px]`);
+  - Jenis dan Urutan dipindah ke lembar bawah "Filter" (titik penanda bila bukan bawaan, tombol Atur ulang/Terapkan), dengan ringkasan filter di bawah bar;
+  - kartu ringkas: kolom hari/tanggal/bulan WITA, nama dan jam mulai, lencana status/jenis/Mendesak, rentang jam, waktu pengajuan, perwakilan, dan alasan yang dipotong 2 baris;
+  - ketuk kartu membuka detail yang sama;
+  - aksi selebar kartu ("Tidak Dapat Menerima" + "Terima", atau "Minta Jadwal Ulang") membuka `BookingDecisionModal` yang sama.
+- **Tablet/desktop (`sm` ke atas):** kartu, tab, dan filter seperti sebelumnya.
+- **Pemeriksaan:**
+  - `fe: tsc -b`, `eslint src`, `npm run build` **PASS**.
+  - Browser lokal (halaman dirender dengan data tiruan, navbar 72px, dan bar bawah tiruan), 375px:
+    - chip menampilkan jumlah benar; kartu pertama di y≈220px; tanpa scroll horizontal;
+    - filter Kelompok hanya menampilkan kartu kelompok, dengan titik penanda dan ringkasan; Atur ulang mengembalikan 5 permintaan di tab Semua;
+    - dua alasan dipotong; tombol Minta Jadwal Ulang ada pada yang dikonfirmasi;
+    - Terima membuka modal "Terima Permintaan Konseling"; ketuk kartu membuka detail.
+  - 1280px: label tab panjang, select urutan, dan kartu desktop tampil; elemen mobile tersembunyi.
+  - Belum dicek dengan login konselor asli.
+
+## 2026-11-27 — Perbaikan Beranda Konselor menyempit di ponsel
+
+- **Laporan pengguna:** di ponsel, konten Beranda Konselor tampak menyempit dengan area kosong di kanan.
+- **Penyebab:** grid bawah (`grid gap-6 lg:grid-cols-12`) tidak punya template kolom di bawah `lg`, sehingga kolom implisitnya ikut lebar konten minimum kartu ("Permintaan Menunggu Konfirmasi" dan "Jadwal Hari Ini"). Di 451px halaman menjadi 464px (`scrollWidth` > viewport); di ponsel nyata browser lalu memperkecil seluruh halaman.
+- **Perbaikan di `KonselorBerandaPage`:**
+  - grid menjadi `grid-cols-1` (`minmax(0,1fr)`);
+  - kedua kolom diberi `min-w-0`;
+  - padding kartu permintaan `p-4` di ponsel dan `sm:p-6` mulai tablet.
+  - Desktop tidak berubah (`lg:grid-cols-12`).
+- **Pemeriksaan:**
+  - Browser lokal (Beranda di dalam `KonselorLayout` asli, auth dan data tiruan dengan nama kelompok, perwakilan, dan ruangan yang panjang): sebelum 464px > 451px; sesudah `scrollWidth` 451 = viewport, dan 360 = viewport di 360px.
+  - `fe: tsc -b`, `eslint`, `npm run build` **PASS**.
+  - Belum dicek di perangkat nyata.

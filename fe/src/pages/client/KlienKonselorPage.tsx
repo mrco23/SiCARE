@@ -20,12 +20,12 @@ import {
   getPublicPhotoUrl,
 } from "../../lib/publicApi";
 import { ApiError } from "../../lib/api";
+import { SERVICE_DAY_NAMES, serviceDayName } from "../../lib/operationalRules";
 import type {
   PublicAvailabilitySlotDto,
   PublicCounselorDto,
 } from "../../types/api";
 
-const WEEKDAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"] as const;
 const MAX_AHEAD_DAYS = 60;
 
 function formatSlotRange(startsAt: string, endsAt: string): string {
@@ -43,13 +43,9 @@ function mapDirectoryCounselors(
   slots: PublicAvailabilitySlotDto[],
 ): ClientDirectoryCounselor[] {
   return profiles.map((profile, index) => {
-    const schedule: Record<string, string[]> = {
-      Senin: [],
-      Selasa: [],
-      Rabu: [],
-      Kamis: [],
-      Jumat: [],
-    };
+    const schedule: Record<string, string[]> = Object.fromEntries(
+      SERVICE_DAY_NAMES.map((day) => [day, [] as string[]]),
+    );
 
     slots
       .filter(
@@ -58,9 +54,9 @@ function mapDirectoryCounselors(
           slot.status === "available",
       )
       .forEach((slot) => {
-        const dayIndex = new Date(slot.starts_at).getDay(); // 0 = Sun, 1 = Mon .. 5 = Fri
-        if (dayIndex >= 1 && dayIndex <= 5) {
-          const dayName = WEEKDAYS[dayIndex - 1];
+        // Sabtu/Minggu hanya ikut saat aturan hari kerja mati (pengembangan).
+        const dayName = serviceDayName(new Date(slot.starts_at).getDay());
+        if (dayName) {
           const label = formatSlotRange(slot.starts_at, slot.ends_at);
           if (!schedule[dayName].includes(label)) {
             schedule[dayName].push(label);
@@ -91,15 +87,12 @@ function mapDirectoryCounselors(
         profile.bio?.trim() ||
         headline ||
         "Informasi singkat mengenai konselor belum tersedia. Silakan lihat kualifikasi, pengalaman, topik keahlian, dan jadwal konseling berikut.",
-      education: headline
-        ? [
-            {
-              school: headline,
-              year: "",
-              degree: "Kualifikasi & Bidang Keahlian",
-            },
-          ]
-        : [],
+      // Riwayat pendidikan dari counselor_educations (diisi konselor di Pengaturan).
+      education: (profile.educations ?? []).map((item) => ({
+        school: item.institution,
+        year: String(item.graduation_year),
+        degree: item.degree,
+      })),
       experience:
         typeof profile.years_experience === "number"
           ? `${profile.years_experience} Tahun`
